@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'Free Partners in Biz calculators, generators, and SEO checkers for planning growth, website investment, lead value, and metadata improvements.',
   alternates: { canonical: '/tools' },
   openGraph: {
-    title: 'Free SEO and Business Growth Tools — Partners in Biz',
+    title: 'Free SEO and Business Growth Tools',
     description:
       'Estimate SEO ROI, website cost, lead value, and generate better metadata with practical tools from Partners in Biz.',
     url: `${SITE.url}/tools`,

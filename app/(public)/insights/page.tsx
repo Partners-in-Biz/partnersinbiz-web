@@ -10,10 +10,10 @@ import { Reveal } from '@/components/marketing/Reveal'
 export const metadata: Metadata = {
   title: 'Insights',
   description:
-    'Build notes, case studies, and the occasional opinion — from the Partners in Biz workshop. Practical writing on Next.js, AI, and shipping South African software.',
+    'Build notes, case studies, and the occasional opinion, from the Partners in Biz workshop. Practical writing on Next.js, AI, and shipping South African software.',
   alternates: { canonical: '/insights' },
   openGraph: {
-    title: 'Insights — Partners in Biz',
+    title: 'Insights',
     description:
       'Build notes, case studies, and the occasional opinion from the Partners in Biz workshop.',
     url: `${SITE.url}/insights`,
@@ -52,7 +52,7 @@ export default async function InsightsIndexPage() {
     '@context': 'https://schema.org',
     '@type': 'Blog',
     '@id': `${SITE.url}/insights#blog`,
-    name: 'Partners in Biz — Insights',
+    name: 'Partners in Biz Insights',
     description: 'Build notes, case studies, and industry opinions.',
     url: `${SITE.url}/insights`,
     publisher: { '@id': `${SITE.url}/#organization` },
@@ -88,7 +88,7 @@ export default async function InsightsIndexPage() {
           </Reveal>
           <Reveal delay={160}>
             <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
-              Practical writing from the workshop — what we learned shipping real software for real
+              Practical writing from the workshop, what we learned shipping real software for real
               South African businesses. No thought-leadership, no growth hacks.
             </p>
           </Reveal>
@@ -216,6 +216,7 @@ export default async function InsightsIndexPage() {
               <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
                 <input
                   type="email"
+                  aria-label="Email address"
                   placeholder="you@company.com"
                   className="bg-[var(--color-pib-bg)] border border-[var(--color-pib-line-strong)] rounded-full px-5 py-3 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent-soft)] transition min-w-[260px]"
                 />

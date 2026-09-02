@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: ToolPageParams }): 
     description: tool.description,
     alternates: { canonical: `/tools/${tool.slug}` },
     openGraph: {
-      title: `${tool.title} — Partners in Biz`,
+      title: tool.title,
       description: tool.description,
       url: `${SITE.url}/tools/${tool.slug}`,
       type: 'website',

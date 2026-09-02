@@ -2,187 +2,146 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { SITE, SERVICES } from '@/lib/seo/site'
-import NewsletterForm from '@/components/marketing/NewsletterForm'
-import {
-  marketBookHref,
-  marketFromPathname,
-  marketStartHref,
-} from '@/lib/seo/market-offers'
-import { isStageRoute } from '@/lib/marketing/stage-routes'
+import { SITE, SERVICES, STUDIO_NAV, CTA_LABEL } from '@/lib/seo/site'
+import { marketFromPathname } from '@/lib/seo/market-offers'
+import { bookACallHref } from '@/lib/marketing/stage-routes'
+import { MarketLinks } from '@/components/marketing/stage/StageChrome'
 
 const SOCIAL_LINKS = [
-  { label: 'Facebook', href: SITE.social.facebook },
   { label: 'LinkedIn', href: SITE.social.linkedin },
   { label: 'GitHub', href: SITE.social.github },
+  { label: 'Facebook', href: SITE.social.facebook },
 ].filter((item) => Boolean(item.href))
 
-const MARKET_DESCRIPTION =
-  'We build production Next.js sites that get founders clients. Four weeks. You own the repo.'
-
+/**
+ * Stage-styled footer for the paper pages. One closing sentence with the CTA,
+ * then the services, the studio, ways to reach us, and the legal row.
+ */
 export default function Footer() {
   const pathname = usePathname()
-  // The split stage closes with its own colophon.
-  if (isStageRoute(pathname)) return null
   const market = marketFromPathname(pathname)
-  const startHref = market ? marketStartHref(market.id) : '/start-a-project'
-  const bookHref = market ? marketBookHref(market.id) : SITE.cal.url
+  const bookHref = bookACallHref(market?.id)
+  const waHref = `https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`
 
   return (
-    <footer className="relative border-t border-[var(--color-pib-line)] mt-32" aria-labelledby="footer-heading">
+    <footer className="sc-footer" aria-labelledby="footer-heading">
       <h2 id="footer-heading" className="sr-only">Footer</h2>
 
-      <section className="relative overflow-hidden border-b border-[var(--color-pib-line)]">
-        <div className="absolute inset-0 pib-mesh pointer-events-none" />
-        <div className="container-pib relative py-24 md:py-36 text-center">
-          <p className="eyebrow mb-8">Ready when you are</p>
-          <h3 className="h-display text-balance max-w-4xl mx-auto">
-            {market ? (
-              <>
-                One price. One promise.{' '}
-                <em className="text-[var(--color-pib-accent)] not-italic">28 days.</em>
-              </>
-            ) : (
-              <>
-                Let&rsquo;s build something{' '}
-                <em className="text-[var(--color-pib-accent)] not-italic">your competitors will copy.</em>
-              </>
-            )}
-          </h3>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
-            <Link href={startHref} prefetch={false} className="btn-pib-accent">
-              Start a project
-              <span className="material-symbols-outlined text-base">arrow_outward</span>
-            </Link>
-            <Link href={bookHref} prefetch={false} className="btn-pib-secondary">
-              Book a 20-min intro
-              <span className="material-symbols-outlined text-base">calendar_month</span>
-            </Link>
-          </div>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-[var(--color-pib-text-muted)]">
-            <a href={`mailto:${SITE.email}`} className="hover:text-[var(--color-pib-text)] transition-colors flex items-center gap-2">
-              <span className="material-symbols-outlined text-base">mail</span>
-              {SITE.email}
-            </a>
-            <a
-              href={`https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`}
-              className="hover:text-[var(--color-pib-text)] transition-colors flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-base">chat</span>
-              WhatsApp
-            </a>
-          </div>
-        </div>
-      </section>
+      <div className="sc-footer__inner">
+        <p className="sc-dek sc-footer__close">
+          {market
+            ? 'One price. One promise. Live in 28 days. '
+            : 'Twenty minutes is enough to know if this is the right shape for you. '}
+          <Link href={bookHref} prefetch={false} className="sc-cta">
+            {CTA_LABEL}
+          </Link>
+          .
+        </p>
 
-      <div className="container-pib py-16">
-        <div className="grid grid-cols-2 md:grid-cols-12 gap-8 md:gap-10">
-          <div className="col-span-2 md:col-span-4">
-            <Link href={market ? market.path : '/'} prefetch={false} className="flex items-center gap-2.5 mb-5">
-              <span className="grid place-items-center w-8 h-8 rounded-lg bg-[var(--color-pib-text)] text-black font-bold text-sm font-mono">P</span>
-              <span className="font-display text-xl">Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz</span>
-            </Link>
-            <p className="text-sm text-[var(--color-pib-text-muted)] max-w-xs leading-relaxed">
-              {market ? MARKET_DESCRIPTION : SITE.description}
-            </p>
-            {!market && (
-              <address className="not-italic mt-6 text-sm text-[var(--color-pib-text-muted)] space-y-1">
-                <div>{SITE.address.addressLocality}, {SITE.address.addressRegion}</div>
-                <div>{SITE.address.addressCountry}</div>
-              </address>
-            )}
-          </div>
-
-          {market ? (
-            <div className="md:col-span-2">
-              <h4 className="eyebrow mb-5">Offer</h4>
-              <ul className="space-y-3 text-sm">
-                <li>
-                  <Link href={market.path} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                    The 4-Week Site
+        <div className="sc-footer__cols">
+          <div>
+            <p className="sc-tiny sc-footer__label">Services</p>
+            <ul className="sc-footer__list">
+              <li>
+                <Link href="/services" prefetch={false} className="sc-link">
+                  Everything we do
+                </Link>
+              </li>
+              {SERVICES.map((s) => (
+                <li key={s.slug}>
+                  <Link href={`/services/${s.slug}`} prefetch={false} className="sc-link">
+                    {s.name}
                   </Link>
-                </li>
-                <li>
-                  <Link href="/work" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                    Work
-                  </Link>
-                </li>
-                <li>
-                  <Link href={startHref} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                    Start a project
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          ) : (
-            <div className="md:col-span-2">
-              <h4 className="eyebrow mb-5">Services</h4>
-              <ul className="space-y-3 text-sm">
-                {SERVICES.map((s) => (
-                  <li key={s.slug}>
-                    <Link href={`/services/${s.slug}`} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                      {s.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="md:col-span-2">
-            <h4 className="eyebrow mb-5">Studio</h4>
-            <ul className="space-y-3 text-sm">
-              <li><Link href="/work" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Work</Link></li>
-              {!market && (
-                <>
-                  <li><Link href="/about" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">About</Link></li>
-                  <li><Link href="/our-process" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Process</Link></li>
-                  <li><Link href="/insights" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Insights</Link></li>
-                  <li><Link href="/pricing" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Pricing</Link></li>
-                </>
-              )}
-              {market && (
-                <li>
-                  <Link href={market.path} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                    {market.id.toUpperCase()} offer
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </div>
-
-          <div className="md:col-span-2">
-            <h4 className="eyebrow mb-5">Connect</h4>
-            <ul className="space-y-3 text-sm">
-              {SOCIAL_LINKS.map((item) => (
-                <li key={item.href}>
-                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
-                    {item.label}
-                  </a>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="col-span-2 md:col-span-2">
-            <h4 className="eyebrow mb-5">Newsletter</h4>
-            <p className="text-sm text-[var(--color-pib-text-muted)] mb-3">Build notes, case studies, and the occasional opinion. Monthly.</p>
-            <NewsletterForm source={market ? `footer-${market.id}` : 'footer'} />
+          <div>
+            <p className="sc-tiny sc-footer__label">Studio</p>
+            <ul className="sc-footer__list">
+              <li>
+                <Link href="/work" prefetch={false} className="sc-link">
+                  Work
+                </Link>
+              </li>
+              <li>
+                <Link href="/pricing" prefetch={false} className="sc-link">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" prefetch={false} className="sc-link">
+                  About
+                </Link>
+              </li>
+              {STUDIO_NAV.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} prefetch={false} className="sc-link">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="sc-tiny sc-footer__label">Reach us</p>
+            <ul className="sc-footer__list">
+              <li>
+                <a href={waHref} className="sc-link" rel="noopener noreferrer">
+                  WhatsApp
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${SITE.email}`} className="sc-link">
+                  {SITE.email}
+                </a>
+              </li>
+              {SOCIAL_LINKS.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="sc-link">
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+              <li>
+                <Link href="/login" prefetch={false} className="sc-link">
+                  Client login
+                </Link>
+              </li>
+            </ul>
+            <address className="sc-body sc-footer__address">
+              {SITE.address.addressLocality}, {SITE.address.addressRegion}, South Africa.
+            </address>
           </div>
         </div>
 
-        <div className="mt-16 pt-8 hairline flex flex-col md:flex-row gap-4 md:items-center md:justify-between text-xs text-[var(--color-pib-text-faint)]">
-          <p className="font-mono">
-            © {new Date().getFullYear()} Partners in Biz · All rights reserved.
-          </p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link href="/privacy-policy" prefetch={false} className="hover:text-[var(--color-pib-text-muted)] transition-colors">Privacy</Link>
-            <Link href="/terms-of-service" prefetch={false} className="hover:text-[var(--color-pib-text-muted)] transition-colors">Terms</Link>
-            <a href="/llms.txt" className="hover:text-[var(--color-pib-text-muted)] transition-colors">llms.txt</a>
-            <a href="/sitemap.xml" className="hover:text-[var(--color-pib-text-muted)] transition-colors">Sitemap</a>
-            {!market && <span className="font-mono">v2026.04 · Made in Pretoria</span>}
-            {market && <span className="font-mono">{market.footerBadge}</span>}
-          </div>
+        <div className="sc-footer__legal sc-tiny">
+          <p>{new Date().getFullYear()} Partners in Biz</p>
+          <ul className="sc-footer__legal-links">
+            <li>
+              <Link href="/privacy-policy" prefetch={false} className="sc-link">
+                Privacy
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms-of-service" prefetch={false} className="sc-link">
+                Terms
+              </Link>
+            </li>
+            <li>
+              <a href="/llms.txt" className="sc-link">
+                llms.txt
+              </a>
+            </li>
+            <li>
+              <a href="/sitemap.xml" className="sc-link">
+                Sitemap
+              </a>
+            </li>
+          </ul>
+          <MarketLinks current={market ? (market.id === 'us' ? 'us' : undefined) : 'za'} variant="inline" />
         </div>
       </div>
     </footer>

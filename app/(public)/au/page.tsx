@@ -6,19 +6,19 @@ import { MarketOfferPage } from '@/components/marketing/MarketOfferPage'
 const market = MARKET_OFFERS.au
 
 export const metadata: Metadata = {
-  title: `The 4-Week Site — ${market.priceDisplay}`,
-  description: `A production Next.js site that gets you clients. ${market.priceDisplay}. Yours in 28 days. You own the GitHub, Vercel, and domain. Half on Stripe to start, half on launch.`,
+  title: `The 4-Week Site, ${market.priceDisplay}`,
+  description: `A production Next.js site that gets you clients. ${market.priceDisplay}. Yours in 28 days. You own the GitHub, the Vercel and the domain. Half to start, half at launch.`,
   alternates: { canonical: market.path },
   openGraph: {
-    title: `The 4-Week Site — ${market.priceDisplay} | Partners in Biz`,
-    description: `Production Next.js in four weeks. You own the repo. Half on Stripe to start, half on launch.`,
+    title: `The 4-Week Site, ${market.priceDisplay} | Partners in Biz`,
+    description: `Production Next.js in four weeks. You own the repo. Half to start, half at launch.`,
     url: `${SITE.url}${market.path}`,
     type: 'website',
     images: ['/og/default.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: `The 4-Week Site — ${market.priceDisplay}`,
+    title: `The 4-Week Site, ${market.priceDisplay}`,
     description: 'A site that gets you clients. Yours in 28 days.',
   },
 }

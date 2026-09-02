@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: opportunity.summary,
     alternates: { canonical: opportunity.href },
     openGraph: {
-      title: `${opportunity.title} — Partners in Biz`,
+      title: opportunity.title,
       description: opportunity.summary,
       url: `${SITE.url}${opportunity.href}`,
       type: 'website',

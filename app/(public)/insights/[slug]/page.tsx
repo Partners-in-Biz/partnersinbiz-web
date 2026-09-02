@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { POSTS, getPostBySlug, type Post } from '@/lib/content/posts'
 import { getFirestorePostBySlug, listLiveSlugs } from '@/lib/content/posts-firestore'
-import { SITE } from '@/lib/seo/site'
+import { SITE, CTA_LABEL } from '@/lib/seo/site'
 import { JsonLd, articleSchema, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
 
@@ -360,8 +360,8 @@ export default async function InsightPostPage({ params }: Params) {
                   Let&rsquo;s build the next one together.
                 </h3>
               </div>
-              <Link href="/start-a-project" className="btn-pib-accent shrink-0">
-                Start a project
+              <Link href={SITE.cal.url} className="btn-pib-accent shrink-0">
+                {CTA_LABEL}
                 <span className="material-symbols-outlined text-base">arrow_outward</span>
               </Link>
             </div>

@@ -57,11 +57,31 @@ describe('/ is the ZA stage only', () => {
     expect(text).toContain(ZA_PRICE_STRING)
   })
 
-  it('lands 50/50 with both headlines in the document at once', () => {
-    render(<HomePage />)
+  it('lands 50/50 with the problem and the outcome, price one act later', () => {
+    const { container } = render(<HomePage />)
     expect(screen.getByRole('heading', { level: 1, name: 'You have a site. The phone is quiet.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'A marketing site from R35,000' })).toBeInTheDocument()
-    expect(screen.getAllByText('Yours in 2 to 4 weeks. You own it.').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'A site that makes the phone ring.' })).toBeInTheDocument()
+    expect(screen.getAllByText('Built in 2 to 4 weeks. Yours outright.').length).toBeGreaterThanOrEqual(1)
+    for (const h1 of container.querySelectorAll('h1')) {
+      expect(h1.textContent).not.toContain(ZA_PRICE_STRING)
+    }
+    const priceLine = screen.getByText(/From R35,000, fixed/)
+    expect(priceLine.className).toContain('sc-line')
+  })
+
+  it('makes the peak a real client result with a credit', () => {
+    render(<HomePage />)
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Number one on Google in eight weeks. Enquiries doubled.' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('AHS Law, Pretoria')).toBeInTheDocument()
+  })
+
+  it('spells out what the price buys at the close', () => {
+    const { container } = render(<HomePage />)
+    const stack = container.querySelector('.sc-close__stack')
+    expect(stack?.textContent).toContain('Up to eight pages')
+    expect(stack?.textContent).toContain('30-day warranty')
   })
 
   it('uses running-text CTAs that all point at the existing scheduler', () => {
@@ -74,7 +94,7 @@ describe('/ is the ZA stage only', () => {
     }
   })
 
-  it('has no jump nav, only tiny ZA / US text links plus privacy and terms in the colophon', () => {
+  it('has no jump nav, only tiny ZA / US text links, one door to the firm, plus privacy and terms', () => {
     const { container } = render(<HomePage />)
     expect(container.querySelector('a[href^="#"]')).toBeNull()
     const region = screen.getAllByRole('navigation', { name: 'Region' })[0]
@@ -83,12 +103,15 @@ describe('/ is the ZA stage only', () => {
     const colophon = screen.getByRole('contentinfo', { name: 'Colophon' })
     expect(within(colophon).getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy-policy')
     expect(within(colophon).getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms-of-service')
-    for (const forbidden of ['/about', '/services', '/work', '/pricing', '/faq', '/insights', '/tools', '/start-a-project']) {
+    const doors = container.querySelectorAll('a[href="/services"]')
+    expect(doors).toHaveLength(1)
+    expect(within(colophon).getByRole('link', { name: 'Everything we do' })).toHaveAttribute('href', '/services')
+    for (const forbidden of ['/about', '/work', '/pricing', '/faq', '/insights', '/tools', '/start-a-project']) {
       expect(container.querySelector(`a[href="${forbidden}"]`)).toBeNull()
     }
   })
 
-  it('mounts the rebuild stage with the ten committed stills', () => {
+  it('mounts the rebuild stage with the committed stills and a real work shot at the peak', () => {
     const { container } = render(<HomePage />)
     const stage = container.querySelector('[data-sc-rebuild]')
     expect(stage).not.toBeNull()
@@ -98,13 +121,15 @@ describe('/ is the ZA stage only', () => {
       'dead-welcome.png',
       'storefront-before.png',
       'storefront-after.png',
-      'keys-desk.png',
       'tape-draw.png',
       'rebuild-scrub.png',
       'collapse-paper.png',
     ]) {
       expect(srcs.some((src) => src.includes(`/marketing/${name}`))).toBe(true)
     }
+    // The proof act shows the client's real site, not a generated still.
+    expect(srcs.some((src) => src.includes('/images/shot-ahs-law.jpg'))).toBe(true)
+    expect(srcs.some((src) => src.includes('keys-desk.png'))).toBe(false)
     expect(srcs.some((src) => src.includes('city-grid-night.png'))).toBe(false)
   })
 
@@ -124,11 +149,13 @@ describe('/us is the US stage only', () => {
     }
   })
 
-  it('lands with both headlines and the 28-day dek', () => {
+  it('lands with both headlines and the 28-day dek, price one act later', () => {
     render(<UsHomePage />)
     expect(screen.getByRole('heading', { level: 1, name: 'You have a site. The phone is quiet.' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'The 4-Week Site' })).toBeInTheDocument()
-    expect(screen.getByText('$9,500. Yours in 28 days.')).toBeInTheDocument()
+    expect(screen.getByText('A site that makes the phone ring. Live in 28 days.')).toBeInTheDocument()
+    const priceLine = screen.getByText(/\$9,500, fixed/)
+    expect(priceLine.className).toContain('sc-line')
   })
 
   it('keeps the retainer small and points every CTA at the scheduler with the US hint', () => {

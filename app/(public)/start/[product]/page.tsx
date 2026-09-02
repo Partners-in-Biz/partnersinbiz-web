@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = getProduct(slug)
   if (!product) return {}
   return {
-    title: `Get Started — ${product.name} | Partners in Biz`,
+    title: `Get started with ${product.name}`,
     description: product.tagline,
   }
 }
@@ -43,12 +43,12 @@ export default async function StartProductPage({ params }: Props) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-          {/* Form — takes 2/3 */}
+          {/* Form takes 2/3 */}
           <div className="lg:col-span-2">
             <AthleetOnboardingForm />
           </div>
 
-          {/* Sidebar — what's included */}
+          {/* Sidebar: what's included */}
           <div className="space-y-6 lg:sticky lg:top-28">
             <div className="glass-card p-8 space-y-6">
               <div>

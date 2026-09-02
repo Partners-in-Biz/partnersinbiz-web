@@ -19,7 +19,7 @@ export default function OfflinePage() {
         </h1>
         <p className="text-base text-[var(--pib-muted)]">
           This page is being served from your device cache. Recently visited pages should still
-          work — reconnect to load anything new.
+          work, reconnect to load anything new.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link

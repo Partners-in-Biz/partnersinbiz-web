@@ -165,6 +165,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
               </div>
               <h2 className="sc-h1 sc-h1--peak">{peak.h1}</h2>
               <p className="sc-dek">{peak.dek}</p>
+              {peak.credit && <p className="sc-tiny sc-peak-credit">{peak.credit}</p>}
             </div>
           </div>
 
@@ -181,6 +182,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
                 <p className="sc-dek" style={{ marginTop: 0 }}>{close.priceTerms}</p>
               </div>
               <div className="sc-close__lines">
+                <p className="sc-body sc-close__stack">{close.stack.join(' ')}</p>
                 <p className="sc-dek" style={{ marginTop: 0, color: 'var(--sc-ink)' }}>{close.statement}</p>
                 <p className="sc-body sc-close__cta">
                   {close.ctaLead}{' '}
@@ -213,7 +215,13 @@ export function RebuildStage({ content }: { content: StageContent }) {
           </Link>
           .
         </p>
-        {colophon.note && <p className="sc-body sc-colophon__note">{colophon.note}</p>}
+        <p className="sc-body sc-colophon__note">
+          {colophon.note}{' '}
+          <Link href={colophon.servicesHref} prefetch={false} className="sc-cta">
+            {colophon.servicesLabel}
+          </Link>
+          .
+        </p>
         <ul className="sc-colophon__row sc-tiny">
           <li>
             <a href={waHref} className="sc-link" rel="noopener noreferrer">

@@ -8,9 +8,9 @@ import { ZA_STAGE } from '@/lib/marketing/stage-content'
  * `/` is the South African stage only. The US offer lives at `/us`.
  */
 
-const TITLE = 'A marketing site from R35,000'
+const TITLE = 'A site that makes the phone ring'
 const DESCRIPTION =
-  'You have a site. The phone is quiet. A marketing site from R35,000, yours in 2 to 4 weeks. You own the GitHub, the hosting, and the domain. Pretoria studio, one person, WhatsApp the whole time.'
+  'You have a site. The phone is quiet. We build marketing sites that bring in enquiries, in 2 to 4 weeks, from R35,000 fixed. You own the GitHub, the hosting, and the domain. Pretoria studio, one person, WhatsApp the whole time.'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
-    description: 'Yours in 2 to 4 weeks. You own it.',
+    description: 'Built in 2 to 4 weeks. Yours outright. From R35,000.',
   },
 }
 

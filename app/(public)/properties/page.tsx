@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SITE } from '@/lib/seo/site'
+import { SITE, CTA_LABEL } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema, serviceSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
 import { SectionHead } from '@/components/marketing/SectionHead'
 import { FAQ } from '@/components/marketing/FAQ'
 
 export const metadata: Metadata = {
-  title: 'Properties — Control plane for your client websites & apps',
+  title: 'Properties, Control plane for your client websites & apps',
   description:
     'Update store URLs, run feature flags, see real analytics, and trigger nurture sequences for any client website without redeploys.',
   alternates: { canonical: '/properties' },
   openGraph: {
-    title: 'Properties — the control plane your client\'s site never had',
+    title: 'Properties, the control plane your client\'s site never had',
     description:
       'Update store URLs, run feature flags, see real analytics, and trigger nurture sequences for any client website without redeploys.',
     url: `${SITE.url}/properties`,
@@ -75,23 +75,23 @@ const STEPS = [
   {
     step: '02',
     title: 'Configure in PiB',
-    body: 'Set store URLs, primary CTAs, kill switches, feature flags, and the linked email sequence — from one dashboard.',
+    body: 'Set store URLs, primary CTAs, kill switches, feature flags, and the linked email sequence, from one dashboard.',
   },
   {
     step: '03',
     title: 'Measure & iterate',
-    body: 'Watch real sessions stream in. Flip a flag, ship a config change, see the lift — without a single deploy.',
+    body: 'Watch real sessions stream in. Flip a flag, ship a config change, see the lift, without a single deploy.',
   },
 ] as const
 
 const CAPABILITIES = [
   {
     q: 'Runtime config',
-    a: 'Each property exposes a JSON config block read by the client at runtime. Change the App Store URL, the primary CTA href, the announcement banner copy, or any custom field — your client\'s site picks it up on the next request, no redeploy needed.',
+    a: 'Each property exposes a JSON config block read by the client at runtime. Change the App Store URL, the primary CTA href, the announcement banner copy, or any custom field, your client\'s site picks it up on the next request, no redeploy needed.',
   },
   {
     q: 'Kill switch',
-    a: 'Every property has a global kill switch. Flip it and the property\'s SDK serves a maintenance shell instead of the live site. Useful during incidents, takedowns, or planned outages — no DNS surgery, no panicked hosting calls.',
+    a: 'Every property has a global kill switch. Flip it and the property\'s SDK serves a maintenance shell instead of the live site. Useful during incidents, takedowns, or planned outages, no DNS surgery, no panicked hosting calls.',
   },
   {
     q: 'Feature flags',
@@ -99,7 +99,7 @@ const CAPABILITIES = [
   },
   {
     q: 'Analytics',
-    a: 'A first-party analytics pipeline with sessions, users, events, funnels, and a live event stream. Each property gets its own dashboard so your client sees their numbers — not yours, not aggregated, not second-hand from GA.',
+    a: 'A first-party analytics pipeline with sessions, users, events, funnels, and a live event stream. Each property gets its own dashboard so your client sees their numbers, not yours, not aggregated, not second-hand from GA.',
   },
   {
     q: 'Conversion sequences',
@@ -107,14 +107,14 @@ const CAPABILITIES = [
   },
   {
     q: 'Creator & affiliate links',
-    a: 'Property-scoped short URLs with click counts, referrer attribution, and per-creator dashboards. Pay creators on real, attributable clicks — not the honour system.',
+    a: 'Property-scoped short URLs with click counts, referrer attribution, and per-creator dashboards. Pay creators on real, attributable clicks, not the honour system.',
   },
 ] as const
 
 const FAQS = [
   {
     q: 'Do I need a developer to wire this up?',
-    a: 'For the first property, yes — a developer drops the ingest key into the env and the SDK into the client\'s site. After that everything is dashboard-driven. Most agencies wire it once and reuse the pattern across every client site they ship.',
+    a: 'For the first property, yes, a developer drops the ingest key into the env and the SDK into the client\'s site. After that everything is dashboard-driven. Most agencies wire it once and reuse the pattern across every client site they ship.',
   },
   {
     q: 'Will Properties break my client\'s site?',
@@ -122,11 +122,11 @@ const FAQS = [
   },
   {
     q: 'Can my client see this dashboard?',
-    a: 'Yes. Each client org gets read-only access to their own property dashboards. You control what they see — analytics, conversions, or the full config plane.',
+    a: 'Yes. Each client org gets read-only access to their own property dashboards. You control what they see, analytics, conversions, or the full config plane.',
   },
   {
     q: 'What about Google Analytics?',
-    a: 'Keep GA if you want it — Properties analytics runs alongside, not instead. Most agencies keep GA for the marketing team and use Properties for the operational and product view.',
+    a: 'Keep GA if you want it, Properties analytics runs alongside, not instead. Most agencies keep GA for the marketing team and use Properties for the operational and product view.',
   },
   {
     q: 'Is it GDPR / POPIA compliant?',
@@ -134,7 +134,7 @@ const FAQS = [
   },
   {
     q: 'What does the kill switch actually do?',
-    a: 'When the kill switch is on, the SDK serves a configurable maintenance shell instead of the live site. The shell is fully customisable per property — your branding, your copy, your retry behaviour.',
+    a: 'When the kill switch is on, the SDK serves a configurable maintenance shell instead of the live site. The shell is fully customisable per property, your branding, your copy, your retry behaviour.',
   },
 ] as const
 
@@ -145,7 +145,7 @@ export default function PropertiesPage() {
   ])
   const service = serviceSchema({
     slug: 'properties',
-    name: 'Properties — Runtime control plane',
+    name: 'Properties, Runtime control plane',
     description:
       'A runtime control plane for client websites and apps: remote config, kill switch, feature flags, per-property analytics, and linked email sequences.',
   })
@@ -177,14 +177,14 @@ export default function PropertiesPage() {
           <Reveal delay={160}>
             <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
               Properties is the runtime layer for every site and app we ship. Update store URLs, flip
-              feature flags, see real analytics, and trigger nurture sequences — all without a single
+              feature flags, see real analytics, and trigger nurture sequences, all without a single
               redeploy. One dashboard for every client surface.
             </p>
           </Reveal>
           <Reveal delay={240}>
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link href={SITE.cal.url} className="btn-pib-accent">
-                Book a call
+                {CTA_LABEL}
                 <span className="material-symbols-outlined text-base">arrow_outward</span>
               </Link>
               <Link href="/pricing#properties" className="btn-pib-secondary">
@@ -224,7 +224,7 @@ export default function PropertiesPage() {
             <Reveal delay={160}>
               <div className="bento-card h-full p-7">
                 <p className="text-[var(--color-pib-text)] text-pretty">
-                  Traffic converts on the marketing site — and then nothing happens. There is no
+                  Traffic converts on the marketing site, and then nothing happens. There is no
                   bridge from a form fill on the live site to the nurture sequence that closes the
                   deal. Leads cool off in a CSV.
                 </p>
@@ -240,7 +240,7 @@ export default function PropertiesPage() {
           <SectionHead
             eyebrow="What you can do"
             title="Six jobs, one dashboard."
-            subtitle="The before / after of every Properties capability — written in the JTBD shape because that is how agencies actually think about this work."
+            subtitle="The before / after of every Properties capability, written in the JTBD shape because that is how agencies actually think about this work."
           />
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
             {FEATURES.map((f, i) => (
@@ -252,7 +252,7 @@ export default function PropertiesPage() {
                   >
                     {f.icon}
                   </span>
-                  <h3 className="font-display text-xl text-[var(--color-pib-text)]">{f.title}</h3>
+                  <h2 className="font-display text-xl text-[var(--color-pib-text)]">{f.title}</h2>
                   <p className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed flex-1">
                     {f.body}
                   </p>
@@ -281,7 +281,7 @@ export default function PropertiesPage() {
                   <span className="font-mono text-xs tracking-widest text-[var(--color-pib-accent)]">
                     {s.step}
                   </span>
-                  <h3 className="font-display text-2xl text-[var(--color-pib-text)]">{s.title}</h3>
+                  <h2 className="font-display text-2xl text-[var(--color-pib-text)]">{s.title}</h2>
                   <p className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed">
                     {s.body}
                   </p>
@@ -311,21 +311,21 @@ export default function PropertiesPage() {
             <div className="bento-card p-10 md:p-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
               <div className="lg:col-span-5">
                 <p className="eyebrow mb-4">Built for agencies</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
+                <h2 className="h-display text-3xl md:text-4xl text-balance">
                   Built for the <span className="text-[var(--color-pib-accent)]">agency model.</span>
-                </h3>
+                </h2>
                 <p className="mt-6 text-[var(--color-pib-text-muted)] text-pretty">
                   Multi-org from day one. Every client gets their own workspace, their own
-                  property dashboards, and their own white-labelled reports — without you spinning
+                  property dashboards, and their own white-labelled reports, without you spinning
                   up another tool per client.
                 </p>
               </div>
               <div className="lg:col-span-7">
                 <ul className="space-y-3">
                   {[
-                    'Multi-org workspaces — one PiB account, every client cleanly separated.',
+                    'Multi-org workspaces, one PiB account, every client cleanly separated.',
                     'Per-property dashboards your clients can actually log in to.',
-                    'White-label monthly reports baked in — branded for you, sent to them.',
+                    'White-label monthly reports baked in, branded for you, sent to them.',
                     'Read-only client roles, full-access internal roles, audit log on every change.',
                     'Drop-in SDK that works with Next.js, Vite, plain HTML, React Native, and Expo.',
                   ].map((item) => (
@@ -364,21 +364,18 @@ export default function PropertiesPage() {
             <div className="bento-card p-10 md:p-14 flex flex-col md:flex-row md:items-center justify-between gap-8">
               <div className="max-w-xl">
                 <p className="eyebrow mb-3">Ready?</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
+                <h2 className="h-display text-3xl md:text-4xl text-balance">
                   Ready to take control of your client surfaces?
-                </h3>
+                </h2>
                 <p className="mt-4 text-[var(--color-pib-text-muted)] text-pretty">
                   Properties ships with every Web Application and Bespoke Build. Or wire it into a
-                  site we did not build — we&rsquo;ll quote the integration in a day.
+                  site we did not build, we&rsquo;ll quote the integration in a day.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 shrink-0">
                 <Link href={SITE.cal.url} className="btn-pib-accent">
-                  Book a call
+                  {CTA_LABEL}
                   <span className="material-symbols-outlined text-base">arrow_outward</span>
-                </Link>
-                <Link href="/start-a-project" className="btn-pib-secondary">
-                  Start a project
                 </Link>
               </div>
             </div>

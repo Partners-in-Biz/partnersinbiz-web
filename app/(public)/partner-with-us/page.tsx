@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     'Partner in the ventures we build and run: claim your town on our area-exclusive coupon platform (I am Ballito is the live example), grow Athleet, or sell our growth services. The products are live.',
   alternates: { canonical: '/partner-with-us' },
   openGraph: {
-    title: 'Partner with us — Partners in Biz ventures',
+    title: 'Partner with us',
     description:
       'Live products with room for the right partners: a local commerce platform, a sports club SaaS, and a productized growth service.',
     url: `${SITE.url}/partner-with-us`,
@@ -22,9 +22,9 @@ export const metadata: Metadata = {
 }
 
 const HOW_IT_WORKS = [
-  { title: 'Pick a venture', body: 'Choose the lane that fits your reach — a region, a sport network, or a client book.' },
+  { title: 'Pick a venture', body: 'Choose the lane that fits your reach, a region, a sport network, or a client book.' },
   { title: 'See it live', body: 'Every product is built and running. Walk through it before you commit to anything.' },
-  { title: 'Register interest', body: 'Tell us what you can unlock, with real context — links, networks, regions.' },
+  { title: 'Register interest', body: 'Tell us what you can unlock, with real context, links, networks, regions.' },
   { title: 'Fit review, then terms', body: 'We review fit and conflicts, then agree terms and a proper handoff.' },
 ]
 
@@ -37,7 +37,7 @@ const FIT = [
   {
     icon: 'verified',
     title: 'We bring live products',
-    body: 'Finished platforms and the delivery engine behind them — you are not selling a prototype.',
+    body: 'Finished platforms and the delivery engine behind them, you are not selling a prototype.',
   },
   {
     icon: 'lock',
@@ -68,7 +68,7 @@ export default function PartnerWithUsPage() {
           </Reveal>
           <Reveal delay={160} eager>
             <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty leading-snug">
-              Partners in Biz builds and operates its own products — an area-exclusive local commerce platform, a sports
+              Partners in Biz builds and operates its own products, an area-exclusive local commerce platform, a sports
               club SaaS, and a productized growth service. Each one has room for the right partner: businesses and
               individuals who bring an area, a network, or a client book and want to share in what it grows into.
             </p>
@@ -127,7 +127,7 @@ export default function PartnerWithUsPage() {
           <SectionHead
             eyebrow="Open ventures"
             title="Three live products. Three ways in."
-            subtitle="No prototypes, no decks-in-search-of-funding. Every venture below is built, deployed, and waiting on the one thing software cannot do — people with reach."
+            subtitle="No prototypes, no decks-in-search-of-funding. Every venture below is built, deployed, and waiting on the one thing software cannot do, people with reach."
           />
 
           <div className="grid gap-10 lg:grid-cols-12 lg:items-start">

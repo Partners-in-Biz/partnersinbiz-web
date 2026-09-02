@@ -30,7 +30,7 @@ export default async function BookACallPage({
   const homeHref = isUs ? '/us' : '/'
   const waHref = `https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`
 
-  const eyebrow = market ? 'The 4-Week Site' : 'A marketing site from R35,000'
+  const eyebrow = market ? 'The 4-Week Site' : 'A site that makes the phone ring'
   const dek = isUs
     ? 'No sales pitch. We confirm fit for the 4-Week Site and the 90-Day Fill, then you start on Stripe.'
     : market
