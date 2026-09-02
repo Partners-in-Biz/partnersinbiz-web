@@ -57,6 +57,16 @@ Linked-org users never edit serving-org records. Two verbs only, via
 - Both are gated by `decideSharedAction` (grant `actions[]` + live PartnerLink)
   and are refused for `clientVisibility: 'private'` records.
 
+## Per-record visibility (serving org side)
+
+`clientVisibility` is toggled only by the owning org through
+`GET/PATCH /api/v1/portal/company-work/[module]/[id]/visibility`
+(`withPortalAuthAndRole('member')`; `MODULE_COLLECTIONS` maps module → collection;
+a non-owner gets 403). `CompanyWorkRecordControls` mounts this on record detail
+pages (SEO sprint, project, research, campaign, ad campaign) and renders nothing
+for org-scoped records. Portal client users cannot call `withAuth('admin')`
+routes, which is why this lives under `/api/v1/portal/`.
+
 ## Migration
 
 `lib/cross-org/migration.ts` plans `backfill_company_workspace_grant` dry-run first.
