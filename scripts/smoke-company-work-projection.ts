@@ -39,6 +39,19 @@ function initAdmin() {
   })
 }
 
+type GrantRow = {
+  id: string
+  items?: unknown
+  grantee?: { orgIds?: string[] }
+  ownerOrgId?: unknown
+  resourceId?: unknown
+}
+
+type SeoRow = {
+  id: string
+  clientVisibility?: unknown
+}
+
 async function main() {
   loadEnvLocal()
   initAdmin()
@@ -51,10 +64,13 @@ async function main() {
     .get()
 
   const candidates = grantsSnap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() as Record<string, unknown> }))
+    .map((doc): GrantRow => {
+      const data = doc.data() as Omit<GrantRow, 'id'>
+      return { id: doc.id, ...data }
+    })
     .filter((grant) => {
       const items = Array.isArray(grant.items) ? grant.items.map(String) : []
-      const viewer = (grant.grantee as { orgIds?: string[] } | undefined)?.orgIds?.[0]
+      const viewer = grant.grantee?.orgIds?.[0]
       return grant.ownerOrgId === 'pib-platform-owner'
         && items.includes('seo')
         && Boolean(viewer)
@@ -64,14 +80,18 @@ async function main() {
   let picked: { viewer: string; companyId: string; grantId: string; raw: number; private: number } | null = null
   for (const grant of candidates.slice(0, 40)) {
     const companyId = String(grant.resourceId)
-    const viewer = ((grant.grantee as { orgIds?: string[] }).orgIds ?? [])[0]
+    const viewer = (grant.grantee?.orgIds ?? [])[0]
+    if (!viewer) continue
     const rawSnap = await db.collection('seo_sprints')
       .where('orgId', '==', 'pib-platform-owner')
       .where('companyId', '==', companyId)
       .limit(20)
       .get()
     if (rawSnap.empty) continue
-    const rawRows = rawSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    const rawRows = rawSnap.docs.map((doc): SeoRow => {
+      const data = doc.data() as Omit<SeoRow, 'id'>
+      return { id: doc.id, ...data }
+    })
     picked = {
       viewer,
       companyId,
