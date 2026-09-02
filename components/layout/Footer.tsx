@@ -9,6 +9,7 @@ import {
   marketFromPathname,
   marketStartHref,
 } from '@/lib/seo/market-offers'
+import { isStageRoute } from '@/lib/marketing/stage-routes'
 
 const SOCIAL_LINKS = [
   { label: 'Facebook', href: SITE.social.facebook },
@@ -21,6 +22,8 @@ const MARKET_DESCRIPTION =
 
 export default function Footer() {
   const pathname = usePathname()
+  // The split stage closes with its own colophon.
+  if (isStageRoute(pathname)) return null
   const market = marketFromPathname(pathname)
   const startHref = market ? marketStartHref(market.id) : '/start-a-project'
   const bookHref = market ? marketBookHref(market.id) : SITE.cal.url
