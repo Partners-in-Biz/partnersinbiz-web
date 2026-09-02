@@ -3,8 +3,9 @@ import Link from 'next/link'
 import { SITE, FAQ_HOMEPAGE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, serviceSchema } from '@/lib/seo/schema'
 import { WORK_SHOTS } from '@/lib/marketing/stage-content'
-import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, serviceMeta } from '@/lib/marketing/service-content'
-import { Article, ArticleHead, ArticleRow, CtaSentence, Plate, Proof } from '@/components/marketing/paper/Article'
+import { SERVICE_CONTENT, SERVICE_ORDER, serviceMeta } from '@/lib/marketing/service-content'
+import { Article, ArticleHead, ArticleRow, CtaSentence, Plate } from '@/components/marketing/paper/Article'
+import { ServicesFilmstrip } from '@/components/marketing/paper/ServicesFilmstrip'
 import { FAQ } from '@/components/marketing/FAQ'
 
 const TITLE = 'Everything we do'
@@ -50,34 +51,7 @@ export default function ServicesIndexPage() {
         plate={<Plate src={WORK_SHOTS.athleet.src} alt={WORK_SHOTS.athleet.alt} caption="Athleet. Club platform, live in under four weeks." wide priority />}
       />
 
-      {SERVICE_ORDER.map((slug, i) => {
-        const meta = serviceMeta(slug)
-        const content = SERVICE_CONTENT[slug]
-        const study = caseFor(content.proof.caseSlug)
-        return (
-          <ArticleRow
-            key={slug}
-            id={slug}
-            title={content.headline}
-            flip={i % 2 === 1}
-            aside={
-              <>
-                <p className="sc-article__price">{content.price.label}</p>
-                <p className="sc-body">{content.price.terms}</p>
-                <Proof line={content.proof.line} credit={`${study.client}, ${study.industry}`} href={study.href} />
-              </>
-            }
-          >
-            <p className="sc-tiny">{meta.name}</p>
-            <p>{content.lede}</p>
-            <p>
-              <Link href={`/services/${slug}`} prefetch={false} className="sc-cta">
-                What ships, how it runs, what it costs
-              </Link>
-            </p>
-          </ArticleRow>
-        )
-      })}
+      <ServicesFilmstrip />
 
       <ArticleRow
         title="Three shapes of engagement"
