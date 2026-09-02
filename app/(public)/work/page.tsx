@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { CASE_STUDIES, SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { Article, ArticleHead, ArticleList, ArticleRow, CtaSentence, Plate, Quote } from '@/components/marketing/paper/Article'
+import { Article, ArticleHead, ArticleRow, CtaSentence, Quote } from '@/components/marketing/paper/Article'
+import { WorkPinned } from '@/components/marketing/paper/WorkPinned'
 
 const TITLE = 'Work'
 const DESCRIPTION =
@@ -43,29 +43,7 @@ export default function WorkIndexPage() {
         lede="Every project here is a live codebase we can point at. Law firms, sports clubs, an aviation loyalty platform, and two apps in both stores."
       />
 
-      {CASE_STUDIES.map((c, i) => (
-        <ArticleRow
-          key={c.slug}
-          title={c.headline}
-          flip={i % 2 === 1}
-          aside={
-            <>
-              <Plate src={c.cover} alt={`${c.client}: ${c.headline}`} priority={i === 0} />
-              <ArticleList items={c.metrics.map((m) => `${m.value} ${m.label}`)} />
-            </>
-          }
-        >
-          <p className="sc-tiny">
-            {c.client}. {c.industry}. {c.year}.
-          </p>
-          <p>{c.summary}</p>
-          <p>
-            <Link href={c.href} prefetch={false} className="sc-cta">
-              Read the case
-            </Link>
-          </p>
-        </ArticleRow>
-      ))}
+      <WorkPinned />
 
       <ArticleRow
         title="What clients say"
