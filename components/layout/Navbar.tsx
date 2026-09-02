@@ -9,11 +9,13 @@ import {
   marketNav,
   marketStartHref,
 } from '@/lib/seo/market-offers'
+import { isStageRoute } from '@/lib/marketing/stage-routes'
 
 export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const onStage = isStageRoute(pathname)
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -26,6 +28,9 @@ export default function Navbar() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  // The split stage carries its own chrome: the divider and tiny ZA / US links.
+  if (onStage) return null
 
   const isActive = (href: string) => {
     const path = href.split('?')[0]
