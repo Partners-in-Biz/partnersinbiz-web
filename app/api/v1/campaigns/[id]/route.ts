@@ -25,6 +25,7 @@ import {
 import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
 import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
 import { invalidatedEmailApprovalState } from '@/lib/email-marketing/agent-governance'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -170,6 +171,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     if (!relationships.ok) return apiError(relationships.error, 400)
     Object.assign(editable, relationships.value)
   }
+  if ('clientVisibility' in body) Object.assign(editable, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   const materialFields = [
     'subject', 'previewText', 'emailDocument', 'fromDomainId', 'fromName', 'fromLocal',
@@ -223,6 +225,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     if (!relationships.ok) return apiError(relationships.error, 400)
     Object.assign(update, relationships.value)
   }
+  if ('clientVisibility' in body) Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
   if (Object.keys(update).length === 1) {
     return apiError('No allowed fields to update', 400)
   }

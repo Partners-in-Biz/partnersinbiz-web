@@ -77,6 +77,13 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
       ? normalizeResourceRelationshipLinks(relationshipInput)
       : { ok: true as const, value: {} }
     if (!relationships.ok) return apiError(relationships.error, 400)
+    const searchParams = new URL(req.url).searchParams
+    const input = body as Record<string, unknown>
+    const companyId = (typeof input.companyId === 'string' && input.companyId.trim())
+      || (typeof input.sourceCompanyId === 'string' && input.sourceCompanyId.trim())
+      || searchParams.get('companyId')?.trim()
+      || searchParams.get('sourceCompanyId')?.trim()
+      || undefined
 
     const id = await createSupportTicket({
       orgId,
@@ -85,6 +92,8 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
       requesterEmail,
       contextRefs,
       relationshipLinks: relationships.value,
+      companyId,
+      clientVisibility: input.clientVisibility,
       ...parsed.value,
     })
 

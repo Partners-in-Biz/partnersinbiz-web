@@ -284,6 +284,11 @@ export function seedIdentityLinksFromPointers(input: LegacyIdentityInput): Seede
 
 export type MigrationMode = 'dry-run' | 'apply'
 
+/** Mirrors lib/company-work/module-keys DEFAULT_COMPANY_WORKSPACE_MODULES (kept inline: this module is pure/no-admin). */
+const COMPANY_WORKSPACE_DEFAULT_MODULES: SharedBusinessCapability[] = [
+  'crm', 'projects', 'documents', 'campaigns', 'social', 'email', 'seo', 'ads', 'research', 'services', 'support', 'messages',
+]
+
 export type MigrationOpKind =
   | 'promote_partner_link'
   | 'promote_resource_grant'
@@ -988,9 +993,57 @@ export function buildCanonicalMigrationPlan(
   }
 
   // 6) company_workspace grants for linked companies (dry-run first)
-  for (const company of snapshot.linkedCompanies ?? []) {
+  //
+  // 6a) Reciprocal linked-company pairs (A has company linked to B AND B has a
+  // company linked to A) that predate canonical PartnerLinks get a
+  // deterministic link minted so the grants below have an authority row.
+  const linkedCompanies = snapshot.linkedCompanies ?? []
+  const reciprocalPairs = new Set(linkedCompanies.map((c) => `${clean(c.orgId)}>${clean(c.linkedOrgId)}`))
+  const mintedLinkIdForPair = new Map<string, string>()
+  for (const company of linkedCompanies) {
+    const orgId = clean(company.orgId)
+    const linkedOrgId = clean(company.linkedOrgId)
+    if (!orgId || !linkedOrgId || orgId === linkedOrgId) continue
+    if (clean(company.partnerLinkId)) continue
+    if (findPartnerLinkIdForOrgs(snapshot.existingLinks, orgId, linkedOrgId)) continue
+    if (!reciprocalPairs.has(`${linkedOrgId}>${orgId}`)) continue
+    const pairKey = [orgId, linkedOrgId].sort().join(':')
+    if (mintedLinkIdForPair.has(pairKey)) continue
+    const partnerLinkId = `cw-link:${pairKey}`
+    mintedLinkIdForPair.set(pairKey, partnerLinkId)
+    const [orgA, orgB] = pairKey.split(':')
+    const companyA = linkedCompanies.find((c) => clean(c.orgId) === orgA && clean(c.linkedOrgId) === orgB)
+    const companyB = linkedCompanies.find((c) => clean(c.orgId) === orgB && clean(c.linkedOrgId) === orgA)
+    operations.push({
+      id: migrationOpId('promote_partner_link', [partnerLinkId, orgA, orgB]),
+      kind: 'promote_partner_link',
+      decision: 'plan',
+      collection: 'partnerLinks',
+      documentId: partnerLinkId,
+      before: null,
+      after: {
+        id: partnerLinkId,
+        partnerLinkId,
+        orgA,
+        orgB,
+        companyIdA: companyA?.companyId,
+        companyIdB: companyB?.companyId,
+        negotiableCapabilities: COMPANY_WORKSPACE_DEFAULT_MODULES,
+        status: 'active',
+        schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+      },
+      rollback: { action: 'delete', collection: 'partnerLinks', documentId: partnerLinkId },
+      reason: 'mint canonical PartnerLink for reciprocal linked CRM companies without one',
+      preservesAccess: true,
+      destructive: false,
+    })
+  }
+
+  for (const company of linkedCompanies) {
     const partnerLinkId = clean(company.partnerLinkId)
       || findPartnerLinkIdForOrgs(snapshot.existingLinks, company.orgId, company.linkedOrgId)
+      || mintedLinkIdForPair.get([clean(company.orgId), clean(company.linkedOrgId)].sort().join(':'))
+      || ''
     if (!partnerLinkId) {
       operations.push({
         id: migrationOpId('backfill_company_workspace_grant', [company.companyId, 'missing_link']),
@@ -1027,9 +1080,12 @@ export function buildCanonicalMigrationPlan(
       })
       continue
     }
-    const modules = Array.isArray(company.sharedCapabilities) && company.sharedCapabilities.length > 0
+    // An explicit (even empty) capability list is honoured — e.g. client → PiB
+    // relationships intentionally share nothing until the client opts in.
+    // Only an undefined list falls back to the default module set.
+    const modules = Array.isArray(company.sharedCapabilities)
       ? company.sharedCapabilities
-      : (['crm', 'projects', 'documents', 'campaigns', 'social', 'email', 'seo', 'ads', 'research', 'services', 'support', 'messages'] as SharedBusinessCapability[])
+      : COMPANY_WORKSPACE_DEFAULT_MODULES
     operations.push({
       id: migrationOpId('backfill_company_workspace_grant', [grantId]),
       kind: 'backfill_company_workspace_grant',

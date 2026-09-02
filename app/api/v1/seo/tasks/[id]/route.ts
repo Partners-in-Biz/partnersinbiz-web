@@ -6,6 +6,7 @@ import { lastActorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { ensureSeoBlockerHandoff, resolveSeoBlockerHandoff } from '@/lib/seo/blocker-handoff'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,7 @@ export const PATCH = withAuth(
     if (!canAccessOrg(user, data.orgId)) return apiError('Access denied', 403)
     const update: Record<string, unknown> = { ...lastActorFrom(user) }
     for (const k of ALLOWED) if (k in body) update[k] = body[k]
+    if ('clientVisibility' in body) Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
     await ref.update(update)
     if (body.status === 'blocked') {
       await ensureSeoBlockerHandoff({

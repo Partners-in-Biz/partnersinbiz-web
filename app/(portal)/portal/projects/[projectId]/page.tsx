@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { ProjectDetailWorkspace } from '@/components/projects/ProjectDetailWorkspace'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 import { scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function ProjectDetailPage() {
@@ -13,11 +14,19 @@ export default function ProjectDetailPage() {
   const deepLinkedTaskId = searchParams.get('taskId') ?? searchParams.get('task')
 
   return (
-    <ProjectDetailWorkspace
-      mode="portal"
-      orgScope={orgScope}
-      projectId={projectId}
-      deepLinkedTaskId={deepLinkedTaskId}
-    />
+    <>
+      <CompanyWorkRecordControls
+        className="mb-4"
+        module="projects"
+        recordId={projectId}
+        orgId={orgScope.orgId}
+      />
+      <ProjectDetailWorkspace
+        mode="portal"
+        orgScope={orgScope}
+        projectId={projectId}
+        deepLinkedTaskId={deepLinkedTaskId}
+      />
+    </>
   )
 }

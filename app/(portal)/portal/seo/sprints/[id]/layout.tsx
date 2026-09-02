@@ -13,6 +13,8 @@ type SeoSprintRecord = {
   siteUrl?: string
   currentDay?: number | string
   currentPhase?: number | string
+  companyId?: string
+  clientVisibility?: string
 }
 
 type StatusRecord = {
@@ -48,8 +50,10 @@ export default async function PortalSprintLayout({
     orgId: user.orgId,
     role: 'client',
   }
+  let accessMode: 'owner' | 'projected' = 'owner'
   try {
-    await requireSprintAccess(id, apiUser, { action: 'view' })
+    const access = await requireSprintAccess(id, apiUser, { action: 'view' })
+    accessMode = access.accessMode
   } catch {
     notFound()
   }
@@ -78,7 +82,10 @@ export default async function PortalSprintLayout({
         siteUrl: sprint.siteUrl,
         currentDay: safeNumber(sprint.currentDay),
         currentPhase: safeNumber(sprint.currentPhase),
+        companyId: typeof sprint.companyId === 'string' ? sprint.companyId : undefined,
+        clientVisibility: sprint.clientVisibility === 'private' ? 'private' : 'shared',
       }}
+      accessMode={accessMode}
       tasksCount={tasks.length}
       doneTasks={doneTasks}
       rankingKeywords={rankingKeywords}

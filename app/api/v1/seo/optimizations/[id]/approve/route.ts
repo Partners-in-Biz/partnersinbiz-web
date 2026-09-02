@@ -7,6 +7,7 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
 import { proposeHypotheses } from '@/lib/seo/loops/hypotheses'
 import type { ApiUser } from '@/lib/api/types'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,7 @@ export const POST = withAuth(
         parentOptimizationId: id,
         createdAt: FieldValue.serverTimestamp(),
         deleted: false,
+        ...inheritSprintCompanyFields(opt),
         ...actorFrom(user),
       })
       taskIds.push(taskRef.id)

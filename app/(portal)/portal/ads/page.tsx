@@ -5,6 +5,7 @@ import { summarizeAdConnections } from '@/lib/ads/provider-display'
 import { AdCampaignsWorkspace } from '@/components/ads/AdCampaignsWorkspace'
 import { BulkApproveButton } from '@/components/ads/BulkApproveButton'
 import { FeatureGate } from '@/components/paywall/FeatureGate'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import {
   resolvePortalAdsUser,
   scopedPortalHref,
@@ -33,13 +34,25 @@ export default async function PortalAdsListPage({
   }
 
   const [campaigns, connections] = await Promise.all([
-    listCampaigns({ orgId: user.orgId }),
+    listCampaigns({
+      orgId: user.orgId,
+      owner: {
+        owner: scope.sourceCompanyId ? 'company' : 'org',
+        companyId: scope.sourceCompanyId,
+      },
+    }),
     listConnections({ orgId: user.orgId }),
   ])
   const awaiting = campaigns.filter((c) => c.reviewState === 'awaiting')
 
   return (
     <FeatureGate feature="ads">
+      <SharedWithUsSection
+        module="ads"
+        orgId={scope.orgId || undefined}
+        companyId={scope.sourceCompanyId}
+        hrefForRecord={(record) => scopedPortalHref(`/portal/ads/campaigns/${record.id}`, scope)}
+      />
       <AdCampaignsWorkspace
         surface="portal"
         title=""

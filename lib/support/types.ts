@@ -56,6 +56,9 @@ export interface SupportTicket {
   sourcePath?: string
   contextRefs?: ContextReference[]
   companyId?: string | null
+  workOwner?: 'org' | 'company' | 'personal'
+  marketingOwner?: 'org' | 'company' | 'personal'
+  clientVisibility?: 'shared' | 'private'
   contactId?: string | null
   clientOrgId?: string | null
   projectId?: string | null

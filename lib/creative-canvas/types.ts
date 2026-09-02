@@ -207,6 +207,10 @@ export interface CreativeCanvas {
   deleted: boolean
   shareToken?: string
   shareEnabled?: boolean
+  companyId?: string
+  workOwner?: 'org' | 'company' | 'personal'
+  marketingOwner?: 'org' | 'company' | 'personal'
+  clientVisibility?: 'shared' | 'private'
   nodes: CreativeCanvasNode[]
   edges: CreativeCanvasEdge[]
 }

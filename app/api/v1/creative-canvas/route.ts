@@ -12,6 +12,12 @@ import {
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 import { getConversation, messagesCollection } from '@/lib/conversations/conversations'
 import { claimStudioArtifactOrigin, completeStudioArtifactOrigin, releaseStudioArtifactOrigin, StudioArtifactOriginError, validateStudioArtifactOrigin } from '@/lib/chat-context/originStore'
+import {
+  clientVisibilityFieldsForWrite,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +37,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
-  const canvases = await listCreativeCanvases(orgId)
+  const canvases = await listCreativeCanvases(orgId, resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid))
   return apiSuccess({ canvases })
 })
 
@@ -42,6 +48,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const body = await req.json().catch(() => null)
   if (!body) return apiError('Malformed JSON body', 400)
   const raw = body as Record<string, unknown>
+  const scopeFields = {
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body: raw, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(raw.clientVisibility),
+  }
   let origin
   let reservedArtifactId: string | undefined
   let claimNonce: string | undefined
@@ -78,8 +88,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   let canvas
   try {
     canvas = origin && reservedArtifactId
-      ? await createCreativeCanvasAtId(body, orgId, actorFromUser(user), reservedArtifactId)
-      : await createCreativeCanvas(body, orgId, actorFromUser(user))
+      ? await createCreativeCanvasAtId(body, orgId, actorFromUser(user), reservedArtifactId, scopeFields)
+      : await createCreativeCanvas(body, orgId, actorFromUser(user), scopeFields)
   } catch (error) {
     if (origin) await releaseStudioArtifactOrigin('marketing_studio', orgId, origin, claimNonce)
     throw error

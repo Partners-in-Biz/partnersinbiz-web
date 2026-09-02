@@ -31,6 +31,7 @@ import {
   autoLinkProjectToConversationComputer,
   conversationIdFromProjectCreateBody,
 } from '@/lib/project-locations/auto-link-conversation-computer'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite } from '@/lib/work-scope'
 
 const VALID_STATUSES = [
   'discovery',
@@ -405,6 +406,13 @@ export async function handleProjectCreate(
   if (trustedSetup && !validTrustedProjectCreateOptions(trustedSetup)) {
     return apiError('Project setup resource identity is invalid', 500)
   }
+  // Work-scope company from the query (portal scoped routing) — stamps the
+  // project without forcing the CRM claimable-share flow.
+  const requestParams = new URL(req.url).searchParams
+  const scopedCompanyId = cleanString(body.companyId)
+    || cleanString(body.sourceCompanyId)
+    || cleanString(requestParams.get('companyId'))
+    || cleanString(requestParams.get('sourceCompanyId'))
   const normalizedLinks = normalizeProjectLinks(pickProjectLinkFields(body))
   if (normalizedLinks.ok === false) return apiError(normalizedLinks.error, 400)
   Object.assign(body, normalizedLinks.value)
@@ -495,9 +503,9 @@ export async function handleProjectCreate(
 
   const finalLinks = normalizeProjectLinks({
     ...normalizedLinks.value,
-    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.sourceCompanyId,
+    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.sourceCompanyId || scopedCompanyId || undefined,
     sourceContactId: crmTarget?.contactId || normalizedLinks.value.sourceContactId,
-    companyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.companyId,
+    companyId: crmTarget?.companyId || platformCompany?.companyId || normalizedLinks.value.companyId || scopedCompanyId || undefined,
     contactId: crmTarget?.contactId || normalizedLinks.value.contactId,
     recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || normalizedLinks.value.recipientOrgId,
     clientOrgId: crmTarget?.recipientOrgId || recipientOrgId || normalizedLinks.value.clientOrgId,
@@ -537,9 +545,9 @@ export async function handleProjectCreate(
     },
     startDate: FieldValue.serverTimestamp(),
     targetDate: body.targetDate ?? null,
-    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
+    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || scopedCompanyId || undefined,
     sourceContactId: crmTarget?.contactId || undefined,
-    companyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
+    companyId: crmTarget?.companyId || platformCompany?.companyId || scopedCompanyId || undefined,
     contactId: crmTarget?.contactId || undefined,
     recipientEmail: crmTarget?.recipientEmail || undefined,
     recipientName: crmTarget?.recipientName || undefined,
@@ -551,6 +559,8 @@ export async function handleProjectCreate(
     claimStatus: claimableProject
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
       : recipientOrgId ? 'claimed' : undefined,
+    ...companyFieldsForWrite(crmTarget?.companyId || platformCompany?.companyId || scopedCompanyId),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     ...actorFrom(user),
     ...(trustedSetup ? {
       setupOperationId: trustedSetup.setupOperationId,

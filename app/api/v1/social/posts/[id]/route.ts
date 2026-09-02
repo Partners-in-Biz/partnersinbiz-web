@@ -30,6 +30,7 @@ import {
   upsertSocialQueueEntry,
 } from '@/lib/social/scheduling'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,6 +169,7 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
   if ('hashtags' in body) updates.hashtags = body.hashtags as string[]
   if ('media' in body) updates.media = body.media
   if ('accountIds' in body) updates.accountIds = body.accountIds
+  if ('clientVisibility' in body) Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
   if ('title' in body) {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
     if (!title) return apiError('title must be a non-empty string', 400)

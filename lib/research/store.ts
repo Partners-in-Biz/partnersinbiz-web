@@ -36,6 +36,7 @@ import {
   type DesignContextGatherPath,
   type DesignContextRecord,
 } from '@/lib/research/design-context'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite, recordCompanyId } from '@/lib/work-scope'
 
 export const RESEARCH_COLLECTION = 'research_items'
 
@@ -55,6 +56,9 @@ export type ResearchCreateInput = {
   findings?: FindingInput[]
   recommendations?: RecommendationInput[]
   designContext?: unknown
+  /** Company work scope; falls back to linked.companyId. */
+  companyId?: string
+  clientVisibility?: unknown
   user: ApiUser
 }
 
@@ -218,6 +222,7 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
   const now = FieldValue.serverTimestamp()
   const created = actorFrom(input.user)
   const updated = lastActorFrom(input.user)
+  const linkedValue = linked(input.linked)
   await ref.set({
     orgId: input.orgId,
     title,
@@ -228,7 +233,9 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
     summary: input.summary?.trim() ?? '',
     notesMarkdown: input.notesMarkdown?.trim() ?? '',
     tags: strings(input.tags),
-    linked: linked(input.linked),
+    linked: linkedValue,
+    ...companyFieldsForWrite(input.companyId?.trim() || linkedValue.companyId),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     findings: normalizeFindings(input.findings),
     recommendations: normalizeRecommendations(input.recommendations),
     ...(input.designContext !== undefined && input.designContext !== null
@@ -281,7 +288,9 @@ export async function listResearchItems(filters: ResearchListFilters): Promise<R
     .filter((item) => {
       if (!filters.companyId) return true
       const wanted = filters.companyId.trim()
-      return item.linked?.companyId === wanted || Boolean(item.linked?.companyIds?.includes(wanted))
+      return recordCompanyId(item as { companyId?: unknown }) === wanted
+        || item.linked?.companyId === wanted
+        || Boolean(item.linked?.companyIds?.includes(wanted))
     })
     .filter((item) => {
       if (!q) return true
@@ -324,6 +333,7 @@ export async function updateResearchItem(id: string, input: ResearchUpdateInput,
   if (typeof input.notesMarkdown === 'string') updates.notesMarkdown = input.notesMarkdown.trim()
   if (Array.isArray(input.tags)) updates.tags = strings(input.tags)
   if (input.linked !== undefined) updates.linked = linked(input.linked)
+  if (input.clientVisibility !== undefined) Object.assign(updates, clientVisibilityFieldsForWrite(input.clientVisibility))
   if (Array.isArray(input.findings)) updates.findings = normalizeFindings(input.findings)
   if (Array.isArray(input.recommendations)) updates.recommendations = normalizeRecommendations(input.recommendations)
   if (input.designContext !== undefined) {

@@ -7,6 +7,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { uploadMediaToStorage } from '@/lib/social/storage'
 import { probeSocialMediaMetadata } from '@/lib/social/media-metadata'
 import type { MediaType, MediaStatus } from '@/lib/social/providers'
+import { resolveWorkScopeFromRequest, workScopeFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +88,11 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
       altText,
       storagePath,
       usedInPosts: [],
+      ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({
+        searchParams: new URL(req.url).searchParams,
+        body: { companyId: formData.get('companyId'), sourceCompanyId: formData.get('sourceCompanyId'), scope: formData.get('scope') },
+        uid: user.uid,
+      })),
       uploadedBy: user.uid,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

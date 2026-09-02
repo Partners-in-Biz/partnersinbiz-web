@@ -35,6 +35,7 @@ import {
   recordVisibleForOwner,
   resolveMarketingOwnerFromSearchParams,
 } from '@/lib/social/account-scope'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -320,6 +321,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     platforms,
     accountIds,
     ...ownerFieldsForWrite(personalScope ? { owner: 'personal', uid: user.uid } : owner),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     status,
     scheduledAt,
     scheduledFor: scheduledAt,

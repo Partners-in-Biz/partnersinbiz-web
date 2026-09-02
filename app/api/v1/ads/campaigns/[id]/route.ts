@@ -25,6 +25,7 @@ import {
   approvalOverrideErrorMessage,
   requireApprovedCampaignForAdsAction,
 } from '@/lib/ads/approval-gates'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const GET = withAuth(
   'admin',
@@ -78,6 +79,7 @@ export const PATCH = withAuth(
     const patch = (await req.json()) as UpdateAdCampaignInput
     const approvalOverridePath = findUntrustedApprovalOverride(patch)
     if (approvalOverridePath) return apiError(approvalOverrideErrorMessage(approvalOverridePath), 400)
+    if ('clientVisibility' in patch) Object.assign(patch, clientVisibilityFieldsForWrite(patch.clientVisibility))
     await updateCampaign(id, patch)
 
     const warnings: string[] = []

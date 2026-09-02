@@ -41,10 +41,58 @@ Social **accounts** keep `accountVisibleForWorkspace` (org view does not leak co
 `ensurePlatformCompanyForOrg` mints `partnerLinkId` + `company_workspace` grants
 (PiB → client modules on; client → PiB modules off by default).
 
+## Write-back (comment / approve)
+
+Linked-org users never edit serving-org records. Two verbs only, via
+`lib/company-work/write-back.ts` and
+`POST /api/v1/company-work/shared/[module]/[id]/{comments,approve}`:
+
+- Comments land in the serving org's `comments` collection with
+  `resourceType: 'company_work'`, `authorOrgId` = viewer org, and bump
+  `clientCommentCount` / `clientLastCommentAt` on the record.
+- Approvals write a `clientApproval` envelope (`approved` | `changes_requested`,
+  `byOrgId`, `byUid`, `note`, `at`) plus `clientApprovalHistory[]`. The serving
+  org's own `approvalState` / `status` fields are never touched — the client
+  signal is advisory until the serving org acts on it.
+- Both are gated by `decideSharedAction` (grant `actions[]` + live PartnerLink)
+  and are refused for `clientVisibility: 'private'` records.
+
+## Per-record visibility (serving org side)
+
+`clientVisibility` is toggled only by the owning org through
+`GET/PATCH /api/v1/portal/company-work/[module]/[id]/visibility`
+(`withPortalAuthAndRole('member')`; `MODULE_COLLECTIONS` maps module → collection;
+a non-owner gets 403). `CompanyWorkRecordControls` mounts this on record detail
+pages (SEO sprint, project, research, campaign, ad campaign) and renders nothing
+for org-scoped records. Portal client users cannot call `withAuth('admin')`
+routes, which is why this lives under `/api/v1/portal/`.
+
 ## Migration
 
 `lib/cross-org/migration.ts` plans `backfill_company_workspace_grant` dry-run first.
 Unset `clientVisibility` needs no write (defaults to shared).
+
+`scripts/backfill-company-workspace-grants.ts` hydrates linked CRM companies,
+active PartnerLinks, existing `company_workspace` grants and
+`businessRelationships` from Firestore, runs the pure planner, writes evidence
+under `tmp/company-workspace-backfill/`, and only writes with `--commit`.
+
+Planner rules added for the backfill:
+
+- Reciprocal linked pairs (A has a company linked to B **and** B has a company
+  linked to A) that predate canonical links get a deterministic
+  `PartnerLink` `cw-link:<orgA>:<orgB>` plus two `partnerScopeAgreements`;
+  `partnerLinkId` is stamped on both companies.
+- One-directional linked companies are skipped and reported, never minted.
+- An explicit (even empty) `sharedCapabilities` list on the relationship row is
+  honoured; only an undefined list falls back to the default module set.
+- PiB → client rows carry CRM-era capability lists that predate marketing
+  modules; the script unions them with the workspace defaults (serving org's
+  work on the client is shared by default). Client → PiB and partner ↔ partner
+  rows are taken as-is.
+
+Applied 2026-09-02: 41 links minted, 86 grants created (0 destructive ops),
+re-run is all `noop`. One skip (Gundemy company on PiB with no reciprocal row).
 
 ## Out of scope
 

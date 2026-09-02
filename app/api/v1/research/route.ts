@@ -11,6 +11,7 @@ import {
 } from '@/lib/research/store'
 import { filterOwnedRowsForActor } from '@/lib/orgMembers/record-scope'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { resolveWorkScopeFromRequest } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,10 +47,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   if (!title) return apiError('title is required', 400)
+  const workScope = resolveWorkScopeFromRequest({
+    searchParams: req.nextUrl.searchParams,
+    body: body as Record<string, unknown>,
+    uid: user.uid,
+  })
 
   try {
     const created = await createResearchItem({
       orgId: scope.orgId,
+      companyId: workScope.owner === 'company' ? workScope.companyId : undefined,
+      clientVisibility: body.clientVisibility,
       title,
       kind: body.kind,
       status: body.status,

@@ -47,16 +47,19 @@ export type SharedRecordProjection = {
 const MODULE_COLLECTIONS: Partial<Record<SharedBusinessCapability, string>> = {
   seo: 'seo_sprints',
   ads: 'ad_campaigns',
-  campaigns: 'content_campaigns',
+  // Content + email campaigns share one collection (kind discriminates).
+  campaigns: 'campaigns',
   social: 'social_posts',
   research: 'research_items',
   documents: 'client_documents',
   projects: 'projects',
   properties: 'properties',
   support: 'support_tickets',
-  services: 'service_workspaces',
-  analytics: 'analytics_reports',
-  email: 'email_campaigns',
+  services: 'serviceWorkspaces',
+  analytics: 'reports',
+  messages: 'conversations',
+  invoices: 'invoices',
+  email: 'broadcasts',
 }
 
 function clean(value: unknown): string {
@@ -228,6 +231,55 @@ async function resolveServingCompanyIdsForViewerFilter(
   }
 
   return ids
+}
+
+export type SharedRecordHandle = {
+  grant: PartnerResourceGrant
+  partnerLinkId: string
+  servingOrgId: string
+  companyId: string
+  collection: string
+  record: Record<string, unknown>
+}
+
+/**
+ * Resolve one projected record for a viewer org. Returns null when no active
+ * grant covers the module, the record does not belong to the granted company,
+ * or the serving org marked it private.
+ */
+export async function loadSharedRecord(input: {
+  viewerOrgId: string
+  module: SharedBusinessCapability
+  recordId: string
+}): Promise<SharedRecordHandle | null> {
+  const viewer = clean(input.viewerOrgId)
+  const recordId = clean(input.recordId)
+  const collection = MODULE_COLLECTIONS[input.module]
+  if (!viewer || !recordId || !collection) return null
+
+  const snap = await adminDb.collection(collection).doc(recordId).get()
+  if (!snap.exists) return null
+  const record = { id: snap.id, ...snap.data() } as Record<string, unknown>
+  if (record.deleted === true || isClientPrivate(record)) return null
+
+  const servingOrgId = clean(record.orgId)
+  const companyId = clean(record.companyId)
+  if (!servingOrgId || !companyId || servingOrgId === viewer) return null
+
+  const grants = await listActiveCompanyWorkspaceGrantsForGrantee(viewer)
+  const grant = grants.find((candidate) => (
+    grantIncludesModule(candidate, input.module)
+    && clean(candidate.ownerOrgId) === servingOrgId
+    && clean(candidate.resourceId) === companyId
+  ))
+  if (!grant) return null
+
+  const partnerLinkId = clean(grant.partnerLinkId)
+  if (!partnerLinkId) return null
+  const link = await loadActivePartnerLink(partnerLinkId)
+  if (!link) return null
+
+  return { grant, partnerLinkId, servingOrgId, companyId, collection, record }
 }
 
 /**

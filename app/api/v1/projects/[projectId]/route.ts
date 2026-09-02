@@ -22,6 +22,7 @@ import {
   type PlanningActionResult,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -212,6 +213,13 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   if (body.sharedFolder !== undefined) {
     updates.sharedFolder = body.sharedFolder === true
+  }
+
+  if (body.clientVisibility !== undefined) {
+    if (access.projectAccess?.canViewInternal !== true) {
+      return apiError('Project owner-organisation access required to change client visibility', 403)
+    }
+    Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
   }
 
   if (body.projectFolderMode !== undefined) {

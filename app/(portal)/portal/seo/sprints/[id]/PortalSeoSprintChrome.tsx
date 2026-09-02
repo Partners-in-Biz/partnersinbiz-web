@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
 const TABS = [
   { key: 'progress', label: 'Progress', icon: 'stacked_line_chart', href: '' },
@@ -22,11 +23,15 @@ type PortalSeoSprintChromeSprint = {
   siteUrl?: string
   currentDay?: number
   currentPhase?: number
+  companyId?: string
+  clientVisibility?: 'shared' | 'private'
 }
 
 type PortalSeoSprintChromeProps = {
   id: string
   sprint: PortalSeoSprintChromeSprint
+  /** owner = the viewer's org owns the sprint; projected = shared in via a partner link. */
+  accessMode?: 'owner' | 'projected'
   tasksCount: number
   doneTasks: number
   rankingKeywords: number
@@ -39,6 +44,7 @@ type PortalSeoSprintChromeProps = {
 export function PortalSeoSprintChrome({
   id,
   sprint,
+  accessMode = 'owner',
   tasksCount,
   doneTasks,
   rankingKeywords,
@@ -76,6 +82,20 @@ export function PortalSeoSprintChrome({
               <p className="text-sm font-medium mt-2">
                 {phase === 4 ? `Compounding - Day ${day}` : `Day ${day} of 90`} - {PHASE_LABELS[phase] ?? 'Active sprint'}
               </p>
+              {accessMode === 'projected' ? (
+                <span className="mt-2 inline-flex items-center rounded-full bg-[var(--color-accent-v2)]/15 px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                  Shared with you by a partner organisation — view, comment and approve only
+                </span>
+              ) : sprint.companyId ? (
+                <CompanyWorkRecordControls
+                  className="mt-2"
+                  companyId={sprint.companyId}
+                  clientVisibility={sprint.clientVisibility}
+                  module="seo"
+                  recordId={id}
+                  orgId={scope.orgId}
+                />
+              ) : null}
             </div>
             <div className="grid grid-cols-3 gap-2 min-w-[240px]">
               <MiniStat label="Tasks" value={`${doneTasks}/${tasksCount}`} />

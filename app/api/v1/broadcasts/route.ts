@@ -19,6 +19,13 @@ import {
   type BroadcastStatus,
 } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +49,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const limit = limitParam
     ? Math.max(1, Math.min(500, parseInt(limitParam, 10) || 100))
     : 200
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('broadcasts').where('orgId', '==', orgId)
@@ -55,6 +63,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     .map((d: any) => ({ id: d.id, ...d.data() }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((b: any) => b.deleted !== true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((b: any) => recordVisibleForWorkScope(b, workScope))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .sort((a: any, b: any) => {
       const ax = a.createdAt?.toMillis?.() ?? 0
@@ -128,6 +138,8 @@ export const POST = withAuth(
 
     const ref = await adminDb.collection('broadcasts').add({
       ...doc,
+      ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })

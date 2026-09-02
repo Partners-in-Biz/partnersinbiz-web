@@ -58,6 +58,7 @@ import {
 } from '@/lib/messages/bot-computer-isolation'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
+import { recordVisibleForWorkScope, resolveWorkScopeFromSearchParams } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -572,6 +573,7 @@ export const POST = withAuth(
       scopeRefId: convScope === 'workspace' ? boundWorkspaceContext?.workspaceId ?? scopeRefId : scopeRefId,
       ...(boundWorkspaceContext ? { workspaceContext: boundWorkspaceContext } : {}),
       contextRefs,
+      ...(companyId ? { companyId } : {}),
     })
 
     // First project chat becomes the command session when the project has none yet
@@ -638,9 +640,18 @@ const listConversationsHandler = withAuth(
       projectId,
       includeAllScopes,
     })
+    const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
+    const scoped = workScope.owner === 'company'
+      ? conversations.filter((conversation) => {
+          const row = conversation as Conversation & { companyId?: unknown }
+          return recordVisibleForWorkScope(row, workScope)
+            || row.workspaceContext?.companyId === workScope.companyId
+            || (row.scope === 'company' && row.scopeRefId === workScope.companyId)
+        })
+      : conversations
 
     return apiSuccess({
-      conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
+      conversations: scoped.map((conversation) => publicConversationView(conversation, user.uid)),
     })
   },
 )

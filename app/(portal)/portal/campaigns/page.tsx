@@ -10,6 +10,7 @@ import {
   type CampaignWorkspaceRecord,
 } from '@/components/campaigns/CampaignsWorkspace'
 import { CampaignRequestPanel } from '@/components/campaigns/CampaignRequestPanel'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import type { Sequence } from '@/lib/sequences/types'
 import {
   resolvePortalCampaignUser,
@@ -183,6 +184,13 @@ export default async function PortalCampaignsIndex({
   } as CSSProperties
 
   return (
+    <>
+    <SharedWithUsSection
+      module="campaigns"
+      orgId={scope.orgId || undefined}
+      companyId={scope.sourceCompanyId}
+      hrefForRecord={(record) => scopedPortalHref(`/portal/campaigns/${record.id}`, scope)}
+    />
     <CampaignsWorkspace
       surface="portal"
       eyebrow="Client portal"
@@ -212,5 +220,6 @@ export default async function PortalCampaignsIndex({
         ad: (campaign) => scopedPortalHref(`/portal/ads/campaigns/${campaign.id}`, scope),
       }}
     />
+    </>
   )
 }

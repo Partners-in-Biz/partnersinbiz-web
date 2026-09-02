@@ -2,7 +2,8 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import type { AdCampaign, CreateAdCampaignInput, UpdateAdCampaignInput } from '@/lib/ads/types'
-import { recordVisibleForOwner, type MarketingOwnerContext } from '@/lib/social/account-scope'
+import { recordVisibleForOwner, ownerFieldsForWrite, type MarketingOwnerContext } from '@/lib/social/account-scope'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 import crypto from 'crypto'
 
 const COLLECTION = 'ad_campaigns'
@@ -26,9 +27,8 @@ export async function createCampaign(args: {
     createdBy: args.createdBy,
     createdAt: now,
     updatedAt: now,
-    ...(args.owner?.owner === 'company' && args.owner.companyId
-      ? { marketingOwner: 'company', companyId: args.owner.companyId }
-      : { marketingOwner: 'org' }),
+    ...(ownerFieldsForWrite(args.owner ?? { owner: 'org' }) as Pick<AdCampaign, 'marketingOwner' | 'workOwner' | 'companyId'>),
+    ...(clientVisibilityFieldsForWrite(args.input.clientVisibility) as Pick<AdCampaign, 'clientVisibility'>),
   }
 
   await adminDb.collection(COLLECTION).doc(id).set(doc)

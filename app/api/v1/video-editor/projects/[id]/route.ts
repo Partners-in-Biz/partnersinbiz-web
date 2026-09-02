@@ -11,6 +11,7 @@ import {
 import { VIDEO_EDITOR_COLLECTIONS, validateTimelineMediaRefs } from '@/lib/video-editor/api'
 import { sanitizeVideoEditorProjectInput, serializeVideoEditorRecord, validateEditorTimeline } from '@/lib/video-editor/sanitize'
 import type { VideoEditorProject } from '@/lib/video-editor/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user, context) =>
 
   await loaded.ref.set(stripUndefinedDeep({
     ...data,
+    ...('clientVisibility' in body ? clientVisibilityFieldsForWrite(body.clientVisibility) : {}),
     deleted: loaded.data.deleted === true,
     ...updateActorFields(user),
   }), { merge: true })

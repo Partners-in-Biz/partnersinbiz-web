@@ -58,11 +58,15 @@ export async function requireSprintAccess(
 }
 
 /** Stamp child SEO records with the sprint's company scope. */
+/**
+ * Child records inherit the sprint's company scope only. clientVisibility is
+ * per-record (unset = shared) so a private sprint can still surface a
+ * shared child and vice versa.
+ */
 export function inheritSprintCompanyFields(sprint: {
   companyId?: unknown
   marketingOwner?: unknown
   workOwner?: unknown
-  clientVisibility?: unknown
 }): Record<string, unknown> {
   const companyId = clean(sprint.companyId)
   const out: Record<string, unknown> = {}
@@ -70,9 +74,6 @@ export function inheritSprintCompanyFields(sprint: {
     out.companyId = companyId
     out.workOwner = 'company'
     out.marketingOwner = 'company'
-  }
-  if (sprint.clientVisibility === 'private' || sprint.clientVisibility === 'shared') {
-    out.clientVisibility = sprint.clientVisibility
   }
   return out
 }

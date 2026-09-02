@@ -43,6 +43,7 @@ import {
   shouldExposeIssuerBillingBook,
 } from '@/lib/billing/member-issuer'
 import { resolvePibStaffIssuerRemap } from '@/lib/billing/staff-issuer-remap'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite, recordCompanyId } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -387,12 +388,16 @@ export const GET = withAuth('client', async (req, user) => {
     return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
   }
 
+  const companyIdFilter = cleanString(searchParams.get('companyId')) || cleanString(searchParams.get('sourceCompanyId'))
   const snapshot = await query.get()
   let invoices = snapshot.docs
     .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
     .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice[orgField] ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+    .filter((invoice) => !companyIdFilter
+      || recordCompanyId(invoice as { companyId?: unknown }) === companyIdFilter
+      || cleanString(invoice.sourceCompanyId) === companyIdFilter)
 
   invoices = invoices
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
@@ -403,6 +408,13 @@ export const GET = withAuth('client', async (req, user) => {
 
 export const POST = withAuth('client', async (req, user) => {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
+  if (!cleanString(body.companyId)) {
+    const requestParams = new URL(req.url).searchParams
+    const scopedCompanyId = cleanString(body.sourceCompanyId)
+      || cleanString(requestParams.get('companyId'))
+      || cleanString(requestParams.get('sourceCompanyId'))
+    if (scopedCompanyId) body.companyId = scopedCompanyId
+  }
   const requestedOrgId = cleanString(body.orgId)
   const rawLineItems = Array.isArray(body.lineItems) ? body.lineItems : []
   if (!requestedOrgId) return apiError('orgId is required', 400)
@@ -575,6 +587,8 @@ export const POST = withAuth('client', async (req, user) => {
     claimStatus: claimableInvoice
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
       : recipientOrgId ? 'claimed' : undefined,
+    ...companyFieldsForWrite(crmTarget?.companyId || platformCompany?.companyId),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     ...actorFrom(user),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

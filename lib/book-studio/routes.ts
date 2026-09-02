@@ -7,6 +7,29 @@ import { findBookStudioRuntimeDispatchFields } from './hermes'
 import { findLifecycleStateWriteAttempt } from './lifecycle'
 import { BOOK_STUDIO_RESOURCES, BookStudioValidationError, bookStudioPatchDeletes, sanitizeBookStudioRecordInput, sanitizeBookStudioRecordPatch, serializeBookStudioRecord } from './sanitize'
 import type { BookStudioResourceKey } from './types'
+import {
+  clientVisibilityFieldsForWrite,
+  companyFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
+
+async function bookStudioScopeFields(
+  resource: BookStudioResourceKey,
+  body: Record<string, unknown>,
+  data: Record<string, unknown>,
+  req: Request,
+  uid: string,
+): Promise<Record<string, unknown>> {
+  if (resource !== 'projects' && typeof data.projectId === 'string' && data.projectId) {
+    const project = await adminDb.collection(collectionFor('projects')).doc(data.projectId).get()
+    const projectData = project.exists ? project.data() ?? {} : {}
+    return projectData.companyId ? companyFieldsForWrite(projectData.companyId) : {}
+  }
+  return workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid }))
+}
 
 export function isBookStudioResourceKey(value: string): value is BookStudioResourceKey {
   return Object.prototype.hasOwnProperty.call(BOOK_STUDIO_RESOURCES, value)
@@ -39,8 +62,10 @@ export function createBookStudioResourceHandlers(resource: BookStudioResourceKey
     const access = await ensureBookStudioAccess(req, user)
     if (access.error) return access.error
 
+    const workScope = resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid)
     const snap = await adminDb.collection(collectionName).where('orgId', '==', access.orgId).get()
     const records = snap.docs
+      .filter((doc) => recordVisibleForWorkScope(doc.data() as Record<string, unknown>, workScope))
       .map((doc) => serializeBookStudioRecord(doc.id, doc.data()))
       .filter((record) => record.deleted !== true)
 
@@ -74,6 +99,8 @@ export function createBookStudioResourceHandlers(resource: BookStudioResourceKey
 
     const ref = await adminDb.collection(collectionName).add({
       ...data,
+      ...(await bookStudioScopeFields(resource, body, data as Record<string, unknown>, req, user.uid)),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       ...actorFields(user),
     })
 
@@ -136,6 +163,7 @@ export function createBookStudioRecordHandlers() {
     // stale nested data from the previous value — unlike set(..., {merge:true}).
     await docRef.update({
       ...patch,
+      ...('clientVisibility' in body ? clientVisibilityFieldsForWrite(body.clientVisibility) : {}),
       ...bookStudioPatchDeletes(resource, body, () => FieldValue.delete()),
       ...updateActorFields(user),
     })

@@ -39,7 +39,14 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     approvalState: typeof (body as Record<string, unknown>).approvalState === 'string' ? (body as Record<string, unknown>).approvalState as string : undefined,
   })
   if (!guard.allowed) return apiSuccess({ approvalRequired: true, reason: guard.reason }, 202)
-  const serviceWorkspace = await createServiceWorkspace(ctx.orgId, body as Record<string, unknown>, ctx.actor)
+  const searchParams = new URL(req.url).searchParams
+  const input = body as Record<string, unknown>
+  const queryCompanyId = searchParams.get('companyId')?.trim() || searchParams.get('sourceCompanyId')?.trim()
+  if (typeof input.companyId !== 'string' || !input.companyId.trim()) {
+    if (typeof input.sourceCompanyId === 'string' && input.sourceCompanyId.trim()) input.companyId = input.sourceCompanyId.trim()
+    else if (queryCompanyId) input.companyId = queryCompanyId
+  }
+  const serviceWorkspace = await createServiceWorkspace(ctx.orgId, input, ctx.actor)
   return apiSuccess({ serviceWorkspace }, 201)
 })
 

@@ -8,6 +8,7 @@ import {
 } from '@/components/campaign-cockpit/CampaignCockpitFrame'
 import { toPreviewBrand, type BrandColorsLike } from '@/lib/organizations/toPreviewBrand'
 import { PortalCampaignCockpitClient } from '@/components/campaign-cockpit/PortalCampaignCockpitClient'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 import {
   resolvePortalCampaignUser,
   scopedPortalHref,
@@ -57,6 +58,7 @@ export default async function PortalCampaignCockpitPage({
 
   return (
     <CampaignCockpitFrame brandColors={brandColors}>
+      <CompanyWorkRecordControls className="mb-4" module="campaigns" recordId={id} orgId={scope.orgId} />
       <PortalCampaignCockpitClient
         campaignId={id}
         campaign={campaign}

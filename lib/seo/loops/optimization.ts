@@ -5,6 +5,7 @@ import { proposeHypotheses } from './hypotheses'
 import type { SprintStatus } from '@/lib/seo/types'
 import type { ApiUser } from '@/lib/api/types'
 import { ensureSeoOptimizationAgentHandoff } from '@/lib/seo/blocker-handoff'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 // Auto-register all detectors
 import './detectors/register'
 
@@ -64,6 +65,7 @@ export async function runOptimizationLoopForSprint(
       generatedTaskIds: [],
       status: 'proposed',
       deleted: false,
+      ...inheritSprintCompanyFields(sprint),
       createdAt: FieldValue.serverTimestamp(),
     })
     optimizationIds.push(optimizationRef.id)

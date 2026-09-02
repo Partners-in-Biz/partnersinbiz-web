@@ -6,6 +6,8 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +53,8 @@ export const POST = withAuth(
       pillarId: typeof body.pillarId === 'string' ? body.pillarId : null,
       createdAt: FieldValue.serverTimestamp(),
       deleted: false,
+      ...inheritSprintCompanyFields(sprint),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       ...actorFrom(user),
     })
     return apiSuccess({ id: ref.id }, 201)

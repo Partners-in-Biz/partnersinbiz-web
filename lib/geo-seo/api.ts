@@ -9,6 +9,7 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
+import { clientVisibilityFieldsForWrite, resolveWorkScopeFromRequest, workScopeFieldsForWrite } from '@/lib/work-scope'
 
 export type GeoSeoCollectionConfig = {
   collection: string
@@ -61,6 +62,9 @@ function createdAtMillis(value: unknown): number {
   }
   return 0
 }
+
+/** High-risk agent tasks must carry a verifier checklist (lib/projects/taskPayload). */
+const GEO_TASK_VERIFIER_CHECKLIST = ['GEO record updated with resolution', 'Evidence link attached', 'Completion note recorded']
 
 async function parseBody(req: NextRequest): Promise<Record<string, unknown>> {
   let body: unknown = {}
@@ -366,6 +370,9 @@ async function validateProjectTaskHandoff(args: {
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
       ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
       : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
+    verifierChecklist: cleanStringList(fieldFrom(taskInput, 'verifierChecklist')).length
+      ? cleanStringList(fieldFrom(taskInput, 'verifierChecklist'))
+      : GEO_TASK_VERIFIER_CHECKLIST,
     ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
     agentInput: {
       ...existingAgentInput,
@@ -437,6 +444,9 @@ async function createLinkedProjectTask(args: {
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
       ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
       : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
+    verifierChecklist: cleanStringList(fieldFrom(taskInput, 'verifierChecklist')).length
+      ? cleanStringList(fieldFrom(taskInput, 'verifierChecklist'))
+      : GEO_TASK_VERIFIER_CHECKLIST,
     ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
     agentInput: {
       ...existingAgentInput,
@@ -533,7 +543,11 @@ export function createGeoSeoCollectionHandlers(config: GeoSeoCollectionConfig) {
     const missing = validateRequired(body, config.required)
     if (missing) return apiError(missing, 400)
 
-    const payload = payloadFor(config, body)
+    const payload = {
+      ...payloadFor(config, body),
+      ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
+    }
     const workspace = config.collection === 'geo_findings' ? await workspaceFor(body, org.orgId) : null
     const collection = adminDb.collection(config.collection)
     let ref: FirebaseFirestore.DocumentReference
@@ -611,6 +625,7 @@ export function createGeoSeoItemHandlers(config: GeoSeoCollectionConfig) {
     const patch = payloadFor(config, body)
     await ref.update({
       ...patch,
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       orgId: org.orgId,
       ...lastActorFrom(user),
     })

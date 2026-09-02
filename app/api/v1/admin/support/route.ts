@@ -6,7 +6,9 @@ import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser) => {
-  const tickets = await listAdminSupportTickets(user.allowedOrgIds)
+export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
+  const { searchParams } = new URL(req.url)
+  const companyId = searchParams.get('companyId')?.trim() || searchParams.get('sourceCompanyId')?.trim() || undefined
+  const tickets = await listAdminSupportTickets(user.allowedOrgIds, companyId)
   return apiSuccess(tickets)
 })

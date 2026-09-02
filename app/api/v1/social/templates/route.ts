@@ -7,6 +7,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,14 +30,17 @@ function extractVariables(body: string): string[] {
   return Array.from(found)
 }
 
-export const GET = withAuth('client', withTenant(async (_req, _user, orgId) => {
+export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
+  const scope = resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid)
   const snapshot = await adminDb
     .collection('social_templates')
     .where('orgId', '==', orgId)
     .get()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const templates = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  const templates = snapshot.docs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+    .filter((t: Record<string, unknown>) => recordVisibleForWorkScope(t, scope))
 
   // Sort newest first in-code to avoid composite index requirements.
   templates.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -82,6 +92,8 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     category: typeof body.category === 'string' && body.category.trim() ? body.category.trim() : 'general',
     variables,
     usageCount: 0,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

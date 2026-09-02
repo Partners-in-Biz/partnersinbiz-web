@@ -27,6 +27,7 @@ import {
   appendConversationRealtimeOutboxEvent,
   realtimeOutboxEnabled,
 } from '@/lib/realtime/outbox'
+import { companyFieldsForWrite } from '@/lib/work-scope'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
 
@@ -59,6 +60,8 @@ export async function createConversation(input: {
   scopeRefId?: string
   workspaceContext?: ConversationWorkspaceContext | null
   contextRefs?: ContextReference[]
+  /** Company work scope (CRM company this conversation is about). */
+  companyId?: string
 }): Promise<Conversation> {
   const ref = adminDb.collection(CONVERSATIONS_COLLECTION).doc()
 
@@ -93,6 +96,8 @@ export async function createConversation(input: {
   if (input.scopeRefId) data.scopeRefId = input.scopeRefId
   if (input.workspaceContext) data.workspaceContext = input.workspaceContext
   if (input.contextRefs?.length) data.contextRefs = input.contextRefs
+  const scopedCompanyId = input.companyId?.trim() || input.workspaceContext?.companyId?.trim()
+  if (scopedCompanyId) Object.assign(data, companyFieldsForWrite(scopedCompanyId))
 
   if (realtimeOutboxEnabled()) {
     await adminDb.runTransaction(async (transaction) => {

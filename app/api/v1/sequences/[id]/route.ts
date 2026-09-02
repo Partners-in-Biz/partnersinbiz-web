@@ -11,6 +11,7 @@ import { mergeSequenceForActivationValidation, validateSequenceActivation } from
 import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 import { persistSequenceUpdateWithVersion } from '@/lib/sequences/workflow-version-store'
 import { sanitizeSequenceQuietHours } from '@/lib/sequences/quiet-hours'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +48,8 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
       return apiError(error instanceof Error ? error.message : 'Sequence activation is not authorised', 403)
     }
   }
-  const update: Partial<SequenceInput> = {}
+  const update: Partial<SequenceInput> & Record<string, unknown> = {}
+  if ('clientVisibility' in body) Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
   if (typeof body.name === 'string') update.name = body.name.trim()
   if (typeof body.description === 'string') update.description = body.description
   if (body.status === 'draft' || body.status === 'active' || body.status === 'paused' || body.status === 'archived') update.status = body.status

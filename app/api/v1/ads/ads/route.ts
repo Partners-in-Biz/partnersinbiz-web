@@ -12,8 +12,9 @@ import type { CreateAdInput, AdEntityStatus, AdPlatform } from '@/lib/ads/types'
 import type { RsaAssets } from '@/lib/ads/providers/google/ads'
 import type { RdaAssets } from '@/lib/ads/providers/google/display-types'
 import type { VideoAdAssets } from '@/lib/ads/providers/google/video-ads'
+import { companyFieldsForWrite, resolveWorkScopeFromSearchParams } from '@/lib/work-scope'
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const orgId = req.headers.get('X-Org-Id')
   if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
@@ -27,6 +28,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     status: status ?? undefined,
     adSetId: adSetId ?? undefined,
     campaignId: campaignId ?? undefined,
+    scope: resolveWorkScopeFromSearchParams(url.searchParams, (user as { uid?: string }).uid),
   })
 
   return apiSuccess(ads)
@@ -83,6 +85,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     orgId: ctx.orgId,
     input: body.input as CreateAdInput,
     platform,
+    scopeFields: companyFieldsForWrite(adSet.companyId),
   })
 
   if (platform === 'google') {

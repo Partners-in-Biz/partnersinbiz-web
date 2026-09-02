@@ -11,6 +11,13 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { validateRssAutomationInput } from '@/lib/email/rss-automation'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,10 +42,12 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
 
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
   const snap = await adminDb.collection('rss_automations').where('orgId', '==', scope.orgId).get()
   const data = (snap.docs as FirestoreDoc[])
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter((d) => (d as { deleted?: boolean }).deleted !== true)
+    .filter((d) => recordVisibleForWorkScope(d as Record<string, unknown>, workScope))
     .sort(
       (a, b) =>
         timestampMillis((b as { createdAt?: unknown }).createdAt) -
@@ -69,6 +78,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     lastRunAt: null,
     lastPostGuid: '',
     lastSentCount: 0,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     deleted: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

@@ -12,8 +12,9 @@ import { updateAdSet } from '@/lib/ads/adsets/store'
 import type { CreateAdSetInput, AdEntityStatus, AdPlatform } from '@/lib/ads/types'
 import type { LinkedinAdSetExtension } from '@/lib/ads/providers/linkedin/types'
 import type { TiktokOptimizationGoal } from '@/lib/ads/providers/tiktok/types'
+import { companyFieldsForWrite, resolveWorkScopeFromSearchParams } from '@/lib/work-scope'
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const orgId = req.headers.get('X-Org-Id')
   if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
@@ -25,6 +26,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     orgId,
     status: status ?? undefined,
     campaignId: campaignId ?? undefined,
+    scope: resolveWorkScopeFromSearchParams(url.searchParams, (user as { uid?: string }).uid),
   })
 
   return apiSuccess(adSets)
@@ -79,6 +81,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     orgId: ctx.orgId,
     input: body.input as CreateAdSetInput,
     platform,
+    scopeFields: companyFieldsForWrite(campaign.companyId),
   })
 
   if (platform === 'google') {

@@ -23,6 +23,7 @@ import {
 } from '@/lib/billing/member-issuer'
 import { resolvePibStaffIssuerRemap } from '@/lib/billing/staff-issuer-remap'
 import type { ApiUser } from '@/lib/api/types'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite, recordCompanyId } from '@/lib/work-scope'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -171,9 +172,14 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
     if (view === 'shared') quotes = quotes.filter((quote) => Boolean(quote.claimableRelationshipId))
   }
 
+  const companyIdFilter = cleanString(searchParams.get('companyId')) || cleanString(searchParams.get('sourceCompanyId'))
   quotes = (await filterBillingRecordsForCrmActor(
     ctx,
-    quotes.filter((quote) => quote.deleted !== true),
+    quotes
+      .filter((quote) => quote.deleted !== true)
+      .filter((quote) => !companyIdFilter
+        || recordCompanyId(quote) === companyIdFilter
+        || cleanString(quote.sourceCompanyId) === companyIdFilter),
   ))
     .sort((a, b) => createdAtMillis(b.createdAt ?? b.issueDate) - createdAtMillis(a.createdAt ?? a.issueDate))
     .slice(0, 50)
@@ -213,6 +219,13 @@ async function prefillFromDeal(dealId: string, orgId: string): Promise<LineItem[
 
 export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   const body = await req.json().catch(() => ({}))
+  if (!cleanString(body.companyId)) {
+    const requestParams = new URL(req.url).searchParams
+    const scopedCompanyId = cleanString(body.sourceCompanyId)
+      || cleanString(requestParams.get('companyId'))
+      || cleanString(requestParams.get('sourceCompanyId'))
+    if (scopedCompanyId) body.companyId = scopedCompanyId
+  }
   const platformOrgId = await resolvePlatformOwnerOrgId()
   const actorUser: ApiUser | null = ctx.user
     ? {
@@ -404,6 +417,8 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     sourceCompanyId: derivedCompanyId,
     sourceContactId: contactId,
     companyName: derivedCompanyName,
+    ...companyFieldsForWrite(derivedCompanyId),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
   }
 
   // Omit createdBy / updatedBy uid for agent calls

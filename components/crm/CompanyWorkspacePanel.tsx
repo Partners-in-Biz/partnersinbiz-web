@@ -397,14 +397,26 @@ export function CompanyWorkspacePanel({
                   : 'Run PiB operator work for this selected client org. Links stay inside the admin command surface with the slug scope visible in the URL.'}
               </p>
             </div>
-            <Link
-              href={dashboardHref}
-              aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
-              className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
-              Dashboard
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              {mode === 'portal' && companyId ? (
+                <Link
+                  href={`/portal/partners?companyId=${encodeURIComponent(companyId)}`}
+                  aria-label={`Manage what ${companyName} can see`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">tune</span>
+                  Manage sharing
+                </Link>
+              ) : null}
+              <Link
+                href={dashboardHref}
+                aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
+                className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
+                Dashboard
+              </Link>
+            </div>
           </div>
         </div>
         <ActionGrid companyName={companyName} actions={linkedActions} />

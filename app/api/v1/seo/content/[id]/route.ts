@@ -5,6 +5,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,7 @@ export const PATCH = withAuth(
     if (user.role !== 'ai' && data.orgId !== user.orgId) return apiError('Access denied', 403)
     const update: Record<string, unknown> = { ...lastActorFrom(user) }
     for (const k of ALLOWED) if (k in body) update[k] = body[k]
+    if ('clientVisibility' in body) Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
     await ref.update(update)
     logActivity({
       orgId: data.orgId,
