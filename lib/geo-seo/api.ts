@@ -9,6 +9,7 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
+import { clientVisibilityFieldsForWrite, resolveWorkScopeFromRequest, workScopeFieldsForWrite } from '@/lib/work-scope'
 
 export type GeoSeoCollectionConfig = {
   collection: string
@@ -533,7 +534,11 @@ export function createGeoSeoCollectionHandlers(config: GeoSeoCollectionConfig) {
     const missing = validateRequired(body, config.required)
     if (missing) return apiError(missing, 400)
 
-    const payload = payloadFor(config, body)
+    const payload = {
+      ...payloadFor(config, body),
+      ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
+    }
     const workspace = config.collection === 'geo_findings' ? await workspaceFor(body, org.orgId) : null
     const collection = adminDb.collection(config.collection)
     let ref: FirebaseFirestore.DocumentReference
@@ -611,6 +616,7 @@ export function createGeoSeoItemHandlers(config: GeoSeoCollectionConfig) {
     const patch = payloadFor(config, body)
     await ref.update({
       ...patch,
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       orgId: org.orgId,
       ...lastActorFrom(user),
     })

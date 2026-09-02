@@ -8,6 +8,7 @@ import {
   canMutateLinkedProjectPlanning,
   planningContextMutationTransition,
 } from '@/lib/projects/planningDiscoveryStore'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite } from '@/lib/work-scope'
 
 import { serializeBlocksForFirestore } from './firestore-blocks'
 import { createBlocksFromTemplate, getClientDocumentTemplate } from './templates'
@@ -125,6 +126,8 @@ export async function createClientDocument(input: {
   assumptions?: AssumptionInput[]
   user: ApiUser
   theme?: DocumentTheme
+  companyId?: string
+  clientVisibility?: unknown
 }): Promise<{ id: string; versionId: string; shareToken: string }> {
   const title = input.title.trim()
 
@@ -153,6 +156,8 @@ export async function createClientDocument(input: {
     assumptions: normalizeAssumptions(input.assumptions, input.user),
     shareToken,
     shareEnabled: false,
+    ...companyFieldsForWrite(input.companyId || input.linked?.companyId),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     createdAt: now,
     ...createdActor,
     updatedAt: now,

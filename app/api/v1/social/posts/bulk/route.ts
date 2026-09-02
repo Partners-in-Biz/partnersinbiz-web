@@ -16,6 +16,7 @@ import type { SocialPlatformType } from '@/lib/social/providers'
 import { validatePostContent } from '@/lib/social/validation'
 import { logAudit } from '@/lib/social/audit'
 import { emptyApprovalState } from '@/lib/social/approval'
+import { resolveWorkScopeFromSearchParams, workScopeFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +88,9 @@ function parseCsv(text: string): Record<string, string>[] {
 
 export const POST = withAuth('admin', withTenant(async (req: NextRequest, user, orgId) => {
   const contentType = req.headers.get('content-type') ?? ''
+  const scopeFields = workScopeFieldsForWrite(
+    resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid),
+  )
 
   // CSV import
   if (contentType.includes('multipart/form-data')) {
@@ -111,7 +115,7 @@ export const POST = withAuth('admin', withTenant(async (req: NextRequest, user, 
       labels: row.labels ? row.labels.split(/[;|]/).map((l: string) => l.trim()).filter(Boolean) : [],
     }))
 
-    const results = await createBulkPosts(posts, orgId, user.uid, user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client', req)
+    const results = await createBulkPosts(posts, orgId, user.uid, user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client', req, scopeFields)
     const succeeded = results.filter(r => r.success).length
     const failed = results.filter(r => !r.success).length
 
@@ -151,7 +155,7 @@ export const POST = withAuth('admin', withTenant(async (req: NextRequest, user, 
     accountIds: p.accountIds ?? [],
   }))
 
-  const results = await createBulkPosts(mapped, orgId, user.uid, user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client', req)
+  const results = await createBulkPosts(mapped, orgId, user.uid, user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client', req, scopeFields)
   const succeeded = results.filter(r => r.success).length
   const failed = results.filter(r => !r.success).length
 
@@ -173,6 +177,7 @@ async function createBulkPosts(
   userId: string,
   role: 'admin' | 'client' | 'ai',
   req: NextRequest,
+  scopeFields: Record<string, unknown> = {},
 ): Promise<BulkResult[]> {
   const results: BulkResult[] = []
 
@@ -218,6 +223,7 @@ async function createBulkPosts(
         media: [],
         platforms,
         accountIds: post.accountIds ?? [],
+        ...scopeFields,
         status,
         scheduledAt,
         scheduledFor: scheduledAt,

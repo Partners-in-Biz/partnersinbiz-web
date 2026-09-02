@@ -7,6 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,8 @@ export const PATCH = withAuth('client', withTenant(async (req, _user, orgId) => 
   if (typeof body.category === 'string' && body.category.trim()) {
     updates.category = body.category.trim()
   }
+
+  if ('clientVisibility' in body) Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   if (Object.keys(updates).length === 1) {
     return apiError('No valid updates provided', 400)

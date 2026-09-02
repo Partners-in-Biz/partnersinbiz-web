@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import SocialOverviewWorkspace from '@/components/social/SocialOverviewWorkspace'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +15,8 @@ export default function PortalSocialDashboard() {
   const buildHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   return (
+    <>
+    <SharedWithUsSection module="social" orgId={orgScope.orgId ?? undefined} companyId={orgScope.sourceCompanyId} />
     <SocialOverviewWorkspace
       surface="portal"
       title="Social"
@@ -35,5 +38,6 @@ export default function PortalSocialDashboard() {
         { label: 'Links', href: '/portal/social/links', icon: 'add_link' },
       ]}
     />
+    </>
   )
 }

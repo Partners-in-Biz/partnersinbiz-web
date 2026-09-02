@@ -7,6 +7,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,14 +48,17 @@ export function normalizeHashtags(input: unknown): string[] {
   return out
 }
 
-export const GET = withAuth('client', withTenant(async (_req, _user, orgId) => {
+export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
+  const scope = resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid)
   const snapshot = await adminDb
     .collection('social_hashtag_sets')
     .where('orgId', '==', orgId)
     .get()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sets = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  const sets = snapshot.docs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+    .filter((s: Record<string, unknown>) => recordVisibleForWorkScope(s, scope))
 
   // Sort newest first in-code to avoid composite index requirements.
   sets.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -91,6 +101,8 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     orgId,
     name,
     hashtags,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

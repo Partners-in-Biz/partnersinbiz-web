@@ -19,6 +19,7 @@ import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import { getProjectTaskReadModel, seedProjectTaskReadModel, upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
+import { inheritedWorkScopeFields } from '@/lib/work-scope/inherit'
 
 export const dynamic = 'force-dynamic'
 
@@ -216,6 +217,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const created = actorFrom(user)
   const doc: Record<string, unknown> = {
     ...taskData.value,
+    ...inheritedWorkScopeFields(project),
     reporterId: created.createdBy,
     ...created,
     createdAt: FieldValue.serverTimestamp(),

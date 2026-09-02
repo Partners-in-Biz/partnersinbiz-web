@@ -8,6 +8,13 @@ import { CREATIVE_CANVAS_COLLECTION, VIDEO_EDITOR_COLLECTIONS, validateTimelineM
 import { sanitizeVideoEditorProjectInput, serializeVideoEditorRecord, validateEditorTimeline } from '@/lib/video-editor/sanitize'
 import type { VideoEditorProject } from '@/lib/video-editor/types'
 import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,8 +52,10 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const denied = await ensureOrgAccess(user, orgId)
   if (denied) return denied
 
+  const workScope = resolveWorkScopeFromSearchParams(url.searchParams, user.uid)
   const docs = await listByOrg(VIDEO_EDITOR_COLLECTIONS.projects, orgId)
   const projects = docs
+    .filter((doc) => recordVisibleForWorkScope(doc.data() as Record<string, unknown>, workScope))
     .map((doc) => serializeVideoEditorRecord<VideoEditorProject>(doc.id, doc.data()))
     .filter((project) => !status || project.status === status)
     .sort((a, b) => a.title.localeCompare(b.title))
@@ -75,6 +84,8 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
 
   const ref = await adminDb.collection(VIDEO_EDITOR_COLLECTIONS.projects).add({
     ...data,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     status: 'draft',
     deleted: false,
     ...actorFields(user),

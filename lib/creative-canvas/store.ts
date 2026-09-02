@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { clientVisibilityFieldsForWrite, recordVisibleForWorkScope, type WorkScope } from '@/lib/work-scope'
 import {
   cleanLinked,
   sanitizeCreativeCanvasGraph,
@@ -195,6 +196,10 @@ function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & 
     deleted: data.deleted === true,
     ...(typeof data.shareToken === 'string' && data.shareToken ? { shareToken: data.shareToken } : {}),
     ...(typeof data.shareEnabled === 'boolean' ? { shareEnabled: data.shareEnabled } : {}),
+    ...(typeof data.companyId === 'string' && data.companyId ? { companyId: data.companyId } : {}),
+    ...(typeof data.workOwner === 'string' ? { workOwner: data.workOwner as CreativeCanvas['workOwner'] } : {}),
+    ...(typeof data.marketingOwner === 'string' ? { marketingOwner: data.marketingOwner as CreativeCanvas['marketingOwner'] } : {}),
+    ...(typeof data.clientVisibility === 'string' ? { clientVisibility: data.clientVisibility as CreativeCanvas['clientVisibility'] } : {}),
     nodes: Array.isArray(data.nodes) ? data.nodes as CreativeCanvas['nodes'] : [],
     edges: Array.isArray(data.edges) ? data.edges as CreativeCanvas['edges'] : [],
   }
@@ -283,11 +288,12 @@ function buildVersionSnapshot(
   }
 }
 
-export async function listCreativeCanvases(orgId: string): Promise<Array<CreativeCanvas & { id: string }>> {
+export async function listCreativeCanvases(orgId: string, scope?: WorkScope): Promise<Array<CreativeCanvas & { id: string }>> {
   const snap = await adminDb.collection(CREATIVE_CANVAS_COLLECTION).where('orgId', '==', orgId).get()
   return snap.docs
     .map((doc: { id: string; data: () => CanvasDoc }) => serializeCreativeCanvas(doc.id, doc.data()))
     .filter((canvas) => canvas.deleted !== true)
+    .filter((canvas) => !scope || recordVisibleForWorkScope(canvas as unknown as Record<string, unknown>, scope))
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
@@ -350,10 +356,12 @@ export async function createCreativeCanvas(
   input: unknown,
   orgId: string,
   actor: CreativeCanvasActor,
+  scopeFields: Record<string, unknown> = {},
 ): Promise<CreativeCanvas & { id: string }> {
   const data = sanitizeCreativeCanvasInput(input, orgId, actor)
   const payload = {
     ...data,
+    ...scopeFields,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }
@@ -367,10 +375,12 @@ export async function createCreativeCanvasAtId(
   orgId: string,
   actor: CreativeCanvasActor,
   id: string,
+  scopeFields: Record<string, unknown> = {},
 ): Promise<CreativeCanvas & { id: string }> {
   const data = sanitizeCreativeCanvasInput(input, orgId, actor)
   const payload = {
     ...data,
+    ...scopeFields,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }
@@ -430,6 +440,7 @@ export async function updateCreativeCanvas(
       ? { ...(current.linked ?? {}), ...cleanLinked(source.linked) }
       : current.linked ?? {},
     deleted: typeof source.deleted === 'boolean' ? source.deleted : current.deleted === true,
+    ...('clientVisibility' in source ? clientVisibilityFieldsForWrite(source.clientVisibility) : {}),
     updatedBy: actor.uid,
     updatedByType: actor.type,
     updatedAt: FieldValue.serverTimestamp(),

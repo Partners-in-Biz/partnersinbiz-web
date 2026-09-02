@@ -16,6 +16,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { Email, EmailDirection, EmailStatus } from '@/lib/email/types'
+import { recordVisibleForWorkScope, resolveWorkScopeFromSearchParams } from '@/lib/work-scope'
 
 const VALID_DIRECTIONS: EmailDirection[] = ['outbound', 'inbound']
 const VALID_STATUSES: EmailStatus[] = ['draft', 'scheduled', 'sent', 'failed', 'opened', 'clicked']
@@ -57,6 +58,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const campaignId = searchParams.get('campaignId') ?? ''
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   // Keep the Firestore query index-safe; secondary filters and sorting happen in memory.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +82,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       if (status && VALID_STATUSES.includes(status) && e.status !== status) return false
       if (contactId && e.contactId !== contactId) return false
       if (campaignId && e.campaignId !== campaignId) return false
+      if (!recordVisibleForWorkScope(e as unknown as Record<string, unknown>, workScope)) return false
       return true
     })
     .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))

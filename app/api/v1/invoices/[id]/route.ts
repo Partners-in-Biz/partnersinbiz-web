@@ -10,6 +10,7 @@ import {
   decorateInvoicePortalCapabilities,
   sanitizeInvoicePortalPatch,
 } from '@/lib/billing/portal-permissions'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +37,17 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const mutationError = rejectGenericPartnerTradeMutation(access.data)
   if (mutationError) return apiError(mutationError, 409)
-  const sanitized = sanitizeInvoicePortalPatch(user, access.data, body, access.accessKind)
+  // Client visibility is an issuer-side projection toggle, independent of draft state.
+  const { clientVisibility, ...rest } = body
+  const visibilityPatch = 'clientVisibility' in body ? clientVisibilityFieldsForWrite(clientVisibility) : {}
+  if (Object.keys(visibilityPatch).length > 0 && !isInvoiceIssuerAccess(access.accessKind)) {
+    return apiError('Only the issuing organisation can change client visibility', 403)
+  }
+  if (Object.keys(rest).length === 0 && Object.keys(visibilityPatch).length > 0) {
+    await access.ref.update({ ...visibilityPatch, updatedAt: FieldValue.serverTimestamp() })
+    return apiSuccess({ id })
+  }
+  const sanitized = sanitizeInvoicePortalPatch(user, access.data, rest, access.accessKind)
   if (!sanitized.ok) {
     return apiError(sanitized.error, sanitized.status)
   }
@@ -44,7 +55,7 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
   const doc = access.snap
 
   // Recalculate totals if line items changed
-  let updates: Record<string, unknown> = { ...sanitized.patch, updatedAt: FieldValue.serverTimestamp() }
+  let updates: Record<string, unknown> = { ...sanitized.patch, ...visibilityPatch, updatedAt: FieldValue.serverTimestamp() }
   if (Array.isArray(sanitized.patch.lineItems)) {
     const lineItems = sanitized.patch.lineItems.map((item) => {
       const source = item && typeof item === 'object' ? item as Record<string, unknown> : {}

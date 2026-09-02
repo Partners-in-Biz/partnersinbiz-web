@@ -14,6 +14,9 @@ const COMMON = [
   'createdAt',
   'updatedAt',
   'clientVisibility',
+  'clientApproval',
+  'clientCommentCount',
+  'clientLastCommentAt',
 ] as const
 
 export const COMPANY_WORK_FIELDS: Partial<Record<SharedBusinessCapability, string[]>> = {

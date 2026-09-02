@@ -2,6 +2,7 @@ import { FieldValue, Timestamp, type Query } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { ResourceRelationshipLinkSet } from '@/lib/client-documents/linkedValidation'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite, recordCompanyId } from '@/lib/work-scope'
 import {
   SUPPORT_CATEGORIES,
   SUPPORT_PRIORITIES,
@@ -93,6 +94,9 @@ function toTicket(id: string, data: RawDoc, orgName?: string): SupportTicket {
     sourceUrl: data.sourceUrl ?? '',
     sourcePath: data.sourcePath ?? '',
     companyId: data.companyId ?? null,
+    workOwner: data.workOwner ?? (data.companyId ? 'company' : 'org'),
+    marketingOwner: data.marketingOwner ?? (data.companyId ? 'company' : 'org'),
+    clientVisibility: data.clientVisibility ?? 'shared',
     contactId: data.contactId ?? null,
     clientOrgId: data.clientOrgId ?? null,
     projectId: data.projectId ?? null,
@@ -165,9 +169,12 @@ export async function createSupportTicket(args: {
   sourcePath?: string
   contextRefs?: ContextReference[]
   relationshipLinks?: ResourceRelationshipLinkSet
+  companyId?: string
+  clientVisibility?: unknown
 }) {
   const ref = adminDb.collection(SUPPORT_TICKETS_COLLECTION).doc()
   const batch = adminDb.batch()
+  const companyId = args.companyId?.trim() || args.relationshipLinks?.companyId
 
   const ticket = {
     orgId: args.orgId,
@@ -197,6 +204,8 @@ export async function createSupportTicket(args: {
     sourceUrl: args.sourceUrl ?? '',
     sourcePath: args.sourcePath ?? '',
     ...(args.relationshipLinks ?? {}),
+    ...companyFieldsForWrite(companyId),
+    ...clientVisibilityFieldsForWrite(args.clientVisibility),
     contextRefs: args.contextRefs ?? [],
     assignedToType: null,
     assigneeUserId: null,
@@ -255,13 +264,15 @@ export async function listPortalSupportTickets(orgId: string, uid: string) {
     .sort((a, b) => millis(b.updatedAt) - millis(a.updatedAt))
 }
 
-export async function listAdminSupportTickets(allowedOrgIds?: string[]) {
+export async function listAdminSupportTickets(allowedOrgIds?: string[], companyId?: string) {
   let query: Query = adminDb.collection(SUPPORT_TICKETS_COLLECTION)
   if (allowedOrgIds?.length) query = query.where('orgId', 'in', allowedOrgIds.slice(0, 30))
   const snap = await query.get()
+  const wantedCompanyId = companyId?.trim() ?? ''
   const tickets = snap.docs
     .map((doc) => ({ id: doc.id, data: doc.data() }))
     .filter((row) => row.data.deleted !== true)
+    .filter((row) => !wantedCompanyId || recordCompanyId(row.data) === wantedCompanyId)
 
   const orgIds = Array.from(new Set(tickets.map((row) => String(row.data.orgId ?? '')).filter(Boolean)))
   const orgNames = new Map<string, string>()
@@ -354,6 +365,9 @@ export function validateSupportPatch(body: Record<string, unknown>) {
   if ('hermesSummary' in body) {
     updates.hermesSummary = cleanText(body.hermesSummary, 2_000) || null
     updates.hermesStatus = updates.hermesSummary ? 'suggested' : 'not_started'
+  }
+  if ('clientVisibility' in body) {
+    Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
   }
 
   return { ok: true as const, value: updates }

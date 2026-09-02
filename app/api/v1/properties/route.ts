@@ -10,15 +10,23 @@ import { VALID_PROPERTY_TYPES, VALID_PROPERTY_STATUSES } from '@/lib/properties/
 import type { CreatePropertyInput, PropertyStatus, PropertyType } from '@/lib/properties/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
 const DEFAULT_LIMIT = 50
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')
   if (!orgId) return apiError('orgId is required', 400)
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   const status = searchParams.get('status')
   const type = searchParams.get('type')
@@ -43,7 +51,9 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     return null
   })
   if (!snap) return apiError('Failed to list properties', 500)
-  const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const data = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((row) => workScope.owner === 'org' || recordVisibleForWorkScope(row as Record<string, unknown>, workScope))
 
   return apiSuccess(data)
 })
@@ -60,8 +70,15 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   }
 
   const ingestKey = generateIngestKey()
+  const workScope = resolveWorkScopeFromRequest({
+    searchParams: new URL(req.url).searchParams,
+    body: body as unknown as Record<string, unknown>,
+    uid: user.uid,
+  })
 
   const doc = {
+    ...workScopeFieldsForWrite(workScope),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     orgId: body.orgId.trim(),
     name: body.name.trim(),
     domain: body.domain.trim().toLowerCase(),

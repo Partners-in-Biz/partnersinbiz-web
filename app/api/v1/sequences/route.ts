@@ -9,6 +9,13 @@ import type { ApiUser } from '@/lib/api/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { validateSequenceActivation } from '@/lib/sequences/validation'
 import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +53,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const status = searchParams.get('status')
   const limit = parseInt(searchParams.get('limit') ?? '50')
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   // Keep Firestore index-safe: tenant equality in Firestore, secondary filters
   // and sorting in memory.
@@ -58,6 +66,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   let data = docs
     .map((d): SequenceListRow => ({ id: d.id, ...d.data() }))
     .filter((d) => d.deleted !== true && (!status || d.status === status))
+    .filter((d) => recordVisibleForWorkScope(d as unknown as Record<string, unknown>, workScope))
     .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
   const total = data.length
   data = data.slice((page - 1) * limit, page * limit)
@@ -101,6 +110,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       typeof body.topicId === 'string' && body.topicId.trim()
         ? body.topicId.trim()
         : 'newsletter',
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     deleted: false,

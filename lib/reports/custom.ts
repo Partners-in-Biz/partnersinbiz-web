@@ -10,6 +10,7 @@ import crypto from 'crypto'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { snapshotKpis, priorPeriod } from './snapshot'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite } from '@/lib/work-scope'
 import {
   REPORTS_COLLECTION,
   type Report,
@@ -23,6 +24,8 @@ interface BuildInput {
   spec: CustomReportSpec
   generatedBy: 'cron' | 'admin' | 'agent'
   createdBy: string
+  companyId?: string
+  clientVisibility?: unknown
 }
 
 async function loadOrgBranding(orgId: string): Promise<Report['brand']> {
@@ -159,6 +162,8 @@ export async function buildCustomReport(input: BuildInput): Promise<Report> {
     lastOpenedAt: null,
     brand,
     generatedBy: input.generatedBy,
+    ...companyFieldsForWrite(input.companyId),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     createdAt: FieldValue.serverTimestamp(),
     createdBy: input.createdBy,
     updatedAt: FieldValue.serverTimestamp(),

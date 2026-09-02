@@ -28,6 +28,7 @@ import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { Organization } from '@/lib/organizations/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { resolveWorkScopeFromRequest, resolveWorkScopeFromSearchParams, recordVisibleForWorkScope } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -374,6 +375,15 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   // shared / CRM-linked rows; admins, agents and 'all'-scoped members pass
   // through unchanged (the client branch already scopes to owned/shared).
   documents = await filterOwnedRowsForActor(user, scope.orgId, 'documents', documents)
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
+  if (workScope.owner === 'company') {
+    const wanted = workScope.companyId ?? ''
+    documents = documents.filter((doc) => (
+      recordVisibleForWorkScope(doc as unknown as Record<string, unknown>, workScope)
+      || doc.linked?.companyId === wanted
+      || Boolean(doc.linked?.companyIds?.includes(wanted))
+    ))
+  }
   const hasMore = documents.length > limit
   const total = hasMore ? limit + 1 : documents.length
   documents = documents.slice(0, limit)
@@ -492,6 +502,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
   const bodyTheme = (body as { theme?: DocumentTheme }).theme
   const versionTheme: DocumentTheme | undefined = bodyTheme ?? autoTheme ?? undefined
+  const workScope = resolveWorkScopeFromRequest({
+    searchParams: new URL(req.url).searchParams,
+    body: body as Record<string, unknown>,
+    uid: user.uid,
+  })
+  const workCompanyId = workScope.owner === 'company' ? workScope.companyId : documentLinked.companyId
 
   let created: Awaited<ReturnType<typeof createClientDocument>>
   try {
@@ -503,6 +519,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       assumptions,
       user,
       theme: versionTheme,
+      companyId: workCompanyId,
+      clientVisibility: (body as Record<string, unknown>).clientVisibility,
     })
   } catch (error) {
     if (isClientDocumentMutationError(error)) {

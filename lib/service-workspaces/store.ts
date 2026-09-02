@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite } from '@/lib/work-scope'
 import type {
   ServiceWorkspace,
   ServiceWorkspaceInput,
@@ -122,6 +123,8 @@ export async function createServiceWorkspace(
   if (!patch.name) throw new Error('name is required')
   const ref = await adminDb.collection(COLLECTION).add({
     ...patch,
+    ...companyFieldsForWrite(patch.companyId),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     orgId,
     requesterOrgId: orgId,
     providerOrgId: null,
@@ -189,6 +192,8 @@ export async function updateServiceWorkspace(
   const patch = sanitizeWorkspace(input)
   await ref.update({
     ...patch,
+    ...(patch.companyId ? companyFieldsForWrite(patch.companyId) : {}),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     updatedByRef: actor,
     updatedAt: FieldValue.serverTimestamp(),
   })

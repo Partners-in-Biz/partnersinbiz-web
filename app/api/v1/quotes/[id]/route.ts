@@ -16,6 +16,7 @@ import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Contact } from '@/lib/crm/types'
 import { decorateQuotePortalCapabilities, sanitizeQuotePortalPatch } from '@/lib/billing/portal-permissions'
 import { crmActorCanReadBillingRecord } from '@/lib/billing/crm-record-scope'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite } from '@/lib/work-scope'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -159,6 +160,7 @@ async function handleQuoteUpdate(
       claimableRelationshipId: before.claimableRelationshipId,
       claimToken: before.claimToken,
       claimStatus: before.claimStatus,
+      ...companyFieldsForWrite(before.companyId || before.sourceCompanyId),
       invoiceNumber,
       pdfShareToken: generateInvoicePdfShareToken(),
       status: 'draft' as const,
@@ -206,7 +208,24 @@ async function handleQuoteUpdate(
   // REGULAR PATH: status update + other field updates
   // -------------------------------------------------------------------------
 
-  const sanitizedPatch = sanitizeQuotePortalPatch(r.access, before, body)
+  // Client visibility is a sender-side projection toggle, independent of draft state.
+  const { clientVisibility, ...restBody } = body as Record<string, unknown>
+  const visibilityPatch = 'clientVisibility' in body ? clientVisibilityFieldsForWrite(clientVisibility) : {}
+  if (Object.keys(visibilityPatch).length > 0 && r.access === 'recipient') {
+    return apiError('Only the sender can change client visibility', 403)
+  }
+  if (Object.keys(restBody).length === 0 && Object.keys(visibilityPatch).length > 0) {
+    const visibilityOnly: Record<string, unknown> = {
+      ...visibilityPatch,
+      updatedByRef: actorRef,
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+    if (!ctx.isAgent) visibilityOnly.updatedBy = actorRef.uid
+    await r.ref.update(visibilityOnly)
+    return apiSuccess({ quote: { ...before, ...visibilityPatch, id } })
+  }
+
+  const sanitizedPatch = sanitizeQuotePortalPatch(r.access, before, restBody)
   if (!sanitizedPatch.ok) return apiError(sanitizedPatch.error, sanitizedPatch.status)
   const allowedBody = sanitizedPatch.patch
 
@@ -215,6 +234,7 @@ async function handleQuoteUpdate(
   if (!hasEditable) return apiError('No editable fields supplied', 400)
 
   const patch: Record<string, unknown> = {
+    ...visibilityPatch,
     updatedByRef: actorRef,
     updatedAt: FieldValue.serverTimestamp(),
   }
@@ -243,6 +263,7 @@ async function handleQuoteUpdate(
     patch.companyId = allowedBody.companyId
     patch.sourceCompanyId = allowedBody.companyId
     patch.companyName = loaded.data.name
+    Object.assign(patch, companyFieldsForWrite(allowedBody.companyId))
   } else if (typeof allowedBody.contactId === 'string' && allowedBody.contactId && allowedBody.contactId !== before.contactId) {
     // contactId changed: re-derive company from new contact
     patch.sourceContactId = allowedBody.contactId
@@ -251,6 +272,7 @@ async function handleQuoteUpdate(
       patch.companyId = derived.companyId
       patch.sourceCompanyId = derived.companyId
       patch.companyName = derived.companyName
+      Object.assign(patch, companyFieldsForWrite(derived.companyId))
     }
   }
 

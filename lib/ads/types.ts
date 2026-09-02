@@ -119,7 +119,9 @@ export interface AdCampaign {
   createdAt: Timestamp
   updatedAt: Timestamp
   marketingOwner?: 'org' | 'company'
+  workOwner?: 'org' | 'company'
   companyId?: string
+  clientVisibility?: 'shared' | 'private'
   // ─── Approval workflow (Sub-2) ──
   reviewState?: CampaignReviewState
   submittedForReviewAt?: Timestamp
@@ -134,7 +136,7 @@ export interface AdCampaign {
 
 export type CreateAdCampaignInput = Omit<
   AdCampaign,
-  'id' | 'orgId' | 'platform' | 'providerData' | 'createdBy' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt' | 'marketingOwner' | 'companyId'
+  'id' | 'orgId' | 'platform' | 'providerData' | 'createdBy' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt' | 'marketingOwner' | 'workOwner' | 'companyId'
 >
 
 export type UpdateAdCampaignInput = Partial<
@@ -182,11 +184,15 @@ export interface AdSet {
   lastRefreshedAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
+  marketingOwner?: 'org' | 'company'
+  workOwner?: 'org' | 'company'
+  companyId?: string
+  clientVisibility?: 'shared' | 'private'
 }
 
 export type CreateAdSetInput = Omit<
   AdSet,
-  'id' | 'orgId' | 'platform' | 'providerData' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt'
+  'id' | 'orgId' | 'platform' | 'providerData' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt' | 'marketingOwner' | 'workOwner' | 'companyId'
 >
 
 export type UpdateAdSetInput = Partial<
@@ -248,11 +254,15 @@ export interface Ad {
   lastRefreshedAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
+  marketingOwner?: 'org' | 'company'
+  workOwner?: 'org' | 'company'
+  companyId?: string
+  clientVisibility?: 'shared' | 'private'
 }
 
 export type CreateAdInput = Omit<
   Ad,
-  'id' | 'orgId' | 'platform' | 'providerData' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt'
+  'id' | 'orgId' | 'platform' | 'providerData' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt' | 'marketingOwner' | 'workOwner' | 'companyId'
 >
 
 export type UpdateAdInput = Partial<
@@ -421,12 +431,19 @@ export interface AdCreative {
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp
+  marketingOwner?: 'org' | 'company'
+  workOwner?: 'org' | 'company'
+  companyId?: string
+  clientVisibility?: 'shared' | 'private'
 }
 
 export type CreateAdCreativeInput = Omit<
   AdCreative,
   | 'id'
   | 'orgId'
+  | 'marketingOwner'
+  | 'workOwner'
+  | 'companyId'
   | 'platformRefs'
   | 'createdBy'
   | 'createdAt'
@@ -440,7 +457,7 @@ export type CreateAdCreativeInput = Omit<
 >
 
 export type UpdateAdCreativeInput = Partial<
-  Pick<AdCreative, 'name' | 'copy' | 'status' | 'previewUrl' | 'width' | 'height' | 'duration' | 'lastError'>
+  Pick<AdCreative, 'name' | 'copy' | 'status' | 'previewUrl' | 'width' | 'height' | 'duration' | 'lastError' | 'clientVisibility'>
 >
 
 // ─── Custom Audiences (Phase 4) ──────────────────────────────────────────────

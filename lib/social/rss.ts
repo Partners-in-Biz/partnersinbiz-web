@@ -6,6 +6,7 @@
  */
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { companyFieldsForWrite } from '@/lib/work-scope'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +30,7 @@ export interface RssFeed {
   checkIntervalMinutes: number
   consecutiveErrors: number
   lastError: string | null
+  companyId?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -258,6 +260,7 @@ export async function checkFeed(feedId: string): Promise<FeedCheckResult> {
         comments: [],
         source: 'rss' as const,
         rssSourceId: feedId,
+        ...companyFieldsForWrite(feed.companyId),
         threadParts: [],
         category: 'other',
         tags: ['rss', feed.name],

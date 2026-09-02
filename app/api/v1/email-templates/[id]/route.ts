@@ -9,6 +9,7 @@ import { lastActorFrom } from '@/lib/api/actor'
 import { validateDocument } from '@/lib/email-builder/validate'
 import { findStarter, isStarterId, type TemplateCategory } from '@/lib/email-builder/templates'
 import type { ApiUser } from '@/lib/api/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     if (!v.ok) return apiError('Invalid document: ' + v.errors.join('; '), 400)
     updates.document = v.doc
   }
+  if ('clientVisibility' in body) Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   if (Object.keys(updates).length === 0) return apiError('No valid fields to update', 400)
 

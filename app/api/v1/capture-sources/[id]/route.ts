@@ -24,6 +24,7 @@ import {
 } from '@/lib/lead-capture/types'
 import { parseCaptureFields } from '@/lib/lead-capture/schema'
 import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -247,6 +248,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (body.webhookSecret !== undefined) {
     patch.webhookSecret = typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : ''
   }
+  if ('clientVisibility' in body) Object.assign(patch, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   await adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id).update({
     ...patch,

@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import {
@@ -149,6 +150,8 @@ export default function PortalMessagesPage() {
   }
 
   return (
+    <>
+    <SharedWithUsSection module="messages" orgId={org.id} companyId={orgScope.sourceCompanyId} />
     <MessagesWorkspace
       surface="portal"
       orgId={org.id}
@@ -161,5 +164,6 @@ export default function PortalMessagesPage() {
       allowAgentParticipants={capabilities.canUseAgentHandoff}
       allowArchiveConversations={capabilities.canArchive}
     />
+    </>
   )
 }

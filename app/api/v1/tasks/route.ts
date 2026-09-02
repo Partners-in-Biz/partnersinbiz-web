@@ -39,6 +39,8 @@ import {
   RESOURCE_RELATIONSHIP_STRING_FIELDS,
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
+import { companyFieldsForWrite } from '@/lib/work-scope'
+import { inheritedWorkScopeFields } from '@/lib/work-scope/inherit'
 
 export const dynamic = 'force-dynamic'
 
@@ -284,6 +286,12 @@ export const POST = withAuth(
       : { ok: true as const, value: {} }
     if (!relationships.ok) return apiError(relationships.error, 400)
 
+    let parentProject: Record<string, unknown> | null = null
+    if (typeof body.projectId === 'string' && body.projectId.trim()) {
+      const projectSnap = await adminDb.collection('projects').doc(body.projectId.trim()).get().catch(() => null)
+      parentProject = projectSnap?.exists ? (projectSnap.data() ?? null) as Record<string, unknown> | null : null
+    }
+
     const docData: Record<string, unknown> = {
       orgId: body.orgId.trim(),
       title,
@@ -296,6 +304,9 @@ export const POST = withAuth(
       contactId: body.contactId ?? null,
       dealId: body.dealId ?? null,
       ...relationships.value,
+      ...(typeof (relationships.value as { companyId?: unknown }).companyId === 'string'
+        ? companyFieldsForWrite((relationships.value as { companyId?: unknown }).companyId)
+        : inheritedWorkScopeFields(parentProject)),
       tags: body.tags ?? [],
       columnId: typeof body.columnId === 'string' && body.columnId.trim() ? body.columnId.trim() : 'todo',
       ...actorFrom(user),

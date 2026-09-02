@@ -5,6 +5,8 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ReportConfig } from '@/lib/seo/report-builder'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +62,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
 
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!sprintSnap.exists) return apiError('Sprint not found', 404)
-  const sprint = sprintSnap.data() as { orgId?: string }
+  const sprint = sprintSnap.data() as { orgId?: string; companyId?: unknown; workOwner?: unknown; marketingOwner?: unknown }
   if (user.role !== 'ai' && sprint.orgId !== user.orgId) return apiError('Forbidden', 403)
 
   // Reject oversize logos (keep Firestore docs under control — ~1MB doc limit)
@@ -83,6 +85,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
     createdAt: FieldValue.serverTimestamp(),
     createdBy: user.uid ?? user.role,
     deleted: false,
+    ...inheritSprintCompanyFields(sprint),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
   })
 
   return apiSuccess({ id: ref.id }, 201)

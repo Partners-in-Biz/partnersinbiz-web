@@ -84,7 +84,12 @@ export async function listCompetitors(sprintId: string): Promise<TrackedCompetit
   })
 }
 
-export async function addCompetitor(sprintId: string, orgId: string, rawDomain: string): Promise<{ id: string } | { error: string }> {
+export async function addCompetitor(
+  sprintId: string,
+  orgId: string,
+  rawDomain: string,
+  scopeFields: Record<string, unknown> = {},
+): Promise<{ id: string } | { error: string }> {
   const domain = normalizeDomain(rawDomain)
   if (!domain || !/\./.test(domain)) return { error: 'Enter a valid domain' }
 
@@ -98,6 +103,7 @@ export async function addCompetitor(sprintId: string, orgId: string, rawDomain: 
     domain,
     metrics: { domainAuthority: null, estimatedKeywords: 0, referringDomains: 0, overlapKeywords: [] },
     lastRefreshedAt: null,
+    ...scopeFields,
     createdAt: FieldValue.serverTimestamp(),
     deleted: false,
   })

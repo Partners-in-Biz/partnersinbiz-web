@@ -9,6 +9,7 @@ import {
 } from '@/lib/youtube-studio/api'
 import { sanitizeYouTubeVideoProjectInput, serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
 import type { YouTubeVideoProject } from '@/lib/youtube-studio/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,6 +94,7 @@ export const PUT = withAuth('admin', async (req, user, ctx?: RouteContext) => {
 
   await loaded.ref.set({
     ...updates,
+    ...(hasOwn(body, 'clientVisibility') ? clientVisibilityFieldsForWrite(body.clientVisibility) : {}),
     orgId,
     ...updateActorFields(user),
   }, { merge: true })

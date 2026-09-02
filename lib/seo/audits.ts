@@ -1,5 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 
 export async function generateAuditSnapshot(sprintId: string, snapshotDay: number): Promise<string> {
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
@@ -71,6 +72,7 @@ export async function generateAuditSnapshot(sprintId: string, snapshotDay: numbe
     content: { pagesIndexed: postsPublished, postsPublished, comparisonPagesLive },
     source: 'mixed',
     deleted: false,
+    ...inheritSprintCompanyFields(sprint),
     createdAt: FieldValue.serverTimestamp(),
   })
   return ref.id

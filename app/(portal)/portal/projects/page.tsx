@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProjectsWorkspace } from '@/components/projects/ProjectsWorkspace'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { scopeFromSearchParams, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 /**
@@ -58,5 +59,15 @@ export default function ProjectsPage() {
     )
   }
 
-  return <ProjectsWorkspace mode="portal" orgScope={orgScope} />
+  return (
+    <>
+      <SharedWithUsSection
+        module="projects"
+        orgId={orgScope.orgId ?? undefined}
+        companyId={orgScope.sourceCompanyId}
+        hrefForRecord={(record) => scopedPortalPath(`/portal/projects/${record.id}`, orgScope)}
+      />
+      <ProjectsWorkspace mode="portal" orgScope={orgScope} />
+    </>
+  )
 }

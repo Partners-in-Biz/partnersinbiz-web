@@ -9,6 +9,7 @@ import type { ReportType } from '@/lib/reports/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/analytics/property-access'
+import { resolveWorkScopeFromRequest, resolveWorkScopeFromSearchParams } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -19,7 +20,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
   if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
   const orgId = scope.orgId
   const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') ?? '24', 10)))
-  const reports = await listReports(orgId, limit)
+  const workScope = resolveWorkScopeFromSearchParams(url.searchParams, user.uid)
+  const reports = await listReports(orgId, limit, workScope.owner === 'company' ? workScope.companyId : undefined)
   return NextResponse.json({ ok: true, reports })
 })
 
@@ -33,10 +35,18 @@ interface CreateBody {
   end?: string
   /** Property scope (org-wide if omitted). */
   propertyId?: string
+  companyId?: string
+  sourceCompanyId?: string
+  clientVisibility?: unknown
 }
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const body = (await req.json().catch(() => ({}))) as CreateBody
+  const workScope = resolveWorkScopeFromRequest({
+    searchParams: new URL(req.url).searchParams,
+    body: body as unknown as Record<string, unknown>,
+    uid: user.uid,
+  })
   const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status })
@@ -69,6 +79,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     generatedBy: 'admin',
     createdBy: (user as { uid?: string; role?: string })?.uid ?? 'admin',
     propertyId: body.propertyId,
+    companyId: workScope.owner === 'company' ? workScope.companyId : undefined,
+    clientVisibility: body.clientVisibility,
   })
   return NextResponse.json({ ok: true, report })
 })

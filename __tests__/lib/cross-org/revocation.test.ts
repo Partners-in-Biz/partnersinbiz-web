@@ -145,7 +145,7 @@ describe('bilateral directional scope acceptance', () => {
 describe('per-module cascade rules (capability-reduction state machine)', () => {
   it('covers every module with a rule', () => {
     const modules = new Set(MODULE_CASCADE_RULES.map((r) => r.module))
-    expect(modules.size).toBe(8)
+    expect(modules.size).toBe(9)
     expect(modules).toEqual(
       new Set([
         'shares',
@@ -156,6 +156,7 @@ describe('per-module cascade rules (capability-reduction state machine)', () => 
         'attachments',
         'messages',
         'agent_caches',
+        'company_workspace_grants',
       ]),
     )
   })

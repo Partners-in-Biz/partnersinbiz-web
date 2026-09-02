@@ -28,12 +28,13 @@ import {
   canMutateLinkedProjectPlanning,
   planningContextMutationTransition,
 } from '@/lib/projects/planningDiscoveryStore'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled', 'userShares', 'revokeUserShares'])
+const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled', 'userShares', 'revokeUserShares', 'clientVisibility'])
 const ASSUMPTION_FIELDS = new Set([
   'id',
   'text',
@@ -254,6 +255,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   if ('shareEnabled' in body) {
     if (typeof body.shareEnabled !== 'boolean') return apiError('shareEnabled must be a boolean', 400)
     update.shareEnabled = body.shareEnabled
+  }
+
+  if ('clientVisibility' in body) {
+    Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
   }
 
   const userShares = 'userShares' in body ? validateUserShareInput(body.userShares) : null

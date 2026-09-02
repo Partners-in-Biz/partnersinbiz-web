@@ -7,6 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { snapshotKpis, priorPeriod } from './snapshot'
 import { generateSummary } from './summary'
+import { clientVisibilityFieldsForWrite, companyFieldsForWrite, recordCompanyId } from '@/lib/work-scope'
 import {
   REPORTS_COLLECTION,
   type Report,
@@ -22,6 +23,9 @@ interface GenerateInput {
   createdBy: string
   /** Optional scope to a single property. */
   propertyId?: string
+  /** Company work scope (CRM company this report is about). */
+  companyId?: string
+  clientVisibility?: unknown
 }
 
 async function loadOrgBranding(orgId: string): Promise<Report['brand']> {
@@ -90,6 +94,8 @@ export async function generateReport(input: GenerateInput): Promise<Report> {
     lastOpenedAt: null,
     brand,
     generatedBy: input.generatedBy,
+    ...companyFieldsForWrite(input.companyId),
+    ...clientVisibilityFieldsForWrite(input.clientVisibility),
     createdAt: FieldValue.serverTimestamp(),
     createdBy: input.createdBy,
     updatedAt: FieldValue.serverTimestamp(),
@@ -133,7 +139,7 @@ export async function markReportViewed(id: string): Promise<void> {
 
 export async function patchReport(
   id: string,
-  patch: Partial<Pick<Report, 'exec_summary' | 'highlights' | 'status'>>,
+  patch: Partial<Pick<Report, 'exec_summary' | 'highlights' | 'status'>> & { clientVisibility?: unknown },
 ): Promise<void> {
   await adminDb.collection(REPORTS_COLLECTION).doc(id).update({
     ...patch,
@@ -141,12 +147,17 @@ export async function patchReport(
   })
 }
 
-export async function listReports(orgId: string, limit = 24): Promise<Report[]> {
+export async function listReports(orgId: string, limit = 24, companyId?: string): Promise<Report[]> {
+  const wanted = companyId?.trim() ?? ''
   const snap = await adminDb
     .collection(REPORTS_COLLECTION)
     .where('orgId', '==', orgId)
     .orderBy('createdAt', 'desc')
-    .limit(limit)
+    .limit(wanted ? Math.max(limit * 4, 100) : limit)
     .get()
-  return snap.docs.map((d) => ({ ...(d.data() as Report), id: d.id }))
+  const reports = snap.docs.map((d) => ({ ...(d.data() as Report), id: d.id }))
+  if (!wanted) return reports
+  return reports
+    .filter((report) => recordCompanyId(report as { companyId?: unknown }) === wanted)
+    .slice(0, limit)
 }

@@ -5,19 +5,20 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { addCompetitor, listCompetitors } from '@/lib/seo/competitors'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 
 export const dynamic = 'force-dynamic'
 
 type SprintResolution =
-  | { ok: true; orgId: string; siteUrl: string }
+  | { ok: true; orgId: string; siteUrl: string; scopeFields: Record<string, unknown> }
   | { ok: false; response: NextResponse }
 
 async function resolveSprint(sprintId: string, user: ApiUser): Promise<SprintResolution> {
   const snap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!snap.exists) return { ok: false, response: apiError('Sprint not found', 404) }
-  const sprint = snap.data() as { orgId?: string; siteUrl?: string }
+  const sprint = snap.data() as { orgId?: string; siteUrl?: string; companyId?: unknown; workOwner?: unknown; marketingOwner?: unknown; clientVisibility?: unknown }
   if (user.role !== 'ai' && sprint.orgId !== user.orgId) return { ok: false, response: apiError('Forbidden', 403) }
-  return { ok: true, orgId: sprint.orgId ?? '', siteUrl: sprint.siteUrl ?? '' }
+  return { ok: true, orgId: sprint.orgId ?? '', siteUrl: sprint.siteUrl ?? '', scopeFields: inheritSprintCompanyFields(sprint) }
 }
 
 /** GET /api/v1/seo/competitors?sprintId=...  — list tracked competitors. */
@@ -40,7 +41,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   const r = await resolveSprint(sprintId, user)
   if (!r.ok) return r.response
 
-  const result = await addCompetitor(sprintId, r.orgId, domain)
+  const result = await addCompetitor(sprintId, r.orgId, domain, r.scopeFields)
   if ('error' in result) return apiError(result.error, 400)
   return apiSuccess(result, 201)
 })

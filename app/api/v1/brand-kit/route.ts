@@ -13,7 +13,8 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { FieldValue } from 'firebase-admin/firestore'
 import { lastActorFrom } from '@/lib/api/actor'
 import { getBrandKitForOrg, getBrandKitForOwner, brandKitWriteDocId } from '@/lib/brand-kit/store'
-import { resolveMarketingOwnerFromSearchParams } from '@/lib/social/account-scope'
+import { ownerFieldsForWrite, resolveMarketingOwnerFromSearchParams } from '@/lib/social/account-scope'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 import { defaultBrandKit, type BrandKitSocial } from '@/lib/brand-kit/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -104,7 +105,8 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   await adminDb.collection('brand_kits').doc(brandKitWriteDocId(orgId, owner)).set(
     {
       ...cleaned,
-      ...ownerFieldsIfAny(owner),
+      ...ownerFieldsForWrite(owner),
+      ...clientVisibilityFieldsForWrite(body?.clientVisibility),
       // lastActorFrom() supplies updatedAt + updatedBy + updatedByType.
       ...lastActorFrom(user),
     },
@@ -114,13 +116,3 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const fresh = await getBrandKitForOwner(orgId, owner)
   return apiSuccess(toWire(fresh))
 })
-
-function ownerFieldsIfAny(owner: ReturnType<typeof resolveMarketingOwnerFromSearchParams>) {
-  if (owner.owner === 'company' && owner.companyId) {
-    return { marketingOwner: 'company', companyId: owner.companyId }
-  }
-  if (owner.owner === 'personal') {
-    return { marketingOwner: 'personal', ownerUid: owner.uid ?? null }
-  }
-  return { marketingOwner: 'org' }
-}

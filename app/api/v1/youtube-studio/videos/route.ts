@@ -11,16 +11,26 @@ import {
 } from '@/lib/youtube-studio/api'
 import { sanitizeYouTubeVideoProjectInput, serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
 import type { YouTubeVideoProject } from '@/lib/youtube-studio/types'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
 export const GET = withAuth('admin', async (req, user) => {
-  const orgId = new URL(req.url).searchParams.get('orgId')?.trim() ?? ''
+  const { searchParams } = new URL(req.url)
+  const orgId = searchParams.get('orgId')?.trim() ?? ''
   const denied = await ensureOrgAccess(user, orgId)
   if (denied) return denied
 
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
   const docs = await listByOrg(YOUTUBE_COLLECTIONS.videos, orgId)
   const videos = docs
+    .filter((doc) => recordVisibleForWorkScope(doc.data() as Record<string, unknown>, workScope))
     .map((doc) => serializeYouTubeRecord<YouTubeVideoProject>(doc.id, doc.data()))
     .sort((a, b) => a.title.localeCompare(b.title))
 
@@ -52,6 +62,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
 
   const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.videos).add({
     ...data,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     deleted: false,
     ...actorFields(user),
   })

@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { generateBlogDraft } from '@/lib/seo/tools/ai-generators'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -50,6 +51,7 @@ export const POST = withAuth(
       generatedBy: draft.generatedBy,
       generatedAt: FieldValue.serverTimestamp(),
       status: 'draft',
+      ...inheritSprintCompanyFields(data),
       createdAt: FieldValue.serverTimestamp(),
     })
 

@@ -7,6 +7,7 @@ import { lastActorFrom } from '@/lib/api/actor'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { VALID_PROPERTY_TYPES, VALID_PROPERTY_STATUSES } from '@/lib/properties/types'
 import type { UpdatePropertyInput } from '@/lib/properties/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
     }
     if (updates.domain) updates.domain = (updates.domain as string).trim().toLowerCase()
     if (updates.name) updates.name = (updates.name as string).trim()
+    if ('clientVisibility' in body) Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
 
     await ref.update({ ...updates, ...lastActorFrom(user) })
 

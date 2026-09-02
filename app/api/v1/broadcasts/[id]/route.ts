@@ -15,6 +15,7 @@ import { lastActorFrom } from '@/lib/api/actor'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
 import { invalidatedEmailApprovalState } from '@/lib/email-marketing/agent-governance'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (typeof body.fromName === 'string') update.fromName = body.fromName
   if (typeof body.fromLocal === 'string') update.fromLocal = body.fromLocal
   if (typeof body.replyTo === 'string') update.replyTo = body.replyTo
+  if ('clientVisibility' in body) Object.assign(update, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   if (body.content && typeof body.content === 'object') {
     const c = body.content as Partial<Broadcast['content']>

@@ -64,6 +64,11 @@ export interface Property {
   creatorLinkPrefix?: string
   ingestKey: string
   ingestKeyRotatedAt: unknown // Firestore Timestamp — serialised as { _seconds, _nanoseconds }
+  /** Company work scope: the CRM company this property belongs to. */
+  companyId?: string
+  workOwner?: 'org' | 'company' | 'personal'
+  marketingOwner?: 'org' | 'company' | 'personal'
+  clientVisibility?: 'shared' | 'private'
   createdAt: unknown
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
@@ -83,6 +88,9 @@ export interface CreatePropertyInput {
   conversionSequenceId?: string
   emailSenderDomain?: string
   creatorLinkPrefix?: string
+  companyId?: string
+  sourceCompanyId?: string
+  clientVisibility?: 'shared' | 'private'
 }
 
 export interface UpdatePropertyInput {
@@ -94,4 +102,5 @@ export interface UpdatePropertyInput {
   conversionSequenceId?: string
   emailSenderDomain?: string
   creatorLinkPrefix?: string
+  clientVisibility?: 'shared' | 'private'
 }

@@ -7,16 +7,26 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', withTenant(async (_req, _user, orgId) => {
+export const GET = withAuth('admin', withTenant(async (req, user, orgId) => {
+  const scope = resolveWorkScopeFromSearchParams(new URL(req.url).searchParams, user.uid)
   const snapshot = await adminDb.collection('social_rss_feeds')
     .where('orgId', '==', orgId)
     .get()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const feeds = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  const feeds = snapshot.docs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+    .filter((f: Record<string, unknown>) => recordVisibleForWorkScope(f, scope))
 
   return apiSuccess(feeds, 200, { total: feeds.length, page: 1, limit: feeds.length })
 }))
@@ -53,6 +63,8 @@ export const POST = withAuth('admin', withTenant(async (req, user, orgId) => {
     checkIntervalMinutes: Math.max(15, body.checkIntervalMinutes ?? 60),
     consecutiveErrors: 0,
     lastError: null,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

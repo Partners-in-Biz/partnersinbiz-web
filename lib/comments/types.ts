@@ -21,6 +21,8 @@ export type CommentResourceType =
   | 'calendar_event'
   | 'client_org'
   | 'research_item'
+  /** Cross-org comment from a linked org on a company-scoped record (any module). */
+  | 'company_work'
 
 export const VALID_COMMENT_RESOURCE_TYPES: readonly CommentResourceType[] = [
   'invoice',
@@ -35,6 +37,7 @@ export const VALID_COMMENT_RESOURCE_TYPES: readonly CommentResourceType[] = [
   'calendar_event',
   'client_org',
   'research_item',
+  'company_work',
 ] as const
 
 /**

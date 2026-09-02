@@ -35,6 +35,13 @@ import {
 } from '@/lib/lead-capture/types'
 import { parseCaptureFields } from '@/lib/lead-capture/schema'
 import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -171,9 +178,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     .get()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
   let data: CaptureSource[] = snap.docs
     .map((d: any) => ({ id: d.id, ...d.data() }) as CaptureSource)
     .filter((s: CaptureSource) => s.deleted !== true)
+    .filter((s: CaptureSource) => recordVisibleForWorkScope(s as unknown as Record<string, unknown>, workScope))
 
   if (activeParam === 'true') data = data.filter((s) => s.active === true)
   else if (activeParam === 'false') data = data.filter((s) => s.active === false)
@@ -248,6 +257,8 @@ export const POST = withAuth(
       // Outbound webhook (US-091)
       webhookUrl: sanitizeWebhookUrl(body.webhookUrl),
       webhookSecret: typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : '',
+      ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       ...actorFrom(user),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

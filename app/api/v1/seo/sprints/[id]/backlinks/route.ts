@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,7 @@ export const POST = withAuth(
       discoveredVia: body.discoveredVia ?? 'manual',
       createdAt: FieldValue.serverTimestamp(),
       deleted: false,
+      ...inheritSprintCompanyFields(sprint),
       ...actorFrom(user),
     })
     return apiSuccess({ id: ref.id }, 201)

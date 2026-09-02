@@ -11,6 +11,13 @@ import { STARTER_TEMPLATES, type EmailTemplate, type TemplateCategory } from '@/
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import { applyBrandKitToTheme } from '@/lib/brand-kit/applyToDocument'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +34,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const orgId = scope.orgId
   const categoryParam = searchParams.get('category')
   const category: TemplateCategory | null = isCategory(categoryParam) ? categoryParam : null
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   // Org-specific templates from Firestore
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,6 +45,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     .map((d: any) => ({ id: d.id, ...d.data() }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((t: any) => t.deleted !== true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((t: any) => recordVisibleForWorkScope(t, workScope))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((t: any) => ({
       ...t,
@@ -89,6 +99,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     document: finalDocument,
     isStarter: false,
     deleted: false,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     ...actorFrom(user),

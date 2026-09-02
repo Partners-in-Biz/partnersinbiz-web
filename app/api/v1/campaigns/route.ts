@@ -36,6 +36,7 @@ import {
   memberSeesAllModuleRecords,
 } from '@/lib/orgMembers/record-scope'
 import { campaignVisibleForScope, PERSONAL_SCOPE, ownerFieldsForWrite, resolveMarketingOwnerFromSearchParams, resolveMarketingOwnerFromValues } from '@/lib/social/account-scope'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,6 +177,7 @@ async function createContentEngineCampaign(
     pillars: Array.isArray(body.pillars) ? body.pillars : [],
     calendar: Array.isArray(body.calendar) ? body.calendar : [],
     ...ownerFieldsForWrite(owner),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     ...relationships.value,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -286,6 +288,7 @@ async function createEmailCampaign(
     contactIds: Array.isArray(body.contactIds) ? body.contactIds : [],
     audienceDefinition,
     ...ownerFieldsForWrite(owner),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     ...relationships.value,
     sequenceId,
     triggers: {

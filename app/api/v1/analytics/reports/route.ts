@@ -8,6 +8,7 @@ import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/
 import { AVAILABLE_METRICS } from '@/lib/analytics/report-metrics'
 import type { ApiUser } from '@/lib/api/types'
 import type { ReportFrequency } from '@/lib/analytics/types'
+import { companyFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +63,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
       recipients,
       active: true,
       lastRunAt: null,
+      ...companyFieldsForWrite(property.companyId),
       ...actorFrom(user),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

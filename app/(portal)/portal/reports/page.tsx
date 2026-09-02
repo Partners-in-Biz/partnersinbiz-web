@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ReportsWorkspace, type ReportsWorkspaceReport } from '@/components/reports/ReportsWorkspace'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalReports() {
@@ -51,6 +52,7 @@ export default function PortalReports() {
 
   return (
     <div className="space-y-6">
+      <SharedWithUsSection module="analytics" orgId={orgId ?? undefined} companyId={routeScope.sourceCompanyId} />
       <header>
         <p className="eyebrow">Performance reports</p>
         <h1 className="pib-page-title mt-2">Reports</h1>

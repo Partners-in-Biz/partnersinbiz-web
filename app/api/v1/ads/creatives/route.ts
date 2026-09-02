@@ -5,8 +5,9 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { listCreatives, createCreative } from '@/lib/ads/creatives/store'
 import { listAds } from '@/lib/ads/ads/store'
 import type { AdCreativeType, AdCreativeStatus, CreateAdCreativeInput } from '@/lib/ads/types'
+import { resolveWorkScopeFromRequest, resolveWorkScopeFromSearchParams, workScopeFieldsForWrite } from '@/lib/work-scope'
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const orgId = req.headers.get('X-Org-Id')
   if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
@@ -21,6 +22,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     type: type ?? undefined,
     status: status ?? undefined,
     includeArchived,
+    scope: resolveWorkScopeFromSearchParams(url.searchParams, (user as { uid?: string }).uid),
   })
 
   if (used === 'true' || used === 'false') {
@@ -94,6 +96,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     supersedes: body.supersedes,
     changeSummary: body.changeSummary,
     usageBacklinks: body.usageBacklinks,
+    ...(body.clientVisibility !== undefined ? { clientVisibility: body.clientVisibility } : {}),
   }
 
   try {
@@ -101,6 +104,11 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       orgId,
       createdBy: (user as { uid?: string }).uid ?? 'unknown',
       input,
+      scopeFields: workScopeFieldsForWrite(resolveWorkScopeFromRequest({
+        searchParams: new URL(req.url).searchParams,
+        body: body as Record<string, unknown>,
+        uid: (user as { uid?: string }).uid,
+      })),
     })
 
     return apiSuccess(created, 201)

@@ -9,6 +9,8 @@ import {
   assertMarketingHandlerAccess,
   extractPartnerLinkId,
 } from '@/lib/cross-org/marketing-handler-access'
+import { inheritSprintCompanyFields } from '@/lib/seo/tenant'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +60,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
 
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!sprintSnap.exists) return apiError('Sprint not found', 404)
-  const sprint = sprintSnap.data() as { orgId?: string }
+  const sprint = sprintSnap.data() as { orgId?: string; companyId?: unknown; workOwner?: unknown; marketingOwner?: unknown }
   const access = await assertMarketingHandlerAccess({
     user,
     module: 'seo',
@@ -77,6 +79,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
     title: brief.title,
     savedAt: new Date().toISOString(),
     savedBy: user.uid ?? user.role,
+    ...inheritSprintCompanyFields(sprint),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     createdAt: FieldValue.serverTimestamp(),
     deleted: false,
   })

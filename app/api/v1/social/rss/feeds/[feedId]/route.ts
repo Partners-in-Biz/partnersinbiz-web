@@ -11,6 +11,7 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { checkFeed } from '@/lib/social/rss'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,7 @@ export const PATCH = withAuth('admin', withTenant(async (req, _user, orgId) => {
       updates[key] = key === 'checkIntervalMinutes' ? Math.max(15, body[key]) : body[key]
     }
   }
+  if ('clientVisibility' in body) Object.assign(updates, clientVisibilityFieldsForWrite(body.clientVisibility))
 
   await adminDb.collection('social_rss_feeds').doc(feedId).update(updates)
   const updated = await adminDb.collection('social_rss_feeds').doc(feedId).get()

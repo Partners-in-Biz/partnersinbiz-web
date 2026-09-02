@@ -14,12 +14,20 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { getResendClient } from '@/lib/email/resend'
 import { isValidDomainName, type EmailDomain, type EmailDomainDnsRecord } from '@/lib/email/domains'
 import { assertEmailDomainRegistrationAllowed } from '@/lib/email/policy'
+import {
+  clientVisibilityFieldsForWrite,
+  recordVisibleForWorkScope,
+  resolveWorkScopeFromRequest,
+  resolveWorkScopeFromSearchParams,
+  workScopeFieldsForWrite,
+} from '@/lib/work-scope'
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
+  const workScope = resolveWorkScopeFromSearchParams(searchParams, user.uid)
 
   const snap = await adminDb
     .collection('email_domains')
@@ -29,6 +37,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const domains = snap.docs
     .map((d: any) => ({ id: d.id, ...d.data() }) as EmailDomain)
     .filter((d) => d.deleted !== true)
+    .filter((d) => recordVisibleForWorkScope(d as unknown as Record<string, unknown>, workScope))
 
   return apiSuccess(domains)
 })
@@ -87,6 +96,8 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
     lastSyncedAt: FieldValue.serverTimestamp(),
     platformApprovalStatus: policy.autoApprove ? 'approved' : 'pending_review',
     platformApprovedByRuleId: policy.autoApprove ? policy.matchedRuleId ?? null : null,
+    ...workScopeFieldsForWrite(resolveWorkScopeFromRequest({ searchParams: new URL(req.url).searchParams, body, uid: user.uid })),
+    ...clientVisibilityFieldsForWrite(body.clientVisibility),
     deleted: false,
   })
 

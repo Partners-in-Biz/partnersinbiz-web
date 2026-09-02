@@ -11,6 +11,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { REPORTS_COLLECTION, type Report } from '@/lib/reports/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import { clientVisibilityFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,7 @@ interface PatchBody {
   exec_summary?: string
   highlights?: string[]
   status?: Report['status']
+  clientVisibility?: unknown
 }
 
 export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
@@ -40,6 +42,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
   if (typeof body.exec_summary === 'string') (allowed as Record<string, unknown>).exec_summary = body.exec_summary
   if (Array.isArray(body.highlights)) (allowed as Record<string, unknown>).highlights = body.highlights.map(String).slice(0, 8)
   if (body.status) (allowed as Record<string, unknown>).status = body.status
+  if ('clientVisibility' in body) Object.assign(allowed, clientVisibilityFieldsForWrite(body.clientVisibility))
   await patchReport(id, allowed)
   const updated = await getReport(id)
   return NextResponse.json({ ok: true, report: updated })

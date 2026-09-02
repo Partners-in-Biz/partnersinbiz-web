@@ -9,6 +9,7 @@ import type {
   PlatformCreativeRef,
   UpdateAdCreativeInput,
 } from '@/lib/ads/types'
+import { clientVisibilityFieldsForWrite, recordVisibleForWorkScope, type WorkScope } from '@/lib/work-scope'
 import crypto from 'crypto'
 
 const COLLECTION = 'ad_creatives'
@@ -19,6 +20,8 @@ export async function createCreative(args: {
   input: CreateAdCreativeInput
   /** Optional explicit ID — used by upload-url flow so the signed URL and Firestore doc share the same ID. */
   id?: string
+  /** Work-scope stamp (companyId/workOwner/marketingOwner). */
+  scopeFields?: Record<string, unknown>
 }): Promise<AdCreative> {
   const id = args.id ?? `crv_${crypto.randomBytes(8).toString('hex')}`
   const now = Timestamp.now()
@@ -60,6 +63,8 @@ export async function createCreative(args: {
     createdBy: args.createdBy,
     createdAt: now,
     updatedAt: now,
+    ...(args.scopeFields as Pick<AdCreative, 'marketingOwner' | 'workOwner' | 'companyId'> | undefined),
+    ...(clientVisibilityFieldsForWrite(args.input.clientVisibility) as Pick<AdCreative, 'clientVisibility'>),
   }
 
   await adminDb.collection(COLLECTION).doc(id).set(doc)
@@ -77,6 +82,7 @@ export async function listCreatives(args: {
   type?: AdCreativeType
   status?: AdCreative['status']
   includeArchived?: boolean
+  scope?: WorkScope
 }): Promise<AdCreative[]> {
   let query = adminDb.collection(COLLECTION).where('orgId', '==', args.orgId)
 
@@ -89,7 +95,8 @@ export async function listCreatives(args: {
   }
 
   const snap = await query.get()
-  const results = snap.docs.map((d) => d.data() as AdCreative)
+  const all = snap.docs.map((d) => d.data() as AdCreative)
+  const results = args.scope ? all.filter((row) => recordVisibleForWorkScope(row, args.scope!)) : all
 
   // Exclude ARCHIVED by default unless includeArchived is set
   if (!args.includeArchived) {
