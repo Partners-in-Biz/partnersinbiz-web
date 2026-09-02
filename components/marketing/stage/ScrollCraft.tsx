@@ -51,6 +51,15 @@ function parseActs(raw: string | undefined): Array<readonly [string, number]> {
     .filter(([, start]) => Number.isFinite(start))
 }
 
+/**
+ * Stylesheets declare `--sc-gate: 0` on the stage wherever the frame unsticks
+ * (narrow viewports, reduced motion). Stacked acts are all on screen, so
+ * nothing may be made inert there.
+ */
+export function gatesActs(gateValue: string): boolean {
+  return gateValue.trim() !== '0'
+}
+
 export function ScrollCraft() {
   useEffect(() => {
     const stages = Array.from(document.querySelectorAll<HTMLElement>('[data-sc-rebuild]'))
@@ -63,6 +72,7 @@ export function ScrollCraft() {
       gated.set(stage, Array.from(stage.querySelectorAll<HTMLElement>('[data-sc-show]')))
     }
 
+    // Keyed by stage: the act last applied, plus whether gating was on.
     const applied = new Map<HTMLElement, string>()
     let frame = 0
     const update = () => {
@@ -73,12 +83,14 @@ export function ScrollCraft() {
         const p = progressFor(rect.top, rect.height, viewport)
         stage.style.setProperty('--sc-p', p.toFixed(4))
         const act = actFor(p, acts.get(stage) ?? [])
-        if (applied.get(stage) !== act) {
-          applied.set(stage, act)
+        const gate = gatesActs(getComputedStyle(stage).getPropertyValue('--sc-gate'))
+        const key = gate ? act : `open:${act}`
+        if (applied.get(stage) !== key) {
+          applied.set(stage, key)
           stage.dataset.scAct = act
           for (const el of gated.get(stage) ?? []) {
             const shows = (el.dataset.scShow ?? '').split(',').map((s) => s.trim())
-            if (shows.includes(act)) el.removeAttribute('inert')
+            if (!gate || shows.includes(act)) el.removeAttribute('inert')
             else el.setAttribute('inert', '')
           }
         }

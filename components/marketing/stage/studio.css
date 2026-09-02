@@ -472,6 +472,7 @@
 
 @media (max-width: 860px) {
   .sh-root {
+    --sc-gate: 0;
     height: auto;
   }
   .sh-frame {

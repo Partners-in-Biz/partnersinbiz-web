@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import HomePage from '@/app/(public)/page'
 import UsHomePage from '@/app/(public)/us/page'
 import StartProjectPage from '@/app/(public)/start-a-project/page'
-import { actFor, progressFor, STAGE_ACTS } from '@/components/marketing/stage/ScrollCraft'
+import { actFor, gatesActs, progressFor, STAGE_ACTS } from '@/components/marketing/stage/ScrollCraft'
 import { STUDIO_ACTS_ATTR } from '@/components/marketing/stage/StudioStage'
 import { isStageRoute } from '@/lib/marketing/stage-routes'
 
@@ -228,6 +228,13 @@ describe('scroll-craft progress', () => {
     const spans = acts.map(([name, start], i) => [name, (acts[i + 1]?.[1] ?? 1) - start] as const)
     const widest = spans.reduce((a, b) => (b[1] > a[1] ? b : a))
     expect(widest[0]).toBe('work')
+  })
+
+  it('stops gating acts inert once a stylesheet declares --sc-gate: 0 for a stacked layout', () => {
+    expect(gatesActs('')).toBe(true)
+    expect(gatesActs(' 1')).toBe(true)
+    expect(gatesActs('0')).toBe(false)
+    expect(gatesActs(' 0 ')).toBe(false)
   })
 
   it('knows which routes carry their own chrome', () => {
