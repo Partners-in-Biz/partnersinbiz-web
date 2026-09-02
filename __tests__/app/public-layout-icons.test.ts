@@ -72,18 +72,14 @@ describe('public layout icon subset', () => {
     }
   })
 
-  it('loads every literal Material Symbol used by the start-project page shell', () => {
-    const materialSymbolNames = readPublicMaterialSymbolNames()
+  it('leaves the start-project route as a plain redirect with no icon shell', () => {
     const startProjectPageSource = readFileSync(
       path.join(process.cwd(), 'app/(public)/start-a-project/page.tsx'),
       'utf8'
     )
-    const pageShellIcons = readLiteralMaterialSymbols(startProjectPageSource)
 
-    expect(pageShellIcons.length).toBeGreaterThan(0)
-    for (const iconName of pageShellIcons) {
-      expect(materialSymbolNames).toContain(iconName)
-    }
+    expect(readLiteralMaterialSymbols(startProjectPageSource)).toHaveLength(0)
+    expect(startProjectPageSource).toMatch(/redirect\(/)
   })
 
   it('loads every Material Symbol used by the partner-with-us pages', () => {
