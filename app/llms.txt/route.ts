@@ -45,8 +45,7 @@ ${posts}
 - [AU Offer — The 4-Week Site](${SITE.url}/au): Fixed A$14,500 AUD Next.js site in 28 days for Australian founders. Stripe. Client owns the repo.
 - [EU Offer — The 4-Week Site](${SITE.url}/eu): Fixed €8,500 EUR Next.js site in 28 days for EU founders (English). Stripe. Client owns the repo.
 - [Gauteng Growth Audit](${SITE.url}/gauteng-growth-audit): Free website, local SEO, and social media audit for Gauteng SMEs
-- [Start a project](${SITE.url}/start-a-project): 4-step intake form, ~90 seconds
-- [Book an intro call](${SITE.cal.url}): 20-minute Cal.com slot
+- [Book a 20-min call](${SITE.url}/book-a-call): the one scheduler for every project
 - [Contact email](mailto:${SITE.email})
 
 ## Optional

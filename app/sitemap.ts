@@ -41,7 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/partner-with-us',
     '/faq',
     '/book-a-call',
-    '/start-a-project',
     '/us',
     '/uk',
     '/au',
