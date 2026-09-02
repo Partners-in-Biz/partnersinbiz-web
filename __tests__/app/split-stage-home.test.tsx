@@ -61,7 +61,7 @@ describe('/ is the ZA stage only', () => {
     render(<HomePage />)
     expect(screen.getByRole('heading', { level: 1, name: 'You have a site. The phone is quiet.' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'A marketing site from R35,000' })).toBeInTheDocument()
-    expect(screen.getByText('Yours in 2 to 4 weeks. You own it.')).toBeInTheDocument()
+    expect(screen.getAllByText('Yours in 2 to 4 weeks. You own it.').length).toBeGreaterThanOrEqual(1)
   })
 
   it('uses running-text CTAs that all point at the existing scheduler', () => {

@@ -98,7 +98,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
           <div className="sc-cell sc-cell--dead">
             <div className="sc-dead-copy" data-sc-show="recognition,unease,relief">
               <h1 className="sc-h1">{dead.h1}</h1>
-              <div className="sc-photo sc-photo--dead sc-photo--hero" style={{ maxWidth: '22rem' }}>
+              <div className="sc-photo sc-photo--dead sc-photo--hero">
                 <Still still={STAGE_STILLS.deadInterior} sizes="22rem" priority />
               </div>
               <ul className="sc-dead-list" aria-label="What the current site says">
@@ -108,7 +108,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
               </ul>
             </div>
 
-            <div className="sc-peak-photo" aria-hidden="true">
+            <div className="sc-peak-photo" data-sc-show="peak">
               <div className="sc-photo">
                 <Still still={peak.still} sizes="(max-width: 700px) 100vw, 50vw" />
               </div>
@@ -126,7 +126,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
                 <p className="sc-dek">{own.dek}</p>
               </div>
 
-              <div className="sc-wipe sc-photo" style={{ maxWidth: '22rem' }}>
+              <div className="sc-wipe sc-photo">
                 <div className="sc-wipe__layer">
                   <Still still={STAGE_STILLS.rebuildScrub} sizes="(max-width: 700px) 60vw, 22rem" />
                 </div>
@@ -182,7 +182,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
               </div>
               <div className="sc-close__lines">
                 <p className="sc-dek" style={{ marginTop: 0, color: 'var(--sc-ink)' }}>{close.statement}</p>
-                <p className="sc-body">
+                <p className="sc-body sc-close__cta">
                   {close.ctaLead}{' '}
                   <Link href={content.bookHref} prefetch={false} className="sc-cta">
                     {content.cta}

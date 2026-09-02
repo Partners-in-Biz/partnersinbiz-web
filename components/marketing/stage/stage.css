@@ -132,6 +132,9 @@ body:has(.sc-stage) ::selection {
   outline: 2px solid var(--sc-accent);
   outline-offset: 4px;
 }
+.sc-cta {
+  white-space: nowrap;
+}
 .sc-link {
   color: inherit;
   text-decoration: underline;
@@ -189,8 +192,12 @@ body:has(.sc-stage) ::selection {
   position: relative;
   aspect-ratio: 3 / 2;
   overflow: hidden;
+  flex-shrink: 0;
   background: var(--sc-surface);
   box-shadow: var(--sc-shadow);
+}
+.sc-photo--hero {
+  max-width: 18rem;
 }
 .sc-photo::after {
   content: '';
@@ -228,7 +235,9 @@ body:has(.sc-stage) ::selection {
   --rise: clamp(0, calc(var(--a5) * 4), 1);
   --peak-op: calc(var(--rise) * (1 - var(--hush-peak)));
   --hush-peak: clamp(0, calc(var(--a6) * 2.5), 1);
-  --close-op: clamp(0, calc((var(--a6) - 0.4) / 0.4), 1);
+  /* The panel finishes its slide before the close is fully legible. */
+  --slide: clamp(0, calc(var(--a6) / 0.8), 1);
+  --close-op: clamp(0, calc((var(--a6) - 0.6) / 0.35), 1);
 }
 
 .sc-frame {
@@ -265,7 +274,7 @@ body:has(.sc-stage) ::selection {
   inset: 0;
   z-index: 2;
   background: var(--sc-surface);
-  transform: translate3d(calc(50% * (1 - var(--a6))), 0, 0);
+  transform: translate3d(calc(50% * (1 - var(--slide))), 0, 0);
   will-change: transform;
 }
 .sc-panel::before {
@@ -284,9 +293,6 @@ body:has(.sc-stage) ::selection {
 }
 
 /* Groups that share a fade. */
-.sc-group {
-  display: contents;
-}
 .sc-dead-copy,
 .sc-own-copy {
   opacity: calc(1 - var(--hush));
@@ -303,6 +309,7 @@ body:has(.sc-stage) ::selection {
   opacity: var(--v);
   transform: translate3d(0, calc((1 - var(--v)) * 10px), 0);
   margin: 0;
+  flex-shrink: 0;
   color: var(--sc-ink-soft);
   font-size: 0.9375rem;
   line-height: 1.4;
@@ -323,14 +330,14 @@ body:has(.sc-stage) ::selection {
 .sc-tell--broken {
   display: grid;
   place-items: center;
-  aspect-ratio: 5 / 2;
-  max-width: 24rem;
+  aspect-ratio: 4 / 1;
+  max-width: 18rem;
   border: 1px dashed var(--sc-line-strong);
   font-family: var(--sc-font-mono);
   font-size: 0.75rem;
 }
 .sc-tell--photo {
-  max-width: 24rem;
+  max-width: 14rem;
 }
 .sc-dead-list {
   display: flex;
@@ -344,10 +351,11 @@ body:has(.sc-stage) ::selection {
 /* Right: the rebuild. Lines and CTA arrive during Relief. --i is line index. */
 .sc-line {
   --i: 0;
-  --v: clamp(0, calc((var(--a3) - 0.35 - var(--i) * 0.14) * 6), 1);
+  --v: clamp(0, calc((var(--a3) - 0.2 - var(--i) * 0.12) * 6), 1);
   opacity: var(--v);
   transform: translate3d(0, calc((1 - var(--v)) * 12px), 0);
   margin: 0;
+  flex-shrink: 0;
 }
 .sc-own-lines {
   display: flex;
@@ -364,6 +372,7 @@ body:has(.sc-stage) ::selection {
   --w: clamp(0, calc((var(--a3) - 0.15) / 0.6), 1);
   --stage1: calc(1 - clamp(0, calc(var(--a3) * 4), 1));
   position: relative;
+  max-width: 22rem;
 }
 .sc-wipe__layer {
   position: absolute;
@@ -462,9 +471,32 @@ body:has(.sc-stage) ::selection {
   gap: calc(var(--sc-u) * 4);
   max-width: var(--sc-measure);
 }
+.sc-close__cta {
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.35;
+  max-width: 40ch;
+}
 .sc-close__small {
   max-width: var(--sc-measure);
   font-size: 0.9375rem;
+}
+
+/* Short viewports: keep the close CTA and the H1s inside the frame. */
+@media (max-height: 960px) {
+  .sc-tell--photo {
+    display: none;
+  }
+}
+@media (max-height: 820px) {
+  .sc-cell {
+    padding-top: calc(var(--sc-u) * 16);
+  }
+  .sc-photo--hero {
+    max-width: 15rem;
+  }
+  .sc-wipe {
+    max-width: 17rem;
+  }
 }
 @media (min-width: 900px) {
   .sc-close__inner {
@@ -586,8 +618,12 @@ body:has(.sc-stage) ::selection {
   color: var(--sc-accent);
 }
 .sc-paper input,
-.sc-paper textarea {
+.sc-paper textarea,
+.sc-paper .bento-card button {
   border-radius: 4px !important;
+}
+.sc-paper input,
+.sc-paper textarea {
   color: var(--sc-ink);
 }
 .sc-paper input::placeholder,
@@ -659,7 +695,7 @@ body:has(.sc-stage) ::selection {
     font-size: clamp(2.25rem, 1rem + 9vw, 3.5rem);
   }
   .sc-panel {
-    transform: translate3d(0, calc(50% * (1 - var(--a6))), 0);
+    transform: translate3d(0, calc(50% * (1 - var(--slide))), 0);
   }
   .sc-panel::before {
     top: -1px;
@@ -687,8 +723,12 @@ body:has(.sc-stage) ::selection {
   .sc-tell {
     font-size: 0.8125rem;
   }
-  .sc-own-copy .sc-photo {
-    max-width: 16rem;
+  .sc-wipe {
+    max-width: 8rem;
+  }
+  .sc-own-lines {
+    gap: calc(var(--sc-u) * 1);
+    font-size: 0.9375rem;
   }
   .sc-peak-photo {
     padding-top: calc(var(--sc-u) * 14);
@@ -703,14 +743,15 @@ body:has(.sc-stage) ::selection {
   }
   .sc-close {
     padding-top: calc(var(--sc-u) * 14);
-    align-content: start;
     overflow: hidden;
   }
   .sc-close__inner {
     gap: calc(var(--sc-u) * 6);
   }
-  .sc-wordmark {
-    left: var(--sc-pad);
+}
+@media (max-width: 700px) and (max-height: 760px) {
+  .sc-wipe {
+    display: none;
   }
 }
 

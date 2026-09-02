@@ -117,7 +117,7 @@ export const ZA_STAGE: StageContent = {
   close: {
     priceLabel: 'A marketing site',
     price: 'R35,000',
-    priceTerms: 'From R35,000. Yours in 2 to 4 weeks. You own it.',
+    priceTerms: 'Yours in 2 to 4 weeks. You own it.',
     statement: 'Pretoria studio. One person. WhatsApp the whole time.',
     ctaLead: 'Twenty minutes is enough to know if this is the right shape for you.',
   },
