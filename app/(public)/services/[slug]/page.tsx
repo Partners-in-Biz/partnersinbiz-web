@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { SERVICES, SITE } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
 import { JsonLd, breadcrumbSchema, serviceSchema, faqSchema } from '@/lib/seo/schema'
-import { STAGE_STILLS, WORK_SHOTS } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, type ServiceSlug } from '@/lib/marketing/service-content'
 import {
   Article,
@@ -23,7 +23,7 @@ const PLATES: Record<ServiceSlug, { src: string; alt: string }> = {
   'mobile-apps': WORK_SHOTS.velox,
   'ai-integration': WORK_SHOTS.lumen,
   'growth-systems': WORK_SHOTS.scrolledBrain,
-  'bespoke-builds': STAGE_STILLS.rebuildScrub,
+  'bespoke-builds': WORK_SHOTS.lumen,
 }
 
 export function generateStaticParams() {
@@ -93,9 +93,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
         }
         title={content.headline}
         lede={content.lede}
-      >
-        <Plate src={plate.src} alt={plate.alt} priority />
-      </ArticleHead>
+        plate={<Plate src={plate.src} alt={plate.alt} wide priority />}
+      />
 
       <ArticleRow
         title={content.price.label}

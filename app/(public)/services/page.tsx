@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE, FAQ_HOMEPAGE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, serviceSchema } from '@/lib/seo/schema'
-import { STAGE_STILLS } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, serviceMeta } from '@/lib/marketing/service-content'
 import { Article, ArticleHead, ArticleRow, CtaSentence, Plate, Proof } from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
@@ -47,9 +47,8 @@ export default function ServicesIndexPage() {
         kicker="Services"
         title={TITLE}
         lede="Most people arrive for the site. Some need the software behind it. This is the whole firm on one page, with the price next to each thing, so you can decide before the call."
-      >
-        <Plate src={STAGE_STILLS.rebuildDesk.src} alt={STAGE_STILLS.rebuildDesk.alt} priority />
-      </ArticleHead>
+        plate={<Plate src={WORK_SHOTS.athleet.src} alt={WORK_SHOTS.athleet.alt} caption="Athleet. Club platform, live in under four weeks." wide priority />}
+      />
 
       {SERVICE_ORDER.map((slug, i) => {
         const meta = serviceMeta(slug)

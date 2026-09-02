@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { SITE } from '@/lib/seo/site'
 import BookingWidget from './BookingWidget'
 import { marketFromId } from '@/lib/seo/market-offers'
-import { STAGE_STILLS, CTA_TEXT } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS, CTA_TEXT } from '@/lib/marketing/stage-content'
 import { MarketLinks, Wordmark } from '@/components/marketing/stage/StageChrome'
 import '@/components/marketing/stage/stage.css'
 
@@ -55,10 +55,10 @@ export default async function BookACallPage({
             <p className="sc-tiny">{eyebrow}</p>
             <h1 className="sc-h1">{CTA_TEXT}</h1>
             <p className="sc-dek">{dek}</p>
-            <div className="sc-photo sc-paper-page__photo">
+            <div className="sc-plate sc-paper-page__photo">
               <Image
-                src={STAGE_STILLS.rebuildDesk.src}
-                alt={STAGE_STILLS.rebuildDesk.alt}
+                src={WORK_SHOTS.ahsLaw.src}
+                alt={WORK_SHOTS.ahsLaw.alt}
                 fill
                 sizes="(max-width: 700px) 90vw, 22rem"
                 priority

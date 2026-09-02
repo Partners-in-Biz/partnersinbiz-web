@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { SITE, PROCESS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import { STAGE_STILLS } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { Article, ArticleHead, ArticleList, ArticleRow, CtaSentence, Plate } from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
 
@@ -76,9 +76,8 @@ export default function OurProcessPage() {
         kicker="How we work"
         title="We do not sell hours. We ship software."
         lede="Five steps, real artifacts, no theatre. This is how every engagement runs, from the first call to the months after launch."
-      >
-        <Plate src={STAGE_STILLS.rebuildScrub.src} alt={STAGE_STILLS.rebuildScrub.alt} priority />
-      </ArticleHead>
+        plate={<Plate src={WORK_SHOTS.velox.src} alt={WORK_SHOTS.velox.alt} caption="Velox. Shipped to both stores from one codebase." wide priority />}
+      />
 
       {PROCESS.map((phase, i) => (
         <ArticleRow

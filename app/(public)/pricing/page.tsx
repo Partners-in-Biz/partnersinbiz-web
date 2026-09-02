@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import { STAGE_STILLS } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { SERVICE_CONTENT } from '@/lib/marketing/service-content'
 import {
   Article,
@@ -118,9 +118,8 @@ export default function PricingPage() {
         kicker="Pricing"
         title="Real numbers. What each one buys."
         lede="Three shapes cover most of the work. The price is on the page because you should be able to decide before the call, not after it."
-      >
-        <Plate src={STAGE_STILLS.keysDesk.src} alt={STAGE_STILLS.keysDesk.alt} priority />
-      </ArticleHead>
+        plate={<Plate src={WORK_SHOTS.ahsLaw.src} alt={WORK_SHOTS.ahsLaw.alt} caption="AHS Law. A marketing site and a client portal." wide priority />}
+      />
 
       <ArticleRow
         title="A marketing site"

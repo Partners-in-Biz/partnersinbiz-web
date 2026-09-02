@@ -1217,6 +1217,85 @@ body:has(.sc-stage) ::selection {
 .sc-article__photo {
   width: min(100%, 26rem);
 }
+
+/* Plates: real screenshots with the terracotta drop, the same move as the home. */
+.sc-plate {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  background: var(--sc-surface);
+  box-shadow: 10px 10px 0 var(--sc-accent);
+  flex-shrink: 0;
+}
+.sc-plate img {
+  object-fit: cover;
+  object-position: top center;
+}
+.sc-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(26, 23, 20, 0.18);
+  z-index: 2;
+}
+.sc-plate__caption {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 22px);
+  margin: 0;
+  white-space: nowrap;
+}
+.sc-plate--wide {
+  width: 100%;
+  max-width: none;
+}
+/* A plate with a caption needs room below it. */
+.sc-plate:has(.sc-plate__caption) {
+  margin-bottom: calc(var(--sc-u) * 8);
+}
+
+/* Page head with a plate: copy left, plate right over an offset block. */
+.sc-article__head--plated {
+  max-width: none;
+  gap: calc(var(--sc-u) * 12);
+}
+.sc-article__head-copy {
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+  max-width: 60rem;
+}
+.sc-article__head-art {
+  position: relative;
+  padding: 7% 7% 0 0;
+}
+.sc-article__head-art .sc-plate {
+  position: relative;
+  z-index: 1;
+}
+.sc-block {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 78%;
+  height: 78%;
+  background: var(--sc-accent);
+}
+@media (min-width: 900px) {
+  .sc-article__head--plated {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    align-items: center;
+    gap: calc(var(--sc-u) * 16);
+  }
+  .sc-article__head-art {
+    padding: 9% 0 0 9%;
+  }
+  .sc-block {
+    right: calc(var(--sc-pad) * -1);
+    width: 82%;
+    height: 82%;
+  }
+}
 .sc-article__table {
   width: 100%;
   border-collapse: collapse;

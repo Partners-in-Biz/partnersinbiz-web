@@ -276,8 +276,8 @@ export default async function CaseStudyPage({
         }
         title={study.headline}
         lede={study.summary}
+        plate={<Plate src={study.cover} alt={`${study.client}: ${study.headline}`} wide priority />}
       >
-        <Plate src={study.cover} alt={`${study.client}: ${study.headline}`} priority />
         {content.siteUrl && (
           <p className="sc-body">
             <a href={content.siteUrl} target="_blank" rel="noreferrer" className="sc-link">

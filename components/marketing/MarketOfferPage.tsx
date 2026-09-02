@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { SITE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { STAGE_STILLS } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { type MarketOffer, marketBookHref, marketOfferUrl } from '@/lib/seo/market-offers'
 import { Article, ArticleHead, ArticleList, ArticleRow, CtaSentence, Plate, Proof } from '@/components/marketing/paper/Article'
 
@@ -57,8 +57,8 @@ export function MarketOfferPage({ market }: { market: MarketOffer }) {
             the next day and nothing breaks.
           </>
         }
+        plate={<Plate src={WORK_SHOTS.ahsLaw.src} alt={WORK_SHOTS.ahsLaw.alt} caption="AHS Law. Number one on Google in eight weeks." wide priority />}
       >
-        <Plate src={STAGE_STILLS.storefrontAfter.src} alt={STAGE_STILLS.storefrontAfter.alt} priority />
         <CtaSentence lead="Twenty minutes is enough to know if this is the right shape." href={bookHref} />
       </ArticleHead>
 
