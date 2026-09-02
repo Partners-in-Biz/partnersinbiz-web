@@ -3,6 +3,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { SeoSprintOverview, type SeoSprintOverviewSprint } from '@/components/seo/SeoSprintOverview'
 import { loadSeoOverviewStats } from '@/lib/seo/overview'
 import { FeatureGate } from '@/components/paywall/FeatureGate'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
+import { recordVisibleForWorkScope, resolveWorkScope } from '@/lib/work-scope'
 import {
   resolvePortalSeoUser,
   scopedPortalHref,
@@ -42,25 +44,38 @@ export default async function PortalSeoIndex({
     )
   }
 
+  const workScope = resolveWorkScope({
+    companyId: scope.sourceCompanyId,
+  })
   const query = adminDb.collection('seo_sprints').where('orgId', '==', user.orgId).where('deleted', '==', false)
   const snap = await query.get()
-  const sprints = sortSprints(snap.docs.map((doc): SeoSprintOverviewSprint => {
-    const data = doc.data() as Partial<SeoSprintOverviewSprint>
-    return { ...data, id: doc.id }
-  }))
+  const sprints = sortSprints(snap.docs
+    .map((doc): SeoSprintOverviewSprint => {
+      const data = doc.data() as Partial<SeoSprintOverviewSprint>
+      return { ...data, id: doc.id }
+    })
+    .filter((sprint) => recordVisibleForWorkScope(sprint, workScope, { orgViewIncludesCompany: true })))
   const singleSprintStats = sprints.length === 1 ? await loadSeoOverviewStats(sprints[0].id) : undefined
 
   return (
     <FeatureGate feature="seo">
       <div data-module-accent="green">
+        <SharedWithUsSection
+          module="seo"
+          companyId={scope.sourceCompanyId}
+          hrefForRecord={(record) => scopedPortalHref(`/portal/seo/sprints/${record.id}`, {
+            orgId: scope.orgId || user.orgId,
+            orgSlug: scope.orgSlug,
+          })}
+        />
         <SeoSprintOverview
-        sprints={sprints}
-        singleSprintStats={singleSprintStats}
-        sprintBasePath="/portal/seo/sprints"
-        sprintHref={(sprint, childPath = '') => scopedPortalHref(`/portal/seo/sprints/${sprint.id}${childPath}`, scope)}
-        emptyTitle="SEO Sprint"
-        emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
-      />
+          sprints={sprints}
+          singleSprintStats={singleSprintStats}
+          sprintBasePath="/portal/seo/sprints"
+          sprintHref={(sprint, childPath = '') => scopedPortalHref(`/portal/seo/sprints/${sprint.id}${childPath}`, scope)}
+          emptyTitle="SEO Sprint"
+          emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
+        />
       </div>
     </FeatureGate>
   )

@@ -1,5 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { notFound, redirect } from 'next/navigation'
+import { requireSprintAccess } from '@/lib/seo/tenant'
+import type { ApiUser } from '@/lib/api/types'
 import { resolvePortalSeoUser } from '../../portalSeoScope'
 import { PortalSeoSprintChrome } from './PortalSeoSprintChrome'
 
@@ -35,9 +37,22 @@ export default async function PortalSprintLayout({
   const sprint = sprintSnap.data() as SeoSprintRecord
   if (!sprint.orgId) notFound()
 
-  const user = await resolvePortalSeoUser(sprint.orgId)
+  // Authorize against the viewer's active portal org — not sprint.orgId.
+  // Projected sprints live on the serving org book; linked-org members open them via grant.
+  const user = await resolvePortalSeoUser()
   if (!user) redirect('/login')
-  if (user.forbidden) notFound()
+  if (user.forbidden || !user.orgId) notFound()
+
+  const apiUser: ApiUser = {
+    uid: user.uid,
+    orgId: user.orgId,
+    role: 'client',
+  }
+  try {
+    await requireSprintAccess(id, apiUser, { action: 'view' })
+  } catch {
+    notFound()
+  }
 
   const [tasksSnap, keywordsSnap, contentSnap] = await Promise.all([
     adminDb.collection('seo_tasks').where('sprintId', '==', id).where('deleted', '==', false).get(),

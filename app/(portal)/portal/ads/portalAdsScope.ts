@@ -6,11 +6,14 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 export type PortalAdsSearchParams = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  companyId?: string
 }
 
 export type PortalAdsScope = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
 }
 
 export type PortalAdsUser =
@@ -22,9 +25,11 @@ function cleanString(value: unknown): string {
 }
 
 export function scopeFromSearchParams(params?: PortalAdsSearchParams): PortalAdsScope {
+  const sourceCompanyId = cleanString(params?.sourceCompanyId) || cleanString(params?.companyId) || undefined
   return {
     orgId: cleanString(params?.orgId) || undefined,
     orgSlug: cleanString(params?.orgSlug) || undefined,
+    ...(sourceCompanyId ? { sourceCompanyId } : {}),
   }
 }
 

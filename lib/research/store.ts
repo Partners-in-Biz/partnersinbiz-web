@@ -82,6 +82,7 @@ export type ResearchListFilters = {
   kind?: ResearchKind
   visibility?: ResearchVisibility
   q?: string
+  companyId?: string
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -201,6 +202,9 @@ export function validateResearchFilters(searchParams: URLSearchParams): {
       status: status as ResearchStatus | undefined,
       visibility: visibility as ResearchVisibility | undefined,
       q: searchParams.get('q')?.trim() || undefined,
+      companyId: searchParams.get('companyId')?.trim()
+        || searchParams.get('sourceCompanyId')?.trim()
+        || undefined,
     },
   }
 }
@@ -274,6 +278,11 @@ export async function listResearchItems(filters: ResearchListFilters): Promise<R
     .filter((item) => !filters.kind || item.kind === filters.kind)
     .filter((item) => !filters.status || item.status === filters.status)
     .filter((item) => !filters.visibility || item.visibility === filters.visibility)
+    .filter((item) => {
+      if (!filters.companyId) return true
+      const wanted = filters.companyId.trim()
+      return item.linked?.companyId === wanted || Boolean(item.linked?.companyIds?.includes(wanted))
+    })
     .filter((item) => {
       if (!q) return true
       const haystack = [

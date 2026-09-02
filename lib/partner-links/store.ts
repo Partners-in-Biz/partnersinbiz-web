@@ -11,6 +11,10 @@ import { revokeSharesForPartnerLink } from './shares'
 import { revokeProjectAccessForPartnerLink } from './collaboration'
 import { cancelOpenOrdersForPartnerLink } from './trade'
 import {
+  issueCompanyWorkspaceGrantsForLink,
+  revokeCompanyWorkspaceGrantsForPartnerLink,
+} from '@/lib/company-work/grants'
+import {
   CROSS_ORG_SCHEMA_VERSION,
   PARTNER_LINKS_COLLECTION,
   PARTNER_SCOPE_AGREEMENTS_COLLECTION,
@@ -526,6 +530,19 @@ export async function acceptPartnerInvite(
     targetAcceptedBy: actor,
   })
 
+  // --- Company workspace grants (one per direction) -------------------------
+  // items[] = accepted sharedCapabilities; authority comes from the grant,
+  // linkedOrgId stays a pointer only.
+  await issueCompanyWorkspaceGrantsForLink({
+    partnerLinkId,
+    sourceOrgId,
+    sourceCompanyId: invite.sourceCompanyId,
+    targetOrgId,
+    targetCompanyId: mirrorCompany.companyId,
+    sourceModules: capabilities,
+    targetModules: capabilities,
+  })
+
   // --- Canonical identity links (many-to-many join rows) --------------------
   // The acceptor verifies org-level affiliation on both sides; a contact_user
   // link is created only when the recipient identity itself accepted.
@@ -689,6 +706,7 @@ export async function unlinkPartnership(
     partnerLinkId,
     actor: input.actor,
   })
+  await revokeCompanyWorkspaceGrantsForPartnerLink(partnerLinkId)
 
   // Canonical identity links derived from this partner link are revoked too.
   const identityRevoked = await revokeIdentityLinksForPartnerLink(partnerLinkId, input.actor)

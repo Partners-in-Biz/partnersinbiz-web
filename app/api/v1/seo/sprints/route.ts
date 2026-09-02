@@ -9,6 +9,7 @@ import { OUTRANK_90 } from '@/lib/seo/templates/outrank-90'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { recordVisibleForOwner, resolveMarketingOwnerFromSearchParams, ownerFieldsForWrite } from '@/lib/social/account-scope'
+import { clientVisibilityFieldsForWrite, resolveWorkScopeFromRequest, workScopeFieldsForWrite } from '@/lib/work-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +80,11 @@ export const POST = withAuth(
     if (!orgId) return apiError('orgId is required (no user.orgId set)', 400)
     if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
+    const workScope = resolveWorkScopeFromRequest({
+      searchParams: new URL(req.url).searchParams,
+      body,
+      uid: user.uid,
+    })
     const startDate = body.startDate ?? new Date().toISOString()
     const sprintRef = await adminDb.collection('seo_sprints').add({
       orgId,
@@ -93,7 +99,8 @@ export const POST = withAuth(
       templateId: 'outrank-90',
       autopilotMode: body.autopilotMode ?? 'safe',
       autopilotTaskTypes: body.autopilotTaskTypes ?? [],
-      ...ownerFieldsForWrite(resolveMarketingOwnerFromSearchParams(new URL(req.url).searchParams, user.uid)),
+      ...workScopeFieldsForWrite(workScope),
+      ...clientVisibilityFieldsForWrite(body.clientVisibility),
       integrations: {
         gsc: { connected: false },
         bing: { connected: false },
@@ -104,6 +111,8 @@ export const POST = withAuth(
       deleted: false,
       ...actorFrom(user),
     })
+
+    const companyStamp = workScopeFieldsForWrite(workScope)
 
     // Seed tasks from template
     for (const t of OUTRANK_90.tasks) {
@@ -121,6 +130,7 @@ export const POST = withAuth(
         source: 'template',
         createdAt: FieldValue.serverTimestamp(),
         deleted: false,
+        ...companyStamp,
         ...actorFrom(user),
       })
     }
@@ -138,6 +148,7 @@ export const POST = withAuth(
         discoveredVia: 'manual',
         createdAt: FieldValue.serverTimestamp(),
         deleted: false,
+        ...companyStamp,
         ...actorFrom(user),
       })
     }

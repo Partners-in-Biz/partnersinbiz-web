@@ -500,6 +500,13 @@ export const MODULE_CASCADE_RULES: ModuleCascadeRule[] = [
     onFieldNarrowed: 'reconcile',
     rationale: 'agent caches are derived surfaces; any change triggers an evidence-only reconcile run that invalidates affected keys.',
   },
+  {
+    module: 'company_workspace_grants',
+    onUnlink: 'revoke',
+    onCapabilityRemoved: 'reconcile',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'company_workspace PartnerResourceGrant items must revoke on unlink and narrow when a shared capability is removed.',
+  },
 ]
 
 export function moduleCascadeRule(module: CrossOrgModule): ModuleCascadeRule {

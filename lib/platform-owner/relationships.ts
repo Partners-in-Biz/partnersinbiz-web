@@ -4,6 +4,16 @@ import { AGENT_PIP_REF } from '@/lib/orgMembers/memberRef'
 import { bootstrapDefaultPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
 import type { ClaimableResourceType } from '@/lib/claimable-relationships/types'
 import { ensureBusinessRelationship } from '@/lib/business-relationships/store'
+import {
+  CROSS_ORG_SCHEMA_VERSION,
+  PARTNER_LINKS_COLLECTION,
+  PARTNER_SCOPE_AGREEMENTS_COLLECTION,
+} from '@/lib/cross-org/types'
+import {
+  DEFAULT_COMPANY_WORKSPACE_MODULES,
+  issueCompanyWorkspaceGrantsForLink,
+} from '@/lib/company-work/grants'
+import crypto from 'node:crypto'
 
 export const PLATFORM_OWNER_FALLBACK_ID = 'pib-platform-owner'
 
@@ -97,21 +107,31 @@ async function ensurePlatformClientRelationshipLinks(input: {
   clientName: string
   platformName: string
 }) {
-  // CRM relationship METADATA only — deliberately NOT an accepted bilateral
-  // Partner Link contract. No status/approvalState/portalVisible/capabilities:
-  // the store defaults these rows to pending/draft/private with zero
-  // capabilities, so a unilateral platform sync row can never grant cross-org
-  // access. Real collaboration requires the explicit accept flow
-  // (lib/partner-links acceptPartnerInvite).
+  // Mint a canonical Partner Link + company_workspace grants so PiB-serves-client
+  // converges with partner-serves-partner. PiB → client defaults all workspace
+  // modules on; client → PiB stays off (empty items) unless the client opts in.
+  const partnerLinkId = await ensurePlatformPartnerLinkAuthority({
+    platformOrgId: input.platformOrgId,
+    clientOrgId: input.clientOrgId,
+    platformCompanyId: input.platformCompanyId,
+    clientCompanyId: input.clientCompanyId,
+  })
+
   await ensureBusinessRelationship(input.platformOrgId, {
     sourceCompanyId: input.platformCompanyId,
     targetOrgId: input.clientOrgId,
     targetCompanyId: input.clientCompanyId,
     targetName: input.clientName,
     relationshipType: 'customer',
+    status: 'active',
+    approvalState: 'approved',
+    portalVisible: true,
+    visibility: 'relationship',
+    sharedCapabilities: DEFAULT_COMPANY_WORKSPACE_MODULES,
     allowedOrgIds: [input.platformOrgId, input.clientOrgId],
-    notes: 'Platform-owner CRM relationship metadata for the client company and shared operating-system records.',
-  }, AGENT_PIP_REF)
+    partnerLinkId,
+    notes: 'Platform-owner CRM relationship for the client company and shared operating-system records.',
+  }, AGENT_PIP_REF, { bilateral: true })
 
   if (!input.clientCompanyId) return
 
@@ -121,9 +141,122 @@ async function ensurePlatformClientRelationshipLinks(input: {
     targetCompanyId: input.platformCompanyId,
     targetName: input.platformName,
     relationshipType: 'supplier',
+    status: 'active',
+    approvalState: 'approved',
+    portalVisible: true,
+    visibility: 'relationship',
+    sharedCapabilities: [],
     allowedOrgIds: [input.clientOrgId, input.platformOrgId],
-    notes: 'Client portal supplier relationship metadata for Partners in Biz service delivery.',
-  }, AGENT_PIP_REF)
+    partnerLinkId,
+    notes: 'Client portal supplier relationship for Partners in Biz service delivery.',
+  }, AGENT_PIP_REF, { bilateral: true })
+
+  await issueCompanyWorkspaceGrantsForLink({
+    partnerLinkId,
+    sourceOrgId: input.platformOrgId,
+    sourceCompanyId: input.platformCompanyId,
+    targetOrgId: input.clientOrgId,
+    targetCompanyId: input.clientCompanyId,
+    sourceModules: DEFAULT_COMPANY_WORKSPACE_MODULES,
+    targetModules: [],
+  }).catch((err) => {
+    console.error('[platform-company-workspace-grant-error]', err)
+  })
+}
+
+async function ensurePlatformPartnerLinkAuthority(input: {
+  platformOrgId: string
+  clientOrgId: string
+  platformCompanyId: string
+  clientCompanyId?: string
+}): Promise<string> {
+  const [asA, asB] = await Promise.all([
+    adminDb.collection(PARTNER_LINKS_COLLECTION).where('orgA', '==', input.platformOrgId).limit(50).get(),
+    adminDb.collection(PARTNER_LINKS_COLLECTION).where('orgB', '==', input.platformOrgId).limit(50).get(),
+  ])
+  const existing = [...asA.docs, ...asB.docs]
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .find((link) => {
+      const status = cleanString((link as { status?: unknown }).status)
+      if (status && status !== 'active') return false
+      const orgA = cleanString((link as { orgA?: unknown }).orgA)
+      const orgB = cleanString((link as { orgB?: unknown }).orgB)
+      return (orgA === input.platformOrgId && orgB === input.clientOrgId)
+        || (orgA === input.clientOrgId && orgB === input.platformOrgId)
+    })
+
+  if (existing) return existing.id
+
+  const partnerLinkId = crypto.randomUUID()
+  const now = FieldValue.serverTimestamp()
+  const scopeId = (grantor: string, grantee: string) => `${partnerLinkId}:${grantor}:${grantee}`
+
+  await adminDb.runTransaction(async (tx) => {
+    tx.set(adminDb.collection(PARTNER_LINKS_COLLECTION).doc(partnerLinkId), {
+      partnerLinkId,
+      orgA: input.platformOrgId,
+      orgB: input.clientOrgId,
+      negotiableCapabilities: DEFAULT_COMPANY_WORKSPACE_MODULES,
+      status: 'active',
+      schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+      createdAt: now,
+      updatedAt: now,
+      provenance: { source: 'ensurePlatformCompanyForOrg' },
+    }, { merge: true })
+
+    const scopePayload = (grantorOrgId: string, granteeOrgId: string, capabilities: typeof DEFAULT_COMPANY_WORKSPACE_MODULES | []) => ({
+      partnerLinkId,
+      direction: { grantorOrgId, granteeOrgId },
+      capabilities,
+      fieldSharingPolicy: {
+        companyProfile: true,
+        contacts: true,
+        projects: true,
+        documents: true,
+        commerce: false,
+        analytics: true,
+        research: true,
+        properties: false,
+      },
+      status: 'active',
+      version: 1,
+      schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+      proposedByRef: AGENT_PIP_REF,
+      acceptedByRef: AGENT_PIP_REF,
+      acceptance: {
+        grantor: { byRef: AGENT_PIP_REF, at: now },
+        grantee: { byRef: AGENT_PIP_REF, at: now },
+      },
+      effectiveAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    tx.set(
+      adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).doc(scopeId(input.platformOrgId, input.clientOrgId)),
+      scopePayload(input.platformOrgId, input.clientOrgId, DEFAULT_COMPANY_WORKSPACE_MODULES),
+      { merge: true },
+    )
+    tx.set(
+      adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).doc(scopeId(input.clientOrgId, input.platformOrgId)),
+      scopePayload(input.clientOrgId, input.platformOrgId, []),
+      { merge: true },
+    )
+  })
+
+  // Stamp partnerLinkId onto companies when known.
+  await adminDb.collection('companies').doc(input.platformCompanyId).set({
+    partnerLinkId,
+    updatedAt: Timestamp.now(),
+  }, { merge: true })
+  if (input.clientCompanyId) {
+    await adminDb.collection('companies').doc(input.clientCompanyId).set({
+      partnerLinkId,
+      updatedAt: Timestamp.now(),
+    }, { merge: true })
+  }
+
+  return partnerLinkId
 }
 
 export async function resolvePlatformOwnerOrgId(): Promise<string> {

@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
+import { inheritSprintCompanyFields, requireSprintAccess } from '@/lib/seo/tenant'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,12 @@ export const GET = withAuth(
   'admin',
   async (req: NextRequest, user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
     const { id } = await ctx.params
+    try {
+      await requireSprintAccess(id, user)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Access denied'
+      return apiError(message, message.includes('not found') ? 404 : 403)
+    }
     const u = new URL(req.url)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q: any = adminDb.collection('seo_keywords').where('sprintId', '==', id).where('deleted', '==', false)
@@ -23,9 +30,7 @@ export const GET = withAuth(
     const snap = await q.get()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filtered = user.role === 'ai' || !user.orgId ? data : data.filter((d: any) => d.orgId === user.orgId)
-    return apiSuccess(filtered, 200, { total: filtered.length, page: 1, limit: filtered.length })
+    return apiSuccess(data, 200, { total: data.length, page: 1, limit: data.length })
   },
 )
 
@@ -33,13 +38,18 @@ export const POST = withAuth(
   'admin',
   withIdempotency(async (req: NextRequest, user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
     const { id } = await ctx.params
+    let sprint: Awaited<ReturnType<typeof requireSprintAccess>>
+    try {
+      sprint = await requireSprintAccess(id, user)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Access denied'
+      return apiError(message, message.includes('not found') ? 404 : 403)
+    }
+    if (sprint.accessMode === 'projected') {
+      return apiError('Projected viewers cannot create keywords', 403)
+    }
     const u = new URL(req.url)
     const bulk = u.searchParams.get('bulk') === 'true'
-    const sprintSnap = await adminDb.collection('seo_sprints').doc(id).get()
-    if (!sprintSnap.exists) return apiError('Sprint not found', 404)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sprint = sprintSnap.data() as any
-    if (user.role !== 'ai' && sprint.orgId !== user.orgId) return apiError('Access denied', 403)
     const body = await req.json().catch(() => null)
     if (!body) return apiError('body required', 400)
 
@@ -53,6 +63,7 @@ export const POST = withAuth(
     const items: Item[] = bulk ? (body.keywords ?? []) : [body]
     if (items.length === 0 || !items[0]?.keyword) return apiError('keyword(s) required', 400)
 
+    const companyStamp = inheritSprintCompanyFields(sprint)
     const ids: string[] = []
     for (const it of items) {
       if (!it.keyword) continue
@@ -68,6 +79,7 @@ export const POST = withAuth(
         status: 'not_yet',
         createdAt: FieldValue.serverTimestamp(),
         deleted: false,
+        ...companyStamp,
         ...actorFrom(user),
       })
       ids.push(ref.id)

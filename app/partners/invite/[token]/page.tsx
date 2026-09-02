@@ -1,6 +1,8 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
+import { PartnerModuleMatrix } from '@/components/crm/PartnerModuleMatrix'
+import { DEFAULT_COMPANY_WORKSPACE_MODULES } from '@/lib/company-work/module-keys'
 
 interface CandidateOrg {
   id: string
@@ -61,6 +63,7 @@ export default function PartnerInvitePage({ params }: { params: Promise<{ token:
   const [password, setPassword] = useState('')
   const [orgId, setOrgId] = useState('')
   const [companyChoice, setCompanyChoice] = useState('__create__')
+  const [modules, setModules] = useState<string[]>([...DEFAULT_COMPANY_WORKSPACE_MODULES])
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -81,6 +84,7 @@ export default function PartnerInvitePage({ params }: { params: Promise<{ token:
       setOrgId(preview.selectedOrgId || '')
       const suggested = preview.companies.find((c) => c.suggested && !c.alreadyLinked)
       setCompanyChoice(suggested ? suggested.id : '__create__')
+      if (preview.proposedCapabilities?.length) setModules(preview.proposedCapabilities)
     } catch {
       setState({ kind: 'error', message: 'Could not load this invitation. Please try again.' })
     }
@@ -102,6 +106,7 @@ export default function PartnerInvitePage({ params }: { params: Promise<{ token:
           password: password || undefined,
           orgId: orgId || undefined,
           preferTargetCompanyId: companyChoice !== '__create__' ? companyChoice : undefined,
+          capabilities: action === 'accept' ? modules : undefined,
         }),
       })
       const body = await res.json().catch(() => null)
@@ -205,16 +210,14 @@ export default function PartnerInvitePage({ params }: { params: Promise<{ token:
           </p>
         ) : null}
 
-        {preview.proposedCapabilities.length > 0 ? (
-          <div className="mb-5">
-            <span className={LABEL}>Shared areas</span>
-            <div className="flex flex-wrap gap-1.5">
-              {preview.proposedCapabilities.map((c) => (
-                <span key={c} className="rounded-md bg-white/[0.06] px-2 py-0.5 text-xs text-white/70">{c}</span>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div className="mb-5">
+          <PartnerModuleMatrix
+            value={modules}
+            onChange={setModules}
+            label="Modules to share (pre-checked)"
+            className="rounded-lg border border-white/10 bg-black/20 p-3"
+          />
+        </div>
 
         {needsAccount ? (
           <div className="space-y-3">
