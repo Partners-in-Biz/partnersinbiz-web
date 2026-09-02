@@ -71,12 +71,12 @@ export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest
     const relationshipType = cleanString(body.relationshipType)
     if (relationshipType) patch.relationshipType = relationshipType
 
-    let updated: BusinessRelationship = { id: relationshipId, ...link }
+    let updated: BusinessRelationship = { ...link, id: relationshipId }
     if (Object.keys(patch).length > 0) {
       updated = await updateBusinessRelationship(ctx.orgId, relationshipId, patch, ctx.actor)
     } else if (nextCapabilities && nextCapabilities.length === 0) {
       const fresh = await snap.ref.get()
-      updated = { id: relationshipId, ...fresh.data() } as BusinessRelationship
+      updated = { ...(fresh.data() as BusinessRelationship), id: relationshipId }
     }
 
     if (nextCapabilities) {

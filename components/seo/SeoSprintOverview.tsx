@@ -11,6 +11,12 @@ export interface SeoSprintOverviewSprint {
   currentDay?: number
   currentPhase?: number
   createdAt?: unknown
+  companyId?: string
+  accountScope?: string
+  ownerUid?: string
+  marketingOwner?: string
+  workOwner?: string
+  clientVisibility?: string
   health?: {
     signals?: unknown[]
   }
