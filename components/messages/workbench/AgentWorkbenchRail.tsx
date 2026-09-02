@@ -15,6 +15,7 @@ import type {
   WorkbenchTerminalMode,
   WorkbenchTunnelViewState,
 } from '@/lib/messages/workbench/types'
+import { shouldRenderClosedWorkbenchIconStrip } from '@/lib/messages/mobile-conversation-chrome'
 import { WorkbenchBrowserPanel } from './WorkbenchBrowserPanel'
 import { WorkbenchChangesPanel } from './WorkbenchChangesPanel'
 import { WorkbenchFilesPanel } from './WorkbenchFilesPanel'
@@ -312,9 +313,9 @@ export function AgentWorkbenchRail({
     </div>
   )
 
-  if (!open) {
+  if (shouldRenderClosedWorkbenchIconStrip({ open })) {
     return (
-      <div data-testid="agent-workbench-rail" data-open="false" className="absolute inset-y-0 right-0 z-30 flex">
+      <div data-testid="agent-workbench-rail" data-open="false" className="absolute inset-y-0 right-0 z-30 hidden md:flex">
         {iconStrip}
       </div>
     )

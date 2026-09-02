@@ -20,6 +20,7 @@ export function BotComputerStrip({
   browserProfileId = null,
   onOpenWorkbench,
   onToggleWorkbench,
+  className,
 }: {
   computers: VisibleBotComputer[]
   activeComputerId?: string | null
@@ -29,13 +30,14 @@ export function BotComputerStrip({
   browserProfileId?: string | null
   onOpenWorkbench?: (tab: WorkbenchTab) => void
   onToggleWorkbench?: () => void
+  className?: string
 }) {
   const onlineCount = computers.filter((computer) => computer.online).length
   return (
     <section
       data-testid="bot-computer-strip"
       aria-label={BOT_MODE_COPY.computersLabel}
-      className="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-black/[0.12] px-3 py-1.5 [scrollbar-width:thin]"
+      className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-black/[0.12] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}
     >
       <span className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
         <span aria-hidden="true" className="material-symbols-outlined text-[14px]">computer</span>

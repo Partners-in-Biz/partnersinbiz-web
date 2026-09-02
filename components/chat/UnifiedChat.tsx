@@ -104,6 +104,8 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { ConversationOverflowSheet } from '@/components/messages/ConversationOverflowSheet'
+import { useMobileConversationViewport } from '@/components/messages/useMobileConversationViewport'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
 import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
@@ -113,6 +115,13 @@ import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
+import {
+  MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS,
+  MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS,
+  MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS,
+  shouldAutoOpenBotWorkbench,
+  shouldHideMobileConversationChrome,
+} from '@/lib/messages/mobile-conversation-chrome'
 import { buildBotRosterItems } from '@/lib/messages/bot-roster'
 import {
   botInboxTitle,
@@ -287,6 +296,7 @@ export interface UnifiedChatProps {
   showAgentWorkbench?: boolean
   /** Messages catalogue vs named-Bot coworker mode (OpenBot / Hermes / GrokBot). */
   experienceMode?: MessagesExperienceMode
+  onExperienceModeChange?: (mode: MessagesExperienceMode) => void
   computersHref?: string
 }
 
@@ -1362,9 +1372,18 @@ export default function UnifiedChat({
   onContextCanvasPresentationChange,
   showAgentWorkbench = false,
   experienceMode = 'messages',
+  onExperienceModeChange,
   computersHref = '/portal/settings/linked-computers',
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
+  const mobileConversationViewport = useMobileConversationViewport()
+  const hideMobileConversationChrome = shouldHideMobileConversationChrome({
+    compact,
+    mobileViewport: mobileConversationViewport,
+  })
+  const firstPaintChromeClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS
+  const firstPaintBlockClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS
+  const firstPaintBotStripClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -1450,10 +1469,15 @@ export default function UnifiedChat({
     handleWorkbenchOpenChange(true)
   }, [handleWorkbenchOpenChange])
   useEffect(() => {
-    if (!botMode || !showAgentWorkbench || !activeId) return
-    if (botWorkbenchUserClosedRef.current === activeId) return
+    if (!shouldAutoOpenBotWorkbench({
+      botMode,
+      showAgentWorkbench,
+      hasActiveConversation: Boolean(activeId),
+      userClosed: botWorkbenchUserClosedRef.current === activeId,
+      mobileViewport: mobileConversationViewport,
+    })) return
     handleWorkbenchOpenChange(true)
-  }, [activeId, botMode, handleWorkbenchOpenChange, showAgentWorkbench])
+  }, [activeId, botMode, handleWorkbenchOpenChange, mobileConversationViewport, showAgentWorkbench])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -5304,7 +5328,9 @@ export default function UnifiedChat({
     if (!headerMenuOpen) return
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (!target.closest('[data-header-menu]')) setHeaderMenuOpen(false)
+      if (!target.closest('[data-header-menu]') && !target.closest('[data-testid="conversation-overflow-sheet"]')) {
+        setHeaderMenuOpen(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -8694,7 +8720,10 @@ export default function UnifiedChat({
                   </button>
                 )}
                 {activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
-                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px]">
+                  <div
+                    data-testid="conversation-command-session"
+                    className={['mt-0.5 min-w-0 flex-wrap items-center gap-1.5 text-[10px]', firstPaintChromeClass || 'flex'].join(' ')}
+                  >
                     {isCommandSession ? (
                       <span
                         data-testid="command-session-badge"
@@ -8720,7 +8749,10 @@ export default function UnifiedChat({
                   </div>
                 )}
                 {(subtitle || activeConnectionWhere) && (
-                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
+                  <div
+                    data-testid="conversation-mobile-subtitle"
+                    className={['mt-0.5 min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden', firstPaintChromeClass || 'flex'].join(' ')}
+                  >
                     {subtitle && <span className="truncate">{subtitle}</span>}
                     {subtitle && activeConnectionWhere && <span aria-hidden="true">·</span>}
                     {activeConnectionWhere && (
@@ -8810,7 +8842,7 @@ export default function UnifiedChat({
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
                 </button>
                 {headerMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 z-30 min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl">
+                  <div className="absolute right-0 top-full mt-1 z-30 hidden min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl md:block">
                     <button
                       type="button"
                       className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -8890,23 +8922,22 @@ export default function UnifiedChat({
         </div>
 
         {botMode && (
-          <div className="xl:hidden">
-            <BotComputerStrip
-              computers={botComputers}
-              activeComputerId={activeWorkspaceContext?.runtimeTarget}
-              computersHref={computersHref}
-              workbenchOpen={workbenchOpen}
-              isolatedFolder={isolatedBotFolder}
-              browserProfileId={isolatedBotProfile}
-              onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
-              onToggleWorkbench={showAgentWorkbench ? () => {
-                if (workbenchOpen) handleWorkbenchOpenChange(false)
-                else openWorkbenchTab(workbenchTab)
-              } : undefined}
-            />
-          </div>
+          <BotComputerStrip
+            className={firstPaintBotStripClass || 'xl:hidden'}
+            computers={botComputers}
+            activeComputerId={activeWorkspaceContext?.runtimeTarget}
+            computersHref={computersHref}
+            workbenchOpen={workbenchOpen}
+            isolatedFolder={isolatedBotFolder}
+            browserProfileId={isolatedBotProfile}
+            onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
+            onToggleWorkbench={showAgentWorkbench ? () => {
+              if (workbenchOpen) handleWorkbenchOpenChange(false)
+              else openWorkbenchTab(workbenchTab)
+            } : undefined}
+          />
         )}
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -9154,7 +9185,7 @@ export default function UnifiedChat({
           ].join(' ')}
         >
           {showComposerContextToolbar && (
-            <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
+            <div data-testid="chat-context-toolbar" className={['items-center justify-between gap-2', firstPaintChromeClass || 'flex'].join(' ')}>
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
                   <span
@@ -9490,8 +9521,8 @@ export default function UnifiedChat({
                 e.target.value = ''
               }}
             />
-            {/* Design commands — action menu fallback (mobile) for the "/" surface */}
-            <div className="relative self-end shrink-0">
+            {/* Design commands — desktop composer control; phone reaches them from overflow */}
+            <div data-testid="conversation-design-commands" className={['relative self-end shrink-0', firstPaintBlockClass].filter(Boolean).join(' ')}>
               <button
                 type="button"
                 onClick={() => setDesignMenuOpen((open) => !open)}
@@ -9662,7 +9693,7 @@ export default function UnifiedChat({
           {hermesLayout && (
             <div
               data-testid="hermes-runtime-control-bar"
-              className="flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]"
+              className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
             >
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
@@ -9769,6 +9800,179 @@ export default function UnifiedChat({
         </form>
 
       </section>
+
+      {!compact && (
+        <ConversationOverflowSheet
+          open={headerMenuOpen}
+          onClose={() => setHeaderMenuOpen(false)}
+          title={activeConversation?.title || 'New conversation'}
+          subtitle={subtitle}
+          connectionWhere={activeConnectionWhere}
+          isCommandSession={isCommandSession}
+          canBindCommandSession={Boolean(activeConversation?.scope === 'project' && activeConversation.scopeRefId && !isCommandSession)}
+          commandSessionBusy={commandSessionBusy}
+          onBindCommandSession={() => { void bindCommandSession() }}
+          computers={botComputers}
+          computersHref={computersHref}
+          activeComputerId={activeWorkspaceContext?.runtimeTarget}
+          isolatedFolder={isolatedBotFolder}
+          browserProfileId={isolatedBotProfile}
+          showAgentWorkbench={showAgentWorkbench}
+          workbenchOpen={workbenchOpen}
+          onOpenWorkbench={openWorkbenchTab}
+          onToggleWorkbench={() => {
+            if (workbenchOpen) handleWorkbenchOpenChange(false)
+            else openWorkbenchTab(workbenchTab)
+          }}
+          showInspect={Boolean(activeConversation)}
+          onOpenInspect={() => setExecutionDockRequest((value) => value + 1)}
+          experienceMode={experienceMode}
+          onExperienceModeChange={onExperienceModeChange}
+          designCommands={DESIGN_COMMANDS}
+          onDesignCommand={(command) => {
+            const full = DESIGN_COMMANDS.find((item) => item.id === command.id)
+            if (full) insertDesignCommand(full)
+          }}
+          conversationActions={activeConversation ? (
+            <>
+              <button
+                type="button"
+                data-testid="overflow-open-new-window"
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                onClick={() => {
+                  openConversationInNewWindow(activeConversation.id)
+                  setHeaderMenuOpen(false)
+                }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
+                Open in new window
+              </button>
+              <button
+                type="button"
+                data-testid="overflow-export"
+                disabled={exportingChat}
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)] disabled:opacity-50"
+                onClick={() => { void exportConversation(activeConversation.id) }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">download</span>
+                {exportingChat ? 'Exporting…' : 'Export chat'}
+              </button>
+              <button
+                type="button"
+                data-testid="overflow-rename"
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                onClick={() => {
+                  setHeaderMenuOpen(false)
+                  setRenamingId(activeConversation.id)
+                  setRenameValue(activeConversation.title || '')
+                  setMobilePane('list')
+                }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
+                Rename
+              </button>
+              {(allowManageConversationAccess || (activeConversation.workspaceContext?.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
+                <button
+                  type="button"
+                  data-testid="overflow-manage-access"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    setAccessConversation(activeConversation)
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">manage_accounts</span>
+                  {activeConversation.workspaceContext ? 'Manage access' : 'Manage people'}
+                </button>
+              )}
+              {allowArchiveConversations && (
+                <button
+                  type="button"
+                  data-testid="overflow-archive"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/10 px-3 text-left text-[12px] font-medium text-red-300"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    archiveConversation(activeConversation.id)
+                    setMobilePane('list')
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">archive</span>
+                  Archive
+                </button>
+              )}
+              {allowDeleteConversations && (
+                <button
+                  type="button"
+                  data-testid="overflow-delete"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/10 px-3 text-left text-[12px] font-medium text-red-300"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    deleteConversation(activeConversation.id)
+                    setMobilePane('list')
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
+                  Delete
+                </button>
+              )}
+            </>
+          ) : null}
+          runtimeStatus={activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
+          queuedCount={activeQueuedDrafts.length}
+          modelControl={activeModelAgentId ? (
+            <ModelProviderPicker
+              catalog={modelCatalog}
+              selected={selectedRuntime}
+              loading={modelCatalogLoading}
+              disabled={!activeConversation}
+              compact
+              placement="top"
+              onSelect={setSelectedRuntime}
+              onRefresh={loadModelCatalog}
+            />
+          ) : null}
+          effortControl={allowAgentParticipants ? (
+            <label className="block">
+              <span className="sr-only">Runtime thinking effort</span>
+              <select
+                value={agentEffort}
+                onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
+                disabled={!canUseComposer || sending}
+                title="Thinking effort"
+                aria-label="Runtime thinking effort"
+                className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)] outline-none"
+              >
+                <option value="">Auto effort</option>
+                {AGENT_EFFORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          approvalControl={hermesLayout ? (
+            <label className="block">
+              <span className="sr-only">Approval mode</span>
+              <select
+                value={approvalMode}
+                onChange={(event) => {
+                  const next = cleanApprovalMode(event.target.value) ?? 'ask'
+                  setApprovalMode(next)
+                }}
+                disabled={!canUseComposer || sending}
+                title={APPROVAL_MODE_OPTIONS.find((option) => option.value === approvalMode)?.description}
+                aria-label="Approval mode"
+                className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)] outline-none"
+              >
+                {APPROVAL_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value} title={option.description}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        />
+      )}
 
       {botMode && (
         <BotDeskPanel

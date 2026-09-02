@@ -10,9 +10,11 @@ const OPTIONS: Array<{ mode: MessagesExperienceMode; label: string; icon: string
 export function MessagesExperienceSwitch({
   value,
   onChange,
+  showLabels = false,
 }: {
   value: MessagesExperienceMode
   onChange: (mode: MessagesExperienceMode) => void
+  showLabels?: boolean
 }) {
   return (
     <div
@@ -39,7 +41,7 @@ export function MessagesExperienceSwitch({
             }`}
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{option.icon}</span>
-            <span className="hidden sm:inline">{option.label}</span>
+            <span className={showLabels ? 'inline' : 'hidden sm:inline'}>{option.label}</span>
           </button>
         )
       })}
