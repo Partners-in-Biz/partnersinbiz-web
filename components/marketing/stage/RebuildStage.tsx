@@ -108,7 +108,7 @@ export function RebuildStage({ content }: { content: StageContent }) {
               </ul>
             </div>
 
-            <div className="sc-peak-photo" aria-hidden="true">
+            <div className="sc-peak-photo" data-sc-show="peak">
               <div className="sc-photo">
                 <Still still={peak.still} sizes="(max-width: 700px) 100vw, 50vw" />
               </div>
