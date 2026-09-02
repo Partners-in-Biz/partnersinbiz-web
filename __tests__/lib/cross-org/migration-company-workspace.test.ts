@@ -69,6 +69,8 @@ describe('company_workspace grant backfill planner', () => {
     expect(plan.operations.filter((op) => op.kind === 'promote_partner_link')).toHaveLength(0)
     const grant = plan.operations.find((op) => op.kind === 'backfill_company_workspace_grant')
     expect(grant?.decision).toBe('skip')
+    expect(grant?.documentId).toBe('lonely')
+    expect(grant?.before).toMatchObject({ companyId: 'lonely', orgId: 'a', linkedOrgId: 'b' })
   })
 
   it('is idempotent: existing active link + grants produce noops only', () => {

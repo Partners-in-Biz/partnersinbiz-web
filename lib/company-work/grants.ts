@@ -40,7 +40,9 @@ export function normalizeCompanyWorkspaceModules(
   fallback: SharedBusinessCapability[] = DEFAULT_COMPANY_WORKSPACE_MODULES,
 ): SharedBusinessCapability[] {
   const allowed = new Set(COMPANY_WORKSPACE_MODULES)
-  const source = Array.isArray(capabilities) && capabilities.length > 0 ? capabilities : fallback
+  // Explicit empty array means "share nothing" (client → PiB default). Only
+  // undefined/null fall back to the default module set.
+  const source = Array.isArray(capabilities) ? capabilities : fallback
   return [...new Set(source.filter((cap) => allowed.has(cap)))]
 }
 

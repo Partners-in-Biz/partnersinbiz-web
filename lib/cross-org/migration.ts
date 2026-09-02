@@ -1050,6 +1050,12 @@ export function buildCanonicalMigrationPlan(
         kind: 'backfill_company_workspace_grant',
         decision: 'skip',
         collection: 'partnerResourceGrants',
+        documentId: company.companyId,
+        before: {
+          companyId: company.companyId,
+          orgId: company.orgId,
+          linkedOrgId: company.linkedOrgId,
+        },
         reason: 'linked company has no partnerLinkId and no active PartnerLink between orgs',
         preservesAccess: true,
         destructive: false,

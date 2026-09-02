@@ -24,6 +24,7 @@ import {
 import { clientDocumentApiPath, scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
 function ignoreBestEffortFailure() {
   return undefined
@@ -439,6 +440,12 @@ export default function PortalDocumentDetail({ params }: Props) {
           <ShareWithPartnerButton resourceType="client_document" resourceId={id} />
         </div>
       </div>
+
+      <CompanyWorkRecordControls
+        module="documents"
+        recordId={id}
+        orgId={portalScope.orgId}
+      />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div ref={articleScrollRef} className="min-w-0 rounded-xl overflow-hidden">

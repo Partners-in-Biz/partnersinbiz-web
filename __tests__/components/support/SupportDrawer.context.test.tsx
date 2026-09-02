@@ -16,6 +16,9 @@ beforeEach(() => {
   window.history.pushState({}, '', '/portal/projects/project-1')
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    if (url.startsWith('/api/v1/company-work/shared')) {
+      return { ok: true, json: async () => ({ success: true, data: { records: [] } }) } as Response
+    }
     if (url.startsWith('/api/v1/portal/support') && !url.includes('/messages') && !init?.method) {
       return { ok: true, json: async () => ({ success: true, data: [] }) } as Response
     }

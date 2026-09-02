@@ -21,6 +21,8 @@ describe('company workspace grants', () => {
       'seo',
       'ads',
     ])
+    expect(normalizeCompanyWorkspaceModules([])).toEqual([])
+    expect(normalizeCompanyWorkspaceModules(undefined).length).toBeGreaterThan(0)
   })
 
   it('checks module membership on grants', () => {

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { SupportMessage, SupportPriority, SupportStatus, SupportTicket } from '@/lib/support/types'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
 const STATUS_LABEL: Record<SupportStatus, string> = {
   new: 'New',
@@ -146,6 +148,8 @@ export function AdminSupportInbox() {
 
       {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
+      <SharedWithUsSection module="support" interactive={false} />
+
       <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <section className="space-y-2">
           {loading ? (
@@ -195,6 +199,12 @@ export function AdminSupportInbox() {
                     {selectedTicket.sourcePath && (
                       <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Reported from {selectedTicket.sourcePath}</p>
                     )}
+                    <CompanyWorkRecordControls
+                      className="mt-3"
+                      module="support"
+                      recordId={selectedTicket.id}
+                      orgId={selectedTicket.orgId}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <select
@@ -202,6 +212,7 @@ export function AdminSupportInbox() {
                       disabled={saving}
                       onChange={(event) => patchTicket({ status: event.target.value as SupportStatus })}
                       className="pib-input !w-auto !py-2 text-xs"
+                      aria-label="Ticket status"
                     >
                       {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
                     </select>
@@ -210,6 +221,7 @@ export function AdminSupportInbox() {
                       disabled={saving}
                       onChange={(event) => patchTicket({ priority: event.target.value as SupportPriority })}
                       className="pib-input !w-auto !py-2 text-xs"
+                      aria-label="Ticket priority"
                     >
                       {PRIORITY_OPTIONS.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
                     </select>
@@ -245,6 +257,7 @@ export function AdminSupportInbox() {
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
                       placeholder="Draft an operator reply for this support thread..."
+                      aria-label="Operator reply"
                     />
                     <div className="mt-3 flex justify-end">
                       <button
@@ -273,6 +286,7 @@ export function AdminSupportInbox() {
                       if (value !== (selectedTicket.hermesSummary ?? '')) patchTicket({ hermesSummary: value })
                     }}
                     placeholder="Suggested reply, diagnosis, or routing notes..."
+                    aria-label="Hermes triage notes"
                   />
                   <button
                     type="button"
