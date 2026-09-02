@@ -310,6 +310,6 @@ export const FAQ_HOMEPAGE = [
   },
   {
     q: 'How do I start?',
-    a: 'Fill in the 4-step form on /start-a-project (takes 90 seconds), or book a 20-minute intro call at /book-a-call. We reply within one business day.',
+    a: 'Book a 20-min call at /book-a-call. Pick a time, tell us what you are building, and we take it from there.',
   },
 ] as const;

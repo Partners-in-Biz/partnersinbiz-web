@@ -1,47 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GEO_MARKET_BY_COUNTRY, MARKET_OFFERS } from '@/lib/seo/market-offers'
 
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? '__session'
-const MARKET_COOKIE = 'pib-market'
-const COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 const PROTECTED = ['/portal', '/admin']
 
+// `/` is the South African stage for everyone. Visitors pick a region with the
+// ZA / US text links on the stage; there is no geo redirect off the homepage.
+
 export default async function proxy(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl
-
-  // Geo-routing: send visitors on homepage to their priced market offer.
-  if (pathname === '/') {
-    // Next.js 16 dropped `NextRequest.geo`; Vercel still stamps the country header.
-    const country = request.headers.get('x-vercel-ip-country')
-    const marketCookie = request.cookies.get(MARKET_COOKIE)?.value
-    const homeQuery = searchParams.get('home')
-    const marketId = country ? GEO_MARKET_BY_COUNTRY[country] : undefined
-
-    // Skip redirect if global market cookie is set or ?home=1 query parameter
-    const skipRedirect = marketCookie === 'global' || homeQuery === '1'
-
-    if (marketId && !skipRedirect) {
-      const response = NextResponse.redirect(new URL(MARKET_OFFERS[marketId].path, request.url), 307)
-      response.cookies.set(MARKET_COOKIE, marketId, {
-        path: '/',
-        maxAge: COOKIE_MAX_AGE,
-        sameSite: 'lax',
-      })
-      return response
-    }
-
-    // If ?home=1 is present from a geo market, set global so they aren't redirected again
-    if (homeQuery === '1' && marketId && marketCookie !== 'global') {
-      const response = NextResponse.next()
-      response.cookies.set(MARKET_COOKIE, 'global', {
-        path: '/',
-        maxAge: COOKIE_MAX_AGE,
-        sameSite: 'lax',
-      })
-      return response
-    }
-  }
+  const { pathname } = request.nextUrl
 
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p))
   if (!isProtected) return NextResponse.next()
@@ -63,5 +30,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/portal/:path*', '/admin/:path*'],
+  matcher: ['/portal/:path*', '/admin/:path*'],
 }

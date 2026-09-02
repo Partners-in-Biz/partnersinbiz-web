@@ -6,6 +6,8 @@ import { ContextReferencePicker } from '@/components/context-references/ContextR
 import { mergeContextReferences } from '@/components/context-references/ContextReferenceChips'
 import type { ContextReference, ContextReferenceSeed } from '@/lib/context-references/types'
 import type { SupportCategory, SupportMessage, SupportPriority, SupportTicket } from '@/lib/support/types'
+import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
 const CATEGORY_OPTIONS: Array<{ value: SupportCategory; label: string; icon: string }> = [
   { value: 'question', label: 'Question', icon: 'help' },
@@ -226,6 +228,7 @@ export function SupportDrawer({
 
             <div className="grid gap-5 p-5 lg:grid-cols-[1fr_1.1fr]">
               <section className="space-y-4">
+                <SharedWithUsSection module="support" orgId={orgId} interactive={false} />
                 <div className="bento-card p-4">
                   <h3 className="text-sm font-semibold">Create a ticket</h3>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -346,6 +349,12 @@ export function SupportDrawer({
                         </div>
                         <span className="pib-pill shrink-0">{STATUS_LABEL[selectedTicket.status]}</span>
                       </div>
+                      <CompanyWorkRecordControls
+                        className="mt-3"
+                        module="support"
+                        recordId={selectedTicket.id}
+                        orgId={orgId}
+                      />
                     </div>
                     <div className="flex-1 space-y-3 overflow-y-auto p-4">
                       {messages.map((message) => {

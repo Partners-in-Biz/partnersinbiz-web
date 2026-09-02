@@ -33,6 +33,23 @@ function Harness({ mapped = true, liveTree = false }: { mapped?: boolean; liveTr
 }
 
 describe('AgentWorkbenchRail', () => {
+  it('keeps the closed icon rail in the tree with CSS hide for phone first paint', () => {
+    render(
+      <AgentWorkbenchRail
+        open={false}
+        activeTab="files"
+        onOpenChange={jest.fn()}
+        onTabChange={jest.fn()}
+        terminalEntries={[]}
+        fileTree={[]}
+        changes={[]}
+        browserTargets={[]}
+      />,
+    )
+    expect(screen.getByTestId('agent-workbench-rail')).toHaveClass('hidden', 'md:flex')
+    expect(screen.getByTestId('agent-workbench-icon-strip')).toBeInTheDocument()
+  })
+
   it('defaults closed and exposes all four observer panels', () => {
     render(<Harness />)
 

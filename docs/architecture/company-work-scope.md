@@ -92,7 +92,9 @@ Planner rules added for the backfill:
   rows are taken as-is.
 
 Applied 2026-09-02: 41 links minted, 86 grants created (0 destructive ops),
-re-run is all `noop`. One skip (Gundemy company on PiB with no reciprocal row).
+re-run is all `noop`. One skip (Gundemy company on PiB with no reciprocal row)
+was closed 2026-09-02 afternoon via `scripts/repair-platform-reciprocal-companies.ts`
+(reciprocal supplier company + platform PartnerLink/grants); backfill now 0 skips.
 
 ## Out of scope
 

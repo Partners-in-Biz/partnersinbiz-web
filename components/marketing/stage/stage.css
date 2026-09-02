@@ -1,0 +1,746 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Split stage (scroll-craft). Tokens, the Rebuild sticky frame, acts keyed off
+   --sc-p (0..1, written by ScrollCraft.tsx onto [data-sc-rebuild]).
+   Motion is transform + opacity only. Reduced motion keeps the crossfades and
+   drops the transforms.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sc-stage {
+  --sc-canvas: #f3efe6;
+  --sc-surface: #e7e1d4;
+  --sc-ink: #1a1714;
+  --sc-ink-soft: #4e4841;
+  --sc-accent: #e4572e;
+  --sc-accent-ink: #1a1714;
+  --sc-line: rgba(26, 23, 20, 0.14);
+  --sc-line-strong: rgba(26, 23, 20, 0.32);
+  --sc-edge-light: rgba(255, 255, 255, 0.55);
+  --sc-shadow: 10px 10px 0 rgba(26, 23, 20, 0.12);
+
+  --sc-u: 4px;
+  --sc-pad: clamp(calc(var(--sc-u) * 5), 4vw, calc(var(--sc-u) * 16));
+  --sc-section-pad: clamp(calc(var(--sc-u) * 14), 10vw, calc(var(--sc-u) * 40));
+
+  --sc-measure: 60ch;
+  --sc-font: var(--font-sans), system-ui, sans-serif;
+  --sc-font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  position: relative;
+  min-height: 100svh;
+  background: var(--sc-canvas);
+  color: var(--sc-ink);
+  color-scheme: light;
+  font-family: var(--sc-font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Paper takes the whole document while a stage is mounted (overscroll, gutters). */
+body:has(.sc-stage) {
+  background: #f3efe6;
+  color: #1a1714;
+}
+body:has(.sc-stage) ::selection {
+  background: #e4572e;
+  color: #1a1714;
+}
+
+/* 4-5% grain over everything on the stage. */
+.sc-stage::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 180px 180px;
+}
+
+/* ── Type ───────────────────────────────────────────────────────────────── */
+
+.sc-h1 {
+  font-size: clamp(2rem, 1.1rem + 3.4vw, 4.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  text-wrap: balance;
+  max-width: 14ch;
+  margin: 0;
+}
+.sc-h1--peak {
+  font-size: clamp(2.25rem, 1rem + 5vw, 6rem);
+  letter-spacing: -0.04em;
+  max-width: 13ch;
+}
+.sc-dek {
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  color: var(--sc-ink-soft);
+  max-width: 34ch;
+  text-wrap: pretty;
+  margin: calc(var(--sc-u) * 5) 0 0;
+}
+.sc-body {
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.5;
+  color: var(--sc-ink-soft);
+  max-width: var(--sc-measure);
+  text-wrap: pretty;
+}
+.sc-body strong,
+.sc-body b {
+  color: var(--sc-ink);
+  font-weight: 500;
+}
+.sc-tiny {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-soft);
+}
+.sc-price {
+  font-size: clamp(2.5rem, 1.2rem + 6vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+/* Running-text CTA. Not a button island. */
+.sc-cta {
+  color: var(--sc-ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--sc-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+  transition: text-decoration-thickness 160ms ease, color 160ms ease;
+}
+.sc-cta:hover,
+.sc-cta:focus-visible {
+  text-decoration-thickness: 3px;
+  color: var(--sc-accent);
+  outline: none;
+}
+.sc-cta:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 4px;
+}
+.sc-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--sc-line-strong);
+  text-underline-offset: 0.16em;
+}
+.sc-link:hover {
+  text-decoration-color: var(--sc-accent);
+}
+.sc-link[aria-current='page'] {
+  color: var(--sc-ink);
+  text-decoration-color: var(--sc-accent);
+  text-decoration-thickness: 2px;
+}
+
+/* ── Chrome: the divider is the chrome. Tiny text only. ─────────────────── */
+
+.sc-chrome {
+  position: absolute;
+  top: calc(var(--sc-u) * 4);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.sc-chrome__markets {
+  pointer-events: auto;
+  display: inline-flex;
+  gap: calc(var(--sc-u) * 3);
+  padding: calc(var(--sc-u) * 1) calc(var(--sc-u) * 3);
+  background: var(--sc-canvas);
+  box-shadow: 0 0 0 1px var(--sc-line), inset 0 0 0 1px var(--sc-edge-light);
+}
+.sc-inline-markets {
+  display: inline-flex;
+  gap: calc(var(--sc-u) * 3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-wordmark {
+  position: absolute;
+  top: calc(var(--sc-u) * 4);
+  left: var(--sc-pad);
+  z-index: 5;
+  text-decoration: none;
+  color: var(--sc-ink);
+}
+
+/* ── Photos ─────────────────────────────────────────────────────────────── */
+
+.sc-photo {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: var(--sc-surface);
+  box-shadow: var(--sc-shadow);
+}
+.sc-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--sc-edge-light);
+  z-index: 2;
+}
+.sc-photo img {
+  object-fit: cover;
+}
+.sc-photo--dead img {
+  filter: saturate(0.55) contrast(0.92);
+}
+
+/* ── The Rebuild: sticky frame, two cells, one panel that slides. ───────── */
+
+.sc-rebuild {
+  --sc-p: 0;
+  --sc-span: 560vh;
+  position: relative;
+  height: calc(100svh + var(--sc-span));
+
+  /* Acts. Each is 0..1 across its own slice of --sc-p. */
+  --a1: clamp(0, calc(var(--sc-p) / 0.09), 1);
+  --a2: clamp(0, calc((var(--sc-p) - 0.09) / 0.17), 1);
+  --a3: clamp(0, calc((var(--sc-p) - 0.26) / 0.18), 1);
+  --a4: clamp(0, calc((var(--sc-p) - 0.44) / 0.11), 1);
+  --a5: clamp(0, calc((var(--sc-p) - 0.55) / 0.28), 1);
+  --a6: clamp(0, calc((var(--sc-p) - 0.83) / 0.17), 1);
+
+  /* Derived: fast fade into silence, fast rise into the peak. */
+  --hush: clamp(0, calc(var(--a4) * 3), 1);
+  --rise: clamp(0, calc(var(--a5) * 4), 1);
+  --peak-op: calc(var(--rise) * (1 - var(--hush-peak)));
+  --hush-peak: clamp(0, calc(var(--a6) * 2.5), 1);
+  --close-op: clamp(0, calc((var(--a6) - 0.4) / 0.4), 1);
+}
+
+.sc-frame {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  isolation: isolate;
+}
+
+.sc-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: calc(var(--sc-u) * 20) var(--sc-pad) var(--sc-pad);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: calc(var(--sc-u) * 6);
+}
+.sc-cell--dead {
+  z-index: 1;
+}
+.sc-cell--own {
+  z-index: 3;
+}
+
+/* The owned panel: its left edge is the divider. It slides during Resolve. */
+.sc-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--sc-surface);
+  transform: translate3d(calc(50% * (1 - var(--a6))), 0, 0);
+  will-change: transform;
+}
+.sc-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: var(--sc-ink);
+  box-shadow:
+    1px 0 0 var(--sc-edge-light),
+    -1px 0 0 var(--sc-edge-light),
+    -14px 0 32px rgba(26, 23, 20, 0.18),
+    14px 0 32px rgba(26, 23, 20, 0.08);
+}
+
+/* Groups that share a fade. */
+.sc-group {
+  display: contents;
+}
+.sc-dead-copy,
+.sc-own-copy {
+  opacity: calc(1 - var(--hush));
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--sc-u) * 6);
+  min-height: 0;
+}
+
+/* Left: the amateur tells fill in during Unease. --t is each tell's threshold. */
+.sc-tell {
+  --t: 0;
+  --v: clamp(0, calc((var(--a2) - var(--t)) * 5), 1);
+  opacity: var(--v);
+  transform: translate3d(0, calc((1 - var(--v)) * 10px), 0);
+  margin: 0;
+  color: var(--sc-ink-soft);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.sc-tell--shout {
+  color: var(--sc-ink);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.sc-tell--menu {
+  font-family: var(--sc-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.sc-tell--broken {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 5 / 2;
+  max-width: 24rem;
+  border: 1px dashed var(--sc-line-strong);
+  font-family: var(--sc-font-mono);
+  font-size: 0.75rem;
+}
+.sc-tell--photo {
+  max-width: 24rem;
+}
+.sc-dead-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--sc-u) * 3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Right: the rebuild. Lines and CTA arrive during Relief. --i is line index. */
+.sc-line {
+  --i: 0;
+  --v: clamp(0, calc((var(--a3) - 0.35 - var(--i) * 0.14) * 6), 1);
+  opacity: var(--v);
+  transform: translate3d(0, calc((1 - var(--v)) * 12px), 0);
+  margin: 0;
+}
+.sc-own-lines {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--sc-u) * 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Photo slot on the right: stage 1 still, scrub frame under it, finished shot
+   wipes down over both. */
+.sc-wipe {
+  --w: clamp(0, calc((var(--a3) - 0.15) / 0.6), 1);
+  --stage1: calc(1 - clamp(0, calc(var(--a3) * 4), 1));
+  position: relative;
+}
+.sc-wipe__layer {
+  position: absolute;
+  inset: 0;
+}
+.sc-wipe__stage1 {
+  opacity: var(--stage1);
+  z-index: 1;
+}
+.sc-wipe__reveal {
+  z-index: 2;
+  overflow: hidden;
+  transform: translate3d(0, calc((1 - var(--w)) * 100%), 0);
+}
+.sc-wipe__reveal > .sc-wipe__inner {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, calc((1 - var(--w)) * -100%), 0);
+}
+
+/* Peak. Photo lands on the left, the line stands on the right. */
+.sc-peak-photo {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  padding: var(--sc-pad);
+  opacity: var(--peak-op);
+  transform: translate3d(0, calc((1 - var(--rise)) * 28px), 0);
+}
+.sc-peak-photo .sc-photo {
+  width: min(100%, 44rem);
+  margin: 0 auto;
+}
+.sc-peak-copy {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--sc-pad);
+  opacity: var(--peak-op);
+  transform: translate3d(0, calc((1 - var(--rise)) * 18px), 0);
+}
+.sc-peak-copy .sc-dek {
+  margin-top: calc(var(--sc-u) * 7);
+  max-width: 40ch;
+}
+
+/* Tape device. Stands in for the loop until an mp4 arrives. Draws left to right. */
+.sc-tape {
+  --d: clamp(0, calc((var(--a5) - 0.1) / 0.5), 1);
+  position: relative;
+  width: min(60%, 26rem);
+  aspect-ratio: 4 / 1;
+  overflow: hidden;
+  margin-bottom: calc(var(--sc-u) * 8);
+  transform: translate3d(calc((1 - var(--d)) * -100%), 0, 0);
+}
+.sc-tape__inner {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(calc((1 - var(--d)) * 100%), 0, 0);
+}
+.sc-tape img {
+  object-fit: cover;
+  object-position: left center;
+}
+
+/* Close. Fades in once the panel has covered most of the dead side. */
+.sc-close {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  padding: calc(var(--sc-u) * 20) var(--sc-pad) var(--sc-pad);
+  opacity: var(--close-op);
+  transform: translate3d(0, calc((1 - var(--close-op)) * 16px), 0);
+}
+.sc-close__inner {
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  display: grid;
+  gap: calc(var(--sc-u) * 8);
+}
+.sc-close__lead {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.sc-close__lines {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+  max-width: var(--sc-measure);
+}
+.sc-close__small {
+  max-width: var(--sc-measure);
+  font-size: 0.9375rem;
+}
+@media (min-width: 900px) {
+  .sc-close__inner {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: end;
+    gap: calc(var(--sc-u) * 12);
+  }
+}
+
+/* Only the visible act takes pointer events. */
+.sc-rebuild .sc-own-copy,
+.sc-rebuild .sc-dead-copy,
+.sc-rebuild .sc-peak-copy,
+.sc-rebuild .sc-peak-photo,
+.sc-rebuild .sc-close {
+  pointer-events: none;
+}
+.sc-rebuild[data-sc-act='recognition'] .sc-own-copy,
+.sc-rebuild[data-sc-act='unease'] .sc-own-copy,
+.sc-rebuild[data-sc-act='relief'] .sc-own-copy,
+.sc-rebuild[data-sc-act='resolve'] .sc-close {
+  pointer-events: auto;
+}
+
+/* ── Silence: an authored empty viewport, divider still 50/50. ──────────── */
+.sc-silence-note {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: end center;
+  padding: var(--sc-pad);
+  pointer-events: none;
+  opacity: calc(var(--hush) * (1 - var(--rise)));
+}
+
+/* ── Colophon after the collapse. ───────────────────────────────────────── */
+.sc-colophon {
+  position: relative;
+  min-height: 62svh;
+  display: grid;
+  align-content: end;
+  gap: calc(var(--sc-u) * 6);
+  padding: var(--sc-section-pad) var(--sc-pad) calc(var(--sc-u) * 10);
+  overflow: hidden;
+  background: var(--sc-canvas);
+}
+.sc-colophon__ground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.sc-colophon__ground img {
+  object-fit: cover;
+  object-position: left center;
+}
+.sc-colophon > * {
+  position: relative;
+  z-index: 1;
+}
+.sc-colophon__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-colophon__note {
+  max-width: var(--sc-measure);
+  margin: 0;
+}
+
+/* ── Paper pages (book-a-call): same tokens, existing widget restyled. ──── */
+.sc-paper {
+  --color-pib-bg: #f3efe6;
+  --color-pib-surface: #e7e1d4;
+  --color-pib-surface-2: #ded7c8;
+  --color-pib-card: #e7e1d4;
+  --color-pib-text: #1a1714;
+  --color-pib-text-muted: #4e4841;
+  --color-pib-text-faint: #6f685f;
+  --color-pib-line: rgba(26, 23, 20, 0.14);
+  --color-pib-line-strong: rgba(26, 23, 20, 0.32);
+  --color-pib-accent: #e4572e;
+  --color-pib-accent-hover: #c94a25;
+  --color-pib-accent-soft: rgba(228, 87, 46, 0.1);
+  --pib-control-height: 2.75rem;
+}
+.sc-paper .bento-card {
+  border-radius: 6px;
+  box-shadow: var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light);
+}
+.sc-paper .bento-card:hover {
+  transform: none;
+  background: var(--color-pib-surface);
+}
+.sc-paper .bento-card::before {
+  display: none;
+}
+.sc-paper .btn-pib-accent {
+  border-radius: 4px;
+  color: var(--sc-accent-ink);
+  font-size: 1rem;
+}
+.sc-paper .btn-pib-accent:hover {
+  transform: none;
+  color: #f3efe6;
+}
+.sc-paper .btn-pib-secondary {
+  border-radius: 4px;
+  font-size: 1rem;
+}
+.sc-paper .btn-pib-secondary:hover {
+  background: rgba(26, 23, 20, 0.05);
+  border-color: var(--sc-line-strong);
+}
+.sc-paper .eyebrow {
+  color: var(--sc-accent);
+}
+.sc-paper input,
+.sc-paper textarea {
+  border-radius: 4px !important;
+  color: var(--sc-ink);
+}
+.sc-paper input::placeholder,
+.sc-paper textarea::placeholder {
+  color: rgba(78, 72, 65, 0.6);
+}
+.sc-paper .text-red-400 {
+  color: #b3401d;
+}
+.sc-paper-page {
+  min-height: 100svh;
+  padding: calc(var(--sc-u) * 28) var(--sc-pad) var(--sc-section-pad);
+  display: grid;
+  align-content: start;
+}
+.sc-paper-page__inner {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  display: grid;
+  gap: calc(var(--sc-u) * 8);
+}
+.sc-paper-page__head {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.sc-paper-page__head .sc-h1 {
+  margin-top: calc(var(--sc-u) * 4);
+  max-width: 18ch;
+}
+.sc-paper-page__photo {
+  width: min(100%, 22rem);
+}
+.sc-paper-page__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Mobile: vertical split, left above, right below. ───────────────────── */
+@media (max-width: 700px) {
+  .sc-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .sc-cell {
+    padding-top: calc(var(--sc-u) * 14);
+    gap: calc(var(--sc-u) * 4);
+    overflow: hidden;
+  }
+  .sc-cell--own {
+    padding-top: calc(var(--sc-u) * 8);
+  }
+  .sc-h1 {
+    font-size: clamp(1.625rem, 1rem + 4.5vw, 2.25rem);
+    max-width: 16ch;
+  }
+  .sc-h1--peak {
+    font-size: clamp(1.875rem, 1rem + 6vw, 2.75rem);
+  }
+  .sc-dek {
+    font-size: 1rem;
+    margin-top: calc(var(--sc-u) * 3);
+  }
+  .sc-price {
+    font-size: clamp(2.25rem, 1rem + 9vw, 3.5rem);
+  }
+  .sc-panel {
+    transform: translate3d(0, calc(50% * (1 - var(--a6))), 0);
+  }
+  .sc-panel::before {
+    top: -1px;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 2px;
+    box-shadow:
+      0 1px 0 var(--sc-edge-light),
+      0 -1px 0 var(--sc-edge-light),
+      0 -14px 32px rgba(26, 23, 20, 0.18),
+      0 14px 32px rgba(26, 23, 20, 0.08);
+  }
+  .sc-photo--hero {
+    display: none;
+  }
+  .sc-tell--broken,
+  .sc-tell--photo {
+    display: none;
+  }
+  .sc-dead-list {
+    gap: calc(var(--sc-u) * 2);
+  }
+  .sc-tell {
+    font-size: 0.8125rem;
+  }
+  .sc-own-copy .sc-photo {
+    max-width: 16rem;
+  }
+  .sc-peak-photo {
+    padding-top: calc(var(--sc-u) * 14);
+  }
+  .sc-peak-copy {
+    justify-content: flex-start;
+    padding-top: calc(var(--sc-u) * 8);
+  }
+  .sc-tape {
+    width: 50%;
+    margin-bottom: calc(var(--sc-u) * 5);
+  }
+  .sc-close {
+    padding-top: calc(var(--sc-u) * 14);
+    align-content: start;
+    overflow: hidden;
+  }
+  .sc-close__inner {
+    gap: calc(var(--sc-u) * 6);
+  }
+  .sc-wordmark {
+    left: var(--sc-pad);
+  }
+}
+
+/* ── Reduced motion: crossfades only. Left vs right stays. Close CTA stays. ─ */
+@media (prefers-reduced-motion: reduce) {
+  .sc-panel,
+  .sc-tell,
+  .sc-line,
+  .sc-peak-photo,
+  .sc-peak-copy,
+  .sc-close,
+  .sc-tape,
+  .sc-tape__inner,
+  .sc-wipe__reveal,
+  .sc-wipe__reveal > .sc-wipe__inner {
+    transform: none !important;
+  }
+  .sc-wipe__reveal {
+    opacity: var(--w);
+  }
+  .sc-tape {
+    opacity: var(--d);
+  }
+  /* The panel cannot slide, so the close carries its own ground and sits over
+     both cells once Resolve begins. */
+  .sc-close {
+    background: var(--sc-surface);
+  }
+  .sc-rebuild[data-sc-act='resolve'] .sc-cell--dead,
+  .sc-rebuild[data-sc-act='resolve'] .sc-cell--own {
+    opacity: calc(1 - var(--close-op));
+  }
+}
