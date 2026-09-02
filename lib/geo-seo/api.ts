@@ -507,6 +507,7 @@ export function createGeoSeoCollectionHandlers(config: GeoSeoCollectionConfig) {
     const workspaceId = cleanString(searchParams.get('workspaceId'))
     const auditId = cleanString(searchParams.get('auditId'))
     const status = cleanString(searchParams.get('status'))
+    const companyId = cleanString(searchParams.get('companyId')) || cleanString(searchParams.get('sourceCompanyId'))
 
     // Keep Firestore queries index-light: tenant query only, then in-memory filters.
     const snap = await adminDb.collection(config.collection).where('orgId', '==', org.orgId).get()
@@ -516,6 +517,10 @@ export function createGeoSeoCollectionHandlers(config: GeoSeoCollectionConfig) {
       .filter((item: Record<string, unknown>) => !workspaceId || item.workspaceId === workspaceId)
       .filter((item: Record<string, unknown>) => !auditId || item.auditId === auditId)
       .filter((item: Record<string, unknown>) => !status || item.status === status)
+      .filter((item: Record<string, unknown>) => {
+        if (!companyId) return true
+        return cleanString(item.companyId) === companyId || cleanString(item.sourceCompanyId) === companyId
+      })
       .sort((a: Record<string, unknown>, b: Record<string, unknown>) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
 
     return apiSuccess(data, 200, { total: data.length, page: 1, limit: data.length })

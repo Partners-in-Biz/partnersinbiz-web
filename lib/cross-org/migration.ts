@@ -290,6 +290,7 @@ export type MigrationOpKind =
   | 'seed_identity_link'
   | 'backfill_scope_acceptance'
   | 'backfill_canonical_owner'
+  | 'backfill_company_workspace_grant'
   | 'report_orphan'
 
 export type MigrationDecision = 'plan' | 'noop' | 'contradiction' | 'skip'
@@ -348,6 +349,15 @@ export interface CrmIdentityRowInput {
   sourceInviteId?: string
 }
 
+/** Linked CRM company rows used to backfill company_workspace grants. */
+export interface LinkedCompanyMigrationRow {
+  companyId: string
+  orgId: string
+  linkedOrgId: string
+  partnerLinkId?: string
+  sharedCapabilities?: SharedBusinessCapability[]
+}
+
 export interface CanonicalMigrationSnapshot {
   relationships: Array<LegacyRelationshipRow & { acceptedByUid?: unknown }>
   shares: LegacyShareRow[]
@@ -357,6 +367,7 @@ export interface CanonicalMigrationSnapshot {
   existingAgreements: PartnerScopeAgreement[]
   resources: CanonicalResourceOwnerInput[]
   crmIdentityRows: CrmIdentityRowInput[]
+  linkedCompanies?: LinkedCompanyMigrationRow[]
   orphanModuleRecords?: Partial<Record<CrossOrgModule, string[]>>
   orphanTrigger?: ModuleCascadePlan['trigger']
 }
@@ -976,6 +987,81 @@ export function buildCanonicalMigrationPlan(
     }
   }
 
+  // 6) company_workspace grants for linked companies (dry-run first)
+  for (const company of snapshot.linkedCompanies ?? []) {
+    const partnerLinkId = clean(company.partnerLinkId)
+      || findPartnerLinkIdForOrgs(snapshot.existingLinks, company.orgId, company.linkedOrgId)
+    if (!partnerLinkId) {
+      operations.push({
+        id: migrationOpId('backfill_company_workspace_grant', [company.companyId, 'missing_link']),
+        kind: 'backfill_company_workspace_grant',
+        decision: 'skip',
+        collection: 'partnerResourceGrants',
+        reason: 'linked company has no partnerLinkId and no active PartnerLink between orgs',
+        preservesAccess: true,
+        destructive: false,
+      })
+      continue
+    }
+    const grantId = `cw:${partnerLinkId}:${company.orgId}:${company.companyId}`
+    const existing = snapshot.existingGrants.find(
+      (grant) => grant.id === grantId || (
+        grant.resourceType === 'company_workspace'
+        && grant.partnerLinkId === partnerLinkId
+        && grant.ownerOrgId === company.orgId
+        && grant.resourceId === company.companyId
+      ),
+    )
+    if (existing) {
+      operations.push({
+        id: migrationOpId('backfill_company_workspace_grant', [grantId]),
+        kind: 'backfill_company_workspace_grant',
+        decision: 'noop',
+        collection: 'partnerResourceGrants',
+        documentId: existing.id,
+        before: existing as unknown as Record<string, unknown>,
+        after: existing as unknown as Record<string, unknown>,
+        reason: 'company_workspace grant already exists',
+        preservesAccess: true,
+        destructive: false,
+      })
+      continue
+    }
+    const modules = Array.isArray(company.sharedCapabilities) && company.sharedCapabilities.length > 0
+      ? company.sharedCapabilities
+      : (['crm', 'projects', 'documents', 'campaigns', 'social', 'email', 'seo', 'ads', 'research', 'services', 'support', 'messages'] as SharedBusinessCapability[])
+    operations.push({
+      id: migrationOpId('backfill_company_workspace_grant', [grantId]),
+      kind: 'backfill_company_workspace_grant',
+      decision: 'plan',
+      collection: 'partnerResourceGrants',
+      documentId: grantId,
+      before: null,
+      after: {
+        id: grantId,
+        partnerLinkId,
+        ownerOrgId: company.orgId,
+        resourceType: 'company_workspace',
+        resourceId: company.companyId,
+        grantee: { orgIds: [company.linkedOrgId], userIds: [], teamIds: [] },
+        actions: ['view', 'comment', 'approve'],
+        items: modules,
+        status: 'active',
+      },
+      rollback: { action: 'delete', collection: 'partnerResourceGrants', documentId: grantId },
+      reason: 'backfill missing company_workspace grant for linked company',
+      preservesAccess: true,
+      destructive: false,
+    })
+    auditEvents.push({
+      eventType: 'resource_grant.created',
+      reason: 'backfill_company_workspace_grant',
+      partnerLinkId,
+      resourceGrantId: grantId,
+      metadata: { companyId: company.companyId, ownerOrgId: company.orgId },
+    })
+  }
+
   auditEvents.push({
     eventType: 'reconciliation.ran',
     reason: 'canonical_migration_plan',
@@ -1083,6 +1169,18 @@ export function buildMigrationEvidence(
 
 function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function findPartnerLinkIdForOrgs(
+  links: PartnerLink[],
+  orgA: string,
+  orgB: string,
+): string {
+  const match = links.find((link) => {
+    if (link.status !== 'active') return false
+    return (link.orgA === orgA && link.orgB === orgB) || (link.orgA === orgB && link.orgB === orgA)
+  })
+  return match?.partnerLinkId || match?.id || ''
 }
 
 function mergeCapabilities(a: unknown, b: unknown): SharedBusinessCapability[] {

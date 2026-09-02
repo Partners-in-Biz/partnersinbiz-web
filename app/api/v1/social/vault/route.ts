@@ -48,6 +48,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const label = searchParams.get('label')
   const deliveryMode = searchParams.get('deliveryMode') as DeliveryMode | null
   const personalScope = searchParams.get('scope') === PERSONAL_SCOPE
+  const companyId = (searchParams.get('companyId') || searchParams.get('sourceCompanyId') || '').trim()
 
   // Firestore `in` accepts up to 30 values; VAULT_VISIBLE_STATUSES has 6.
   const snap = await adminDb
@@ -61,7 +62,9 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     ...doc.data(),
   })).filter((post: RawPost) => {
     if (personalScope) return post.accountScope === PERSONAL_SCOPE && post.ownerUid === user.uid
-    return post.accountScope !== PERSONAL_SCOPE
+    if (post.accountScope === PERSONAL_SCOPE) return false
+    if (companyId) return String(post.companyId || '') === companyId
+    return true
   })
 
   if (platform) {

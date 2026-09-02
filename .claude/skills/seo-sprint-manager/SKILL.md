@@ -407,17 +407,31 @@ ORG_ID=$(curl -s "$BASE/../organizations" \
   | jq -r '.data[] | select(.slug=="ahs-law") | .id')
 
 # 2. Create the sprint — pass orgId AND clientId, both = ORG_ID
+# Optional: companyId (or sourceCompanyId) scopes the sprint to a CRM company.
+# When that company is linked, the client org sees the sprint under Shared with us
+# unless clientVisibility is set to "private".
 curl -X POST $BASE/sprints \
   -H "Authorization: Bearer $AI_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: sprint-$(date +%s)" \
-  -d "{\"orgId\":\"$ORG_ID\",\"clientId\":\"$ORG_ID\",\"siteUrl\":\"https://ahs-law.co.za\",\"siteName\":\"AHS Law\"}"
+  -d "{\"orgId\":\"$ORG_ID\",\"clientId\":\"$ORG_ID\",\"siteUrl\":\"https://ahs-law.co.za\",\"siteName\":\"AHS Law\",\"companyId\":\"$COMPANY_ID\"}"
 ```
 
 Returns `{ id, siteUrl, siteName, status: 'pre-launch' }`. Sprint is seeded with 42
-template tasks + 15 directory backlinks. After creation, the sprint immediately
+template tasks + 15 directory backlinks (children inherit `companyId`). After creation, the sprint immediately
 appears in the workspace sidebar when that client is selected, and at
-`/portal/seo` for that client's portal users.
+`/portal/seo` for that client's portal users. Linked-org viewers open projected
+sprints via `GET /api/v1/company-work/shared?module=seo`.
+
+### Company scope + client projection
+
+| Field | Meaning |
+|---|---|
+| `companyId` / `sourceCompanyId` | Stamp on create (query or body). Company view filters to that company; org view includes company rows with a badge. |
+| `clientVisibility` | `shared` (default) or `private`. Private records are withheld from the linked org projection. |
+| Linked-org access | `company_workspace` grant with `seo` in `items[]` → view / comment / approve via `requireSprintAccess` projection branch. |
+
+Portal deep-links from a company workspace must keep `sourceCompanyId` on `/portal/seo?...`.
 
 ### Do today's SEO across all active sprints
 ```bash

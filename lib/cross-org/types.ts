@@ -138,6 +138,8 @@ export type PartnerResourceType =
   | 'service'
   | 'research'
   | 'property'
+  /** Whole CRM company workspace: items[] = SharedBusinessCapability modules. */
+  | 'company_workspace'
   | 'custom'
 
 export interface PartnerResourceGrant {
@@ -292,6 +294,7 @@ export type CrossOrgModule =
   | 'seo_collaboration'
   | 'ads_collaboration'
   | 'analytics_collaboration'
+  | 'company_workspace_grants'
 
 export type ModuleCascadeAction = 'revoke' | 'freeze' | 'reconcile'
 

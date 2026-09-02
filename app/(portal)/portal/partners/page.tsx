@@ -35,6 +35,7 @@ interface PartnerShare {
 const CAPABILITIES = [
   'crm', 'projects', 'documents', 'invoices',
   'orders', 'shipments', 'inventory', 'analytics', 'support', 'services',
+  'campaigns', 'social', 'email', 'seo', 'ads', 'research', 'properties', 'messages',
 ] as const
 
 const POLICY_KEYS = [

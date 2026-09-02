@@ -370,13 +370,24 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   }
 
   const snapshot = await withOptionalLimit(query, listLimit).get()
+  const companyIdFilter = (searchParams.get('companyId') || searchParams.get('sourceCompanyId') || '').trim()
 
   const projects: ProjectListItem[] = await filterProjectsForMemberScope(
     user,
     snapshot.docs
       .map((doc): ProjectListItem => ({ id: doc.id, ...doc.data() }))
       .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
-      .filter((project) => filterProjectByArchiveMode(project, archives)),
+      .filter((project) => filterProjectByArchiveMode(project, archives))
+      .filter((project) => {
+        if (!companyIdFilter) return true
+        const ids = [
+          cleanString(project.companyId),
+          cleanString(project.sourceCompanyId),
+          ...((project.companyIds as string[] | undefined) ?? []).map(cleanString),
+          ...((project.sourceCompanyIds as string[] | undefined) ?? []).map(cleanString),
+        ].filter(Boolean)
+        return ids.includes(companyIdFilter)
+      }),
   )
   const sorted = projects
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))

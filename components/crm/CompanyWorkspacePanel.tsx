@@ -183,69 +183,80 @@ function companyMarketingActions(scope: {
   ]
 }
 
-function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
-  return [
+function portalActions(scope: {
+  orgId?: string
+  id?: string
+  orgSlug?: string
+  slug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
+}, options: { includeSettings?: boolean } = {}): WorkspaceAction[] {
+  const includeSettings = options.includeSettings !== false
+  const actions: WorkspaceAction[] = [
     {
       title: 'Research',
       description: 'Discovery, market notes, client intelligence, and research records.',
       icon: 'manage_search',
-      href: scopedPortalPath('/portal/research', workspace),
+      href: scopedPortalPath('/portal/research', scope),
     },
     {
       title: 'Reports',
       description: 'Client reporting and performance review workspace.',
       icon: 'bar_chart',
-      href: scopedPortalPath('/portal/reports', workspace),
+      href: scopedPortalPath('/portal/reports', scope),
     },
     {
       title: 'Projects',
       description: 'Delivery projects, tasks, approvals, and shared project context.',
       icon: 'folder_managed',
-      href: scopedPortalPath('/portal/projects', workspace),
+      href: scopedPortalPath('/portal/projects', scope),
     },
     {
       title: 'Documents',
       description: 'Proposals, reports, shared documents, and client document approvals.',
       icon: 'description',
-      href: scopedPortalPath('/portal/documents', workspace),
+      href: scopedPortalPath('/portal/documents', scope),
     },
     {
       title: 'Communications',
       description: 'Client messages, conversations, inbox context, and communication history.',
       icon: 'forum',
-      href: scopedPortalPath('/portal/messages', workspace),
+      href: scopedPortalPath('/portal/messages', scope),
     },
     {
       title: 'Capture sources',
       description: 'Lead capture forms, sources, imports, and attribution setup.',
       icon: 'input',
-      href: scopedPortalPath('/portal/capture-sources', workspace),
+      href: scopedPortalPath('/portal/capture-sources', scope),
     },
     {
       title: 'Integrations',
       description: 'Platform, account, tracking, and external service connections.',
       icon: 'hub',
-      href: scopedPortalPath('/portal/integrations', workspace),
+      href: scopedPortalPath('/portal/integrations', scope),
     },
     {
       title: 'Email domains',
       description: 'Sending domains, authentication, and email readiness.',
       icon: 'alternate_email',
-      href: scopedPortalPath('/portal/email-domains', workspace),
-    },
-    {
-      title: 'Settings',
-      description: 'Organisation settings, CRM setup, permissions, and workspace controls.',
-      icon: 'settings',
-      href: scopedPortalPath('/portal/settings/organization', workspace),
+      href: scopedPortalPath('/portal/email-domains', scope),
     },
     {
       title: 'Wiki',
       description: 'Durable client knowledge, operating notes, and internal handoff context.',
       icon: 'menu_book',
-      href: scopedPortalPath('/portal/wiki', workspace),
+      href: scopedPortalPath('/portal/wiki', scope),
     },
   ]
+  if (includeSettings) {
+    actions.splice(actions.length - 1, 0, {
+      title: 'Settings',
+      description: 'Organisation settings, CRM setup, permissions, and workspace controls.',
+      icon: 'settings',
+      href: scopedPortalPath('/portal/settings/organization', scope),
+    })
+  }
+  return actions
 }
 
 function ActionGrid({
@@ -297,6 +308,9 @@ export function CompanyWorkspacePanel({
   const portalCompanyMarketing = companyScope ? companyMarketingActions(companyScope) : []
 
   if (!workspace) {
+    const unlinkedCompanyActions = mode === 'portal' && companyScope
+      ? portalActions(companyScope, { includeSettings: false })
+      : []
     return (
       <div className="space-y-4">
         {mode === 'portal' && portalCompanyMarketing.length > 0 ? (
@@ -311,13 +325,25 @@ export function CompanyWorkspacePanel({
             <ActionGrid companyName={companyName} actions={portalCompanyMarketing} />
           </div>
         ) : null}
+        {unlinkedCompanyActions.length > 0 ? (
+          <div className="pib-surface overflow-hidden">
+            <div className="pib-surface-header">
+              <p className="pib-label">Company workspace</p>
+              <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">{companyName} work</h2>
+              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                Projects, documents, research, and reports for this company on your book. Not shared with a client organisation yet — invite to link when you want them to see progress.
+              </p>
+            </div>
+            <ActionGrid companyName={companyName} actions={unlinkedCompanyActions} />
+          </div>
+        ) : null}
         <div className="pib-surface overflow-hidden">
           <div className="border-b border-[var(--color-pib-line)] p-4 text-center">
             <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">link_off</span>
-            <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Lead workspace</p>
-            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">CRM-only company workspace</h2>
+            <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Not shared yet</p>
+            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Invite to link an organisation</h2>
             <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
-              {companyName} is not linked to a client organisation yet. Company marketing above is available now. Link an organisation to open the shared client workspace for projects, wiki, and reports.
+              {companyName} work stays on your book until linked. After linking, module defaults share progress into their portal (with per-record Keep private).
             </p>
             {mode === 'portal' && companyId ? (
               <Link

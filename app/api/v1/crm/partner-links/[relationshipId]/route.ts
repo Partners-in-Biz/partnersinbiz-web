@@ -9,15 +9,14 @@ import type {
   FieldSharingPolicy,
   SharedBusinessCapability,
 } from '@/lib/business-relationships/types'
+import { COMPANY_WORKSPACE_MODULES } from '@/lib/company-work/module-keys'
+import { updateCompanyWorkspaceGrantItems } from '@/lib/company-work/grants'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ relationshipId: string }> }
 
-const VALID_CAPABILITIES: SharedBusinessCapability[] = [
-  'crm', 'projects', 'documents', 'orders', 'shipments',
-  'inventory', 'invoices', 'analytics', 'research', 'properties', 'support', 'services',
-]
+const VALID_CAPABILITIES: SharedBusinessCapability[] = [...COMPANY_WORKSPACE_MODULES]
 
 const POLICY_KEYS: Array<keyof FieldSharingPolicy> = [
   'companyProfile', 'contacts', 'projects', 'documents', 'commerce', 'analytics', 'research', 'properties',
@@ -27,8 +26,7 @@ const POLICY_KEYS: Array<keyof FieldSharingPolicy> = [
  * PATCH — edit what THIS side shares.
  *
  * Deliberately one-sided: an org may only change its own relationship row.
- * Sharing is not symmetric by decree — each workspace decides what it exposes,
- * so this never writes the counterpart row.
+ * When sharedCapabilities change, company_workspace grant items[] match.
  */
 export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest, ctx: CrmAuthContext, routeCtx) => {
   try {
@@ -45,13 +43,13 @@ export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const patch: Record<string, unknown> = {}
+    let nextCapabilities: SharedBusinessCapability[] | null = null
 
     if (Array.isArray(body.sharedCapabilities)) {
       const caps = body.sharedCapabilities
         .map((c) => cleanString(c))
         .filter((c): c is SharedBusinessCapability => (VALID_CAPABILITIES as string[]).includes(c))
-      // sanitizeRelationship drops empty arrays, so an explicit "share nothing"
-      // has to be written directly rather than through the shared sanitiser.
+      nextCapabilities = caps
       if (caps.length === 0) {
         await snap.ref.set({ sharedCapabilities: [], updatedByRef: ctx.actor }, { merge: true })
       } else {
@@ -73,13 +71,28 @@ export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest
     const relationshipType = cleanString(body.relationshipType)
     if (relationshipType) patch.relationshipType = relationshipType
 
+    let updated: BusinessRelationship = { id: relationshipId, ...link }
     if (Object.keys(patch).length > 0) {
-      const updated = await updateBusinessRelationship(ctx.orgId, relationshipId, patch, ctx.actor)
-      return apiSuccess({ link: updated })
+      updated = await updateBusinessRelationship(ctx.orgId, relationshipId, patch, ctx.actor)
+    } else if (nextCapabilities && nextCapabilities.length === 0) {
+      const fresh = await snap.ref.get()
+      updated = { id: relationshipId, ...fresh.data() } as BusinessRelationship
     }
 
-    const fresh = await snap.ref.get()
-    return apiSuccess({ link: { id: relationshipId, ...fresh.data() } })
+    if (nextCapabilities) {
+      const companyId = cleanString(link.sourceCompanyId)
+      const partnerLinkId = cleanString(link.partnerLinkId)
+      if (companyId && partnerLinkId) {
+        await updateCompanyWorkspaceGrantItems({
+          partnerLinkId,
+          ownerOrgId: ctx.orgId,
+          companyId,
+          modules: nextCapabilities,
+        })
+      }
+    }
+
+    return apiSuccess({ link: updated })
   } catch (err) {
     return apiErrorFromException(err)
   }

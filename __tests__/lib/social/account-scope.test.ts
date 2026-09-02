@@ -193,7 +193,11 @@ describe('marketing owner helpers', () => {
   it('resolves company owners from search params and writes matching fields', () => {
     const owner = resolveMarketingOwnerFromSearchParams(new URLSearchParams('companyId=co-1'), 'user-1')
     expect(owner).toEqual({ owner: 'company', companyId: 'co-1' })
-    expect(ownerFieldsForWrite(owner)).toEqual({ marketingOwner: 'company', companyId: 'co-1' })
+    expect(ownerFieldsForWrite(owner)).toEqual({
+      workOwner: 'company',
+      marketingOwner: 'company',
+      companyId: 'co-1',
+    })
     expect(brandKitDocId('pib-platform-owner', owner)).toBe('pib-platform-owner__company_co-1')
     expect(recordVisibleForOwner({ companyId: 'co-1' }, owner)).toBe(true)
     expect(recordVisibleForOwner({ companyId: 'co-2' }, owner)).toBe(false)

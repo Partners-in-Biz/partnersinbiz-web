@@ -6,11 +6,14 @@ export type PortalSeoSearchParams = {
   orgId?: string
   orgSlug?: string
   sprintId?: string
+  sourceCompanyId?: string
+  companyId?: string
 }
 
 export type PortalSeoScope = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
 }
 
 function cleanString(value: unknown): string {
@@ -18,9 +21,11 @@ function cleanString(value: unknown): string {
 }
 
 export function scopeFromSearchParams(params?: PortalSeoSearchParams): PortalSeoScope {
+  const sourceCompanyId = cleanString(params?.sourceCompanyId) || cleanString(params?.companyId) || undefined
   return {
     orgId: cleanString(params?.orgId) || undefined,
     orgSlug: cleanString(params?.orgSlug) || undefined,
+    ...(sourceCompanyId ? { sourceCompanyId } : {}),
   }
 }
 

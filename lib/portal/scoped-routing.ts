@@ -54,6 +54,23 @@ export function scopedApiPath(path: string, scope: Pick<PortalOrgRouteScope, 'or
 }
 
 /**
+ * Body fields for create/patch so company scope survives when callers omit
+ * query params. Maps sourceCompanyId → companyId (same as scopedApiPath).
+ */
+export function scopedApiBody(
+  scope: Pick<PortalOrgRouteScope, 'orgId' | 'id' | 'sourceCompanyId'>,
+  body: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const orgId = cleanScopeValue(scope.orgId) || cleanScopeValue(scope.id)
+  const companyId = cleanScopeValue(scope.sourceCompanyId) || cleanScopeValue(body.companyId) || cleanScopeValue(body.sourceCompanyId)
+  return {
+    ...body,
+    ...(orgId ? { orgId } : {}),
+    ...(companyId ? { companyId, sourceCompanyId: companyId } : {}),
+  }
+}
+
+/**
  * Document-id APIs authorize from the document ACL, not the URL workspace.
  * Never attach ?orgId= — a staff deep-link (holder org) 403s recipients at
  * withAuth before the document access check can run.
