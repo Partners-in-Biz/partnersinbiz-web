@@ -1,16 +1,16 @@
 import type { Metadata } from 'next'
 import { SITE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { RebuildStage } from '@/components/marketing/stage/RebuildStage'
-import { ZA_STAGE } from '@/lib/marketing/stage-content'
+import { StudioStage } from '@/components/marketing/stage/StudioStage'
+import { ZA_STUDIO } from '@/lib/marketing/studio-content'
 
 /**
  * `/` is the South African stage only. The US offer lives at `/us`.
  */
 
-const TITLE = 'A site that makes the phone ring'
+const TITLE = 'Software that brings in clients'
 const DESCRIPTION =
-  'You have a site. The phone is quiet. We build marketing sites that bring in enquiries, in 2 to 4 weeks, from R35,000 fixed. You own the GitHub, the hosting, and the domain. Pretoria studio, one person, WhatsApp the whole time.'
+  'Websites, web apps, mobile apps and AI for South African businesses. A site that makes the phone ring from R35,000 in 2 to 4 weeks; web apps from R120,000. Built in Pretoria by the person who quotes it, and yours outright.'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
-    description: 'Built in 2 to 4 weeks. Yours outright. From R35,000.',
+    description: 'Software that brings in clients. Sites from R35,000, web apps from R120,000, yours outright.',
   },
 }
 
@@ -54,7 +54,7 @@ export default function HomePage() {
     <>
       <JsonLd data={breadcrumbSchema([{ name: 'Home', url: '/' }])} />
       <JsonLd data={offerSchema} />
-      <RebuildStage content={ZA_STAGE} />
+      <StudioStage content={ZA_STUDIO} />
     </>
   )
 }
