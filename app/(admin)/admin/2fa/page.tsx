@@ -257,7 +257,7 @@ function AdminTwoFactorInner() {
 
         {phase === 'backup' ? (
           <div className="space-y-4">
-            <div className="rounded-[6px] border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/5 p-4 text-sm text-[var(--color-pib-text)]">
+            <div className="rounded-[6px] border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] p-4 text-sm text-[var(--color-pib-text)]">
               Save these backup codes now. They are returned once when Two-factor authentication is first enabled.
             </div>
             <div className="grid gap-2 sm:grid-cols-2">

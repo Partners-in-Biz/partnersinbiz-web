@@ -164,7 +164,7 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
       })
       const adSetId = (adSetData as { id?: string }).id ?? ''
 
-      // Step C: create RSA — strip empty headlines/descriptions
+      // Step C: create RSA - strip empty headlines/descriptions
       const cleanRsa: RsaAssets = {
         headlines: rsa.headlines.filter((h) => h.text.trim()),
         descriptions: rsa.descriptions.filter((d) => d.text.trim()),
@@ -179,7 +179,7 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
           campaignId,
           name: 'RSA #1',
           status: 'DRAFT',
-          format: 'SINGLE_IMAGE', // canonical ad format field — RSA is identified via rsaAssets
+          format: 'SINGLE_IMAGE', // canonical ad format field - RSA is identified via rsaAssets
           creativeIds: [],
           copy: {
             primaryText: '',
@@ -199,14 +199,14 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
   }
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   return (
     <div className="mx-auto max-w-2xl">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New Google Search campaign</h1>
+        <h1 className="text-2xl font-medium">New Google Search campaign</h1>
         {onCancel && (
           <button
             type="button"
@@ -225,7 +225,7 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center transition-colors ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -245,7 +245,7 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
               className={inputCls}
               value={step1.campaignName}
               onChange={(e) => setStep1((s) => ({ ...s, campaignName: e.target.value }))}
-              placeholder="e.g. Brand Search — May 2026"
+              placeholder="e.g. Brand Search - May 2026"
               aria-label="Campaign name"
             />
           </label>
@@ -273,7 +273,7 @@ export function SearchCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step1.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >

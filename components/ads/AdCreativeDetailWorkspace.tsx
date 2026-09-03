@@ -44,7 +44,7 @@ function RsaAssetList({
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+      <h3 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
         {label} ({items.length})
       </h3>
       <ul className="space-y-1">
@@ -77,7 +77,7 @@ function GoogleRsaPanel({ rsaAssets }: { rsaAssets?: RsaAssets }) {
 
           {(rsaAssets.path1 ?? rsaAssets.path2) && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+              <h3 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                 Display URL paths
               </h3>
               <p className="text-sm text-[var(--color-pib-text)]">
@@ -87,7 +87,7 @@ function GoogleRsaPanel({ rsaAssets }: { rsaAssets?: RsaAssets }) {
           )}
 
           <div>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+            <h3 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
               Landing URLs
             </h3>
             <ul className="space-y-1">
@@ -140,7 +140,7 @@ export function AdCreativeDetailWorkspace({
           <span aria-hidden="true">&larr;</span>
           {backLabel}
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-[var(--color-pib-text)]">{ad.name}</h1>
+        <h1 className="mt-2 text-2xl font-medium text-[var(--color-pib-text)]">{ad.name}</h1>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
           <span>{formatValue(ad.format)}</span>
           <span aria-hidden="true">&middot;</span>
@@ -180,20 +180,20 @@ export function AdCreativeDetailWorkspace({
         <h2 className="eyebrow mb-4 !text-[10px]">Copy</h2>
         <dl className="space-y-3 text-sm">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+            <dt className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
               Primary text
             </dt>
             <dd className="mt-1 whitespace-pre-wrap text-[var(--color-pib-text)]">{ad.copy.primaryText}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+            <dt className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
               Headline
             </dt>
             <dd className="mt-1 text-[var(--color-pib-text)]">{ad.copy.headline}</dd>
           </div>
           {ad.copy.description && (
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+              <dt className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                 Description
               </dt>
               <dd className="mt-1 text-[var(--color-pib-text)]">{ad.copy.description}</dd>
@@ -201,7 +201,7 @@ export function AdCreativeDetailWorkspace({
           )}
           {ad.copy.callToAction && (
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+              <dt className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                 Call to action
               </dt>
               <dd className="mt-1 text-[var(--color-pib-text)]">

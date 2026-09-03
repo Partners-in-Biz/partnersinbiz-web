@@ -232,7 +232,7 @@ export default function ContentAnalyticsPage() {
 
       {!loading && data && !data.hasProperty && (
         <div className="st-panel flex items-center gap-2 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-          <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+          <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
             <Icon name="info" className="text-[15px]" />
           </span>
           <span>

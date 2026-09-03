@@ -39,7 +39,7 @@ export function DeepSeekUsageChip({ orgId }: { orgId: string }) {
       setAdvisory(buildDeepSeekUsageAdvisory())
       setVisible(true)
     } catch {
-      // Non-blocking HUD chip — stay quiet on catalogue failures.
+      // Non-blocking HUD chip - stay quiet on catalogue failures.
       setVisible(false)
     }
   }, [orgId])
@@ -68,7 +68,7 @@ export function DeepSeekUsageChip({ orgId }: { orgId: string }) {
       <span className="truncate">
         {advisory.chipLabel}
         {' · '}
-        <strong className="font-semibold">{peak ? '2× window' : 'best time'}</strong>
+        <strong className="font-medium">{peak ? '2× window' : 'best time'}</strong>
       </span>
     </HudChip>
   )

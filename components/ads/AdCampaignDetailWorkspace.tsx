@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import type { Ad, AdCampaign, AdSet } from '@/lib/ads/types'
+import { Icon } from '@/components/studio'
 
 type AdCampaignDetailWorkspaceProps = {
   surface: 'admin' | 'portal'
@@ -34,7 +35,7 @@ function ReviewStatePanel({
   const isPortal = surface === 'portal'
   const tone =
     campaign.reviewState === 'awaiting'
-      ? 'border-amber-500/40 bg-amber-500/5'
+      ? 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)]'
       : campaign.reviewState === 'approved'
         ? 'border-emerald-600/40 bg-emerald-600/5'
         : 'border-red-600/40 bg-red-600/5'
@@ -43,9 +44,9 @@ function ReviewStatePanel({
     <div className={['rounded-lg border p-4', tone].join(' ')}>
       {campaign.reviewState === 'awaiting' && (
         <div className="flex items-start gap-3">
-          <span className="material-symbols-outlined text-amber-300">campaign</span>
+          <Icon name="campaign" className="text-[var(--st-warning)]" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-100">
+            <p className="text-sm font-medium text-[var(--st-warning)]">
               {isPortal ? 'Awaiting your approval' : 'Awaiting client review'}
             </p>
             <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
@@ -135,10 +136,10 @@ function AdsCommandCenter({
   ]
 
   return (
-    <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-panel)] p-4">
+    <section className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-panel)] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Unified Ads command center</h2>
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Unified Ads command center</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             One control surface for campaigns, creatives, audiences, approvals, spend readiness, provider errors, and Projects/Kanban handoff links.
           </p>
@@ -155,7 +156,7 @@ function AdsCommandCenter({
         {cards.map((card) => (
           <div key={card.label} className="rounded-lg border border-[var(--color-pib-line)] p-3">
             <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{card.label}</div>
-            <div className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{card.value}</div>
+            <div className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{card.value}</div>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{card.detail}</p>
           </div>
         ))}
@@ -205,7 +206,7 @@ export function AdCampaignDetailWorkspace({
           >
             ← Campaigns
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold text-[var(--color-pib-text)]">
+          <h1 className="mt-1 text-2xl font-medium text-[var(--color-pib-text)]">
             {campaign.name}
           </h1>
           <div className="mt-1 text-sm text-[var(--color-pib-text-muted)]">

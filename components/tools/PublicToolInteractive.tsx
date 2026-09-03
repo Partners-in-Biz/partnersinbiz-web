@@ -39,7 +39,7 @@ const NumberField = ({
 }) => (
   <label className="block">
     <span className="text-sm font-medium text-[var(--color-pib-text)]">{label}</span>
-    <div className="mt-2 flex items-center rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 focus-within:border-[var(--color-pib-accent)]">
+    <div className="mt-2 flex items-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 focus-within:border-[var(--color-pib-accent)]">
       <input
         type="number"
         min={min}
@@ -58,15 +58,15 @@ const TextField = ({ label, value, onChange }: { label: string; value: string; o
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="mt-2 w-full rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
+      className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
     />
   </label>
 )
 
 const ResultCard = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-  <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+  <div className="rounded-md border border-[var(--color-pib-line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
     <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{label}</p>
-    <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{value}</p>
+    <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{value}</p>
     {hint ? <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{hint}</p> : null}
   </div>
 )
@@ -123,7 +123,7 @@ function WebsiteCostTool() {
           <select
             value={input.designLevel}
             onChange={(event) => setInput(current => ({ ...current, designLevel: event.target.value as typeof input.designLevel }))}
-            className="mt-2 w-full rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
           >
             <option value="lean">Lean and fast</option>
             <option value="polished">Polished brand site</option>
@@ -196,9 +196,9 @@ function MetaGeneratorTool() {
       </div>
       <div className="mt-8 space-y-4">
         {suggestions.map((suggestion, index) => (
-          <div key={suggestion.title} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/55 p-5">
+          <div key={suggestion.title} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/55 p-5">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">Option {index + 1}</p>
-            <p className="mt-3 font-display text-xl text-[var(--color-pib-text)]">{suggestion.title}</p>
+            <p className="mt-3 text-xl text-[var(--color-pib-text)]">{suggestion.title}</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-faint)]">{suggestion.title.length} characters</p>
             <p className="mt-4 text-[var(--color-pib-text-muted)]">{suggestion.description}</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-faint)]">{suggestion.description.length} characters</p>
@@ -223,7 +223,7 @@ function KeywordBalanceTool() {
           value={text}
           onChange={(event) => setText(event.target.value)}
           rows={8}
-          className="mt-2 w-full rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
+          className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
         />
       </label>
       <ResultGrid>
@@ -279,10 +279,10 @@ function UrlAuditTool({ kind }: { kind: UrlAuditKind }) {
           {loading ? 'Checking...' : 'Run safe check'}
         </button>
       </div>
-      <p className="mt-4 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-4 text-sm text-[var(--color-pib-text-muted)]">
+      <p className="mt-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-4 text-sm text-[var(--color-pib-text-muted)]">
         Public-safe wrapper: http/https only, private networks blocked, redirects limited, timeout enforced, and oversized responses rejected.
       </p>
-      {error ? <p className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p> : null}
+      {error ? <p className="mt-5 rounded-md border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</p> : null}
       {result ? <UrlAuditResultView result={result} /> : null}
     </ToolPanel>
   )
@@ -337,13 +337,13 @@ function UrlAuditResultView({ result }: { result: UrlAuditResult }) {
 function AuditLists({ issues, quickWins }: { issues: string[]; quickWins: string[] }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-5">
-        <p className="text-xs uppercase tracking-[0.2em] text-amber-200">Issues to review</p>
+      <div className="rounded-md border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-5">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--st-warning)]">Issues to review</p>
         <ul className="mt-3 space-y-2 text-sm text-[var(--color-pib-text-muted)]">
           {(issues.length ? issues : ['No obvious baseline issue found.']).map(item => <li key={item}>• {item}</li>)}
         </ul>
       </div>
-      <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-5">
+      <div className="rounded-md border border-emerald-400/25 bg-emerald-400/10 p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">Quick wins</p>
         <ul className="mt-3 space-y-2 text-sm text-[var(--color-pib-text-muted)]">
           {quickWins.map(item => <li key={item}>• {item}</li>)}
@@ -360,10 +360,10 @@ function ResultSnippet({ title, body }: { title: string; body: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-5">
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/45 p-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{title}</p>
-        <button type="button" onClick={copy} className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-accent)]">
+        <button type="button" onClick={copy} className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-pib-accent)]">
           Copy
         </button>
       </div>
@@ -374,7 +374,7 @@ function ResultSnippet({ title, body }: { title: string; body: string }) {
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
-    <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3">
+    <label className="flex items-center gap-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 px-4 py-3">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span className="text-sm font-medium text-[var(--color-pib-text)]">{label}</span>
     </label>

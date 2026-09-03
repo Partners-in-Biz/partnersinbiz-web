@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import { ProjectListCard } from '@/components/projects/ProjectListCard'
@@ -400,7 +402,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                 onClick={() => setShowForm(true)}
                 className="pib-btn-primary btn-pib-sm font-label"
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+                <Icon name="add" />
                 {isAdmin ? 'Create operator project' : 'Request project'}
               </button>
             ) : null}
@@ -507,9 +509,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                         : { background: 'transparent', color: 'var(--color-pib-text-muted)' }
                     }
                   >
-                    <span className="material-symbols-outlined text-[14px]">
-                      {displayMode === 'list' ? 'list' : 'view_kanban'}
-                    </span>
+                    <Icon name={displayMode === 'list' ? 'list' : 'view_kanban'} />
                     {displayMode}
                   </button>
                 ))}
@@ -521,7 +521,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                   className="btn-pib-sm inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-2.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                   aria-pressed={boardSortMode === 'manual'}
                 >
-                  <span className="material-symbols-outlined text-[15px]">sort</span>
+                  <Icon name="sort" />
                   {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
                 </button>
               )}
@@ -614,7 +614,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                       className="absolute top-2 right-2 rounded p-1 text-[#ef4444] opacity-0 transition-opacity hover:bg-[#ef444420] group-hover:opacity-100"
                       title="Archive project"
                     >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <Icon name="delete" />
                     </button>
                   ))}
                 </div>

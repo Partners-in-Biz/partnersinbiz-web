@@ -33,7 +33,7 @@ export function SpeedRampSection({ clip, onPatch }: { clip: EditorClip; onPatch:
         </button>
       </div>
       <p className="text-xs text-[var(--color-pib-text-muted)]">
-        Presets write <code>speed</code> keyframes — fine-tune them (including custom bezier curves) in the Keyframes panel above. Audio pitch is preserved on render.
+        Presets write <code>speed</code> keyframes  -  fine-tune them (including custom bezier curves) in the Keyframes panel above. Audio pitch is preserved on render.
       </p>
     </div>
   )

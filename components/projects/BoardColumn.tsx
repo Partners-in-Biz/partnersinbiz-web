@@ -5,7 +5,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CrossProjectTaskCard } from './CrossProjectTaskCard'
 import type { Column, Task } from '@/components/kanban/types'
 
-// Single source of truth for this type — re-exported by CrossProjectBoard.tsx
+// Single source of truth for this type - re-exported by CrossProjectBoard.tsx
 export type BoardTask = Task & { projectId: string; projectName: string }
 
 interface BoardColumnProps {
@@ -22,9 +22,9 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
   return (
     <div className="flex w-60 shrink-0 flex-col" data-module-accent="cyan">
       <div className="mb-2 flex items-center gap-1.5 px-1">
-        <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: column.color }} />
+        <div className="h-1.5 w-1.5 shrink-0 rounded-md" style={{ background: column.color }} />
         <span className="pib-label">{column.name}</span>
-        <span className="ml-auto rounded-full bg-[var(--color-pib-cyan-soft)] px-1.5 py-0.5 text-[9px] font-label tabular-nums text-[#5EEAD4]">
+        <span className="ml-auto rounded-md bg-[var(--color-pib-cyan-soft)] px-1.5 py-0.5 text-[9px] font-label tabular-nums text-[#5EEAD4]">
           {tasks.length}
         </span>
       </div>

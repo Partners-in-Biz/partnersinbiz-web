@@ -81,7 +81,7 @@ export function TtsPanel({ voices, busy, onGenerate }: TtsPanelProps) {
         </button>
       </div>
       <p className="text-[11px] text-slate-400">
-        Captions generated afterwards use this voiceover&apos;s own word timing — they can never drift out of sync.
+        Captions generated afterwards use this voiceover&apos;s own word timing  -  they can never drift out of sync.
       </p>
     </div>
   )

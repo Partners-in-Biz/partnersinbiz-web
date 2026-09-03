@@ -16,6 +16,8 @@ import { PageTabs } from '@/components/ui/AppFoundation'
 import { AgentDetailPanel } from '@/components/agents/AgentDetailPanel'
 import OrgRoleForm from './OrgRoleForm'
 
+import { Icon } from '@/components/studio'
+
 type DrawerTab = 'role' | 'runtime'
 
 export interface OrgNodeEditorProps {
@@ -23,7 +25,7 @@ export interface OrgNodeEditorProps {
   orgId: string
   /** null = create mode. */
   node: AgentOrgNode | null
-  /** All nodes of the org — used for the reportsTo select. */
+  /** All nodes of the org  -  used for the reportsTo select. */
   nodes: AgentOrgNode[]
   canEdit?: boolean
   /** Live team docs keyed by agentId (from /admin/agents or portal agents). */
@@ -34,9 +36,9 @@ export interface OrgNodeEditorProps {
    * Portal: `/api/v1/portal/settings/agents/org-chart`
    */
   apiBase?: string
-  /** Show Runtime tab + AgentDetailPanel (admin only — needs superadmin agent APIs). */
+  /** Show Runtime tab + AgentDetailPanel (admin only  -  needs superadmin agent APIs). */
   allowRuntimeTab?: boolean
-  /** Allow push-to-live Hermes from the Role tab. */
+  /** Allow push to live Hermes from the Role tab. */
   allowLiveRuntimeSync?: boolean
   readOnlyMessage?: string
   onClose: () => void
@@ -80,7 +82,7 @@ export default function OrgNodeEditor({
       setBoundAgent(cached)
       setAgentLoadError(null)
     }
-    // Portal mode: no admin agent config API — rely on agentsById cache only.
+    // Portal mode: no admin agent config API  -  rely on agentsById cache only.
     if (!allowRuntimeTab) {
       if (!cached) {
         setBoundAgent(null)
@@ -163,12 +165,12 @@ export default function OrgNodeEditor({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
         aria-hidden
       />
       <div
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]"
         data-module-accent="cyan"
         role="dialog"
         aria-modal="true"
@@ -177,7 +179,7 @@ export default function OrgNodeEditor({
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-[var(--color-pib-text)]">
+            <h2 className="truncate text-base font-medium text-[var(--color-pib-text)]">
               {title}
             </h2>
             <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">
@@ -190,7 +192,7 @@ export default function OrgNodeEditor({
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--color-pib-text)]"
             aria-label="Close editor"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <Icon name="close" className="text-[20px]" />
           </button>
         </div>
 
@@ -234,12 +236,12 @@ export default function OrgNodeEditor({
                 <div className="p-5 text-sm text-[var(--color-pib-text-muted)]">Loading live agent…</div>
               ) : agentLoadError && !boundAgent ? (
                 <div className="space-y-3 p-5">
-                  <div role="alert" className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  <div role="alert" className="rounded-md border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-xs text-[var(--st-warning)]">
                     {agentLoadError}
                   </div>
                   <p className="text-xs text-[var(--color-pib-text-muted)]">
                     Bind a seeded runtime agent id (pip, theo, maya, …) on the Org role tab to unlock
-                    live model, skills, cron, env, and profile files — same panel as /admin/agents.
+                    live model, skills, cron, env, and profile files  -  same panel as /admin/agents.
                   </p>
                 </div>
               ) : boundAgent ? (

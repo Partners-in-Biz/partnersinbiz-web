@@ -1,6 +1,6 @@
 'use client'
 // components/ads/google/ConversionActionForm.tsx
-// Sub-3a Phase 6 Batch 3 F — form for creating a conversion action.
+// Sub-3a Phase 6 Batch 3 F - form for creating a conversion action.
 
 import { useState } from 'react'
 import type {
@@ -136,7 +136,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
   }
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   return (
@@ -150,7 +150,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
               key={p}
               className={`flex items-center gap-2 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                 form.platform === p
-                  ? 'border-[#F5A623] bg-[#F5A623]/5'
+                  ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                   : 'border-white/10 hover:bg-white/5'
               }`}
             >
@@ -174,7 +174,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
           className={inputCls}
           value={form.name}
           onChange={(e) => patch({ name: e.target.value })}
-          placeholder="e.g. Purchase — Checkout page"
+          placeholder="e.g. Purchase - Checkout page"
           aria-label="Conversion action name"
         />
       </label>
@@ -202,7 +202,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
         <div className="mt-2 space-y-2">
           {(
             [
-              { value: 'ONE_PER_CLICK', label: 'One per click', description: 'Recommended — counts one conversion per ad click' },
+              { value: 'ONE_PER_CLICK', label: 'One per click', description: 'Recommended - counts one conversion per ad click' },
               { value: 'MANY_PER_CLICK', label: 'Many per click', description: 'Counts every conversion after an ad click' },
             ] as { value: AdConversionCountingType; label: string; description: string }[]
           ).map((ct) => (
@@ -210,7 +210,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
               key={ct.value}
               className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                 form.countingType === ct.value
-                  ? 'border-[#F5A623] bg-[#F5A623]/5'
+                  ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                   : 'border-white/10 hover:bg-white/5'
               }`}
             >
@@ -271,7 +271,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
         </label>
       </div>
 
-      {/* Attribution model — Google only */}
+      {/* Attribution model - Google only */}
       {form.platform === 'google' && (
         <label className={labelCls}>
           Attribution model (optional)
@@ -283,7 +283,7 @@ export function ConversionActionForm({ orgSlug: _orgSlug, orgId, onCreated }: Pr
             }
             aria-label="Attribution model"
           >
-            <option value="">— platform default —</option>
+            <option value=""> -  platform default - </option>
             {ATTRIBUTION_MODELS.map((m) => (
               <option key={m} value={m}>
                 {ATTRIBUTION_LABELS[m]}

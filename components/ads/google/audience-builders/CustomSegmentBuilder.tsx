@@ -1,6 +1,6 @@
 'use client'
 // components/ads/google/audience-builders/CustomSegmentBuilder.tsx
-// Google Custom Segment audience builder — Sub-3a Phase 5 Batch 3 F
+// Google Custom Segment audience builder - Sub-3a Phase 5 Batch 3 F
 
 import { useState } from 'react'
 
@@ -13,7 +13,7 @@ type SegmentType = 'KEYWORD' | 'URL' | 'APP'
 type State = 'idle' | 'submitting' | 'done' | 'error'
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 const SEGMENT_TYPES: { value: SegmentType; label: string; placeholder: string }[] = [
@@ -125,7 +125,7 @@ export function CustomSegmentBuilder({ orgId }: Props) {
               key={t.value}
               className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
                 segmentType === t.value
-                  ? 'border-[#F5A623] text-[#F5A623]'
+                  ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                   : 'border-white/10 text-white/60 hover:bg-white/5'
               }`}
             >

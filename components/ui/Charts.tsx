@@ -172,7 +172,7 @@ export function RevenueBarChart({
   )
 }
 
-// ── Trend chart (line only — no area fill / gradients) ───────────────────
+// ── Trend chart (line only  -  no area fill / gradients) ───────────────────
 
 interface TrendAreaChartProps {
   data: { label: string; value: number }[]

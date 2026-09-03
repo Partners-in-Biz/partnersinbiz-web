@@ -35,7 +35,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
-    running: 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 text-[var(--st-warning)]',
+    running: 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)]',
     completed: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
     failed: 'border-red-500/30 bg-red-500/10 text-red-300',
     rolled_back: 'border-purple-500/30 bg-purple-500/10 text-purple-300',

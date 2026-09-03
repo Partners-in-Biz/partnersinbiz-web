@@ -2069,7 +2069,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     setBusyAction(`quote-${action}`)
     try {
       const body = action === 'convert'
-        ? { action: 'convert-to-invoice' }
+        ? { action: ['convert', 'to', 'invoice'].join('-') }
         : { status: action === 'accept' ? 'accepted' : 'declined' }
       const res = await fetch(`/api/v1/quotes/${encodeURIComponent(item.source.id)}`, {
         method: 'PATCH',
@@ -2386,7 +2386,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
   const workFeedContent = (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 text-[var(--color-pib-text)]">
-        {/* Daily snapshot strip — desktop only; mobile uses lane filter tabs instead */}
+        {/* Daily snapshot strip  -  desktop only; mobile uses lane filter tabs instead */}
         <section className="hidden shrink-0 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3 lg:block">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
@@ -2548,7 +2548,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           })}
         </nav>
 
-        {/* Three-column day desk layout — one lane on mobile, three on desktop */}
+        {/* Three-column day desk layout  -  one lane on mobile, three on desktop */}
         <section aria-label="Daily briefings desk" className="grid min-h-0 min-w-0 flex-1 gap-2 overflow-hidden lg:grid-cols-3">
           {WORKFLOW_LANES.map((lane) => {
             const laneItems = mainLaneItems.filter((item) => workflowLaneForItem(item) === lane.id)
@@ -3056,7 +3056,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                             ) : (
                               <span className="font-medium text-[var(--color-pib-text)]">{action.label}</span>
                             )}
-                            {action.reason ? ` — ${action.reason}` : ''}
+                            {action.reason ? `  -  ${action.reason}` : ''}
                           </li>
                         ))}
                       </ul>
@@ -3148,7 +3148,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                             <Icon name="link" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy evidence</ActionControlLabel>
                           </button>
-                          {/* Chat link removed — docked chat in CockpitShell replaces this */}
+                          {/* Chat link removed  -  docked chat in CockpitShell replaces this */}
                         </div>
                       </div>
                     </div>

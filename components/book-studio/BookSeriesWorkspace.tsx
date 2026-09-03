@@ -246,7 +246,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
 
       const createBody: Record<string, unknown> = {
         orgId,
-        title: `${seriesTitle} — Volume ${nextVolumeNumber}`,
+        title: `${seriesTitle}  -  Volume ${nextVolumeNumber}`,
         seriesId,
         seriesVolumeNumber: nextVolumeNumber,
         metadata: {

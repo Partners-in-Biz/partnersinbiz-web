@@ -4,7 +4,7 @@
 //
 // Read-only tree visualisation of a sequence. Renders each step as a card
 // and draws an arrow for each branch rule plus a dashed line for "default
-// next". Pure CSS / SVG — no graph library needed.
+// next". Pure CSS / SVG  -  no graph library needed.
 
 import type { SequenceStep, BranchCondition } from '@/lib/sequences/types'
 
@@ -57,9 +57,9 @@ export default function SequenceTreeView({ steps }: Props) {
         const wait = step.waitUntil
         return (
           <div key={i} className="space-y-2">
-            <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
+            <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-[var(--color-pib-text)]">
+                <div className="text-sm font-medium text-[var(--color-pib-text)]">
                   Step {i + 1}: {step.subject || '(no subject)'}
                 </div>
                 <div className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">

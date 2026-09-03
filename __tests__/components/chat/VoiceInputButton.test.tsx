@@ -57,7 +57,7 @@ describe('VoiceInputButton', () => {
     expect(screen.getByText(/release to lock/i)).toBeInTheDocument()
 
     dispatchPointer(button, 'pointermove', { pointerId: 1, clientY: 140, movementY: -80 })
-    expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
+    expect(screen.getByText(/locked - tap to stop/i)).toBeInTheDocument()
     expect(recognitionInstances[0].stop).not.toHaveBeenCalled()
 
     dispatchPointer(button, 'pointerup', { pointerId: 1, clientY: 140 })
@@ -82,7 +82,7 @@ describe('VoiceInputButton', () => {
     expect(recognitionInstances).toHaveLength(1)
     expect(recognitionInstances[0].start).toHaveBeenCalledTimes(1)
     expect(recognitionInstances[0].stop).not.toHaveBeenCalled()
-    expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
+    expect(screen.getByText(/locked - tap to stop/i)).toBeInTheDocument()
 
     recognitionInstances[0].onresult?.({ results: [[{ transcript: 'laptop note' }]] })
     const lockedButton = screen.getByRole('button', { name: /stop voice recording/i })
@@ -107,7 +107,7 @@ describe('VoiceInputButton', () => {
     expect(recognitionInstances).toHaveLength(1)
     expect(recognitionInstances[0].start).toHaveBeenCalledTimes(1)
     expect(recognitionInstances[0].stop).not.toHaveBeenCalled()
-    expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
+    expect(screen.getByText(/locked - tap to stop/i)).toBeInTheDocument()
 
     recognitionInstances[0].onresult?.({ results: [[{ transcript: 'mobile note' }]] })
     dispatchPointer(screen.getByRole('button', { name: /stop voice recording/i }), 'pointerdown', {

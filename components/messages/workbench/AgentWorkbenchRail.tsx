@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 import type {
   WorkbenchBrowserSessionViewState,
   WorkbenchBrowserTarget,
@@ -71,7 +72,7 @@ export interface AgentWorkbenchRailProps {
   onWidthChange?: (width: number) => void
   runtime?: WorkbenchRuntimeSummary
   terminalEntries: WorkbenchTerminalEntry[]
-  /** Phase 1 event-derived tree — used whenever no sync tree is available. */
+  /** Phase 1 event-derived tree - used whenever no sync tree is available. */
   fileTree: WorkbenchFileNode[]
   /** Phase 2a sync-backed tree (project-sync manifest). Preferred over `fileTree` when non-empty. */
   liveFileTree?: WorkbenchFileNode[]
@@ -88,7 +89,7 @@ export interface AgentWorkbenchRailProps {
   changes: WorkbenchChangeFile[]
   changesMessage?: string | null
   changesLoading?: boolean
-  /** Where `changes` came from — drives the Changes tab's source badge/banner. */
+  /** Where `changes` came from - drives the Changes tab's source badge/banner. */
   changesSource?: 'live' | 'events' | 'none'
   onRefreshChanges?: () => void
   browserTargets: WorkbenchBrowserTarget[]
@@ -126,7 +127,7 @@ export interface AgentWorkbenchRailProps {
   onRunTerminalCommand?: (command: string) => void
   /** Clears locally-run terminal entries (SSE observer entries remain). */
   onClearTerminal?: () => void
-  /** True while a terminal command is in flight — disables the command bar. */
+  /** True while a terminal command is in flight - disables the command bar. */
   terminalRunning?: boolean
   /** Locally-tracked terminal entries for commands run from this panel, merged after `terminalEntries`. */
   localTerminalEntries?: WorkbenchTerminalEntry[]
@@ -164,7 +165,7 @@ const CHANGES_SOURCE_LABEL: Record<'live' | 'events' | 'none', string> = {
  * Cursor-like agent workbench: a vertical icon strip docked to the far right
  * edge (Files / Terminal / Browser / Changes) that expands into a resizable
  * panel when a tab is selected. The parent container must be `position:
- * relative` — this component renders `absolute inset-y-0 right-0`.
+ * relative` - this component renders `absolute inset-y-0 right-0`.
  *
  * Wired by `UnifiedChat` as a controlled, conversation-scoped observer panel.
  */
@@ -298,11 +299,11 @@ export function AgentWorkbenchRail({
                 : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]',
             ].join(' ')}
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[19px]">{tab.icon}</span>
+            <Icon name={tab.icon} className="text-[19px]" />
             {count && (
               <span
                 aria-hidden="true"
-                className="absolute -right-1 -top-1 min-w-[15px] rounded-full bg-primary px-1 text-center text-[9px] font-bold leading-[15px] text-black"
+                className="absolute -right-1 -top-1 min-w-[15px] rounded-md bg-primary px-1 text-center text-[9px] font-medium leading-[15px] text-black"
               >
                 {count}
               </span>
@@ -329,15 +330,15 @@ export function AgentWorkbenchRail({
         <>
           {runtime.label && <span className="truncate">{runtime.label}</span>}
           {runtime.mappingLabel && (
-            <span className="rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5">{runtime.mappingLabel}</span>
+            <span className="rounded-md border border-[var(--color-card-border)] px-1.5 py-0.5">{runtime.mappingLabel}</span>
           )}
           {runtime.projectName && (
-            <span className="rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5">{runtime.projectName}</span>
+            <span className="rounded-md border border-[var(--color-card-border)] px-1.5 py-0.5">{runtime.projectName}</span>
           )}
           {runtime.folderScope && <span className="truncate font-mono">{runtime.folderScope}</span>}
         </>
       ) : (
-        <span>No workspace mapping — showing activity derived from tool calls only.</span>
+        <span>No workspace mapping - showing activity derived from tool calls only.</span>
       )}
     </div>
   )
@@ -347,17 +348,17 @@ export function AgentWorkbenchRail({
       <header className="shrink-0 border-b border-[var(--color-card-border)] px-3 py-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary">{activeTabMeta.icon}</span>
-            <p className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{activeTabMeta.label}</p>
+            <Icon name={activeTabMeta.icon} className="text-[16px] text-primary" />
+            <p className="truncate text-xs font-medium text-[var(--color-pib-text)]">{activeTabMeta.label}</p>
             {activeTabMeta.id === 'files' && filesSource !== 'none' && (
-              <span className="shrink-0 rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+              <span className="shrink-0 rounded-md border border-[var(--color-card-border)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 {FILES_SOURCE_LABEL[filesSource]}
               </span>
             )}
             {activeTabMeta.id === 'changes' && changesSource !== 'none' && (
               <span
                 className={[
-                  'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-wide',
+                  'shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] uppercase tracking-wide',
                   changesSource === 'live'
                     ? 'border-emerald-400/30 text-emerald-300'
                     : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]',
@@ -374,9 +375,9 @@ export function AgentWorkbenchRail({
                 aria-label="Refresh files"
                 onClick={onRefreshFiles}
                 disabled={filesLoading}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
-                <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${filesLoading ? 'animate-spin' : ''}`}>refresh</span>
+                <Icon name="refresh" className={`text-[15px] ${filesLoading ? 'animate-spin' : ''}`} />
               </button>
             )}
             {activeTabMeta.id === 'changes' && onRefreshChanges && (
@@ -385,18 +386,18 @@ export function AgentWorkbenchRail({
                 aria-label="Refresh changes"
                 onClick={onRefreshChanges}
                 disabled={changesLoading}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
-                <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${changesLoading ? 'animate-spin' : ''}`}>refresh</span>
+                <Icon name="refresh" className={`text-[15px] ${changesLoading ? 'animate-spin' : ''}`} />
               </button>
             )}
             <button
               type="button"
               aria-label="Close workbench"
               onClick={close}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
+              <Icon name="close" className="text-[16px]" />
             </button>
           </div>
         </div>
@@ -495,9 +496,9 @@ export function AgentWorkbenchRail({
                   isActive ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)]',
                 ].join(' ')}
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                <Icon name={tab.icon} className="text-[16px]" />
                 {tab.label}
-                {count && <span className="rounded-full bg-white/10 px-1.5 text-[10px]">{count}</span>}
+                {count && <span className="rounded-md bg-white/10 px-1.5 text-[10px]">{count}</span>}
               </button>
             )
           })}
@@ -505,9 +506,9 @@ export function AgentWorkbenchRail({
             type="button"
             aria-label="Close workbench"
             onClick={close}
-            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[17px]">close</span>
+            <Icon name="close" className="text-[17px]" />
           </button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">{panelBody}</div>
@@ -555,7 +556,7 @@ export function AgentWorkbenchRail({
           className="h-full w-px bg-[var(--color-card-border)] transition-colors group-hover/resize:bg-primary/70 group-focus-visible/resize:bg-primary"
         />
       </button>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-surface,#151515)] shadow-2xl">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-surface,#151515)]">
         {panelBody}
       </div>
       {iconStrip}

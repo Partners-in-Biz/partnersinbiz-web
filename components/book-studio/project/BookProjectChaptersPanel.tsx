@@ -66,7 +66,7 @@ export function BookProjectChaptersPanel({
 
   async function handleSave(chapterId: string, body: string) {
     const saved = await onEditBody(chapterId, body)
-    // Only promote after a CONFIRMED save — a failed body save must not flip
+    // Only promote after a CONFIRMED save  -  a failed body save must not flip
     // a 'generated' chapter to 'edited' (that transition engages the
     // canvas-sync anti-clobber guard, so it has to reflect a real edit).
     if (saved !== true) return

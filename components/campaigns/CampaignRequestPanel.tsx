@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react'
 
+import { Icon } from '@/components/studio'
+
 type CampaignType = 'social' | 'email' | 'ads' | 'seo-content' | 'mixed'
 
 const TYPE_OPTIONS: Array<{ key: CampaignType; label: string; icon: string; hint: string }> = [
@@ -129,7 +131,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
           </p>
         </div>
         <button type="button" onClick={() => setOpen((value) => !value)} className="pib-btn-primary whitespace-nowrap">
-          <span className="material-symbols-outlined text-[18px]">{open ? 'close' : 'add_task'}</span>
+          <Icon name={open ? 'close' : 'add_task'} className="text-[18px]" />
           {open ? 'Close brief' : 'New request'}
         </button>
       </div>
@@ -155,7 +157,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
                     : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] hover:bg-[var(--color-pib-surface-2)]',
                 ].join(' ')}
               >
-                <span aria-hidden="true" className=" "><span className="material-symbols-outlined text-[15px]">{option.icon}</span></span>
+                <span aria-hidden="true" className=""><Icon name={option.icon} className="text-[15px]" /></span>
                 <span className="block text-sm mt-2">{option.label}</span>
                 <span className="block text-xs text-[var(--color-pib-text-muted)] mt-1 leading-relaxed">{option.hint}</span>
               </button>
@@ -217,7 +219,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
               Cancel
             </button>
             <button type="submit" disabled={submitting} className="pib-btn-primary disabled:opacity-50">
-              <span className="material-symbols-outlined text-[18px]">send</span>
+              <Icon name="send" className="text-[18px]" />
               {submitting ? 'Sending...' : 'Send request'}
             </button>
           </div>

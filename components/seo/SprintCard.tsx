@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { HealthBadge } from './HealthBadge'
+import { Icon } from '@/components/studio'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function SprintCard({ sprint }: { sprint: any }) {
@@ -37,7 +38,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
     <div className="pib-card group space-y-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="font-semibold text-base leading-tight">
+          <h3 className="font-medium text-base leading-tight">
             <Link href={`/portal/seo/sprints/${sprint.id}`} className="hover:underline">
               {sprint.siteName}
             </Link>
@@ -46,9 +47,9 @@ export function SprintCard({ sprint }: { sprint: any }) {
         </div>
         <HealthBadge score={sprint.health?.score} signalsCount={sprint.health?.signals?.length ?? 0} />
       </div>
-      <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-sm">
+      <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-sm">
         <div className="font-medium">
-          {phase === 4 ? `Phase 4 — Compounding · Day ${day}` : `Day ${day} of 90`}
+          {phase === 4 ? `Phase 4 - Compounding · Day ${day}` : `Day ${day} of 90`}
         </div>
         <div className="text-xs text-[var(--color-pib-text-muted)]">{phaseLabels[phase]}</div>
       </div>
@@ -57,7 +58,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
           href={`/portal/seo/sprints/${sprint.id}`}
           className="pib-btn-secondary !px-3 !py-1.5 text-xs"
         >
-          <span className="material-symbols-outlined text-base">open_in_new</span>
+          <Icon name="open_in_new" className="text-base" />
           Open
         </Link>
         <button
@@ -65,7 +66,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
           disabled={running}
           className="pib-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-base">{running ? 'autorenew' : 'play_arrow'}</span>
+          <Icon name={running ? 'autorenew' : 'play_arrow'} className="text-base" />
           {running ? 'Running…' : "Run today's SEO"}
         </button>
       </div>

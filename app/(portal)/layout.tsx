@@ -8,7 +8,7 @@ import { MaintenanceShell } from '@/components/governance/MaintenanceShell'
 
 // Server-side session gate. The proxy only checks that a __session cookie
 // EXISTS; without this layout a junk cookie renders the full portal shell
-// (admin has had the equivalent check since day one — this brings the two
+// (admin has had the equivalent check since day one  -  this brings the two
 // surfaces to parity). Data was always API-gated; this gates the shell.
 export default async function PortalLayout({
   children,

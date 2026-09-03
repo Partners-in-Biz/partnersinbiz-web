@@ -469,7 +469,7 @@ export default function StorageClient() {
           </div>
         ) : orphans && !orphans.storageAvailable ? (
           <div className="flex items-start gap-2 rounded-lg border border-[var(--color-pib-line-strong)] bg-surface-variant px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-            <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+            <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
               <Icon name="info" />
             </span>
             <div>

@@ -41,12 +41,12 @@ export function PricingToggleBlock({
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-6 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-6 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
       <div
-        className="rounded-2xl border p-6"
+        className="rounded-md border p-6"
         style={{ borderColor: 'var(--doc-border)', background: 'var(--doc-surface)' }}
       >
         <ul className="divide-y" style={{ borderColor: 'var(--doc-border)' }}>
@@ -85,7 +85,7 @@ export function PricingToggleBlock({
             Your total
           </span>
           <span
-            className="text-3xl font-semibold tabular-nums"
+            className="text-3xl font-medium tabular-nums"
             style={{ color: 'var(--doc-accent)' }}
           >
             {formatMoney(total, content.currency)}

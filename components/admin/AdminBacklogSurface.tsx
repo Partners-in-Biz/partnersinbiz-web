@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
 
+import { Icon } from '@/components/studio'
+
 type SurfaceMetric = {
   label: string
   value: string
@@ -112,7 +114,7 @@ export function AdminBacklogSurface({
       {loading ? (
         <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading operator data...</div>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
+        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-[var(--st-danger)]">{error}</div>
       ) : null}
 
       {!loading && !error && payload ? (
@@ -123,11 +125,11 @@ export function AdminBacklogSurface({
                 <div key={metric.label} className="pib-card p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{metric.label}</p>
-                    <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
-                      <span className="material-symbols-outlined text-[14px]">insights</span>
+                    <span aria-hidden="true" className="!h-6 !w-6 !rounded-md">
+                      <Icon name="insights" className="text-[14px]" />
                     </span>
                   </div>
-                  <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                  <p className="mt-2 text-xl font-medium text-[var(--color-pib-text)]">{metric.value}</p>
                   {metric.helper ? <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p> : null}
                 </div>
               ))}
@@ -139,9 +141,9 @@ export function AdminBacklogSurface({
               {payload.callouts.map((callout) => (
                 <div
                   key={`${callout.title}-${callout.body}`}
-                  className={`pib-card p-4 ${callout.tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/10' : ''}`}
+                  className={`pib-card p-4 ${callout.tone === 'warn' ? 'border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' : ''}`}
                 >
-                  <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{callout.title}</h2>
+                  <h2 className="text-base font-medium text-[var(--color-pib-text)]">{callout.title}</h2>
                   <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]">{callout.body}</p>
                   {callout.href && callout.hrefLabel ? (
                     <Link href={callout.href} className="mt-3 inline-flex text-sm text-[var(--color-pib-accent)] hover:underline">
@@ -156,7 +158,7 @@ export function AdminBacklogSurface({
           {payload.sections.map((section) => (
             <section key={section.title} className="pib-card overflow-hidden">
               <div className="border-b border-[var(--color-pib-line)] px-5 py-4">
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{section.title}</h2>
+                <h2 className="text-lg font-medium text-[var(--color-pib-text)]">{section.title}</h2>
                 {section.description ? <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{section.description}</p> : null}
               </div>
 

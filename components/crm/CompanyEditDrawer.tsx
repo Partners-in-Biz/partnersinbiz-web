@@ -9,6 +9,7 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ProfileLinksFields } from '@/components/crm/ProfileLinksFields'
 import {
+import { Icon } from '@/components/studio'
   companySocialFromValues,
   sanitizeOtherLinks,
   type ProfileLink,
@@ -219,7 +220,7 @@ export interface CompanyEditDrawerProps {
   mode: 'create' | 'edit'
   orgScope?: PortalOrgRouteScope
   teamMembers?: CompanyTeamMember[]
-  /** Custom-field definitions for the `company` resource — when present, render the dynamic section. */
+  /** Custom-field definitions for the `company` resource - when present, render the dynamic section. */
   customFieldDefinitions?: CustomFieldDefinition[]
 }
 
@@ -353,7 +354,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, te
             onClick={onClose}
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[19px]">close</span>
+            <Icon name="close" className="text-[19px]" />
           </button>
         </div>
 
@@ -695,7 +696,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, te
           >
             {saving ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <Icon name="progress_activity" className="text-[16px] animate-spin" />
                 Saving…
               </>
             ) : (

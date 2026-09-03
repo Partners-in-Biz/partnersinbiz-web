@@ -13,9 +13,11 @@ import EnrollmentPreview from './EnrollmentPreview'
 import TriggerConfigPanel, { type SequenceTrigger } from './TriggerConfigPanel'
 import SequenceDeadLetterControl from './SequenceDeadLetterControl'
 
+import { Icon } from '@/components/studio'
+
 type Tab = 'steps' | 'trigger' | 'preview'
 
-// Local shape — the persisted sequence plus our additive `trigger` field
+// Local shape  -  the persisted sequence plus our additive `trigger` field
 // (not yet in lib/sequences/types.ts; reported as a needed shared-type change).
 interface SequenceDoc {
   id?: string
@@ -126,7 +128,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+      <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence…</p>
       </div>
     )
@@ -134,9 +136,9 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
 
   if (loadError) {
     return (
-      <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-3">
-        <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-        <h2 className="mt-1 font-display text-xl">Sequence could not load</h2>
+      <div className="rounded-md border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-3">
+        <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Source health</p>
+        <h2 className="mt-1 text-xl">Sequence could not load</h2>
         <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
         <button type="button" onClick={onDone} className="mt-3 h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
           Back to automations
@@ -152,7 +154,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
   ]
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {/* Meta */}
       <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
         <div className="grid gap-3 md:grid-cols-2">
@@ -179,11 +181,11 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           <span className="text-[11px] text-[var(--color-pib-text-muted)]">Status:</span>
           <span
             className={[
-              'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]',
+              'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px]',
               status === 'active'
                 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
                 : status === 'paused'
-                  ? 'border-amber-400/20 bg-amber-400/10 text-amber-300'
+                  ? 'border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                   : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]',
             ].join(' ')}
           >
@@ -227,7 +229,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
                 : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[15px]">{t.icon}</span>
+            <Icon name={t.icon} className="text-[15px]" />
             {t.label}
           </button>
         ))}
@@ -255,7 +257,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           disabled={saving}
           className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[16px]">save</span>
+          <Icon name="save" className="text-[16px]" />
           {saving ? 'Saving…' : 'Save draft'}
         </button>
         <button
@@ -264,7 +266,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           disabled={saving}
           className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
+          <Icon name="rocket_launch" className="text-[16px]" />
           Save &amp; activate
         </button>
         <button type="button" onClick={onDone} disabled={saving} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">

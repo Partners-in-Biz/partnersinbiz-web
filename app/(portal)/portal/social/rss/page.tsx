@@ -68,7 +68,7 @@ function fmtDateTime(ts: any) {
   const d = tsToDate(ts)
   return d
     ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : '—'
+    : ' - '
 }
 
 function PlatformBadge({ platform }: { platform: string }) {

@@ -24,12 +24,12 @@ const STATUS_TINT: Record<string, string> = {
 const ROW_STATUS_TINT: Record<string, string> = {
   pending: 'text-yellow-400',
   sent: 'text-green-400',
-  failed: 'text-red-400',
+  failed: 'text-[var(--st-danger)]',
   skipped: 'text-white/40',
 }
 
 function formatTs(ts: { seconds: number } | undefined): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   return new Date(ts.seconds * 1000).toLocaleString()
 }
 
@@ -83,7 +83,7 @@ export function OfflineBatchDetailClient({ orgSlug, orgId, batch: initialBatch, 
           <div>
             <p className="text-xs text-white/40 mb-1">Status</p>
             <span
-              className={`text-sm rounded-full px-2 py-0.5 font-medium ${STATUS_TINT[batch.status] ?? 'bg-white/5 text-white/50'}`}
+              className={`text-sm rounded-md px-2 py-0.5 font-medium ${STATUS_TINT[batch.status] ?? 'bg-white/5 text-white/50'}`}
             >
               {batch.status}
             </span>
@@ -93,7 +93,7 @@ export function OfflineBatchDetailClient({ orgSlug, orgId, batch: initialBatch, 
             <p className="text-sm">
               {batch.processedRows}/{batch.totalRows}
               {batch.failedRows > 0 && (
-                <span className="text-red-400 ml-2">({batch.failedRows} failed)</span>
+                <span className="text-[var(--st-danger)] ml-2">({batch.failedRows} failed)</span>
               )}
             </p>
           </div>
@@ -127,7 +127,7 @@ export function OfflineBatchDetailClient({ orgSlug, orgId, batch: initialBatch, 
             {retrying ? 'Retrying…' : `Retry ${batch.failedRows} failed rows`}
           </button>
           {retryResult && <p className="text-sm text-green-400">{retryResult}</p>}
-          {retryError && <p className="text-sm text-red-400">{retryError}</p>}
+          {retryError && <p className="text-sm text-[var(--st-danger)]">{retryError}</p>}
         </div>
       )}
 
@@ -166,10 +166,10 @@ export function OfflineBatchDetailClient({ orgSlug, orgId, batch: initialBatch, 
                     <tr key={row.id} className="hover:bg-white/[0.02]">
                       <td className="px-3 py-2 font-mono truncate max-w-[140px]">{row.eventId}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{row.eventTimeIso}</td>
-                      <td className="px-3 py-2 truncate max-w-[140px]">{row.email ?? '—'}</td>
-                      <td className="px-3 py-2">{row.phone ?? '—'}</td>
+                      <td className="px-3 py-2 truncate max-w-[140px]">{row.email ?? ' - '}</td>
+                      <td className="px-3 py-2">{row.phone ?? ' - '}</td>
                       <td className="px-3 py-2">
-                        {row.value != null ? `${row.value} ${row.currency ?? ''}`.trim() : '—'}
+                        {row.value != null ? `${row.value} ${row.currency ?? ''}`.trim() : ' - '}
                       </td>
                       <td className={`px-3 py-2 font-medium ${ROW_STATUS_TINT[row.status] ?? ''}`}>
                         {row.status}

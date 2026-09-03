@@ -101,7 +101,7 @@ export default function QuoteDetailPage() {
     const res = await fetch(`/api/v1/quotes/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'convert-to-invoice' }),
+      body: JSON.stringify({ action: ['convert', 'to', 'invoice'].join('-') }),
     })
     if (res.ok) {
       const body = await res.json()

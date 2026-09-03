@@ -45,7 +45,7 @@ const PERMISSION_MATRIX: Record<string, string[]> = {
 const ROLE_BADGE: Record<string, string> = {
   superadmin: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
   support: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-  finance: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
+  finance: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
   content: 'bg-teal-500/10 text-teal-300 border-teal-500/20',
 }
 

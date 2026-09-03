@@ -372,7 +372,7 @@ function EngagementTab({ orgId }: { orgId: string }) {
                   <span className="pib-pill">{r.status}</span>
                 </td>
                 <td className="py-2 text-[var(--color-pib-text-muted)] text-xs">
-                  {r.lastEngagedAt ? new Date(r.lastEngagedAt).toLocaleDateString() : '—'}
+                  {r.lastEngagedAt ? new Date(r.lastEngagedAt).toLocaleDateString() : ' - '}
                 </td>
               </tr>
             ))}
@@ -668,7 +668,7 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
   if (!data || data.cohorts.length === 0) {
     return (
       <Empty>
-        No cohort data — once contacts sign up in this window we can chart their week-over-week
+        No cohort data  -  once contacts sign up in this window we can chart their week-over-week
         engagement here.
       </Empty>
     )
@@ -711,7 +711,7 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
                 {headers.map((i) => {
                   const ret = c.retentionPercent[i]
                   if (typeof ret !== 'number') {
-                    return <td key={i} className="p-2 text-[var(--color-pib-text-muted)] text-center">—</td>
+                    return <td key={i} className="p-2 text-[var(--color-pib-text-muted)] text-center"> - </td>
                   }
                   const bg = heatmapShade(ret)
                   const fg = heatmapTextColor(ret)
@@ -898,7 +898,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
 
   if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (!data || data.totalSamples === 0) {
-    return <Empty>No send activity in this window — nothing to plot.</Empty>
+    return <Empty>No send activity in this window  -  nothing to plot.</Empty>
   }
 
   // Compute max openRate to normalise the heatmap, and find best cell stats.
@@ -954,7 +954,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
                             : 'border-[var(--color-pib-line)]'
                       }`}
                       style={{ background: bg, color: fg, minWidth: 28 }}
-                      title={`${DAY_LABELS[d]} ${String(h).padStart(2, '0')}:00 — ${pct(
+                      title={`${DAY_LABELS[d]} ${String(h).padStart(2, '0')}:00  -  ${pct(
                         cell.openRate,
                       )} open rate · ${cell.sent} sent`}
                     >
@@ -976,10 +976,10 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
           <span className="text-[var(--color-pib-blue)]">
             {DAY_LABELS[data.bestDay]} at {String(data.bestHour).padStart(2, '0')}:00
           </span>{' '}
-          — {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
+           -  {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
         </div>
       ) : (
-        <Empty>Not enough data yet to pick a best slot — keep sending.</Empty>
+        <Empty>Not enough data yet to pick a best slot  -  keep sending.</Empty>
       )}
     </div>
   )

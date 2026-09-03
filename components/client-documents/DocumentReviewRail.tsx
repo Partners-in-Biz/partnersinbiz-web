@@ -185,6 +185,7 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
             onChange={(e) => setReplyText(e.target.value)}
             rows={2}
             placeholder="Write a reply…"
+            aria-label="Write a reply"
             className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)] resize-none"
           />
           {orgId ? (
@@ -269,7 +270,7 @@ export function DocumentReviewRail({
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Status</p>
         <p className="mt-2 text-lg font-medium capitalize">{document.status.replaceAll('_', ' ')}</p>
         {blockers.length > 0 && (
-          <p className="mt-3 text-xs text-amber-300">
+          <p className="mt-3 text-xs text-[var(--st-warning)]">
             {blockers.length} blocking assumption{blockers.length === 1 ? '' : 's'}
           </p>
         )}

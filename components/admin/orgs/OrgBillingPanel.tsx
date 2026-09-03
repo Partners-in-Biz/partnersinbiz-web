@@ -61,7 +61,7 @@ export function OrgBillingPanel({ slug }: { slug: string }) {
   }, [slug])
 
   if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading billing…</Surface>
-  if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
+  if (error) return <Surface className="text-[var(--st-danger)] text-sm">{error}</Surface>
   if (!data) return null
 
   const b = data.billing
@@ -72,12 +72,12 @@ export function OrgBillingPanel({ slug }: { slug: string }) {
         <Surface header={<span className="font-label">Recurring billing (EFT / manual)</span>}>
           {b ? (
             <div className="divide-y divide-white/5">
-              <Row label="Recurring amount" value={typeof b.recurringAmount === 'number' ? `${b.currency ?? 'ZAR'} ${b.recurringAmount.toLocaleString()}` : '—'} />
+              <Row label="Recurring amount" value={typeof b.recurringAmount === 'number' ? `${b.currency ?? 'ZAR'} ${b.recurringAmount.toLocaleString()}` : ' - '} />
               <Row label="Cadence" value={b.cadence ?? 'monthly'} />
               <Row label="State" value={<StatusPill tone={STATE_TONE[b.state ?? ''] ?? 'neutral'} dot>{b.state ?? 'unknown'}</StatusPill>} />
               <Row label="MRR (ZAR)" value={formatZar(data.mrrZar)} />
-              <Row label="Payment method" value={b.paymentMethod ?? '—'} />
-              <Row label="Trial ends" value={b.trialEndsAt ? formatDate(b.trialEndsAt) : '—'} />
+              <Row label="Payment method" value={b.paymentMethod ?? ' - '} />
+              <Row label="Trial ends" value={b.trialEndsAt ? formatDate(b.trialEndsAt) : ' - '} />
             </div>
           ) : (
             <EmptyState icon="payments" title="No billing configured" description="This org has no adminBilling block set." />

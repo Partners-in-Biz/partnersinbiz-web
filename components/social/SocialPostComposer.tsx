@@ -769,7 +769,7 @@ export default function SocialPostComposer({
 
         {linkedinSelected && (
           <section className="pib-card space-y-3">
-            <h2 className="text-sm pib-label">LinkedIn — Share As</h2>
+            <h2 className="text-sm pib-label">LinkedIn  -  Share As</h2>
             <div className="flex gap-2">
               {([
                 { value: 'profile', label: 'Profile' },
@@ -1106,9 +1106,9 @@ export default function SocialPostComposer({
             rows={2}
             value={firstComment}
             onChange={(event) => setFirstComment(event.target.value)}
-            placeholder="Optional — e.g. drop your link or extra hashtags as the first comment…"
+            placeholder="Optional  -  e.g. drop your link or extra hashtags as the first comment…"
             className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
-           aria-label="Optional — e.g. drop your link or extra hashtags as the first comment…"/>
+           aria-label="Optional  -  e.g. drop your link or extra hashtags as the first comment…"/>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             Leave empty to skip. The comment is posted on the published post by the same account; a comment failure never blocks the post.
           </p>

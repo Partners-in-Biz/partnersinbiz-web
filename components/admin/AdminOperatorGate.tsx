@@ -20,18 +20,18 @@ export function AdminOperatorGate({
   actions,
 }: AdminOperatorGateProps) {
   return (
-    <section className="pib-card border-amber-400/30 bg-amber-400/10 p-4 text-sm text-[var(--color-pib-text)]" aria-label={title}>
+    <section className="pib-card border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-4 text-sm text-[var(--color-pib-text)]" aria-label={title}>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="eyebrow !text-[10px] text-amber-700">Admin-only safety boundary</p>
-          <h2 className="mt-1 font-headline text-lg font-semibold">{title}</h2>
+          <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Admin-only safety boundary</p>
+          <h2 className="mt-1 font-headline text-lg font-medium">{title}</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
       <ul className="mt-3 grid gap-2 text-xs text-[var(--color-pib-text-muted)] md:grid-cols-3">
         {items.map((item) => (
-          <li key={item} className="rounded-xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-muted)] p-3">
+          <li key={item} className="rounded-md border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-muted)] p-3">
             {item}
           </li>
         ))}

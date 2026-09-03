@@ -87,7 +87,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
         </StatusPill>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
 
       <Surface header={<span className="font-label">Known flags</span>}>
         <div className="divide-y divide-white/5">
@@ -98,17 +98,17 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
                 <p className="text-xs text-[var(--color-pib-text-muted)]">{f.description}</p>
                 <code className="text-[10px] text-[var(--color-pib-text-muted)]">{f.key}</code>
               </div>
-              <button
+              <button aria-label="Clear"
                 type="button"
                 role="switch"
                 aria-checked={flags[f.key] === true}
                 disabled={saving}
                 onClick={() => toggle(f.key)}
-                className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
+                className="relative h-6 w-11 shrink-0 rounded-md transition-colors disabled:opacity-50"
                 style={{ background: flags[f.key] === true ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.15)' }}
               >
                 <span
-                  className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+                  className="absolute top-0.5 h-5 w-5 rounded-md bg-white transition-all"
                   style={{ left: flags[f.key] === true ? '22px' : '2px' }}
                 />
               </button>
@@ -124,17 +124,17 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
               <div key={key} className="flex items-center justify-between gap-4 py-3">
                 <code className="text-sm text-[var(--color-pib-text)]">{key}</code>
                 <div className="flex items-center gap-3">
-                  <button
+                  <button aria-label="Clear"
                     type="button"
                     role="switch"
                     aria-checked={flags[key] === true}
                     disabled={saving}
                     onClick={() => toggle(key)}
-                    className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
+                    className="relative h-6 w-11 shrink-0 rounded-md transition-colors disabled:opacity-50"
                     style={{ background: flags[key] === true ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.15)' }}
                   >
                     <span
-                      className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+                      className="absolute top-0.5 h-5 w-5 rounded-md bg-white transition-all"
                       style={{ left: flags[key] === true ? '22px' : '2px' }}
                     />
                   </button>
@@ -154,7 +154,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
 
       <Surface header={<span className="font-label">Add custom flag</span>}>
         <div className="flex gap-2">
-          <input
+          <input aria-label="featureKeyName"
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
             placeholder="featureKeyName"
@@ -179,7 +179,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
         }
       >
         <p className="text-sm text-[var(--color-pib-text-muted)]">
-          Removing a flag override cannot be undone from here — you would need to re-add the key. Continue?
+          Removing a flag override cannot be undone from here  -  you would need to re-add the key. Continue?
         </p>
       </DialogDrawer>
     </div>

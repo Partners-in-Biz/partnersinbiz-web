@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface MergeCandidateCompany {
   id: string
@@ -93,11 +94,11 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
   }
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3" aria-label={`Merge duplicate company for ${companyLabel(company)}`}>
+    <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3" aria-label={`Merge duplicate company for ${companyLabel(company)}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Data hygiene</p>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Merge duplicate company</h2>
+          <h2 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">Merge duplicate company</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Keep this company as the winner and merge another same-workspace company into it. Contacts, deals, quotes, invoices, projects, activities, and form links are re-pointed to the winner.
           </p>
@@ -109,7 +110,7 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             aria-label={`Find and merge a duplicate of ${companyLabel(company)}`}
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+            <Icon name="merge" className="text-[14px]" />
             Merge duplicate
           </button>
         )}
@@ -139,7 +140,7 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
                       onClick={() => setDuplicate(candidate)}
                       className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="block text-xs font-semibold text-[var(--color-pib-text)]">{companyLabel(candidate)}</span>
+                      <span className="block text-xs font-medium text-[var(--color-pib-text)]">{companyLabel(candidate)}</span>
                       <span className="mt-0.5 block text-[11px] text-[var(--color-pib-text-muted)]">{companySubtitle(candidate) || candidate.id}</span>
                     </button>
                   ))}
@@ -147,9 +148,9 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
               )}
             </>
           ) : (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3">
-              <p className="text-xs font-semibold text-amber-50">Merge {companyLabel(duplicate)} into {companyLabel(company)}?</p>
-              <p className="mt-1 text-xs leading-5 text-amber-100/85">
+            <div className="rounded-lg border border-amber-400/40 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-3">
+              <p className="text-xs font-medium text-[var(--st-warning)]">Merge {companyLabel(duplicate)} into {companyLabel(company)}?</p>
+              <p className="mt-1 text-xs leading-5 text-[color-mix(in_srgb,var(--st-warning)_85%,transparent)]">
                 The duplicate company will be archived with a mergedIntoId link. Related same-workspace CRM records will point to {companyLabel(company)}.
               </p>
               <div className="mt-3 flex flex-wrap gap-1.5">

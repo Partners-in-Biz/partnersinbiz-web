@@ -1,4 +1,4 @@
-/* Quiet Briefings overrides — solid black, no glass/glow motion.
+/* Quiet Briefings overrides  -  solid black, no glass/glow motion.
    Scoped to [data-briefings-experience='quiet-2026'] only. */
 
 [data-briefings-experience='quiet-2026'] {
@@ -16,11 +16,11 @@
 [data-briefings-experience='quiet-2026'] .messages-hud-pulse,
 [data-briefings-experience='quiet-2026'] .messages-hud-meter,
 [data-briefings-experience='quiet-2026'] .messages-scanlines,
-[data-briefings-experience='quiet-2026'] .pib-scanlines,
+[data-briefings-experience='quiet-2026'] [class*="pib-"][class*="scanlines"],
 [data-briefings-experience='quiet-2026'] .messages-neural-field,
-[data-briefings-experience='quiet-2026'] .pib-neural-field,
+[data-briefings-experience='quiet-2026'] [class*="pib-"][class*="neural-field"],
 [data-briefings-experience='quiet-2026'] .messages-atmosphere-fallback,
-[data-briefings-experience='quiet-2026'] .pib-aurora-fallback {
+[data-briefings-experience='quiet-2026'] [class*="pib-"][class*="aurora"] {
   display: none !important;
   animation: none !important;
 }

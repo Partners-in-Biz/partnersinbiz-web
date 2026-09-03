@@ -24,9 +24,9 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
   const colorCls = isScored ? colorClasses(score!) : ''
 
   const tooltip = isScored
-    ? [kind, label].filter(Boolean).join(' — ')
+    ? [kind, label].filter(Boolean).join(' - ')
     : label
-      ? `${label} — not scored yet`
+      ? `${label} - not scored yet`
       : 'Not scored yet'
 
   return (

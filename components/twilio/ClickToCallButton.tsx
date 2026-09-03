@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Device, Call } from '@twilio/voice-sdk'
 
+import { Icon } from '@/components/studio'
+
 interface ClickToCallButtonProps {
   orgId: string
   phone: string
@@ -130,8 +132,8 @@ export function ClickToCallButton({
             aria-label={`Call ${phone} via Twilio`}
             className="inline-flex items-center gap-1 text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
           >
-            <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true">
-              <span className="material-symbols-outlined text-[12px]">ring_volume</span>
+            <span className="!h-5 !w-5 rounded-md" aria-hidden="true">
+              <Icon name="ring_volume" className="text-[12px]" />
             </span>
             <span className="truncate">{label || phone}</span>
           </button>
@@ -141,7 +143,7 @@ export function ClickToCallButton({
             onClick={hangUp}
             className="inline-flex items-center gap-1 text-[11px] text-red-300 transition hover:text-red-200"
           >
-            <span className="material-symbols-outlined text-[14px]">call_end</span>
+            <Icon name="call_end" className="text-[14px]" />
             Hang up
           </button>
         )}
@@ -154,7 +156,7 @@ export function ClickToCallButton({
         </a>
       </span>
       {status && <span className="text-[10px] text-[var(--color-pib-text-muted)]">{status}</span>}
-      {error && <span className="text-[10px] text-red-400">{error}</span>}
+      {error && <span className="text-[10px] text-[var(--st-danger)]">{error}</span>}
     </span>
   )
 }

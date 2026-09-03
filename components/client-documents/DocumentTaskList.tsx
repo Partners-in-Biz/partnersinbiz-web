@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface DocumentTask {
@@ -228,7 +230,7 @@ export function DocumentTaskList({ documentId }: Props) {
   return (
     <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
           Action items
         </h3>
         <button
@@ -237,7 +239,7 @@ export function DocumentTaskList({ documentId }: Props) {
           className="flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           aria-label="Add task"
         >
-          <span className="material-symbols-outlined text-sm">add</span>
+          <Icon name="add" />
           Add
         </button>
       </div>
@@ -397,9 +399,7 @@ export function DocumentTaskList({ documentId }: Props) {
                   aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
                   className="mt-0.5 flex-shrink-0 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] transition-colors"
                 >
-                  <span className="material-symbols-outlined text-base">
-                    {task.completed ? 'check_circle' : 'radio_button_unchecked'}
-                  </span>
+                  <Icon name={task.completed ? 'check_circle' : 'radio_button_unchecked'} />
                 </button>
                 <div className="min-w-0 flex-1">
                   <span
@@ -415,7 +415,7 @@ export function DocumentTaskList({ documentId }: Props) {
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
                       {task.assignee && (
                         <span className="inline-flex items-center gap-0.5 text-[var(--color-pib-text-muted)]">
-                          <span className="material-symbols-outlined text-xs">person</span>
+                          <Icon name="person" />
                           {task.assignee}
                         </span>
                       )}
@@ -425,7 +425,7 @@ export function DocumentTaskList({ documentId }: Props) {
                             overdue ? 'text-red-300' : 'text-[var(--color-pib-text-muted)]'
                           }`}
                         >
-                          <span className="material-symbols-outlined text-xs">event</span>
+                          <Icon name="event" />
                           {formatDue(task.dueDate)}
                           {overdue && <span className="font-medium">· Overdue</span>}
                         </span>
@@ -439,7 +439,7 @@ export function DocumentTaskList({ documentId }: Props) {
                   aria-label="Edit task"
                   className="mt-0.5 flex-shrink-0 text-[var(--color-pib-text-muted)] opacity-0 transition-opacity hover:text-[var(--color-pib-text)] group-hover:opacity-100"
                 >
-                  <span className="material-symbols-outlined text-sm">edit</span>
+                  <Icon name="edit" />
                 </button>
               </li>
             )

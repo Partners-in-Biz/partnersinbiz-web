@@ -24,7 +24,7 @@ export function ExperimentSignificanceBadge({ significance }: Props) {
 
   if (confident && pValue <= 0.01) {
     return (
-      <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">
+      <span className="rounded-md bg-green-500/15 px-2 py-0.5 text-xs text-green-400">
         Significant (p&lt;0.01)
       </span>
     )
@@ -32,7 +32,7 @@ export function ExperimentSignificanceBadge({ significance }: Props) {
 
   if (confident && pValue <= 0.05) {
     return (
-      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-400">
+      <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-400">
         Significant (p&lt;0.05)
       </span>
     )
@@ -40,7 +40,7 @@ export function ExperimentSignificanceBadge({ significance }: Props) {
 
   if (!confident && pValue <= 0.1) {
     return (
-      <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs text-yellow-400">
+      <span className="rounded-md bg-yellow-500/15 px-2 py-0.5 text-xs text-yellow-400">
         Trending (p≤0.1)
       </span>
     )

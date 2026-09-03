@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { CaptureSource, CaptureSourceType } from '@/lib/crm/captureSources'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { Icon } from '@/components/studio'
 
 interface CampaignSummary {
   id: string
@@ -30,7 +31,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.onli
 const TYPE_STYLES: Record<CaptureSourceType, string> = {
   form: 'bg-blue-500/15 text-blue-300 border border-blue-500/25',
   api: 'bg-purple-500/15 text-purple-300 border border-purple-500/25',
-  csv: 'bg-amber-500/15 text-amber-300 border border-amber-500/25',
+  csv: 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)] border border-amber-500/25',
   integration: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
   manual: 'bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-card-border)]',
 }
@@ -45,7 +46,7 @@ const TYPE_LABELS: Record<CaptureSourceType, string> = {
 
 function TypeBadge({ type }: { type: CaptureSourceType }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_STYLES[type]}`}>
+    <span className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${TYPE_STYLES[type]}`}>
       {TYPE_LABELS[type]}
     </span>
   )
@@ -55,20 +56,20 @@ function StatusBadge({ source }: { source: CaptureSource }) {
   const captured = source.capturedCount ?? 0
   if (!source.enabled) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/25 bg-amber-500/10 text-amber-200">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-amber-500/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]">
         Paused
       </span>
     )
   }
   if (captured === 0) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
         No captures yet
       </span>
     )
   }
   return (
-    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
+    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
       Ready for traffic
     </span>
   )
@@ -92,14 +93,9 @@ function MetricCard({
           <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {label}
           </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
+          <p className="mt-1 text-lg font-medium text-[var(--color-pib-text)]">{value}</p>
         </div>
-        <span
-          className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]"
-          aria-hidden="true"
-        >
-          {icon}
-        </span>
+        <Icon name={icon} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]" />
       </div>
       <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
@@ -306,15 +302,10 @@ function SourceCard({
   ]
 
   return (
-    <div className="rounded-xl bg-[var(--color-card)]/45 border border-[var(--color-card-border)] overflow-hidden">
+    <div className="rounded-md bg-[var(--color-card)]/45 border border-[var(--color-card-border)] overflow-hidden">
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span
-            className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]"
-            aria-hidden="true"
-          >
-            inventory_2
-          </span>
+          <Icon name="inventory_2" className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]" />
           <div className="min-w-0 flex-1">
             {editingName ? (
               <input
@@ -329,6 +320,7 @@ function SourceCard({
                   }
                 }}
                 autoFocus
+                aria-label="Source name"
                 className="h-8 w-full max-w-xs rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs font-medium text-[var(--color-pib-text)]"
               />
             ) : (
@@ -349,7 +341,7 @@ function SourceCard({
               {readinessItems.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                  className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
                 >
                   {item}
                 </span>
@@ -410,19 +402,17 @@ function SourceCard({
                 role="alertdialog"
                 aria-labelledby={`capture-source-rotate-title-${source.id}`}
                 aria-describedby={`capture-source-rotate-description-${source.id}`}
-                className="mt-3 rounded-md border border-amber-300/30 bg-amber-400/10 px-3 py-2"
+                className="mt-3 rounded-md border border-amber-300/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
-                    <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
-                      key
-                    </span>
+                    <Icon name="key" className="mt-0.5 text-[var(--st-warning)]" />
                     <div className="min-w-0">
-                      <p className="eyebrow !text-[10px] text-amber-100">Public key rotation confirmation</p>
-                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                      <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Public key rotation confirmation</p>
+                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 text-lg text-[var(--color-pib-text)]">
                         Rotate public key for &quot;{displayName}&quot;?
                       </h3>
-                      <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-amber-50/90">
+                      <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-[color-mix(in_srgb,var(--st-warning)_90%,transparent)]">
                         This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.
                       </p>
                     </div>
@@ -441,12 +431,10 @@ function SourceCard({
                       type="button"
                       onClick={confirmRotateKey}
                       disabled={busy}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-200/30 bg-amber-300/15 px-3 py-2 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-300/25 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-200/30 bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] px-3 py-2 text-xs font-medium text-[var(--st-warning)] transition-colors hover:bg-[color-mix(in_srgb,var(--st-warning)_25%,transparent)] disabled:opacity-50"
                       aria-label={`Confirm rotate public key for capture source ${displayName}`}
                     >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                        key
-                      </span>
+                      <Icon name="key" className="text-[14px]" />
                       {busy ? 'Rotating...' : 'Rotate key'}
                     </button>
                   </div>
@@ -495,6 +483,7 @@ function SourceCard({
               onChange={(e) => setTagsDraft(e.target.value)}
               onBlur={handleTagsBlur}
               placeholder="lead, website, newsletter"
+              aria-label="Auto-tags"
               className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
             />
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
@@ -584,6 +573,7 @@ function SourceCard({
                   onBlur={handleRedirectBlur}
                   placeholder="https://example.com/thanks"
                   type="url"
+                  aria-label="Redirect URL"
                   className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
                 />
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
@@ -615,12 +605,10 @@ function SourceCard({
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
-                    <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
-                      warning
-                    </span>
+                    <Icon name="warning" className="mt-0.5 text-red-300" />
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Capture source delete confirmation</p>
-                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 text-lg text-[var(--color-pib-text)]">
                         Delete capture source &quot;{displayName}&quot;?
                       </h3>
                       <p id={`capture-source-delete-description-${source.id}`} className="mt-2 text-sm text-red-100/90">
@@ -642,12 +630,10 @@ function SourceCard({
                       type="button"
                       onClick={confirmDelete}
                       disabled={busy}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
                       aria-label={`Confirm delete capture source ${displayName}`}
                     >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                        delete
-                      </span>
+                      <Icon name="delete" className="text-[14px]" />
                       {busy ? 'Deleting...' : 'Delete source'}
                     </button>
                   </div>
@@ -848,11 +834,11 @@ export function CaptureSourcesWorkspace({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <header className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-3 py-2">
         <div>
           <p className="eyebrow">{orgName || 'CRM'}</p>
-          <h1 className="mt-0.5 text-base font-semibold text-[var(--color-pib-text)]">Capture command center</h1>
+          <h1 className="mt-0.5 text-base font-medium text-[var(--color-pib-text)]">Capture command center</h1>
           <p className="max-w-2xl text-xs leading-4 text-[var(--color-pib-text-muted)]">
             {surface === 'admin-org'
               ? 'Internal operator surface for this client: manage every path that feeds contacts into the CRM while every read and write carries explicit organisation scope.'
@@ -863,9 +849,7 @@ export function CaptureSourcesWorkspace({
           href={importHref}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">
-            upload_file
-          </span>
+          <Icon name="upload_file" className="text-base" />
           Import CSV
         </Link>
       </header>
@@ -913,6 +897,7 @@ export function CaptureSourcesWorkspace({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Source name (e.g. Homepage form)"
+              aria-label="New source name"
               className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]"
               disabled={submitting}
               autoComplete="off"
@@ -957,17 +942,17 @@ export function CaptureSourcesWorkspace({
       {loading ? (
         <div className="space-y-3">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-20 rounded-xl" />
+            <div key={i} className="pib-skeleton h-20 rounded-md" />
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/[0.07] p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
               <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Source health</p>
+                <h2 className="mt-1 text-xl text-[var(--color-pib-text)]">
                   Capture sources could not load
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
@@ -979,22 +964,20 @@ export function CaptureSourcesWorkspace({
               className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               aria-label="Retry loading capture sources"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <Icon name="refresh" className="text-base" />
               Retry
             </button>
           </div>
         </section>
       ) : sources.length === 0 ? (
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="p-5">
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-primary/30/25 bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-[21px]" aria-hidden>
-                  add_business
-                </span>
+                <Icon name="add_business" className="text-[21px]" />
               </span>
               <p className="eyebrow !text-[10px]">Intake launch</p>
-              <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+              <h2 className="mt-3 text-xl font-medium text-[var(--color-pib-text)]">
                 No tracked intake channels yet.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -1006,18 +989,14 @@ export function CaptureSourcesWorkspace({
                   onClick={focusFirstFormSource}
                   className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black"
                 >
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden>
-                    dynamic_form
-                  </span>
+                  <Icon name="dynamic_form" className="text-[16px]" />
                   Set up first form source
                 </button>
                 <Link
                   href={importHref}
                   className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden>
-                    upload_file
-                  </span>
+                  <Icon name="upload_file" className="text-[16px]" />
                   Import CSV
                 </Link>
               </div>

@@ -6,16 +6,18 @@ import type { AgentTaskCard } from '@/lib/agent-board/types'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { ReadableTaskText } from '@/components/kanban/ReadableTaskText'
 
+import { Icon } from '@/components/studio'
+
 const AGENT_COLORS: Record<string, string> = {
-  pip: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
+  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)] border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
   sage: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
-  ads: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
+  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)] border border-amber-400/30',
   'qa-release': 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
   support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
-  data: 'bg-violet-400/15 text-violet-200 border border-violet-400/30',
+  data: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)] border border-violet-400/30',
   docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
   seo: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
 }
@@ -124,20 +126,20 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
           <h2 className="text-xl font-medium text-[var(--color-pib-text)] leading-snug">{task.title}</h2>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-full p-1 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+            className="shrink-0 rounded-md p-1 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
             aria-label="Close"
           >
-            <span className="material-symbols-outlined text-xl">close</span>
+            <Icon name="close" className="text-xl" />
           </button>
         </div>
 
         <div className="mt-4 first:mt-0 flex items-center gap-2 flex-wrap">
           {task.assigneeAgentId && (
-            <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${AGENT_COLORS[task.assigneeAgentId] ?? 'bg-white/10 text-[var(--color-pib-text)] border border-white/15'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-md capitalize ${AGENT_COLORS[task.assigneeAgentId] ?? 'bg-white/10 text-[var(--color-pib-text)] border border-white/15'}`}>
               {task.assigneeAgentId}
             </span>
           )}
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[var(--color-pib-text-muted)]">
+          <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[var(--color-pib-text-muted)]">
             {statusLabel}
           </span>
         </div>
@@ -175,7 +177,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
                   className="inline-flex items-center gap-1 rounded bg-orange-500/20 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-orange-300 transition hover:bg-orange-500/30 disabled:opacity-40"
                   title="Use the safe continue path only after the listed approval/input and proof are present"
                 >
-                  <span className="material-symbols-outlined text-[12px]" aria-hidden="true">lock_open</span>
+                  <Icon name="lock_open" className="text-[12px]" />
                   {retrying ? 'Trying...' : blockerRecovery.continueActionLabel}
                 </button>
               )}
@@ -200,7 +202,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
             Admin project context:{' '}
             <Link
               href={`/admin/org/${slug}/projects/${task.projectId}`}
-              className="text-amber-200 hover:underline"
+              className="text-[var(--st-warning)] hover:underline"
             >
               {task.projectName}
             </Link>

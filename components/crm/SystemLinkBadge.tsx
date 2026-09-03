@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 /**
  * Visible marker that a CRM record is linked to a real platform tenant.
  *
@@ -23,7 +25,7 @@ export function SystemLinkBadge({ kind, label, size = 'sm' }: SystemLinkBadgePro
   const icon = kind === 'org' ? 'hub' : 'link'
   const text = kind === 'org' ? 'Linked workspace' : 'Linked user'
   const tooltip = label
-    ? `${text} — ${label}`
+    ? `${text} - ${label}`
     : kind === 'org'
       ? 'This company is linked to a Partners in Biz workspace'
       : 'This contact is linked to a Partners in Biz user account'
@@ -33,7 +35,7 @@ export function SystemLinkBadge({ kind, label, size = 'sm' }: SystemLinkBadgePro
       className={`pib-pill pib-pill-info inline-flex items-center gap-1 ${sizeClasses}`}
       title={tooltip}
     >
-      <span className="material-symbols-outlined text-[12px]" aria-hidden="true">{icon}</span>
+      <Icon name={icon} className="text-[12px]" />
       {text}
     </span>
   )

@@ -6,6 +6,7 @@ import UnifiedChat from '@/components/chat/UnifiedChat'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import type { ContextReferenceSeed } from '@/lib/context-references/types'
 import { canRolePerformModuleAction } from '@/lib/organizations/module-policies'
+import { Icon } from '@/components/studio'
 
 type EntityScopedChatProps = {
   orgId: string
@@ -137,7 +138,7 @@ export function EntityScopedChat({
 
   if (!user) {
     return (
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-xs text-[var(--color-pib-text-muted)]">
         Sign in to use the {entityType}-scoped chat for {entityLabel}.
       </div>
     )
@@ -152,25 +153,25 @@ export function EntityScopedChat({
       className={[
         'flex flex-col overflow-hidden',
         compact
-          ? 'min-h-[420px] rounded-xl border border-[var(--color-card-border)]'
+          ? 'min-h-[420px] rounded-md border border-[var(--color-card-border)]'
           : isCompanyCowork
-            ? 'min-h-[560px] rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/80'
-            : 'min-h-[520px] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45',
+            ? 'min-h-[560px] rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/80'
+            : 'min-h-[520px] overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45',
       ].join(' ')}
     >
       {isCompanyCowork && (
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-3.5 py-2.5">
-          <span className="pib-icon-tint shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">folder</span>
+          <span className="shrink-0" aria-hidden="true">
+            <Icon name="folder" className="text-[16px]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="pib-label text-[var(--color-pib-accent)]">Company Cowork</p>
-            <h2 className="truncate text-sm font-semibold leading-5 text-[var(--color-pib-text)]">
+            <h2 className="truncate text-sm font-medium leading-5 text-[var(--color-pib-text)]">
               {entityLabel}
             </h2>
           </div>
           <p className="hidden max-w-[14rem] text-right text-[11px] leading-4 text-[var(--color-pib-text-muted)] sm:block">
-            Sessions stay on this folder. VPS by default — Mac anytime.
+            Sessions stay on this folder. VPS by default - Mac anytime.
           </p>
         </header>
       )}

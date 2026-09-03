@@ -25,23 +25,23 @@ export default async function PublicAuditPage({ params }: { params: Promise<{ to
       <div className="max-w-3xl mx-auto space-y-8">
         <header className="border-b pb-6">
           <p className="text-xs text-gray-500 uppercase tracking-wide">SEO Audit</p>
-          <h1 className="text-3xl font-bold mt-2">{sprint?.siteName ?? 'Site'}</h1>
+          <h1 className="text-3xl font-medium mt-2">{sprint?.siteName ?? 'Site'}</h1>
           <p className="text-sm text-gray-600 mt-1">{sprint?.siteUrl}</p>
           <p className="text-sm text-gray-600 mt-1">
             Day {audit.snapshotDay ?? 0} snapshot · captured {audit.capturedAt}
           </p>
         </header>
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Traffic</h2>
+          <h2 className="text-xl font-medium">Traffic</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Stat label="Impressions" value={audit.traffic?.impressions ?? 0} />
             <Stat label="Clicks" value={audit.traffic?.clicks ?? 0} />
-            <Stat label="Avg position" value={audit.traffic?.avgPosition?.toFixed?.(1) ?? '—'} />
-            <Stat label="CTR" value={audit.traffic?.ctr ? `${(audit.traffic.ctr * 100).toFixed(2)}%` : '—'} />
+            <Stat label="Avg position" value={audit.traffic?.avgPosition?.toFixed?.(1) ?? ' - '} />
+            <Stat label="CTR" value={audit.traffic?.ctr ? `${(audit.traffic.ctr * 100).toFixed(2)}%` : ' - '} />
           </div>
         </section>
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Rankings</h2>
+          <h2 className="text-xl font-medium">Rankings</h2>
           <div className="grid grid-cols-3 gap-4">
             <Stat label="Top 100" value={audit.rankings?.top100 ?? 0} />
             <Stat label="Top 10" value={audit.rankings?.top10 ?? 0} />
@@ -49,14 +49,14 @@ export default async function PublicAuditPage({ params }: { params: Promise<{ to
           </div>
         </section>
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Authority</h2>
+          <h2 className="text-xl font-medium">Authority</h2>
           <div className="grid grid-cols-2 gap-4">
             <Stat label="Total backlinks" value={audit.authority?.totalBacklinks ?? 0} />
             <Stat label="Referring domains" value={audit.authority?.referringDomains ?? 0} />
           </div>
         </section>
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Content</h2>
+          <h2 className="text-xl font-medium">Content</h2>
           <div className="grid grid-cols-3 gap-4">
             <Stat label="Pages indexed" value={audit.content?.pagesIndexed ?? 0} />
             <Stat label="Posts published" value={audit.content?.postsPublished ?? 0} />
@@ -75,7 +75,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="border border-gray-200 rounded-lg p-4">
       <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-2xl font-bold mt-1">{value}</div>
+      <div className="text-2xl font-medium mt-1">{value}</div>
     </div>
   )
 }

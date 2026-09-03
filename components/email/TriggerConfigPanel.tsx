@@ -2,19 +2,21 @@
 //
 // Trigger configuration UI for the visual sequence builder (US-107).
 //
-// Supports four trigger types — segment / tag / form / date — by fetching the
+// Supports four trigger types  -  segment / tag / form / date  -  by fetching the
 // real CRM resources (segments, tags, forms) from the existing list endpoints.
 //
 // NOTE: lib/sequences/types.ts has NO trigger schema (the runtime is
 // enrollment-driven, and CRM automation rules use an `enroll_in_sequence`
 // action to enroll contacts). This panel persists its config in an ADDITIVE
 // `trigger` field on the sequence doc, which the sequences API PUT/POST spreads
-// through verbatim. The cron ignores it. See the SequenceTrigger type below —
+// through verbatim. The cron ignores it. See the SequenceTrigger type below  - 
 // it should eventually be promoted into lib/sequences/types.ts (reported as a
 // needed shared-type change).
 'use client'
 
 import { useEffect, useState } from 'react'
+
+import { Icon } from '@/components/studio'
 
 export type SequenceTrigger =
   | { type: 'segment'; segmentId: string; segmentName?: string }
@@ -39,7 +41,7 @@ interface FormLite {
 interface Props {
   value: SequenceTrigger
   onChange: (t: SequenceTrigger) => void
-  /** Scoped fetch helper — wraps endpoints with the right orgId. */
+  /** Scoped fetch helper  -  wraps endpoints with the right orgId. */
   endpoint: (path: string) => string
 }
 
@@ -121,7 +123,7 @@ export default function TriggerConfigPanel({ value, onChange, endpoint }: Props)
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">Enrollment trigger</h3>
+        <h3 className="text-sm font-medium">Enrollment trigger</h3>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
           Choose what enrolls contacts into this sequence. Segment, tag, and form sources are pulled
           live from your CRM.
@@ -141,8 +143,8 @@ export default function TriggerConfigPanel({ value, onChange, endpoint }: Props)
                 : 'border-[var(--color-pib-line)] hover:bg-white/[0.03]',
             ].join(' ')}
           >
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-8 !w-8">
-              <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
+            <span aria-hidden="true" className="!h-8 !w-8">
+              <Icon name={t.icon} className="text-[16px]" />
             </span>
             <p className="mt-1 text-xs font-medium">{t.label}</p>
             <p className="text-[10px] text-[var(--color-pib-text-muted)] leading-tight">{t.sub}</p>
@@ -151,7 +153,7 @@ export default function TriggerConfigPanel({ value, onChange, endpoint }: Props)
       </div>
 
       {loadError && (
-        <p className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-200">
+        <p className="rounded-lg border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-[11px] text-[var(--st-warning)]">
           {loadError}
         </p>
       )}

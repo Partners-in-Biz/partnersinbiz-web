@@ -61,7 +61,7 @@ function unwrap<T>(body: { data?: T } & Record<string, unknown>): T {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    running: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
+    running: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     pending: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
     failed: 'bg-red-500/10 text-[var(--st-danger)] border-red-500/30',
   }
@@ -443,7 +443,7 @@ export default function BackupsClient() {
         <div className="st-panel p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)] flex items-center gap-2">
-              <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+              <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
                 <Icon name="difference" />
               </span>
               Diff vs live - <span className="font-mono text-xs">{diffFor}</span>
@@ -537,7 +537,7 @@ export default function BackupsClient() {
               <Icon name="restore" />
               Restore backup
             </h2>
-            <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/5 p-3 text-xs text-[var(--st-warning)]">
+            <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] p-3 text-xs text-[var(--st-warning)]">
               This <strong>upserts</strong> every document from the backup back into live Firestore (merge). It does
               not delete anything, but it will overwrite fields that changed since the snapshot. This cannot be undone.
             </div>

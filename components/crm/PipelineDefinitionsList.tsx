@@ -1,6 +1,7 @@
 'use client'
 
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { Icon } from '@/components/studio'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ function PipelineRow({
       <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{displayName}</p>
+            <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{displayName}</p>
             {pipeline.isDefault && <DefaultBadge />}
             {pipeline.archived && <ArchivedBadge />}
             <span className={`pib-pill ${healthScore >= 100 && !needsSetupReview ? 'pib-pill-success' : 'pib-pill-warn'}`}>
@@ -111,7 +112,7 @@ function PipelineRow({
                 onClick={() => onEdit(pipeline)}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
-                <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                <Icon name="edit_note" className="text-[13px]" />
                 Add note
               </button>
             )}
@@ -131,22 +132,20 @@ function PipelineRow({
                 ].join(' ')}
                 title={`${stageDisplayName(stage)} (${stage.probability}% probability)`}
               >
-                <span className="material-symbols-outlined text-[13px]">
-                  {stage.kind === 'won' ? 'check_circle' : stage.kind === 'lost' ? 'cancel' : 'radio_button_unchecked'}
-                </span>
+                <Icon name={stage.kind === 'won' ? 'check_circle' : stage.kind === 'lost' ? 'cancel' : 'radio_button_unchecked'} className="text-[13px]" />
                 {stageDisplayName(stage)}
               </span>
             )) : (
-              <span className="inline-flex flex-wrap items-center gap-2 text-xs text-amber-200">
+              <span className="inline-flex flex-wrap items-center gap-2 text-xs text-[var(--st-warning)]">
                 No stages configured.
                 {isAdmin && (
                   <button
                     type="button"
                     aria-label={`Add stages for ${displayName}`}
                     onClick={() => onEdit(pipeline)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition hover:bg-amber-400/20"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-400/40 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-1 text-[11px] font-medium text-[var(--st-warning)] transition hover:bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)]"
                   >
-                    <span className="material-symbols-outlined text-[13px]">add_circle</span>
+                    <Icon name="add_circle" className="text-[13px]" />
                     Add stages
                   </button>
                 )}
@@ -160,19 +159,19 @@ function PipelineRow({
 
         <div className="grid grid-cols-4 gap-2 text-center lg:w-[300px]">
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <p className="text-lg font-semibold text-[var(--color-pib-text)]">{stageCount}</p>
+            <p className="text-lg font-medium text-[var(--color-pib-text)]">{stageCount}</p>
             <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Stages</p>
           </div>
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <p className="text-lg font-semibold text-[var(--color-pib-text)]">{openCount}</p>
+            <p className="text-lg font-medium text-[var(--color-pib-text)]">{openCount}</p>
             <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Open</p>
           </div>
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <p className="text-lg font-semibold text-emerald-200">{wonCount}</p>
+            <p className="text-lg font-medium text-emerald-200">{wonCount}</p>
             <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Won</p>
           </div>
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <p className="text-lg font-semibold text-red-200">{lostCount}</p>
+            <p className="text-lg font-medium text-red-200">{lostCount}</p>
             <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Lost</p>
           </div>
         </div>
@@ -188,10 +187,10 @@ function PipelineRow({
                 type="button"
                 aria-label={`Review setup for ${displayName} before setting it as default`}
                 onClick={() => onEdit(pipeline)}
-                className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-amber-200 transition hover:bg-amber-400/10 hover:text-amber-100"
+                className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--st-warning)] transition hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] hover:text-[var(--st-warning)]"
                 title="Review setup before default"
               >
-                <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                <Icon name="edit_note" className="text-[16px]" />
               </button>
             ) : (
             <button
@@ -201,7 +200,7 @@ function PipelineRow({
               className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-primary"
               title="Set as default"
             >
-              <span className="material-symbols-outlined text-[16px]">star</span>
+              <Icon name="star" className="text-[16px]" />
             </button>
             )
           )}
@@ -214,9 +213,7 @@ function PipelineRow({
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             title={pipeline.archived ? 'Unarchive' : 'Archive'}
           >
-            <span className="material-symbols-outlined text-[16px]">
-              {pipeline.archived ? 'unarchive' : 'archive'}
-            </span>
+            <Icon name={pipeline.archived ? 'unarchive' : 'archive'} className="text-[16px]" />
           </button>
 
           {/* Edit */}
@@ -227,7 +224,7 @@ function PipelineRow({
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             title="Edit pipeline"
           >
-            <span className="material-symbols-outlined text-[16px]">edit</span>
+            <Icon name="edit" className="text-[16px]" />
           </button>
 
           {/* Delete */}
@@ -238,7 +235,7 @@ function PipelineRow({
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-red-400/10 hover:text-red-300"
             title="Delete pipeline"
           >
-            <span className="material-symbols-outlined text-[16px]">delete</span>
+            <Icon name="delete" className="text-[16px]" />
           </button>
         </div>
       )}
@@ -286,12 +283,12 @@ export function PipelineDefinitionsList({
     ]
 
     return (
-      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
           <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
-            <span className="pib-icon-tint mb-2"><span className="material-symbols-outlined text-[15px]">account_tree</span></span>
+            <span className="mb-2"><Icon name="account_tree" className="text-[15px]" /></span>
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Pipeline setup</p>
-            <h2 className="mt-1 text-base font-semibold leading-tight text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-base font-medium leading-tight text-[var(--color-pib-text)]">
               Launch your first revenue path
             </h2>
             <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -305,7 +302,7 @@ export function PipelineDefinitionsList({
                 onClick={onCreate}
                 className="mt-3 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <Icon name="add" className="text-[16px]" />
                 Create the first pipeline
               </button>
             ) : (
@@ -321,9 +318,9 @@ export function PipelineDefinitionsList({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{item.label}</p>
-                    <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                    <p className="mt-1 text-lg font-medium leading-none text-[var(--color-pib-text)]">{item.value}</p>
                   </div>
-                  <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                  <Icon name={item.icon} className="text-[16px] text-[var(--color-pib-text-muted)]" />
                 </div>
                 <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{item.copy}</p>
               </div>
@@ -344,7 +341,7 @@ export function PipelineDefinitionsList({
   })
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {sorted.map((p) => (
         <PipelineRow
           key={p.id}

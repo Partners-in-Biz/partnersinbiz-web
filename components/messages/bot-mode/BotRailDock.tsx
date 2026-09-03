@@ -1,6 +1,7 @@
 'use client'
 
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
+import { Icon } from '@/components/studio'
 
 export type BotPluginSkill = {
   token: string
@@ -47,7 +48,7 @@ export function BotRailDock({
       {pluginsOpen && (
         <div
           data-testid="bot-plugins-sheet"
-          className="absolute inset-x-0 bottom-full z-20 mb-1 max-h-[min(22rem,50vh)] overflow-y-auto rounded-lg border border-white/[0.1] bg-[#111] p-2 shadow-2xl"
+          className="absolute inset-x-0 bottom-full z-20 mb-1 max-h-[min(22rem,50vh)] overflow-y-auto rounded-lg border border-white/[0.1] bg-[#111] p-2"
         >
           <p className="px-1 pb-1.5 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">{BOT_MODE_COPY.pluginsLabel}</p>
           <button type="button" data-testid="bot-plugin-inbox" onClick={onOpenInbox} className="flex h-8 w-full items-center justify-between rounded-md px-2 text-[12px] text-[var(--color-pib-text)] hover:bg-white/[0.06]">
@@ -78,7 +79,7 @@ export function BotRailDock({
               onClick={() => onInsertSkill(skill.token)}
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] text-[var(--color-pib-text)] hover:bg-white/[0.06]"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">{skill.icon || 'bolt'}</span>
+              <Icon name={skill.icon || 'bolt'} className="text-[14px] text-[var(--color-pib-text-muted)]" />
               <span className="truncate">{skill.label}</span>
               <span className="ml-auto font-mono text-[10px] text-[var(--color-pib-text-muted)]">{skill.token}</span>
             </button>
@@ -96,13 +97,13 @@ export function BotRailDock({
             pluginsOpen ? 'bg-white/[0.08] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'
           }`}
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">extension</span>
+          <Icon name="extension" className="text-[16px]" />
           {BOT_MODE_COPY.pluginsLabel}
         </button>
         <span
           data-testid="bot-rail-user"
           title={userName}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[10px] font-semibold text-[var(--color-pib-text)]"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/[0.08] text-[10px] font-medium text-[var(--color-pib-text)]"
         >
           {initials}
         </span>

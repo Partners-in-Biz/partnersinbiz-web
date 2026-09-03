@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import type { ReportsWorkspaceReport } from './ReportsWorkspace'
 import { REPORT_EMAIL_TEMPLATES } from '@/lib/reports/templates'
 
+import { Icon } from '@/components/studio'
+
 interface Schedule {
   id: string
   name: string
@@ -135,9 +137,9 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
       <div className="bento-card !p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-6" onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between">
-          <h2 className="font-display text-xl">Report scheduling</h2>
+          <h2 className="text-xl">Report scheduling</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined">close</span>
+            <Icon name="close" />
           </button>
         </header>
 
@@ -152,7 +154,7 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
               <div key={s.id} className="pib-card !p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[var(--color-pib-accent)] text-base">schedule</span>
+                    <Icon name="schedule" className="text-[var(--color-pib-accent)] text-base" />
                     <span className="font-medium text-sm">{s.name}</span>
                     <span className={`pib-pill !text-[10px] ${s.status === 'active' ? 'pib-pill-success' : ''}`}>{s.status}</span>
                   </div>
@@ -170,7 +172,7 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
                       <span key={r} className="pib-pill pib-pill-cyan !text-[10px] inline-flex items-center gap-1">
                         {r}
                         <button type="button" onClick={() => unsubscribe(s.id, r)} aria-label={`Unsubscribe ${r}`} title="Unsubscribe">
-                          <span className="material-symbols-outlined text-[12px] leading-none">close</span>
+                          <Icon name="close" className="text-[12px] leading-none" />
                         </button>
                       </span>
                     ))}
@@ -188,7 +190,7 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
                   <button type="button" disabled={busy} onClick={() => sendNow(s.id)} className="btn-pib-secondary !py-1.5 !px-3 !text-xs">
                     Send now
                   </button>
-                  <select
+                  <select aria-label="Cadence"
                     value={s.cadence}
                     disabled={busy}
                     onChange={(e) => patchSchedule(s.id, { cadence: e.target.value as Schedule['cadence'] })}
@@ -198,7 +200,7 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
-                  <select
+                  <select aria-label="Template"
                     value={s.template}
                     disabled={busy}
                     onChange={(e) => patchSchedule(s.id, { template: e.target.value })}
@@ -227,11 +229,11 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
         {/* New schedule */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium">New schedule</h3>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Schedule name" className="pib-input !text-sm w-full" />
+          <input aria-label="Schedule name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Schedule name" className="pib-input !text-sm w-full" />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">Cadence</label>
-              <select value={cadence} onChange={(e) => setCadence(e.target.value as typeof cadence)} className="pib-input !text-sm w-full">
+              <select aria-label="Cadence" value={cadence} onChange={(e) => setCadence(e.target.value as typeof cadence)} className="pib-input !text-sm w-full">
                 {CADENCES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -239,14 +241,14 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
             </div>
             <div>
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">Template</label>
-              <select value={template} onChange={(e) => setTemplate(e.target.value)} className="pib-input !text-sm w-full">
+              <select aria-label="Template" value={template} onChange={(e) => setTemplate(e.target.value)} className="pib-input !text-sm w-full">
                 {REPORT_EMAIL_TEMPLATES.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
             </div>
           </div>
-          <textarea
+          <textarea aria-label="Recipient emails, comma-separated"
             value={recipients}
             onChange={(e) => setRecipients(e.target.value)}
             placeholder="Recipient emails, comma-separated"

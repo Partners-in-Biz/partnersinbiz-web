@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useMemo, useRef, useState } from 'react'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
@@ -305,7 +307,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-composer-title"
-        className="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-sidebar)] shadow-2xl sm:max-h-[92dvh] md:max-w-4xl"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-sidebar)] sm:max-h-[92dvh] md:max-w-4xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-4 border-b border-[var(--color-pib-line)] px-4 py-3 sm:px-5 sm:py-4">
@@ -313,7 +315,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             <p className="pib-label">
               {column.name}
             </p>
-            <h2 id="task-composer-title" className="truncate text-lg font-headline font-bold text-[var(--color-pib-text)]">{dialogTitle}</h2>
+            <h2 id="task-composer-title" className="truncate text-lg font-headline font-medium text-[var(--color-pib-text)]">{dialogTitle}</h2>
           </div>
           <button
             type="button"
@@ -321,7 +323,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
             title="Close"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <Icon name="close" />
           </button>
         </header>
 
@@ -331,7 +333,8 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={isAdminSurface ? 'Operator task title' : 'Task title'}
-              className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
+              aria-label={isAdminSurface ? 'Operator task title' : 'Task title'}
+              className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-medium text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               autoFocus
             />
             <div className="space-y-2">
@@ -347,6 +350,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={isAdminSurface ? 'Internal admin note, goals, acceptance criteria, blockers...' : 'Description, goals, acceptance criteria, blockers...'}
+                aria-label={isAdminSurface ? 'Operator brief' : 'Description'}
                 rows={7}
                 className="w-full min-w-0 resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
@@ -358,6 +362,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 value={checklistText}
                 onChange={(event) => setChecklistText(event.target.value)}
                 placeholder="One item per line"
+                aria-label="Checklist"
                 rows={4}
                 className="w-full min-w-0 resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
@@ -380,14 +385,16 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                   background: dragging ? 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' : 'var(--color-card)',
                 }}
               >
-                <span className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">cloud_upload</span>
+                <Icon name="cloud_upload" />
                 <span className="mt-2 max-w-full break-words text-sm text-[var(--color-pib-text)]">Upload images, videos, documents</span>
                 <span className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Firebase Storage</span>
                 <input
                   type="file"
                   multiple
                   accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                  className="hidden"
+                  className="sr-only"
+                  data-impeccable-disable="content-invisible-at-rest"
+                  aria-label="Upload attachments"
                   onChange={(event) => {
                     if (event.target.files) addFiles(event.target.files)
                     event.currentTarget.value = ''
@@ -398,9 +405,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {files.map((file, index) => (
                     <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
-                      <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">
-                        {fileKind(file) === 'image' ? 'image' : fileKind(file) === 'video' ? 'movie' : 'attach_file'}
-                      </span>
+                      <Icon name={fileKind(file) === 'image' ? 'image' : fileKind(file) === 'video' ? 'movie' : 'attach_file'} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium text-[var(--color-pib-text)]">{file.name}</p>
                         <p className="text-[10px] text-[var(--color-pib-text-muted)]">{formatSize(file.size)}</p>
@@ -411,7 +416,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                         className="grid h-7 w-7 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         title="Remove file"
                       >
-                        <span className="material-symbols-outlined text-[16px]">close</span>
+                        <Icon name="close" />
                       </button>
                     </div>
                   ))}
@@ -557,13 +562,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                           onChange={() => setAssigneeAgentId(agent.agentId)}
                           className="accent-[var(--color-accent-v2)]"
                         />
-                        <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
-                          {agent.iconKey ?? 'smart_toy'}
-                        </span>
+                        <Icon name={agent.iconKey ?? 'smart_toy'} />
                         <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{agentLabel(agent)}</span>
                         {agent.lastHealthStatus && (
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
+                          <span className={`h-1.5 w-1.5 rounded-md ${
+                            agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-[var(--st-warning)]/15' : 'bg-red-400'
                           }`} />
                         )}
                       </label>
@@ -579,7 +582,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       readOnly
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">hub</span>
+                    <Icon name="hub" />
                     <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">Pip orchestration</span>
                   </label>
                 </div>
@@ -636,7 +639,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       key={member.userId}
                       type="button"
                       onClick={() => setMentionIds((current) => toggleValue(current, member.userId))}
-                      className={`rounded-full px-2 py-1 text-[10px] ${
+                      className={`rounded-md px-2 py-1 text-[10px] ${
                         mentionIds.includes(member.userId)
                           ? 'bg-[var(--color-accent-v2)] text-black'
                           : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
@@ -691,7 +694,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       onChange={() => setReviewerAgentId(reviewerAgentId === agent.agentId ? '' : agent.agentId)}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'rate_review'}</span>
+                    <Icon name={agent.iconKey ?? 'rate_review'} />
                     <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{agentLabel(agent)}</span>
                   </label>
                 ))}

@@ -104,7 +104,7 @@ export function BlogPreviewCard({
       {/* Body */}
       <div className="p-5 space-y-3 flex-1 flex flex-col">
         <div className="pib-label flex items-center gap-2">
-          <span>{date || '—'}</span>
+          <span>{date || ' - '}</span>
           {readTime ? (
             <>
               <span aria-hidden>·</span>

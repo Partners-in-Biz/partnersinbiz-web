@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { Icon } from '@/components/studio'
 
 export function readableCompanyStatusLabel(value: string): string {
   return value
@@ -40,8 +41,8 @@ export function CompanyRecordEmptyPanel({
   children?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-      <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+      <Icon name={icon} className="text-[22px] text-[var(--color-pib-text-muted)]" />
       <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
         {label}
       </p>
@@ -52,7 +53,7 @@ export function CompanyRecordEmptyPanel({
 
 export function CompanyRecordTableShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="overflow-x-auto">
         {children}
       </div>

@@ -63,7 +63,7 @@ const DOMAIN_STATUS_PILL: Record<string, string> = {
 }
 
 function pct(num: number, denom: number): string {
-  if (!denom) return '—'
+  if (!denom) return ' - '
   return ((num / denom) * 100).toFixed(1) + '%'
 }
 
@@ -382,7 +382,7 @@ export default async function PortalBroadcastPage({
         )}
       </section>
 
-      {/* Sender & Deliverability — email only */}
+      {/* Sender & Deliverability  -  email only */}
       {channel === 'email' && (
         <section className="pib-card space-y-4">
           <p className="font-label text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
@@ -515,7 +515,7 @@ export default async function PortalBroadcastPage({
                             Winner
                           </span>
                         ) : (
-                          <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
+                          <span className="text-xs text-[var(--color-pib-text-muted)]"> - </span>
                         )}
                       </td>
                     </tr>

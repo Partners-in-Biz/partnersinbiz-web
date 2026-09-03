@@ -40,7 +40,7 @@ export function AssetActions({
 
   return (
     <div className="w-full">
-      {/* Primary actions row — always side by side at any card width */}
+      {/* Primary actions row  -  always side by side at any card width */}
       <div className="flex gap-2">
         <button
           onClick={handleApprove}
@@ -69,7 +69,7 @@ export function AssetActions({
         </button>
       </div>
 
-      {/* Tertiary action — full width, clearly secondary */}
+      {/* Tertiary action  -  full width, clearly secondary */}
       <button
         onClick={onEdit}
         disabled={busy || submitting}

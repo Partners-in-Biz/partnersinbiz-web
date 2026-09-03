@@ -7,11 +7,11 @@
 // render service (Litmus / Email-on-Acid) is configured, each tab renders the
 // email in an isolated <iframe srcDoc> wrapped in a DETERMINISTIC,
 // client-specific CSS normalize variant that approximates that client's quirks
-// (see lib/email/inbox-compat.wrapHtmlForClient). It is a heuristic aid — NOT a
+// (see lib/email/inbox-compat.wrapHtmlForClient). It is a heuristic aid  -  NOT a
 // faithful render, and it never fabricates screenshots.
 //
 // Alongside the rendered email, each tab shows an "issues" panel driven by the
-// rule-based analyzer in lib/email/inbox-compat.analyzeInboxCompat — Outlook
+// rule-based analyzer in lib/email/inbox-compat.analyzeInboxCompat  -  Outlook
 // flex/grid/position, Gmail 102KB clipping + <style> stripping, missing alt
 // text, etc.
 //
@@ -38,7 +38,7 @@ import type { EmailDocument } from '@/lib/email-builder/types'
 export interface InboxPreviewProps {
   /** Finished email HTML. Provide this OR `document`. */
   html?: string
-  /** Block document — rendered to HTML internally. Ignored if `html` is set. */
+  /** Block document  -  rendered to HTML internally. Ignored if `html` is set. */
   document?: EmailDocument | null
   /** Initially-selected client tab. Defaults to Apple Mail. */
   initialClient?: InboxClientId
@@ -48,7 +48,7 @@ export interface InboxPreviewProps {
 
 const SEVERITY_STYLES: Record<InboxSeverity, { dot: string; label: string }> = {
   error: { dot: 'bg-red-500', label: 'text-red-500' },
-  warning: { dot: 'bg-amber-500', label: 'text-amber-500' },
+  warning: { dot: 'bg-[var(--st-warning)]', label: 'text-[var(--st-warning)]' },
   info: { dot: 'bg-sky-500', label: 'text-sky-400' },
 }
 
@@ -60,11 +60,11 @@ function IssueRow({ warning }: { warning: InboxWarning }) {
   const s = SEVERITY_STYLES[warning.severity]
   return (
     <li className="flex gap-2.5 py-2">
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
+      <span className={`mt-1.5 h-2 w-2 shrink-0  ${s.dot}`} aria-hidden style={{ borderRadius: '50%' }} />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[var(--color-pib-text)]">{warning.title}</span>
-          <span className={`text-[10px] font-semibold uppercase tracking-wide ${s.label}`}>
+          <span className={`text-[10px] font-medium uppercase tracking-wide ${s.label}`}>
             {warning.severity}
           </span>
         </div>
@@ -93,7 +93,7 @@ export function InboxPreview({
     return ''
   }, [html, document])
 
-  // Rule-based per-client report — deterministic, recomputed only when the
+  // Rule-based per-client report  -  deterministic, recomputed only when the
   // HTML changes.
   const report = useMemo(() => analyzeInboxCompat(resolvedHtml), [resolvedHtml])
 
@@ -135,7 +135,7 @@ export function InboxPreview({
               {c.label}
               {blocking && (
                 <span
-                  className={`ml-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle ${
+                  className={`ml-1.5 inline-block h-1.5 w-1.5  align-middle ${
                     active ? 'bg-on-primary/80' : 'bg-red-500'
                   }`}
                   aria-label="has blocking issues"
@@ -178,12 +178,12 @@ export function InboxPreview({
         {/* Issues panel */}
         <div className="border-t border-[var(--color-pib-line)] lg:border-l lg:border-t-0 bg-[var(--color-pib-surface)]">
           <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Rendering issues
             </span>
             <span className="flex items-center gap-2 text-[11px]">
               {errorCount > 0 && <span className="text-red-500">{errorCount} blocking</span>}
-              {warningCount > 0 && <span className="text-amber-500">{warningCount} warning</span>}
+              {warningCount > 0 && <span className="text-[var(--st-warning)]">{warningCount} warning</span>}
               {errorCount === 0 && warningCount === 0 && (
                 <span className="text-emerald-500">No issues</span>
               )}
@@ -231,7 +231,7 @@ export function InboxPreviewSwitcher({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{heading}</h3>
+        <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{heading}</h3>
         <span className="text-[11px] text-[var(--color-pib-text-muted)]">
           {INBOX_CLIENTS.length} clients
         </span>

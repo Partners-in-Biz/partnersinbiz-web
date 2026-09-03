@@ -98,7 +98,7 @@ export function InspectorPanel({
               }}
              aria-label="Number"/>
           </label>
-          <p className="text-xs text-[var(--color-pib-text-muted)]">Trimming keeps the source offset in sync — use Start/Duration above to move or stretch instead.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Trimming keeps the source offset in sync  -  use Start/Duration above to move or stretch instead.</p>
         </fieldset>
       ) : null}
       {clip.text ? (

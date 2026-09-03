@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 export interface ContactIdentityProfile {
   jobTitle?: string
   department?: string
@@ -48,7 +50,7 @@ function Field({ label, value, action }: { label: string; value?: string; action
           onClick={action.onClick}
           className="mt-1.5 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit</span>
+          <Icon name="edit" className="text-[13px]" />
           {action.label}
         </button>
       )}
@@ -68,15 +70,15 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
       <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="pib-icon-tint shrink-0"
+          className="shrink-0"
         >
-          <span className="material-symbols-outlined text-[16px]">badge</span>
+          <Icon name="badge" className="text-[16px]" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
             Personalization context missing
           </p>
-          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Capture role, department, and timezone</h3>
+          <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Capture role, department, and timezone</h3>
           <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Add these fields so every employee can tailor outreach, meeting times, and handoffs around who this contact is and how they work.
           </p>
@@ -90,7 +92,7 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
                   onClick={action.onClick}
                   className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                  <Icon name="edit" className="text-[14px]" />
                   {action.label}
                 </button>
               ))}
@@ -105,7 +107,7 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
 function Signal({ icon, label, healthy }: { icon: string; label: string; healthy: boolean }) {
   return (
     <span className={`pib-pill ${healthy ? 'pib-pill-success' : ''}`}>
-      <span className="material-symbols-outlined text-[13px]">{icon}</span>
+      <Icon name={icon} className="text-[13px]" />
       {label}
     </span>
   )
@@ -144,11 +146,11 @@ export function ContactIdentityPanel({
   const missingCoreIdentity = !profile.jobTitle?.trim() && !profile.department?.trim() && !profile.timezone?.trim()
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <section className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Identity intelligence</p>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
-          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{health}%</span>
+          <span className="text-sm font-medium text-[var(--color-pib-text)]">{health}%</span>
           {' '}
           <span className="text-[10px] uppercase tracking-[0.18em]">complete</span>
         </p>
@@ -159,9 +161,9 @@ export function ContactIdentityPanel({
           Role, timezone, and channel signals for personal follow-up.
         </p>
 
-        <div className="h-1 overflow-hidden rounded-full bg-white/10">
+        <div className="h-1 overflow-hidden bg-white/10 rounded-md">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
+            className="h-full rounded-md bg-primary transition-all duration-500"
             style={{ width: `${health}%` }}
           />
         </div>

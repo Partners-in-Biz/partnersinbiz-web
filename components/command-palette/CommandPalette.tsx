@@ -176,7 +176,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           />
           {loading && (
             <span
-              className="shrink-0 h-3.5 w-3.5 border-2 border-[var(--sc-accent)] border-t-transparent rounded-full animate-spin"
+              className="shrink-0 h-3.5 w-3.5 border-2 border-[var(--sc-accent)] border-t-transparent rounded-md animate-spin"
               aria-hidden="true"
             />
           )}

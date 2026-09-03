@@ -23,7 +23,7 @@ function formatTime(seconds: number): string {
 }
 
 /** Carve a video into segments so downstream edits/generation only process a
- *  short clip — providers charge by how much source footage they analyze. */
+ *  short clip  -  providers charge by how much source footage they analyze. */
 export default function VideoSplitDialog({ open, videoUrl, nodeTitle, onClose, onSplit }: VideoSplitDialogProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [duration, setDuration] = useState(0)
@@ -114,7 +114,7 @@ export default function VideoSplitDialog({ open, videoUrl, nodeTitle, onClose, o
         />
 
         <p style={{ marginTop: 8, fontSize: 11, color: canvasTheme.textMuted }}>
-          Editing providers charge for every second of source footage they analyze — a 4s clip costs a
+          Editing providers charge for every second of source footage they analyze  -  a 4s clip costs a
           fraction of a full-length video. Carve out just the moment you want to work with.
           {duration ? ` Full length: ${formatTime(duration)}.` : ''}
         </p>

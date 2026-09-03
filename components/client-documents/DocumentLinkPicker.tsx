@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef, useState } from 'react'
 
 type DocItem = {
@@ -91,7 +93,7 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
       aria-label="Insert document link"
     >
       <div
-        className="relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg mx-4 rounded-md overflow-hidden"
         style={{ background: 'var(--color-pib-surface)', border: '1px solid var(--color-pib-line)' }}
       >
         {/* Header */}
@@ -99,8 +101,8 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
           className="flex items-center gap-3 px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-pib-line)' }}
         >
-          <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">attach_file</span>
+          <span className="" aria-hidden="true">
+            <Icon name="attach_file" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="font-headline text-base leading-tight">Insert document link</p>
@@ -114,26 +116,21 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
             aria-label="Close"
             style={{ color: 'var(--color-pib-text-muted)' }}
           >
-            <span className="material-symbols-outlined text-xl" aria-hidden="true">close</span>
+            <Icon name="close" />
           </button>
         </div>
 
         {/* Search */}
         <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--color-pib-line)' }}>
           <div className="relative">
-            <span
-              className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none"
-              style={{ color: 'var(--color-pib-text-muted)' }}
-              aria-hidden="true"
-            >
-              search
-            </span>
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter documents…"
+              aria-label="Filter documents"
               className="w-full pl-9 pr-4 py-2 rounded-lg text-sm bg-transparent outline-none"
               style={{
                 background: 'var(--color-pib-surface-2)',
@@ -149,7 +146,7 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
           {loading && (
             <div className="flex items-center justify-center gap-2 py-12 text-sm"
               style={{ color: 'var(--color-pib-text-muted)' }}>
-              <span className="material-symbols-outlined text-xl animate-spin" aria-hidden="true">progress_activity</span>
+              <Icon name="progress_activity" className="animate-spin" />
               Loading documents…
             </div>
           )}
@@ -157,20 +154,14 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
           {!loading && error && (
             <div className="flex items-center justify-center gap-2 py-12 text-sm"
               style={{ color: '#F87171' }}>
-              <span className="material-symbols-outlined text-xl" aria-hidden="true">error</span>
+              <Icon name="error" />
               {error}
             </div>
           )}
 
           {!loading && !error && filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-6">
-              <span
-                className="material-symbols-outlined text-4xl"
-                style={{ color: 'var(--color-pib-text-muted)' }}
-                aria-hidden="true"
-              >
-                description
-              </span>
+              <Icon name="description" />
               <p className="font-headline text-base">No documents found</p>
               <p className="text-xs" style={{ color: 'var(--color-pib-text-muted)' }}>
                 {query.trim()
@@ -197,8 +188,8 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
                 ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
               }}
             >
-              <span className="pib-icon-tint pib-icon-tint-cyan flex-shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">description</span>
+              <span className="flex-shrink-0" aria-hidden="true">
+                <Icon name="description" />
               </span>
               <div className="flex-1 min-w-0">
                 <p

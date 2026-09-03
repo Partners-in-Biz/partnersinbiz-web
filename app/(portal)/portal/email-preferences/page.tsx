@@ -165,7 +165,7 @@ export default function EmailPreferencesAdminPage() {
 
       {loading && <Skeleton height={96} />}
 
-      {/* Section 1 — Org preferences config */}
+      {/* Section 1  -  Org preferences config */}
       {cfg && (
         <Panel className="space-y-4">
           <header className="flex items-center justify-between gap-3">
@@ -284,7 +284,7 @@ export default function EmailPreferencesAdminPage() {
         </Panel>
       )}
 
-      {/* Section 2 — Frequency cap */}
+      {/* Section 2  -  Frequency cap */}
       {cap && (
         <Panel className="space-y-4">
           <header className="flex items-center justify-between gap-3">
@@ -369,7 +369,7 @@ export default function EmailPreferencesAdminPage() {
         </Panel>
       )}
 
-      {/* Section 3 — Recent unsubscribes */}
+      {/* Section 3  -  Recent unsubscribes */}
       <Panel>
         <div className="mb-3 flex items-center gap-3">
           <Icon name="unsubscribe" />

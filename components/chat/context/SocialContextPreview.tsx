@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useRef, useState } from 'react'
 import { SocialPlatformCard } from '@/components/campaign-preview/pickSocialCard'
 import type { PreviewBrand, PreviewSocialPost } from '@/components/campaign-preview/types'
@@ -13,7 +14,7 @@ function brandFromPayload(value: unknown): PreviewBrand | undefined {
     : undefined
   if (!palette) return undefined
   const accent = typeof palette.accent === 'string' ? palette.accent : undefined
-  const bg = typeof palette.bg === 'string' ? palette.bg : '#0A0A0B'
+  const bg = typeof palette.bg === 'string' ? palette.bg : 'var(--sc-ink)'
   const alert = typeof palette.alert === 'string' ? palette.alert : '#F59E0B'
   const text = typeof palette.text === 'string' ? palette.text : '#EDEDED'
   if (!accent) return undefined
@@ -76,7 +77,7 @@ export function SocialContextPreview({
         const campaign = (campaignBody.data ?? campaignBody) as Record<string, unknown>
         setBrand(brandFromPayload(campaign.brandIdentity) ?? {
           name: typeof campaign.name === 'string' ? campaign.name : undefined,
-          palette: { bg: '#0A0A0B', accent: '#F5A623', alert: '#F59E0B', text: '#EDEDED' },
+          palette: { bg: 'var(--sc-ink)', accent: 'var(--st-warning)', alert: '#F59E0B', text: '#EDEDED' },
         })
       })
       .catch((cause) => {
@@ -90,9 +91,9 @@ export function SocialContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-xl border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading platform preview…
         </span>
       </div>
@@ -101,7 +102,7 @@ export function SocialContextPreview({
 
   if (state === 'error' || !post) {
     return (
-      <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-4 text-xs text-amber-100">
+      <div role="status" className="rounded-[6px] border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-3 py-4 text-xs text-[var(--st-warning)]">
         The social post preview is unavailable. Open the full social workspace to continue.
       </div>
     )
@@ -117,7 +118,7 @@ export function SocialContextPreview({
         <h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
           Platform preview{softRefreshing ? ' · updating…' : ''}
         </h3>
-        <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium capitalize text-primary">
+        <span className="rounded-[4px] border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium capitalize text-primary">
           {post.platform}
         </span>
       </div>

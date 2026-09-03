@@ -216,7 +216,7 @@ export function BookProjectWorkspace({
       const pageIndex = ordered.findIndex((candidate) => candidate.id === page.id)
       const startOrder = page.order ?? (pageIndex >= 0 ? pageIndex : undefined)
 
-      // Generate FIRST — the route validates before writing anything, so a
+      // Generate FIRST  -  the route validates before writing anything, so a
       // failure here leaves the existing page fully intact. Only delete the
       // old page once the replacement has been successfully created.
       const result = await generateBookStudioPuzzles(projectId, orgId, {
@@ -263,7 +263,7 @@ export function BookProjectWorkspace({
   }
 
   async function editChapterBody(chapterId: string, body: string): Promise<boolean> {
-    // Server computes wordCount from body — never send it from the client.
+    // Server computes wordCount from body  -  never send it from the client.
     const result = await patchBookStudioRecord('chapters', chapterId, orgId, { body }, surface)
     if (!result.ok) {
       setNotice(result.error)

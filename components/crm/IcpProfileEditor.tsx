@@ -1,10 +1,11 @@
 'use client'
 
 // components/crm/IcpProfileEditor.tsx
-// Controlled editor for IcpProfile — used on /portal/settings/scoring
+// Controlled editor for IcpProfile - used on /portal/settings/scoring
 
 import type { IcpProfile } from '@/lib/scoring/types'
 import type { CompanySize, CompanyTier } from '@/lib/companies/types'
+import { Icon } from '@/components/studio'
 
 const SIZE_OPTIONS: CompanySize[] = ['1-10', '11-50', '51-200', '201-1000', '1000+']
 const TIER_OPTIONS: CompanyTier[] = ['enterprise', 'mid-market', 'smb']
@@ -80,11 +81,12 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
 
       {/* Industries */}
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label htmlFor="icp-target-industries" className="block text-sm font-medium mb-1">
           Target industries
           <span className="ml-1 text-xs text-[var(--color-pib-text-muted)] font-normal">(comma-separated)</span>
         </label>
         <input
+          id="icp-target-industries"
           type="text"
           value={industriesStr}
           onChange={e => handleIndustriesChange(e.target.value)}
@@ -108,7 +110,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                 disabled={disabled}
                 aria-pressed={active}
                 className={[
-                  'px-3 py-1 rounded-full text-sm border cursor-pointer transition-colors disabled:opacity-50',
+                  'px-3 py-1 rounded-md text-sm border cursor-pointer transition-colors disabled:opacity-50',
                   active
                     ? 'bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)] text-[var(--color-pib-accent)] font-medium'
                     : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-line-strong)] hover:text-[var(--color-pib-text)]',
@@ -135,7 +137,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                 disabled={disabled}
                 aria-pressed={active}
                 className={[
-                  'px-3 py-1 rounded-full text-sm border cursor-pointer transition-colors disabled:opacity-50 capitalize',
+                  'px-3 py-1 rounded-md text-sm border cursor-pointer transition-colors disabled:opacity-50 capitalize',
                   active
                     ? 'bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)] text-[var(--color-pib-accent)] font-medium'
                     : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-line-strong)] hover:text-[var(--color-pib-text)]',
@@ -158,13 +160,13 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
               onClick={addRegion}
               className="cursor-pointer text-xs text-[var(--color-pib-accent)] hover:underline flex items-center gap-1"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
+              <Icon name="add" className="text-[14px]" />
               Add region
             </button>
           )}
         </div>
         {(value.regions ?? []).length === 0 ? (
-          <p className="text-xs text-[var(--color-pib-text-muted)]">No regions set — scores all countries equally.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">No regions set - scores all countries equally.</p>
         ) : (
           <div className="space-y-2">
             {(value.regions ?? []).map((region, idx) => (
@@ -198,7 +200,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                     aria-label="Remove region"
                     className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+                    <Icon name="close" className="text-[18px]" />
                   </button>
                 )}
               </div>

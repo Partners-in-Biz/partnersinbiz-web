@@ -59,7 +59,7 @@ export function InstallPrompt() {
     window.addEventListener('beforeinstallprompt', onBeforeInstall)
     window.addEventListener('appinstalled', onInstalled)
 
-    // iOS Safari — no install event, so show the manual hint after a delay.
+    // iOS Safari  -  no install event, so show the manual hint after a delay.
     if (isIos()) {
       const t = setTimeout(() => {
         setIosHint(true)
@@ -98,7 +98,7 @@ export function InstallPrompt() {
 
   return (
     <div className="fixed inset-x-3 bottom-3 z-[60] sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm">
-      <div className="rounded-2xl border border-white/10 bg-[var(--pib-bg)]/95 backdrop-blur px-4 py-3 shadow-lg shadow-black/30">
+      <div className="rounded-md border border-white/10 bg-[var(--pib-bg)]/95 px-4 py-3 shadow-black/30">
         <div className="flex items-start gap-3">
           <img src="/icons/icon-192.png" alt="" className="w-10 h-10 rounded-lg flex-shrink-0" />
           <div className="min-w-0 flex-1">
@@ -126,7 +126,7 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={dismiss}
-                className="text-xs text-[var(--pib-muted)] rounded-full border border-white/15 px-3 py-1.5"
+                className="text-xs text-[var(--pib-muted)] rounded-md border border-white/15 px-3 py-1.5"
               >
                 Not now
               </button>

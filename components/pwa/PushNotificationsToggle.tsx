@@ -17,7 +17,7 @@ type State =
 
 /**
  * Toggle for opting in/out of push notifications. Drop this anywhere a user
- * manages their preferences — e.g. account settings, portal sidebar.
+ * manages their preferences  -  e.g. account settings, portal sidebar.
  *
  * Note that browsers gate `Notification.requestPermission()` to user gestures,
  * so this MUST be rendered as a button the user clicks; we never auto-prompt.
@@ -115,7 +115,7 @@ export function PushNotificationsToggle({ className }: { className?: string }) {
         </button>
       </div>
       {state.kind === 'error' && (
-        <p className="text-xs text-red-400 mt-2">{state.message}</p>
+        <p className="text-xs text-[var(--st-danger)] mt-2">{state.message}</p>
       )}
     </div>
   )

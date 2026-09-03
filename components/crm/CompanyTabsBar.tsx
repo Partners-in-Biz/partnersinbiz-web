@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import { cn } from '@/lib/utils'
+import { Icon } from '@/components/studio'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -116,16 +117,16 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
           className="pib-tab"
           onClick={() => setMoreOpen((open) => !open)}
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">apps</span>
+          <Icon name="apps" className="text-[16px]" />
           <span>More</span>
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{moreOpen ? 'expand_less' : 'expand_more'}</span>
+          <Icon name={moreOpen ? 'expand_less' : 'expand_more'} className="text-[16px]" />
         </button>
 
         {moreOpen ? (
           <div
             role="menu"
             aria-label="More company sections"
-            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-1.5 sm:left-auto sm:right-0"
+            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-1.5 sm:left-auto sm:right-0"
           >
             {OVERFLOW_GROUPS.map((group) => {
               const groupTabs = group.tabs
@@ -150,7 +151,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
                           role="menuitemradio"
                           aria-checked={selected}
                           className={cn(
-                            'flex h-8 w-full items-center gap-2 rounded-full px-2.5 text-left text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
+                            'flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
                             selected && 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]',
                           )}
                           onClick={() => {
@@ -158,7 +159,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
                             setMoreOpen(false)
                           }}
                         >
-                          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                          <Icon name={tab.icon} className="text-[16px]" />
                           <span className="min-w-0 flex-1 truncate">{tab.label}</span>
                           {counts?.[tab.key] ? <span className="pib-tabs-badge">{counts[tab.key]}</span> : null}
                         </button>

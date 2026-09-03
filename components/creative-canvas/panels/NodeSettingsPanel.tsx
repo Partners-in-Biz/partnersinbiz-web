@@ -122,7 +122,7 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
   const isVideo = kind === 'video'
   const model = getCanvasModel(values.model)
   // Estimated spend for the whole run: per-generation cost × batch size.
-  // Rounded — raw float math renders as 0.30000000000000004.
+  // Rounded  -  raw float math renders as 0.30000000000000004.
   const creditCost = typeof model?.creditCost === 'number'
     ? Math.round(model.creditCost * Math.max(1, values.batch) * 100) / 100
     : undefined
@@ -316,9 +316,9 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
 
         {tab === 'provenance' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={rowStyle}><span style={labelStyle}>Provider</span><span style={{ fontSize: 12 }}>{node?.provider?.key ?? '—'}</span></div>
-            <div style={rowStyle}><span style={labelStyle}>Model</span><span style={{ fontSize: 12 }}>{node?.provider?.model ?? '—'}</span></div>
-            <div style={rowStyle}><span style={labelStyle}>Output kind</span><span style={{ fontSize: 12 }}>{node?.output?.kind ?? '—'}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>Provider</span><span style={{ fontSize: 12 }}>{node?.provider?.key ?? ' - '}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>Model</span><span style={{ fontSize: 12 }}>{node?.provider?.model ?? ' - '}</span></div>
+            <div style={rowStyle}><span style={labelStyle}>Output kind</span><span style={{ fontSize: 12 }}>{node?.output?.kind ?? ' - '}</span></div>
             <div style={rowStyle}><span style={labelStyle}>Asset</span><span style={{ fontSize: 12 }}>{node?.output?.url ? 'attached' : 'none'}</span></div>
           </div>
         ) : null}

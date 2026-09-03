@@ -87,7 +87,7 @@ export function CompanyWorkRecordControls({
       const company = (body.company as Record<string, unknown>) ?? body
       const linkedOrgId = typeof company.linkedOrgId === 'string' ? company.linkedOrgId : undefined
       const name = typeof company.name === 'string' ? company.name : id
-      // The linked org is the client's own organisation — the CRM company name
+      // The linked org is the client's own organisation - the CRM company name
       // is the label users recognise.
       if (!cancelled) setMeta({ name, linkedOrgId, linkedOrgName: linkedOrgId ? name : undefined })
     }
@@ -120,7 +120,7 @@ export function CompanyWorkRecordControls({
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       <Link
         href={href}
-        className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-white/[0.04] px-2.5 py-1 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.08]"
+        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] px-2.5 py-1 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.08]"
         title="Company-scoped work"
       >
         <span className="text-[var(--color-pib-text-muted)]">Company</span>
@@ -142,7 +142,7 @@ export function CompanyWorkRecordControls({
 export function CompanyWorkBadge({ companyName, className = '' }: { companyName: string; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border border-[var(--color-pib-line)] bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] ${className}`}
+      className={`inline-flex items-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] ${className}`}
       title="Company-scoped work"
     >
       {companyName}

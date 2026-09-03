@@ -48,31 +48,31 @@ export function BookProjectMetadataPanel({ metadata, saving, onSave }: BookProje
         <dl className="grid gap-3 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.title || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.title || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Subtitle</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.subtitle || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.subtitle || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Author</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.authorName || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.authorName || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Imprint</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.imprint || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.imprint || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">ISBN</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.isbn || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.isbn || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Language</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.language || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.language || ' - '}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Description</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.description || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.description || ' - '}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">AI disclosure</dt>

@@ -6,19 +6,19 @@
 // <script src="..."></script> on any web page, renders a styled signup
 // form in one of five display modes:
 //
-//   inline       — form rendered next to the script tag (legacy default)
-//   popup        — full-screen modal with backdrop, triggered by delay /
+//   inline        -  form rendered next to the script tag (legacy default)
+//   popup         -  full-screen modal with backdrop, triggered by delay /
 //                  scroll / pageviews / exit-intent
-//   slide-in     — small toaster sliding in from a corner
-//   exit-intent  — popup that only fires when the user signals leaving
-//   multi-step   — progressive form; first step captures the email, then
+//   slide-in      -  small toaster sliding in from a corner
+//   exit-intent   -  popup that only fires when the user signals leaving
+//   multi-step    -  progressive form; first step captures the email, then
 //                  cycles through extra fields. Partial submits POST to a
 //                  separate /progressive endpoint so the email is captured
 //                  even if the user abandons after step 1.
 //
 // Frequency control via localStorage and pageview gating via sessionStorage,
 // path filters via simple glob matching, and CSS isolation via a high-z-index
-// scoped block — everything namespaced with `pib_lc_<sourceId>_` so multiple
+// scoped block  -  everything namespaced with `pib_lc_<sourceId>_` so multiple
 // widgets can coexist on a single page.
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -289,7 +289,7 @@ export async function GET(req: NextRequest, context: Params) {
     return out;
   }
 
-  // Render the actual signup form into a container. Returns nothing — uses
+  // Render the actual signup form into a container. Returns nothing  -  uses
   // callbacks to signal success/dismiss to the outer renderer.
   function renderFormInto(container, opts) {
     opts = opts || {};
@@ -328,7 +328,7 @@ export async function GET(req: NextRequest, context: Params) {
     });
     var status = el('div', { className: 'pib-lc-status', style: { fontSize: '13px', minHeight: '18px' }}, '');
 
-    // Honeypot — always present, only enforced server-side
+    // Honeypot  -  always present, only enforced server-side
     var honeypot = el('input', {
       type: 'text', name: '_hp', tabindex: '-1', autocomplete: 'off',
       'aria-hidden': 'true',
@@ -374,7 +374,7 @@ export async function GET(req: NextRequest, context: Params) {
       form.appendChild(wrap);
     });
 
-    // Turnstile — only on the final step (or single-screen)
+    // Turnstile  -  only on the final step (or single-screen)
     var turnstileContainer = null;
     if (isLastStep && CONFIG.turnstileEnabled && CONFIG.turnstileSiteKey) {
       turnstileContainer = el('div', {
@@ -387,7 +387,7 @@ export async function GET(req: NextRequest, context: Params) {
         emailInput.addEventListener('focus', ensureTurnstileScript, { once: true });
         emailInput.addEventListener('input', ensureTurnstileScript, { once: true });
       } else {
-        // No email field on this step — load turnstile right away
+        // No email field on this step  -  load turnstile right away
         ensureTurnstileScript();
       }
     }
@@ -520,7 +520,7 @@ export async function GET(req: NextRequest, context: Params) {
         .catch(function(err){
           setSubmitting(false);
           status.style.color = '#b91c1c';
-          status.textContent = 'Network error — please try again.';
+          status.textContent = 'Network error  -  please try again.';
           try { console.error('[partnersinbiz] progressive error', err); } catch(e){ noop(e); }
         });
         return;
@@ -528,7 +528,7 @@ export async function GET(req: NextRequest, context: Params) {
 
       // ── Final step (single-step OR last multi-step screen)
       if (isMultiStep && isLastStep && opts.submissionId) {
-        // Use the progressive endpoint for the final step — it will run
+        // Use the progressive endpoint for the final step  -  it will run
         // auto-enroll + DOI internally and return the same shape as /submit.
         var finalPayload = {
           email: email,
@@ -561,7 +561,7 @@ export async function GET(req: NextRequest, context: Params) {
         .catch(function(err){
           setSubmitting(false);
           status.style.color = '#b91c1c';
-          status.textContent = 'Network error — please try again.';
+          status.textContent = 'Network error  -  please try again.';
           try { console.error('[partnersinbiz] progressive final error', err); } catch(e){ noop(e); }
         });
         return;
@@ -593,7 +593,7 @@ export async function GET(req: NextRequest, context: Params) {
       .catch(function(err){
         setSubmitting(false);
         status.style.color = '#b91c1c';
-        status.textContent = 'Network error — please try again.';
+        status.textContent = 'Network error  -  please try again.';
         try { console.error('[partnersinbiz] submit error', err); } catch(e){ noop(e); }
       });
     });
@@ -897,7 +897,7 @@ export async function GET(req: NextRequest, context: Params) {
       mountInline();
       return;
     }
-    // popup / slide-in / exit-intent — all use overlay chrome
+    // popup / slide-in / exit-intent  -  all use overlay chrome
     if (!shouldShow()) return;
     scheduleTrigger();
   }

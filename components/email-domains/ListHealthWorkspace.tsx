@@ -106,11 +106,11 @@ function HistoryTable({ history }: { history: CleaningHistoryEntry[] }) {
           {history.map((h) => (
             <tr key={h.id} className="border-t border-[var(--color-pib-line)] align-top">
               <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
-                {h.performedAt ? new Date(h.performedAt).toLocaleString() : '—'}
+                {h.performedAt ? new Date(h.performedAt).toLocaleString() : ' - '}
               </td>
               <td className="px-3 py-2 font-mono text-xs">{h.action}</td>
               <td className="px-3 py-2">{h.affectedCount.toLocaleString()}</td>
-              <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{h.note ?? '—'}</td>
+              <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{h.note ?? ' - '}</td>
             </tr>
           ))}
         </tbody>

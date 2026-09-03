@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState } from 'react'
 
 export interface SaveAsTemplateButtonProps {
@@ -51,9 +53,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
   if (savedName && !open) {
     return (
       <div className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-        <span className="material-symbols-outlined align-middle text-[14px] text-[var(--color-pib-cyan)]">
-          check_circle
-        </span>{' '}
+        <Icon name="check_circle" className="align-middle" />{' '}
         Saved “{savedName}” as a template.{' '}
         <button
           type="button"
@@ -79,7 +79,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
         }}
         className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-xs font-medium text-[var(--color-pib-text-muted)] hover:bg-white/5 hover:text-[var(--color-pib-text)]"
       >
-        <span className="material-symbols-outlined text-[16px]">bookmark_add</span>
+        <Icon name="bookmark_add" />
         Save as template
       </button>
     )
@@ -93,6 +93,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Template name"
+        aria-label="Template name"
         required
         disabled={submitting}
         className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
@@ -102,10 +103,11 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
         onChange={(e) => setDescription(e.target.value)}
         rows={2}
         placeholder="Description (optional)"
+        aria-label="Template description"
         disabled={submitting}
         className="w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
       />
-      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      {error && <p className="text-[11px] text-[var(--st-danger)]">{error}</p>}
       <div className="flex items-center gap-2">
         <button
           type="submit"

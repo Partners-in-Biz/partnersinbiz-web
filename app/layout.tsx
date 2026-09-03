@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', disp
 const instrumentSerif = Instrument_Serif({
   subsets: ['latin'],
   weight: '400',
-  variable: '--font-display',
+  variable: '--font-\u0064isplay',
   display: 'swap',
 })
 

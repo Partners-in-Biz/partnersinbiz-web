@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef } from 'react'
 import type { DocumentBlock } from '@/lib/client-documents/types'
 
@@ -22,7 +24,7 @@ function wrapSelectionInCode() {
   try {
     range.surroundContents(code)
   } catch {
-    // surroundContents throws if the range crosses element boundaries —
+    // surroundContents throws if the range crosses element boundaries - 
     // fall back to extracting and re-inserting the fragment.
     const fragment = range.extractContents()
     code.appendChild(fragment)
@@ -101,6 +103,7 @@ export function RichTextEditor({
         value={block.title ?? ''}
         onChange={(e) => onChange({ ...block, title: e.target.value })}
         placeholder="Section title (optional)"
+        aria-label="Section title"
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm text-white/90"
       />
 
@@ -119,7 +122,7 @@ export function RichTextEditor({
               onClick={action.run}
               className="inline-flex h-8 w-8 items-center justify-center rounded text-white/70 transition hover:bg-white/10 hover:text-white"
             >
-              <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
+              <Icon name={action.icon} />
             </button>
           ))}
         </div>

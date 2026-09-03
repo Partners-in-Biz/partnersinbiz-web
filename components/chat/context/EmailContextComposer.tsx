@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MailboxAccountSafe, MailboxMessageSafe } from '@/lib/mailbox/types'
 
@@ -222,7 +223,7 @@ export function EmailContextComposer({
     return (
       <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading email draft…
         </span>
       </div>
@@ -262,9 +263,9 @@ export function EmailContextComposer({
             {selectedAccount
               ? `Sending as ${selectedAccount.emailAddress}`
               : reconnectableAccounts.length > 0
-                ? 'Mailbox needs reconnection — Google access expired or was revoked.'
+                ? 'Mailbox needs reconnection - Google access expired or was revoked.'
                 : connectedAccounts.length === 0
-                  ? 'No connected mailbox — connect Google or SMTP before sending.'
+                  ? 'No connected mailbox - connect Google or SMTP before sending.'
                   : 'Choose a connected mailbox account.'}
           </p>
         </div>
@@ -427,7 +428,7 @@ export function EmailContextComposer({
             onClick={() => { void approveAndSend() }}
             className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-primary/30 bg-primary/15 px-3 text-xs text-primary disabled:opacity-50 xl:min-h-8"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">send</span>
+            <Icon name="send" className="text-[15px]" />
             {busy === 'send' ? 'Sending…' : 'Approve & send'}
           </button>
         </div>

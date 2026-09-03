@@ -12,6 +12,8 @@ import type { AgentOrgNode } from '@/lib/agent-org/types'
 import { buildOrgDefaultsFromRuntime } from '@/lib/agent-org/syncRuntime'
 import OrgRoleForm from '@/components/agents/org-chart/OrgRoleForm'
 
+import { Icon } from '@/components/studio'
+
 const COLOR_ACCENT: Record<string, string> = {
   violet: 'text-[var(--sc-ink-soft)]',
   sky: 'text-sky-400',
@@ -53,7 +55,7 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export type AgentDetailOrgRoleContext = {
   orgId: string
-  /** Matching org-chart node for this agent (null = unbound seat / create-from-agent). */
+  /** Matching org-chart node for this agent (null = unbound seat / create from agent). */
   node: AgentOrgNode | null
   nodes: AgentOrgNode[]
   onNodeSaved?: (node: AgentOrgNode | null) => void
@@ -569,7 +571,7 @@ export function AgentDetailPanel({
         toastError(body?.error ?? 'Failed to save agent')
       } else {
         toastSuccess(`${editName} saved.`)
-        // API returns { agent } or the doc depending on version — accept either.
+        // API returns { agent } or the doc depending on version  -  accept either.
         const updated = (body.data?.agent ?? body.data) as AgentTeamDoc
         onSaved(updated)
         setEditApiKey('')
@@ -829,7 +831,7 @@ export function AgentDetailPanel({
 
   const healthPill = healthResult ? HEALTH_PILL[healthResult.status] : null
 
-  // Config summary extraction — API returns flat Firestore fields
+  // Config summary extraction  -  API returns flat Firestore fields
   const configObj = configData && typeof configData === 'object' ? configData as Record<string, unknown> : null
   const configModelDefault = configObj?.defaultModel as string | undefined
   const configRole = configObj?.role as string | undefined
@@ -851,7 +853,7 @@ export function AgentDetailPanel({
       {!hideChrome && (
         <GlassBar className="shrink-0 gap-3 px-4 py-3" data-module-accent="cyan">
           <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
-            <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
+            <Icon name={agent.iconKey} className="text-[18px]" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className={`text-sm ${accentClass}`}>{agent.name}</h2>
@@ -868,7 +870,7 @@ export function AgentDetailPanel({
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--color-pib-text)]"
             aria-label="Close panel"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <Icon name="close" className="text-[18px]" />
           </button>
         </GlassBar>
       )}
@@ -987,7 +989,7 @@ export function AgentDetailPanel({
                   disabled={pinging}
                   className="pib-btn-ghost text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[16px]">wifi_tethering</span>
+                  <Icon name="wifi_tethering" className="text-[16px]" />
                   {pinging ? 'Pinging…' : 'Ping now'}
                 </button>
                 {healthPill && !pinging && (
@@ -1020,7 +1022,7 @@ export function AgentDetailPanel({
                     disabled={skillPolicyApplying}
                     className="btn-pib-primary btn-pib-sm text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-[14px]">rule_settings</span>
+                    <Icon name="rule_settings" className="text-[14px]" />
                     {skillPolicyApplying ? 'Applying…' : 'Apply policy'}
                   </button>
                 )}
@@ -1030,7 +1032,7 @@ export function AgentDetailPanel({
                   disabled={skillsLoading || skillPolicyLoading}
                   className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[14px]">refresh</span>
+                  <Icon name="refresh" className="text-[14px]" />
                   {skillsLoading || skillPolicyLoading ? 'Loading…' : 'Refresh'}
                 </button>
               </div>
@@ -1092,7 +1094,7 @@ export function AgentDetailPanel({
                     : 'border-[var(--color-pib-line)] hover:border-primary/50'
                 }`}
               >
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">cloud_upload</span>
+                <Icon name="cloud_upload" className="text-3xl text-[var(--color-pib-text-muted)]" />
                 <div className="text-sm text-[var(--color-pib-text)] text-center">
                   {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
                 </div>
@@ -1135,7 +1137,7 @@ export function AgentDetailPanel({
                         className="text-xs text-[var(--st-danger)] hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
                         title="Delete skill"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <Icon name="delete" className="text-[16px]" />
                       </button>
                     )}
                   </div>
@@ -1158,7 +1160,7 @@ export function AgentDetailPanel({
                 disabled={configLoading}
                 className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                <Icon name="refresh" className="text-[14px]" />
                 {configLoading ? 'Loading…' : 'Refresh'}
               </button>
             </div>
@@ -1276,7 +1278,7 @@ export function AgentDetailPanel({
                   disabled={filesLoading}
                   className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[14px]">refresh</span>
+                  <Icon name="refresh" className="text-[14px]" />
                   {filesLoading ? 'Loading...' : 'Refresh'}
                 </button>
                 {canEdit && (
@@ -1320,7 +1322,7 @@ export function AgentDetailPanel({
                 disabled={filesLoading}
                 className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                <Icon name="refresh" className="text-[14px]" />
                 {filesLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
@@ -1395,7 +1397,7 @@ export function AgentDetailPanel({
                 disabled={logsLoading}
                 className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                <Icon name="refresh" className="text-[14px]" />
                 {logsLoading ? 'Loading…' : 'Refresh'}
               </button>
             </div>
@@ -1468,7 +1470,7 @@ export function AgentDetailPanel({
                     onClick={() => setShowCronForm((v) => !v)}
                     className="pib-btn-ghost text-xs font-label flex items-center gap-1.5"
                   >
-                    <span className="material-symbols-outlined text-[14px]">{showCronForm ? 'remove' : 'add'}</span>
+                    <Icon name={showCronForm ? 'remove' : 'add'} className="text-[14px]" />
                     New Job
                   </button>
                 )}
@@ -1478,7 +1480,7 @@ export function AgentDetailPanel({
                   disabled={cronLoading}
                   className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[14px]">refresh</span>
+                  <Icon name="refresh" className="text-[14px]" />
                   {cronLoading ? 'Loading…' : 'Refresh'}
                 </button>
               </div>
@@ -1636,7 +1638,7 @@ export function AgentDetailPanel({
                         }}
                         className="p-1.5 rounded hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                        <Icon name="play_arrow" className="text-[16px]" />
                       </button>
                       <button
                         type="button"
@@ -1651,7 +1653,7 @@ export function AgentDetailPanel({
                         }}
                         className="p-1.5 rounded hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[16px]">{job.status === 'paused' ? 'play_circle' : 'pause'}</span>
+                        <Icon name={job.status === 'paused' ? 'play_circle' : 'pause'} className="text-[16px]" />
                       </button>
                       <button
                         type="button"
@@ -1666,7 +1668,7 @@ export function AgentDetailPanel({
                         }}
                         className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <Icon name="delete" className="text-[16px]" />
                       </button>
                     </div>
                   )}
@@ -1689,7 +1691,7 @@ export function AgentDetailPanel({
                 disabled={envLoading}
                 className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                <Icon name="refresh" className="text-[14px]" />
                 {envLoading ? 'Loading…' : 'Refresh'}
               </button>
             </div>
@@ -1789,7 +1791,7 @@ export function AgentDetailPanel({
                         title={`Unset ${entry.key}`}
                         className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <Icon name="delete" className="text-[16px]" />
                       </button>
                     )}
                   </div>
@@ -1884,7 +1886,7 @@ export function AgentDetailPanel({
 
       </div>
 
-      {/* Sticky footer — only visible on Edit tab */}
+      {/* Sticky footer  -  only visible on Edit tab */}
       {activeTab === 'edit' && (
         <div className="shrink-0 flex justify-end gap-1.5 border-t border-white/10 px-4 py-3">
           <button

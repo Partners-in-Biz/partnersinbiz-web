@@ -5,6 +5,7 @@ import type { DealLineItem, Currency } from '@/lib/crm/types'
 import type { Product } from '@/lib/products/types'
 import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { ProductPicker } from './ProductPicker'
+import { Icon } from '@/components/studio'
 
 export interface DealLineItemsEditorProps {
   value: DealLineItem[]
@@ -148,17 +149,12 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                   className="px-4 py-4"
                 >
                   <div className="mx-auto flex max-w-md flex-col items-center gap-2 text-center">
-                    <span
-                      aria-hidden="true"
-                      className="material-symbols-outlined pib-icon-tint flex h-8 w-8 items-center justify-center rounded-full text-[16px]"
-                    >
-                      request_quote
-                    </span>
+                    <Icon name="request_quote" className="flex h-8 w-8 items-center justify-center rounded-md text-[16px]" />
                     <div>
                       <p className="pib-label">
                         Quote value missing
                       </p>
-                      <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Build the first quote line</h3>
+                      <h3 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">Build the first quote line</h3>
                       <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                         Add a product, service, or ad-hoc item so sales, delivery, and leadership can see what this opportunity is worth.
                       </p>
@@ -169,7 +165,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                         onClick={openAddRow}
                         className="btn-pib-secondary h-8 gap-1.5 px-3 text-xs"
                       >
-                        <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add</span>
+                        <Icon name="add" className="text-[14px]" />
                         Add first quote item
                       </button>
                     )}
@@ -188,6 +184,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       type="text"
                       value={item.name}
                       onChange={e => updateItem(idx, { name: e.target.value })}
+                      aria-label={`Line item ${idx + 1} name`}
                       className="pib-input h-8 w-full text-xs"
                     />
                   )}
@@ -202,6 +199,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       step={1}
                       value={item.qty}
                       onChange={e => updateItem(idx, { qty: parseFloat(e.target.value) || 0 })}
+                      aria-label={`Line item ${idx + 1} quantity`}
                       className={numInputCls}
                     />
                   )}
@@ -216,6 +214,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       step={0.01}
                       value={item.unitPrice}
                       onChange={e => updateItem(idx, { unitPrice: parseFloat(e.target.value) || 0 })}
+                      aria-label={`Line item ${idx + 1} unit price`}
                       className={numInputCls}
                     />
                   )}
@@ -231,6 +230,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       step={1}
                       value={item.discount ?? 0}
                       onChange={e => updateItem(idx, { discount: parseFloat(e.target.value) || undefined })}
+                      aria-label={`Line item ${idx + 1} discount`}
                       className={numInputCls}
                     />
                   )}
@@ -246,7 +246,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       aria-label={`Remove quote item ${item.name || `line ${idx + 1}`}`}
                       className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <Icon name="delete" className="text-[16px]" />
                     </button>
                   </td>
                 )}
@@ -271,6 +271,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       value={draft.name}
                       onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
                       placeholder="Item name"
+                      aria-label="New line item name"
                       className="pib-input mt-1 h-8 w-full text-xs"
                     />
                   )}
@@ -282,6 +283,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                     step={1}
                     value={draft.qty}
                     onChange={e => setDraft(d => ({ ...d, qty: parseFloat(e.target.value) || 0 }))}
+                    aria-label="New line item quantity"
                     className={numInputCls}
                   />
                 </td>
@@ -292,6 +294,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                     step={0.01}
                     value={draft.unitPrice}
                     onChange={e => setDraft(d => ({ ...d, unitPrice: parseFloat(e.target.value) || 0 }))}
+                    aria-label="New line item unit price"
                     className={numInputCls}
                   />
                 </td>
@@ -303,6 +306,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                     step={1}
                     value={draft.discount}
                     onChange={e => setDraft(d => ({ ...d, discount: parseFloat(e.target.value) || 0 }))}
+                    aria-label="New line item discount"
                     className={numInputCls}
                   />
                 </td>
@@ -318,7 +322,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       aria-label="Add quote item"
                       className="cursor-pointer text-emerald-500 transition-colors hover:text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <span className="material-symbols-outlined text-[16px]">check</span>
+                      <Icon name="check" className="text-[16px]" />
                     </button>
                     <button
                       type="button"
@@ -326,7 +330,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       aria-label="Cancel quote item draft"
                       className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+                      <Icon name="close" className="text-[16px]" />
                     </button>
                   </div>
                 </td>
@@ -344,7 +348,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                 >
                   Subtotal
                 </td>
-                <td className="px-2 py-1.5 font-mono text-right font-semibold text-[var(--color-pib-text)]">
+                <td className="px-2 py-1.5 font-mono text-right font-medium text-[var(--color-pib-text)]">
                   {fmtCurrency(currency, subtotal)}
                 </td>
                 {!readOnly && <td />}
@@ -360,7 +364,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
           onClick={openAddRow}
           className="cursor-pointer flex items-center gap-1.5 text-xs text-[var(--color-pib-accent)] hover:opacity-80 transition-opacity pt-1"
         >
-          <span className="material-symbols-outlined text-[14px]">add</span>
+          <Icon name="add" className="text-[14px]" />
           Add item
         </button>
       )}

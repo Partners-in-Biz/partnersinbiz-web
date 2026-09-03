@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/5',
+  pending: 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]',
   'picked-up': 'border-blue-500/40 bg-blue-500/5',
   'in-progress': 'border-indigo-500/40 bg-indigo-500/5',
   'awaiting-input': 'border-orange-500/40 bg-orange-500/5',
@@ -50,15 +50,15 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/15 text-[var(--color-pib-amber)] border border-amber-400/30',
+  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--color-pib-amber)] border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
   sage: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
-  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/15 text-[var(--color-pib-amber)] border border-amber-400/30',
+  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--color-pib-amber)] border border-amber-400/30',
   'qa-release': 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
   support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
-  data: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)]/15 text-[var(--sc-ink-soft)] border border-violet-400/30',
+  data: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)] border border-violet-400/30',
   docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
   seo: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
 }

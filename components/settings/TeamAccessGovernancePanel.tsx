@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { canAccessModule, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
+import { Icon } from '@/components/studio'
+
 type TeamAccessMember = {
   role?: string | null
   accessScope?: string | null
@@ -62,10 +64,10 @@ export function TeamAccessGovernancePanel({
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex gap-3">
-          <span className="material-symbols-outlined mt-0.5 text-[var(--color-pib-accent)]" aria-hidden="true">admin_panel_settings</span>
+          <Icon name="admin_panel_settings" className="mt-0.5 text-[var(--color-pib-accent)]" />
           <div>
             <p className="eyebrow !text-[10px]">Access governance</p>
-            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-xl text-[var(--color-pib-text)]">
               {needsCrmCoverage ? 'Employee access needs CRM coverage' : 'Employee access is mapped'}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -82,25 +84,25 @@ export function TeamAccessGovernancePanel({
             className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
             aria-label="Prepare CRM sales invite"
           >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">person_add</span>
+            <Icon name="person_add" className="text-base" />
             Prepare CRM invite
           </button>
         ) : null}
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="People">
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(members.length, 'member')}</p>
+          <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{pluralLabel(members.length, 'member')}</p>
         </MetricCard>
         <MetricCard label="Admins">
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(adminCount, 'admin')}</p>
+          <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{pluralLabel(adminCount, 'admin')}</p>
         </MetricCard>
         <MetricCard label="CRM operators">
-          <p className={['mt-2 font-display text-2xl', needsCrmCoverage ? 'text-amber-200' : 'text-[var(--color-pib-text)]'].join(' ')}>
+          <p className={['mt-2  text-2xl', needsCrmCoverage ? 'text-[var(--st-warning)]' : 'text-[var(--color-pib-text)]'].join(' ')}>
             {crmCoverageCount} CRM/sales
           </p>
         </MetricCard>
         <MetricCard label="Reviewers">
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(reviewerCount, 'reviewer')}</p>
+          <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{pluralLabel(reviewerCount, 'reviewer')}</p>
         </MetricCard>
       </div>
     </section>

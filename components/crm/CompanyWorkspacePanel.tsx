@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 export type LinkedWorkspace = {
   id: string
@@ -277,10 +278,10 @@ function ActionGrid({
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{action.icon}</span></span>
-              <h3 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{action.title}</h3>
+              <Icon name={action.icon} className="text-[16px]" />
+              <h3 className="truncate text-xs font-medium text-[var(--color-pib-text)]">{action.title}</h3>
             </div>
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]">open_in_new</span>
+            <Icon name="open_in_new" className="text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]" />
           </div>
           <p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{action.description}</p>
         </Link>
@@ -317,7 +318,7 @@ export function CompanyWorkspacePanel({
           <div className="pib-surface overflow-hidden">
             <div className="pib-surface-header">
               <p className="pib-label">Company marketing</p>
-              <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">{companyName} marketing</h2>
+              <h2 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">{companyName} marketing</h2>
               <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Campaigns, accounts, and brand for this CRM company. This does not require a linked organisation workspace and stays separate from Personal.
               </p>
@@ -329,9 +330,9 @@ export function CompanyWorkspacePanel({
           <div className="pib-surface overflow-hidden">
             <div className="pib-surface-header">
               <p className="pib-label">Company workspace</p>
-              <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">{companyName} work</h2>
+              <h2 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">{companyName} work</h2>
               <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                Projects, documents, research, and reports for this company on your book. Not shared with a client organisation yet — invite to link when you want them to see progress.
+                Projects, documents, research, and reports for this company on your book. Not shared with a client organisation yet - invite to link when you want them to see progress.
               </p>
             </div>
             <ActionGrid companyName={companyName} actions={unlinkedCompanyActions} />
@@ -339,9 +340,9 @@ export function CompanyWorkspacePanel({
         ) : null}
         <div className="pib-surface overflow-hidden">
           <div className="border-b border-[var(--color-pib-line)] p-4 text-center">
-            <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">link_off</span>
+            <Icon name="link_off" className="text-[22px] text-[var(--color-pib-text-muted)]" />
             <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Not shared yet</p>
-            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Invite to link an organisation</h2>
+            <h2 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">Invite to link an organisation</h2>
             <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {companyName} work stays on your book until linked. After linking, module defaults share progress into their portal (with per-record Keep private).
             </p>
@@ -351,7 +352,7 @@ export function CompanyWorkspacePanel({
                 aria-label={`Invite ${companyName} to link workspaces`}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">handshake</span>
+                <Icon name="handshake" className="text-[14px]" />
                 Invite {companyName} to link workspaces
               </Link>
             ) : null}
@@ -376,7 +377,7 @@ export function CompanyWorkspacePanel({
         <div className="pib-surface overflow-hidden">
           <div className="pib-surface-header">
             <p className="pib-label">Company marketing</p>
-            <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{companyName} marketing</h2>
+            <h2 className="mt-0.5 truncate text-sm font-medium text-[var(--color-pib-text)]">{companyName} marketing</h2>
             <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
               This company&apos;s campaigns, accounts, and brand. Separate from the linked organisation workspace and from Personal.
             </p>
@@ -390,7 +391,7 @@ export function CompanyWorkspacePanel({
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <p className="pib-label">{eyebrow}</p>
-              <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
+              <h2 className="mt-0.5 truncate text-sm font-medium text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
               <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 {mode === 'portal'
                   ? 'Client organisation workspace for projects, documents, wiki, and reports. Marketing for this CRM company lives in the company marketing section above.'
@@ -404,7 +405,7 @@ export function CompanyWorkspacePanel({
                   aria-label={`Manage what ${companyName} can see`}
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">tune</span>
+                  <Icon name="tune" className="text-[16px]" />
                   Manage sharing
                 </Link>
               ) : null}
@@ -413,7 +414,7 @@ export function CompanyWorkspacePanel({
                 aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
                 className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
+                <Icon name="dashboard" className="text-[16px]" />
                 Dashboard
               </Link>
             </div>

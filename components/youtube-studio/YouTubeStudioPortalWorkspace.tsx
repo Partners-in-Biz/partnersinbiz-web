@@ -471,7 +471,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setActionNotice(body.error ?? 'Could not create social drafts')
         return
       }
-      setActionNotice('Draft social posts created — review them in Social.')
+      setActionNotice('Draft social posts created  -  review them in Social.')
     } catch {
       setActionNotice('Could not create social drafts')
     }

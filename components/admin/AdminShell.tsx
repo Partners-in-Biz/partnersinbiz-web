@@ -102,7 +102,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     searchParams,
     orgId: drawerOrgId,
   })
-  // Creative Canvas and project boards are immersive full-bleed surfaces —
+  // Creative Canvas and project boards are immersive full-bleed surfaces  - 
   // drop the centered max-width so kanban columns can use the whole content area.
   const isCanvasRoute = pathname.startsWith('/admin/creative-canvas')
   const isProjectsRoute = /\/admin\/org\/[^/]+\/projects(?:\/|$)/.test(pathname)

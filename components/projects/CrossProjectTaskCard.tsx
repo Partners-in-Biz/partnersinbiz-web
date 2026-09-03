@@ -63,13 +63,13 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
           <Link
             href={projectHref ?? `/portal/projects/${projectId}`}
             onClick={e => e.stopPropagation()}
-            className="max-w-[140px] truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            className="max-w-[140px] truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium"
             style={{ background: badgeBg, color: badgeText }}
           >
             {projectName}
           </Link>
           <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            className="h-1.5 w-1.5 shrink-0 rounded-md"
             style={{ background: priorityColor }}
             title={task.priority ?? 'normal'}
           />

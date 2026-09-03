@@ -190,7 +190,7 @@ function formatRelativeMs(ms?: number | null) {
 function healthTone(health: Health | null, error: string | null) {
   if (error) return 'border-red-400/30 bg-red-500/10 text-red-200'
   if (!health) return 'border-slate-500/30 bg-slate-500/10 text-[var(--color-pib-text-muted)]'
-  return health.ok === false ? 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 text-[var(--st-warning)]' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+  return health.ok === false ? 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)]' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
 }
 
 function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
@@ -483,7 +483,7 @@ function KpiCard({
   const toneClass = {
     accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
     success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
-    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
+    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     danger: 'text-red-300 bg-red-500/10 border-red-400/25',
   }[tone]
 
@@ -517,7 +517,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
       <section className="space-y-4" aria-label="Revenue and operations">
         <SectionHeader title="Revenue & operations" eyebrow="Platform finance" />
         {error ? (
-          <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 px-4 py-3 text-sm text-[var(--st-warning)]">
+          <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
             Revenue & ops metrics could not load: {error}.
           </div>
         ) : (
@@ -546,7 +546,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
       />
 
       {admin.failedJobs > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 px-4 py-3 text-sm text-[var(--st-warning)]">
+        <div className="flex items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
           <Icon name="warning" className="text-[20px]" />
           <span><span className="font-medium">{admin.failedJobs}</span> failed background job{admin.failedJobs === 1 ? '' : 's'} in the webhook queue need attention.</span>
         </div>
@@ -648,7 +648,7 @@ function MetricCard({
   const toneClass = {
     accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
     success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
-    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
+    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     danger: 'text-red-300 bg-red-500/10 border-red-400/25',
   }[tone]
 
@@ -660,7 +660,7 @@ function MetricCard({
           <p className="mt-2 text-2xl font-headline font-medium leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         {tone === 'accent' ? (
-          <span aria-hidden="true" className="!h-8 !w-8 !rounded-md">
+          <span aria-hidden="true" className="!h-8 !w-8 rounded-md">
             <Icon name={icon} className="text-[18px]" />
           </span>
         ) : (
@@ -754,7 +754,7 @@ function WorkLane({
 function SoftwareBuildEmptyIndicator({ activeCount, specHref, projectsHref }: { activeCount: number; specHref: string; projectsHref: string }) {
   if (activeCount > 0) return null
   return (
-    <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 p-4 text-sm text-[var(--st-warning)]">
+    <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] p-4 text-sm text-[var(--st-warning)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-label uppercase tracking-widest text-[var(--st-warning)]">
@@ -1003,7 +1003,7 @@ export default function MissionControlDashboard() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 px-4 py-3 text-sm text-[var(--st-warning)]">
+        <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
           Some dashboard feeds could not load: {error}. Showing everything that is available.
         </div>
       )}

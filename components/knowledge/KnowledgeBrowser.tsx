@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
+import { Icon } from '@/components/studio'
+
   KnowledgeItem,
   KnowledgeListing,
   KnowledgeNote,
@@ -212,7 +214,7 @@ function KnowledgeGraphView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-4">
         <div>
-          <h2 className="font-headline text-2xl font-bold text-[var(--color-pib-text)]">Knowledge Graph</h2>
+          <h2 className="font-headline text-2xl font-medium text-[var(--color-pib-text)]">Knowledge Graph</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             {graph.nodes.length} nodes across index, wiki, raw, and logs · {graph.edges.length} links
           </p>
@@ -225,7 +227,7 @@ function KnowledgeGraphView({
         </div>
         {hoveredNode && (
           <div
-            className="pointer-events-none absolute z-20 max-w-xs rounded-md bg-black px-3 py-2 text-xs text-white shadow-xl"
+            className="pointer-events-none absolute z-20 max-w-xs rounded-md bg-black px-3 py-2 text-xs text-white"
             style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}
           >
             <div className="font-medium">{hoveredNode.title}</div>
@@ -264,8 +266,8 @@ function KnowledgeGraphView({
         >
           <defs>
             <radialGradient id="knowledge-node-glow">
-              <stop offset="0%" stopColor="#F5A623" stopOpacity="0.55" />
-              <stop offset="100%" stopColor="#F5A623" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--st-warning)" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="var(--st-warning)" stopOpacity="0" />
             </radialGradient>
           </defs>
           {graph.edges.map((edge) => {
@@ -365,11 +367,11 @@ function MarkdownPreview({ content }: { content: string }) {
       return
     }
     if (line.startsWith('# ')) {
-      nodes.push(<h1 key={index} className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">{line.slice(2)}</h1>)
+      nodes.push(<h1 key={index} className="font-headline text-3xl font-medium text-[var(--color-pib-text)]">{line.slice(2)}</h1>)
     } else if (line.startsWith('## ')) {
-      nodes.push(<h2 key={index} className="pt-4 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{line.slice(3)}</h2>)
+      nodes.push(<h2 key={index} className="pt-4 font-headline text-2xl font-medium text-[var(--color-pib-text)]">{line.slice(3)}</h2>)
     } else if (line.startsWith('### ')) {
-      nodes.push(<h3 key={index} className="pt-3 text-lg font-semibold text-[var(--color-pib-text)]">{line.slice(4)}</h3>)
+      nodes.push(<h3 key={index} className="pt-3 text-lg font-medium text-[var(--color-pib-text)]">{line.slice(4)}</h3>)
     } else if (/^\s*[-*]\s+/.test(line)) {
       nodes.push(<p key={index} className="pl-4 text-sm leading-7 text-[var(--color-pib-text-muted)]">• {line.replace(/^\s*[-*]\s+/, '')}</p>)
     } else if (line.trim() === '---') {
@@ -553,7 +555,7 @@ export function KnowledgeBrowser({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="eyebrow">{eyebrow}</p>
           <button type="button" onClick={loadList} className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-base">sync</span>
+            <Icon name="sync" className="text-base" />
             Refresh
           </button>
         </div>
@@ -594,8 +596,8 @@ export function KnowledgeBrowser({
                         : 'bg-[var(--color-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-base">{tab.icon}</span>
-                    <span className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <Icon name={tab.icon} className="text-base" />
+                    <span className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                       {tab.label}
                     </span>
                   </button>
@@ -617,13 +619,13 @@ export function KnowledgeBrowser({
                     : 'bg-[var(--color-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
-                <span className="material-symbols-outlined text-base">hub</span>
-                <span className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                <Icon name="hub" className="text-base" />
+                <span className="pointer-events-none absolute -top-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   Graph
                 </span>
               </button>
             </div>
-            <span className="rounded-full bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="rounded-md bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
               {items.length}
             </span>
           </div>
@@ -631,6 +633,7 @@ export function KnowledgeBrowser({
           {!readOnly && section !== 'index' && (
             <div className="flex gap-2">
               <input
+                aria-label="New note title"
                 value={newTitle}
                 onChange={(event) => setNewTitle(event.target.value)}
                 placeholder={SECTIONS.find((tab) => tab.value === section)?.createLabel ?? 'New note title'}
@@ -642,7 +645,7 @@ export function KnowledgeBrowser({
                 className="grid size-10 place-items-center rounded-md bg-[var(--color-pib-accent)] text-black"
                 aria-label="Create note"
               >
-                <span className="material-symbols-outlined text-base">add</span>
+                <Icon name="add" className="text-base" />
               </button>
             </div>
           )}
@@ -697,8 +700,8 @@ export function KnowledgeBrowser({
             ) : (
               <div className="grid min-h-[50vh] place-items-center text-center">
                 <div>
-                  <span className="material-symbols-outlined text-5xl text-[var(--color-pib-accent)]">hub</span>
-                  <h2 className="mt-3 font-headline text-2xl font-bold text-[var(--color-pib-text)]">No graph yet</h2>
+                  <Icon name="hub" className="text-5xl text-[var(--color-pib-accent)]" />
+                  <h2 className="mt-3 font-headline text-2xl font-medium text-[var(--color-pib-text)]">No graph yet</h2>
                   <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Add notes or links like [[Another Note]] to build connections.</p>
                 </div>
               </div>
@@ -707,7 +710,7 @@ export function KnowledgeBrowser({
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border)] pb-4">
                 <div className="min-w-0">
-                  <h2 className="truncate font-headline text-2xl font-bold text-[var(--color-pib-text)]">{noteTitle(note.path)}</h2>
+                  <h2 className="truncate font-headline text-2xl font-medium text-[var(--color-pib-text)]">{noteTitle(note.path)}</h2>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                     {note.path}{note.updatedAt ? ` · Updated ${formatDate(note.updatedAt)}` : ''}
                   </p>
@@ -719,7 +722,7 @@ export function KnowledgeBrowser({
                       onClick={() => setMode(mode === 'preview' ? 'edit' : 'preview')}
                       className="pib-btn-secondary"
                     >
-                      <span className="material-symbols-outlined text-base">{mode === 'preview' ? 'edit' : 'visibility'}</span>
+                      <Icon name={mode === 'preview' ? 'edit' : 'visibility'} className="text-base" />
                       {mode === 'preview' ? 'Edit' : 'Preview'}
                     </button>
                     <button
@@ -728,7 +731,7 @@ export function KnowledgeBrowser({
                       disabled={saving}
                       className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-base">save</span>
+                      <Icon name="save" className="text-base" />
                       {saving ? 'Saving...' : 'Save'}
                     </button>
                   </div>
@@ -736,7 +739,7 @@ export function KnowledgeBrowser({
               </div>
 
               {mode === 'edit' && !readOnly ? (
-                <textarea
+                <textarea aria-label="Draft"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   spellCheck
@@ -749,8 +752,8 @@ export function KnowledgeBrowser({
           ) : (
             <div className="grid min-h-[50vh] place-items-center text-center">
               <div>
-                <span className="material-symbols-outlined text-5xl text-[var(--color-pib-accent)]">menu_book</span>
-                <h2 className="mt-3 font-headline text-2xl font-bold text-[var(--color-pib-text)]">No note selected</h2>
+                <Icon name="menu_book" className="text-5xl text-[var(--color-pib-accent)]" />
+                <h2 className="mt-3 font-headline text-2xl font-medium text-[var(--color-pib-text)]">No note selected</h2>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Create or select a Markdown note to start editing.</p>
               </div>
             </div>

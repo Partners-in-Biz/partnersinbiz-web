@@ -50,13 +50,13 @@ export function tsToDate(value: unknown): Date | null {
 
 export function formatDate(value: unknown): string {
   const d = tsToDate(value)
-  if (!d) return '—'
+  if (!d) return ' - '
   return d.toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 export function formatDateTime(value: unknown): string {
   const d = tsToDate(value)
-  if (!d) return '—'
+  if (!d) return ' - '
   return d.toLocaleString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 

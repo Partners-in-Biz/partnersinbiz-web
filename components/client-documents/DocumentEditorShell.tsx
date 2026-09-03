@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ClientDocument, ClientDocumentVersion, DocumentBlock, DocumentComment } from '@/lib/client-documents/types'
 
@@ -124,8 +126,8 @@ export function DocumentEditorShell({
     saveState === 'saving' ? 'Saving…' : saveState === 'dirty' ? 'Unsaved changes' : 'Saved'
 
   const editorColumnClass = fullscreen
-    ? 'fixed inset-0 z-50 min-w-0 overflow-y-auto bg-[#0A0A0B] px-5 py-12 md:px-10'
-    : 'min-w-0 bg-[#0A0A0B] px-5 py-12 md:px-10'
+    ? 'fixed inset-0 z-50 min-w-0 overflow-y-auto bg-[var(--sc-ink)] px-5 py-12 md:px-10'
+    : 'min-w-0 bg-[var(--sc-ink)] px-5 py-12 md:px-10'
 
   return (
     <div
@@ -157,7 +159,7 @@ export function DocumentEditorShell({
                 disabled={saveState !== 'dirty'}
                 className="inline-flex items-center gap-1.5 rounded border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <span className="material-symbols-outlined text-base">save</span>
+                <Icon name="save" />
                 Save now
               </button>
               <button
@@ -168,9 +170,7 @@ export function DocumentEditorShell({
                 title={fullscreen ? 'Exit full screen' : 'Full screen'}
                 aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
               >
-                <span className="material-symbols-outlined text-base">
-                  {fullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                </span>
+                <Icon name={fullscreen ? 'fullscreen_exit' : 'fullscreen'} />
               </button>
             </div>
           </div>
@@ -179,7 +179,7 @@ export function DocumentEditorShell({
             <p className="text-xs uppercase tracking-[0.2em] text-white/50">
               {doc.type.replaceAll('_', ' ')}
             </p>
-            <h1 className="mt-4 text-4xl font-semibold text-white/90">{doc.title}</h1>
+            <h1 className="mt-4 text-4xl font-medium text-white/90">{doc.title}</h1>
             <p className="mt-2 text-xs text-white/40">Version {version.versionNumber}</p>
           </header>
           <div className="pt-4">
@@ -194,7 +194,7 @@ export function DocumentEditorShell({
           </div>
         </div>
 
-        <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 bg-[#0A0A0B]/95 px-5 py-2 text-xs text-white/50 backdrop-blur md:px-10">
+        <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 bg-[var(--sc-ink)]/95 px-5 py-2 text-xs text-white/50 md:px-10">
           {totalWords} {totalWords === 1 ? 'word' : 'words'} • {blocks.length}{' '}
           {blocks.length === 1 ? 'block' : 'blocks'}
         </div>

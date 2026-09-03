@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Notification } from '@/lib/notifications/types'
 import { preferTaskNotificationHref } from '@/lib/notifications/task-links'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { Icon } from '@/components/studio'
 
 type NotificationWithId = Notification & { id: string }
 
@@ -138,7 +139,7 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
         await fetch('/api/v1/crm/notifications/mark-read', { method: 'POST' })
       }
     } catch {
-      // silent fail — optimistic state stays
+      // silent fail - optimistic state stays
     } finally {
       setMarkingRead(false)
     }
@@ -200,13 +201,11 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
         className="relative flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         aria-label="Open notifications"
       >
-        <span className="material-symbols-outlined text-[18px]">
-          {unreadCount > 0 ? 'notifications_active' : 'notifications'}
-        </span>
+        <Icon name={unreadCount > 0 ? 'notifications_active' : 'notifications'} className="text-[18px]" />
         {unreadCount > 0 && (
           <span
-            className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full"
-            style={{ background: 'var(--sc-accent)' }}
+            className="absolute top-1 right-1 h-1.5 w-1.5"
+            style={{ borderRadius: '50%',  background: 'var(--sc-accent)' }}
             aria-hidden="true"
           />
         )}
@@ -230,7 +229,7 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 disabled={markingRead}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">done_all</span>
+                <Icon name="done_all" className="text-[13px]" />
                 Clear
               </button>
             )}
@@ -247,15 +246,10 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
             ) : notifications.length === 0 ? (
               <div className="px-3 py-3">
                 <div className="flex items-start gap-2.5">
-                  <span
-                    className="material-symbols-outlined rounded-md border border-emerald-400/40 bg-emerald-400/10 p-1.5 text-[16px] text-emerald-100"
-                    aria-hidden="true"
-                  >
-                    task_alt
-                  </span>
+                  <Icon name="task_alt" className="rounded-md border border-emerald-400/40 bg-emerald-400/10 p-1.5 text-[16px] text-emerald-100" />
                   <div>
                     <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Quiet inbox</p>
-                    <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                    <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">
                       No CRM alerts need action
                     </h3>
                     <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -281,10 +275,8 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 ].join(' ')
                 const content = (
                   <>
-                    <span aria-hidden="true" className="mt-0.5 shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '9999px' }}>
-                      <span className="material-symbols-outlined text-[13px]">
-                        {notifIcon(n.type)}
-                      </span>
+                    <span aria-hidden="true" className="mt-0.5 shrink-0" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '9999px' }}>
+                      <Icon name={notifIcon(n.type)} className="text-[13px]" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>

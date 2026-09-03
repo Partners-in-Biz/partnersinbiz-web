@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import type { OrgRole } from '@/lib/organizations/types'
 import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
+import { Icon } from '@/components/studio'
+
 interface MemberRowProps {
   uid: string
   firstName: string
@@ -25,9 +27,9 @@ interface MemberRowProps {
 }
 
 const ROLE_COLORS: Record<OrgRole, string> = {
-  owner: 'text-amber-400 bg-amber-400/10',
+  owner: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]',
   admin: 'text-blue-400 bg-blue-400/10',
-  member: 'text-violet-400 bg-violet-400/10',
+  member: 'text-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)]',
   viewer: 'text-[var(--color-pib-text-muted)] bg-[var(--color-pib-line-strong)]',
 }
 
@@ -90,7 +92,7 @@ export function MemberRow({
   return (
     <div className="space-y-3 border-b border-[var(--color-pib-line)] px-5 py-4 last:border-0">
       <div className="flex items-center gap-4">
-        <div className="w-9 h-9 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-sm font-medium text-[var(--color-pib-accent-hover)] shrink-0 overflow-hidden">
+        <div className="w-9 h-9 rounded-md bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-sm font-medium text-[var(--color-pib-accent-hover)] shrink-0 overflow-hidden">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
@@ -109,7 +111,7 @@ export function MemberRow({
           )}
         </div>
 
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${ROLE_COLORS[role]}`}>
+        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md capitalize ${ROLE_COLORS[role]}`}>
           {role}
         </span>
 
@@ -121,9 +123,7 @@ export function MemberRow({
             aria-label={`Edit profile for ${displayName}`}
             className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] transition-colors p-1"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              badge
-            </span>
+            <Icon name="badge" className="text-[18px]" />
           </button>
         )}
 
@@ -147,9 +147,7 @@ export function MemberRow({
             aria-label={`Edit access for ${displayName}`}
             className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] transition-colors p-1"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              tune
-            </span>
+            <Icon name="tune" className="text-[18px]" />
           </button>
         )}
 
@@ -158,11 +156,9 @@ export function MemberRow({
             onClick={() => onRemove(uid)}
             title={`Remove ${displayName}`}
             aria-label={`Remove ${displayName}`}
-            className="text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors p-1"
+            className="text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors p-1"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              person_remove
-            </span>
+            <Icon name="person_remove" className="text-[18px]" />
           </button>
         )}
       </div>

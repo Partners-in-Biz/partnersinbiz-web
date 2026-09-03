@@ -81,7 +81,7 @@ const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
   x: { bg: 'bg-black', label: 'X' },
   linkedin: { bg: 'bg-[#0A66C2]', label: 'LI' },
   facebook: { bg: 'bg-[#1877F2]', label: 'FB' },
-  instagram: { bg: '-br from-[#FFDC80] via-[#E1306C] to-[#5851DB]', label: 'IG' },
+  instagram: { bg: '-br   ', label: 'IG' },
   reddit: { bg: 'bg-[#FF4500]', label: 'RD' },
   tiktok: { bg: 'bg-black', label: 'TT' },
   pinterest: { bg: 'bg-[#E60023]', label: 'PI' },

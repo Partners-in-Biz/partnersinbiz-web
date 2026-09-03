@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { Icon } from '@/components/studio'
+
 type CategoryPref = { inApp: boolean; email: boolean }
 type Category = 'email' | 'crm' | 'social' | 'reports' | 'billing'
 type Preferences = Record<Category, CategoryPref>
@@ -91,7 +93,7 @@ export function NotificationPreferences() {
       <div className="pib-card-section-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="pib-label">Per-category preferences</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Choose what reaches you</h2>
+          <h2 className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">Choose what reaches you</h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Toggle in-app and email delivery for each notification category. Changes save automatically.
           </p>
@@ -105,10 +107,10 @@ export function NotificationPreferences() {
         </span>
       </div>
 
-      {error && <p className="px-5 pt-3 text-xs text-red-400" role="alert">{error}</p>}
+      {error && <p className="px-5 pt-3 text-xs text-[var(--st-danger)]" role="alert">{error}</p>}
 
       <div className="p-5">
-        <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+        <div className="overflow-hidden rounded-md border border-[var(--color-pib-line)]">
           <div className="pib-label grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-2.5">
             <span>Category</span>
             <span className="w-16 text-center">In-app</span>
@@ -121,11 +123,11 @@ export function NotificationPreferences() {
               className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0"
             >
               <div className="flex min-w-0 items-start gap-3">
-                <span className="pib-icon-tint-cyan mt-0.5" aria-hidden="true">
-                  <span className="material-symbols-outlined text-[18px]">{cat.icon}</span>
+                <span className="mt-0.5" aria-hidden="true">
+                  <Icon name={cat.icon} className="text-[18px]" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{cat.label}</p>
+                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{cat.label}</p>
                   <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{cat.description}</p>
                 </div>
               </div>
@@ -172,14 +174,14 @@ function Toggle({
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:opacity-50 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-md border transition-colors disabled:opacity-50 ${
         checked
           ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]'
           : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-4 w-4 transform rounded-md bg-white transition-transform ${
           checked ? 'translate-x-6' : 'translate-x-1'
         }`}
       />

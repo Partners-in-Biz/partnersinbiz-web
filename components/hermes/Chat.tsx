@@ -283,7 +283,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmed }),
-      }).catch(() => {/* optimistic — ignore errors silently */})
+      }).catch(() => {/* optimistic  -  ignore errors silently */})
     },
     [orgId],
   )
@@ -388,7 +388,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
             <div key={c.id} className="relative group/conv">
               {renamingId === c.id ? (
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
-                  <input
+                  <input aria-label="No chats yet. Start one."
                     autoFocus
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
@@ -446,12 +446,12 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         </div>
       </aside>
 
-      {/* conversation dropdown — rendered fixed so it escapes the sidebar scroll container */}
+      {/* conversation dropdown  -  rendered fixed so it escapes the sidebar scroll container */}
       {menuOpenId && menuPosition && (
         <div
           data-conv-menu
           style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
-          className="z-50 min-w-[128px] rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
+          className="z-50 min-w-[128px] rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-surface,#1c1c1c)] py-1"
         >
           <button
             type="button"
@@ -467,7 +467,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
           </button>
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))]"
+            className="w-full text-left px-3 py-2 text-xs text-[var(--st-danger)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))]"
             onClick={() => { archiveConversation(menuOpenId); setMenuPosition(null) }}
           >
             📦 Archive
@@ -532,7 +532,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                     )
                   })()}
                   <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                    className={`rounded-md px-4 py-2.5 text-sm whitespace-pre-wrap ${
                       m.role === 'user'
                         ? 'bg-primary text-on-primary'
                         : m.status === 'failed'
@@ -541,12 +541,12 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                     }`}
                   >
                     {m.status === 'pending' && !m.content && <span className="opacity-70 italic">Thinking…</span>}
-                    {m.status === 'queued' && !m.content && <span className="opacity-70 italic">Queued — waiting for linked-computer capacity…</span>}
-                    {m.status === 'waiting_approval' && !m.content && <span className="opacity-70 italic">Paused — awaiting tool approval…</span>}
+                    {m.status === 'queued' && !m.content && <span className="opacity-70 italic">Queued  -  waiting for linked-computer capacity…</span>}
+                    {m.status === 'waiting_approval' && !m.content && <span className="opacity-70 italic">Paused  -  awaiting tool approval…</span>}
                     <ChatMessageContent content={m.content || (m.status === 'failed' && m.error) || ''} />
                   </div>
                   {m.role === 'assistant' && m.status === 'waiting_approval' && approvalPending[m.id] && (
-                    <div className="mt-2 rounded-xl border border-[#f59e0b44] bg-[#1a1500] px-4 py-3 text-sm">
+                    <div className="mt-2 rounded-md border border-[#f59e0b44] bg-[#1a1500] px-4 py-3 text-sm">
                       <div className="mb-1 font-medium text-[#f59e0b]">⏸ Waiting for approval</div>
                       <div className="mb-3 text-[#d4c4a0]">
                         I want to call{' '}
@@ -591,7 +591,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
             onTranscript={addVoiceTranscriptToComposer}
             className="self-end border border-[var(--color-pib-line)] bg-[var(--color-card)]"
           />
-          <textarea
+          <textarea aria-label="Send a message - Enter to send, Shift+Enter for new line"
             ref={composerRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -601,7 +601,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                 send(e as unknown as FormEvent)
               }
             }}
-            placeholder="Send a message — Enter to send, Shift+Enter for new line"
+            placeholder="Send a message  -  Enter to send, Shift+Enter for new line"
             rows={2}
             className="flex-1 resize-none rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm"
           />

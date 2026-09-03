@@ -62,9 +62,9 @@ export function GeoSeoWorkspaceDetail({
         <span aria-hidden="true">/</span>
         <Link href={backHref} className="hover:text-[var(--color-pib-text)]">GEO SEO</Link>
         <span aria-hidden="true">/</span>
-        <span className="font-semibold text-[var(--color-pib-text)]">{sourceLinkedLabel}</span>
+        <span className="font-medium text-[var(--color-pib-text)]">{sourceLinkedLabel}</span>
         <span aria-hidden="true">/</span>
-        <span className="font-semibold text-[var(--color-pib-text)]">{title}</span>
+        <span className="font-medium text-[var(--color-pib-text)]">{title}</span>
       </nav>
 
       <Link href={backHref} className="pib-btn-secondary inline-flex text-sm">
@@ -84,10 +84,10 @@ export function GeoSeoWorkspaceDetail({
             </p>
           </div>
 
-          <div className="min-w-36 rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] px-5 py-4 text-center">
-            <p className="font-display text-4xl text-[var(--color-pib-text)]">{score ?? '-'}</p>
+          <div className="min-w-36 rounded-md border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] px-5 py-4 text-center">
+            <p className="text-4xl text-[var(--color-pib-text)]">{score ?? '-'}</p>
             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">GEO score</p>
-            <p className="mt-2 text-sm font-semibold text-[var(--color-pib-accent)]">{delta || 'No baseline yet'}</p>
+            <p className="mt-2 text-sm font-medium text-[var(--color-pib-accent)]">{delta || 'No baseline yet'}</p>
           </div>
         </div>
       </header>
@@ -95,7 +95,7 @@ export function GeoSeoWorkspaceDetail({
       {sourceName && (
         <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="CRM company workspace context">
           <p className="eyebrow !text-[10px]">Opened from CRM company</p>
-          <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+          <h2 className="mt-1 text-base font-medium text-[var(--color-pib-text)]">
             {sourceName} is linked to {targetName}
           </h2>
           <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -109,16 +109,16 @@ export function GeoSeoWorkspaceDetail({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="pib-label mb-2">Workspace state</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Delivery control</h2>
+              <h2 className="text-2xl text-[var(--color-pib-text)]">Delivery control</h2>
             </div>
             <span className="pill">Reports approval-gated</span>
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {detailRows(workspace).map((row) => (
-              <div key={row.label} className="rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4">
+              <div key={row.label} className="rounded-md border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{row.label}</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{row.value}</p>
+                <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">{row.value}</p>
               </div>
             ))}
           </div>
@@ -126,14 +126,14 @@ export function GeoSeoWorkspaceDetail({
 
         <aside className="pib-card p-5">
           <p className="pib-label mb-2">Client report actions gated</p>
-          <h2 className="font-display text-xl text-[var(--color-pib-text)]">Approval before visibility</h2>
+          <h2 className="text-xl text-[var(--color-pib-text)]">Approval before visibility</h2>
           <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
             Share, publish, and client-visible report actions remain internal until an approval gate is recorded. Drafts can be prepared here without exposing them to the client portal.
           </p>
           <div className="mt-5 space-y-2 text-sm text-[var(--color-pib-text-muted)]">
-            <p>Linked SEO sprint: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.linkedSeoSprintId ? 'Connected' : 'Not linked'}</span></p>
-            <p>Project handoff: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.projectId ? 'Connected' : 'Not linked'}</span></p>
-            <p>Approval task: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.approvalGateTaskId ? 'Connected' : 'Not linked'}</span></p>
+            <p>Linked SEO sprint: <span className="font-medium text-[var(--color-pib-text)]">{workspace.linkedSeoSprintId ? 'Connected' : 'Not linked'}</span></p>
+            <p>Project handoff: <span className="font-medium text-[var(--color-pib-text)]">{workspace.projectId ? 'Connected' : 'Not linked'}</span></p>
+            <p>Approval task: <span className="font-medium text-[var(--color-pib-text)]">{workspace.approvalGateTaskId ? 'Connected' : 'Not linked'}</span></p>
           </div>
         </aside>
       </section>

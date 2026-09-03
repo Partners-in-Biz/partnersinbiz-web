@@ -24,7 +24,7 @@ import { appendQueryParams, scopedApiPath, scopedPortalPath, scopeFromSearchPara
 // exist on the backend yet, so the "Download all visible (zip)" button is
 // intentionally omitted. When the backend exposes a bulk-zip endpoint, add a
 // button here that opens `/api/v1/social/vault/download-bulk?ids=...` in a new tab.
-// TODO: bulk-download-zip — wire up once backend endpoint exists.
+// TODO: bulk-download-zip  -  wire up once backend endpoint exists.
 
 type VaultStatus =
   | 'approved'
@@ -234,7 +234,7 @@ function actionForStatus(status: VaultStatus): VaultPostAction | null {
 
 function relativeTime(ts: DateLike | null | undefined): string {
   const d = tsToDate(ts)
-  if (!d) return '—'
+  if (!d) return ' - '
   const diff = d.getTime() - Date.now()
   const abs = Math.abs(diff)
   const mins = Math.round(abs / 60000)
@@ -457,7 +457,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
         </p>
         {needsReadMore && !expanded && (
           <>
-            <div className="absolute bottom-6 left-0 right-0 h-8 -t from-[var(--color-surface)] to-transparent pointer-events-none" />
+            <div className="absolute bottom-6 left-0 right-0 h-8 bg-[var(--sc-surface)]/80 pointer-events-none" />
             <button
               onClick={() => setExpanded(true)}
               className="text-xs text-[var(--color-accent-v2)] hover:underline mt-1"

@@ -50,7 +50,7 @@ const EMPTY_FORM = {
 }
 
 function fmt(value: string | null): string {
-  if (!value) return '—'
+  if (!value) return ' - '
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? value : d.toISOString().replace('T', ' ').slice(0, 16)
 }
@@ -59,7 +59,7 @@ function statusBadge(status: Status): string {
   if (status === 'published') return 'bg-green-500/15 text-green-300'
   if (status === 'scheduled') return 'bg-blue-500/15 text-blue-300'
   if (status === 'archived') return 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
-  return 'bg-amber-500/15 text-amber-300'
+  return 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]'
 }
 
 export function AnnouncementsManager() {
@@ -156,7 +156,7 @@ export function AnnouncementsManager() {
           tone: 'ok',
           text:
             status === 'published'
-              ? 'Announcement published — it now appears in the portal changelog.'
+              ? 'Announcement published  -  it now appears in the portal changelog.'
               : `Announcement saved as ${status}.`,
         })
         resetForm()
@@ -222,7 +222,7 @@ export function AnnouncementsManager() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Announcements</h1>
+        <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Announcements</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Author feature announcements, schedule them, target by plan, and publish to the portal changelog with view
           tracking.
@@ -240,7 +240,7 @@ export function AnnouncementsManager() {
         ].map((m) => (
           <div key={m.label} className="pib-card">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m.value}</p>
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{m.value}</p>
           </div>
         ))}
       </div>
@@ -279,19 +279,19 @@ export function AnnouncementsManager() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Title</label>
-            <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <input aria-label="Title" className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Category</label>
-            <input className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            <input aria-label="Category" className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Version (optional)</label>
-            <input className={inputClass} value={form.version} onChange={(e) => setForm({ ...form, version: e.target.value })} />
+            <input aria-label="Version (optional)" className={inputClass} value={form.version} onChange={(e) => setForm({ ...form, version: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Summary / body</label>
-            <textarea
+            <textarea aria-label="Summary / body"
               rows={2}
               className={inputClass}
               value={form.body}
@@ -300,7 +300,7 @@ export function AnnouncementsManager() {
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Bullet notes (one per line)</label>
-            <textarea
+            <textarea aria-label="Bullet notes (one per line)"
               rows={3}
               className={inputClass}
               value={form.notesText}
@@ -309,7 +309,7 @@ export function AnnouncementsManager() {
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Schedule publish at (optional)</label>
-            <input
+            <input aria-label="Schedule publish at (optional)"
               type="datetime-local"
               className={inputClass}
               value={form.publishAt}
@@ -322,14 +322,14 @@ export function AnnouncementsManager() {
           <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Target plans (none selected = all plans)</p>
           <div className="flex flex-wrap gap-2">
             {plans.length === 0 ? (
-              <span className="text-xs text-[var(--color-pib-text-muted)]">No plans configured — announcement targets everyone.</span>
+              <span className="text-xs text-[var(--color-pib-text-muted)]">No plans configured  -  announcement targets everyone.</span>
             ) : (
               plans.map((p) => (
                 <button
                   key={p.key}
                   type="button"
                   onClick={() => togglePlan(p.key)}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  className={`rounded-md border px-3 py-1 text-xs transition-colors ${
                     targetPlans.includes(p.key)
                       ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-[var(--color-pib-text)]'
                       : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
@@ -371,7 +371,7 @@ export function AnnouncementsManager() {
       </div>
 
       {/* Listing */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
         <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
             <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
@@ -418,7 +418,7 @@ export function AnnouncementsManager() {
                     {a.targetPlans.length === 0 ? 'All plans' : a.targetPlans.map(planName).join(', ')}
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
-                    {a.status === 'scheduled' ? `Scheduled ${fmt(a.publishAt)}` : a.publishedAt ? fmt(a.publishedAt) : '—'}
+                    {a.status === 'scheduled' ? `Scheduled ${fmt(a.publishAt)}` : a.publishedAt ? fmt(a.publishedAt) : ' - '}
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{a.views}</td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmt(a.updatedAt)}</td>

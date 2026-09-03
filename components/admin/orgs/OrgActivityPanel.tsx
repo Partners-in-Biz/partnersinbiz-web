@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Surface, EmptyState } from '@/components/ui/AppFoundation'
 import { apiGet, formatDateTime } from './OrgDetailApi'
 
+import { Icon } from '@/components/studio'
+
 interface AuditEntry {
   id: string
   action: string
@@ -39,7 +41,7 @@ export function OrgActivityPanel({ slug }: { slug: string }) {
   }, [slug])
 
   if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading activity…</Surface>
-  if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
+  if (error) return <Surface className="text-[var(--st-danger)] text-sm">{error}</Surface>
 
   return (
     <Surface header={<span className="font-label">Admin activity log</span>}>
@@ -49,10 +51,8 @@ export function OrgActivityPanel({ slug }: { slug: string }) {
         <ol className="space-y-0">
           {entries.map((e) => (
             <li key={e.id} className="flex items-start gap-3 border-b border-white/5 py-3 last:border-0">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan mt-0.5">
-                <span className="material-symbols-outlined text-[18px]">
-                  {ACTION_ICON[e.action] ?? 'bolt'}
-                </span>
+              <span aria-hidden="true" className="mt-0.5">
+                <Icon name={ACTION_ICON[e.action] ?? 'bolt'} className="text-[18px]" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-[var(--color-pib-text)]">{e.summary || e.action}</p>

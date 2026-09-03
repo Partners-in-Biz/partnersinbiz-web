@@ -19,7 +19,7 @@ export function ScopeBlock({ block, index }: { block: DocumentBlock; index: numb
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-6 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-6 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
@@ -31,7 +31,7 @@ export function ScopeBlock({ block, index }: { block: DocumentBlock; index: numb
               className="flex items-start gap-3 text-base leading-7 text-[var(--doc-text)]"
             >
               <span
-                className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
                 style={{ background: 'var(--doc-accent-soft)' }}
               >
                 <CheckIcon className="h-3 w-3" style={{ color: 'var(--doc-accent)' }} />

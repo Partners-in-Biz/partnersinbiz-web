@@ -50,7 +50,7 @@ function tsToDate(ts: unknown): Date | null {
 
 function timeAgo(ts: unknown): string {
   const date = tsToDate(ts)
-  if (!date) return '—'
+  if (!date) return ' - '
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'just now'
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`

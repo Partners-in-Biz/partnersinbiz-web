@@ -25,7 +25,7 @@ const STATUS_TINT: Record<string, string> = {
 const TERMINAL = new Set(['completed', 'failed', 'partial'])
 
 function formatTs(ts: { seconds: number } | undefined): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   return new Date(ts.seconds * 1000).toLocaleString()
 }
 
@@ -62,7 +62,7 @@ export function OfflineBatchesListClient({
             router.refresh()
           }
         } catch {
-          // swallow — will retry next tick
+          // swallow - will retry next tick
         }
       }, 2000)
       pollTimers.current.set(batchId, timer)
@@ -232,11 +232,11 @@ export function OfflineBatchesListClient({
                 <span className="text-xs text-white/50">
                   {batch.processedRows}/{batch.totalRows}
                   {batch.failedRows > 0 && (
-                    <span className="text-red-400 ml-1">({batch.failedRows} failed)</span>
+                    <span className="text-[var(--st-danger)] ml-1">({batch.failedRows} failed)</span>
                   )}
                 </span>
                 <span
-                  className={`text-xs rounded-full px-2 py-0.5 font-medium ${STATUS_TINT[batch.status] ?? 'bg-white/5 text-white/50'}`}
+                  className={`text-xs rounded-md px-2 py-0.5 font-medium ${STATUS_TINT[batch.status] ?? 'bg-white/5 text-white/50'}`}
                 >
                   {batch.status}
                 </span>

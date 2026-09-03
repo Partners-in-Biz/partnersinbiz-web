@@ -39,19 +39,19 @@ export function InvestmentBlock({ block, index }: { block: DocumentBlock; index:
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-8 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-8 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
       <div
-        className="max-w-full rounded-2xl border p-6 md:p-8"
+        className="max-w-full rounded-md border p-6 md:p-8"
         style={{ borderColor: 'var(--doc-border)', background: 'var(--doc-surface)' }}
       >
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">
           Total investment
         </p>
         <p
-          className="mt-2 text-4xl font-semibold md:text-6xl"
+          className="mt-2 text-4xl font-medium md:text-6xl"
           style={{ color: 'var(--doc-accent)' }}
           data-counter={total}
         >

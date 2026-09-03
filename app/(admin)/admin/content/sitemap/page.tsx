@@ -390,7 +390,7 @@ export default function SitemapManagerPage() {
                     key={entry.id ?? `${entry.at}-${i}`}
                     className="flex items-start gap-3 rounded-md border border-[var(--color-pib-line)] px-3 py-2"
                   >
-                    <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+                    <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
                       <Icon name={entry.action === 'regenerate' ? 'sync' : 'send'} className="text-[15px]" />
                     </span>
                     <div className="min-w-0 flex-1">

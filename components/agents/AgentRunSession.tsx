@@ -6,6 +6,8 @@ import UnifiedChat from '@/components/chat/UnifiedChat'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import { HudChip, SignalMeter } from '@/components/ui/HudChip'
 
+import { Icon } from '@/components/studio'
+
 interface AgentRunSessionProps {
   agentId: string
   runId: string
@@ -188,7 +190,7 @@ export default function AgentRunSession({
               href={`/admin/org/${orgSlug}/messages`}
               className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1 font-label"
             >
-              <span className="material-symbols-outlined text-[14px]">forum</span>
+              <Icon name="forum" className="text-[14px]" />
               Messages
             </Link>
           )}
@@ -198,7 +200,7 @@ export default function AgentRunSession({
       <Surface className="shrink-0 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <HudChip tone="live" className="text-cyan-300">
-            <span className="material-symbols-outlined text-[13px]">smart_toy</span>
+            <Icon name="smart_toy" className="text-[13px]" />
             {agentId}
           </HudChip>
           <HudChip className="font-mono">{runId}</HudChip>
@@ -223,7 +225,7 @@ export default function AgentRunSession({
         <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]">
           <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Ticket chat</h2>
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Ticket chat</h2>
               <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">Direct conversation scoped to this ticket.</p>
             </div>
           </div>
@@ -247,7 +249,7 @@ export default function AgentRunSession({
         <aside className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
           <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]">
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3">
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Session events</h2>
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Session events</h2>
               <span className="text-[10px] pib-label">
                 {events.length} event{events.length === 1 ? '' : 's'}
               </span>
@@ -284,7 +286,7 @@ export default function AgentRunSession({
           </section>
 
           <section className="max-h-[36vh] min-h-[220px] overflow-y-auto pib-card p-4">
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Run result</h2>
+            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Run result</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Status and final output returned by the selected agent gateway.
             </p>

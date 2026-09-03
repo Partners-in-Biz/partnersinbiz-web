@@ -166,7 +166,7 @@ export function WebsiteCABuilder({ orgId, onComplete, onCancel }: Props) {
           ))}
           <button
             type="button"
-            className="text-xs text-[#F5A623] underline"
+            className="text-xs text-[var(--sc-accent)] underline"
             onClick={addRule}
             disabled={submitting}
           >

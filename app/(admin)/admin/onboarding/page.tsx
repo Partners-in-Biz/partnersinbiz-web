@@ -12,6 +12,8 @@ import {
   DialogDrawer,
 } from '@/components/ui/AppFoundation'
 
+import { Icon } from '@/components/studio'
+
 type Status = 'new' | 'in_progress' | 'blocked' | 'complete'
 
 interface InternalNote {
@@ -63,16 +65,16 @@ function unwrap<T>(body: unknown): T {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return ' - '
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return ' - '
   return d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
-      <div className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-1.5 w-full overflow-hidden rounded-md bg-[var(--color-pib-line)]">
+      <div className="h-full rounded-md bg-[var(--color-pib-accent)] transition-all" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
     </div>
   )
 }
@@ -211,7 +213,7 @@ export default function OnboardingPage() {
       )}
 
       {loading ? (
-        <div className="grid gap-3">{[0, 1, 2].map((i) => <div key={i} className="pib-skeleton h-20 rounded-xl" />)}</div>
+        <div className="grid gap-3">{[0, 1, 2].map((i) => <div key={i} className="pib-skeleton h-20 rounded-md" />)}</div>
       ) : filtered.length === 0 ? (
         <Surface>
           <EmptyState icon="inbox" title="No submissions" description="Onboarding submissions will appear here as they come in." />
@@ -228,7 +230,7 @@ export default function OnboardingPage() {
                     {s.product && <StatusPill tone="neutral">{s.product}</StatusPill>}
                   </div>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                    {s.contactName || '—'} · {s.contactEmail || 'no email'} · {fmtDate(s.createdAt)}
+                    {s.contactName || ' - '} · {s.contactEmail || 'no email'} · {fmtDate(s.createdAt)}
                   </p>
                   <div className="mt-3 max-w-md">
                     <div className="mb-1 flex items-center justify-between text-xs text-[var(--color-pib-text-muted)]">
@@ -252,16 +254,16 @@ export default function OnboardingPage() {
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.businessName || 'Submission'}
-        description={selected ? `${selected.contactName || '—'} · ${selected.contactEmail || 'no email'}` : undefined}
+        description={selected ? `${selected.contactName || ' - '} · ${selected.contactEmail || 'no email'}` : undefined}
         footer={selected ? (
           <>
             <button type="button" className="pib-btn-ghost" onClick={() => setSelected(null)}>Close</button>
             <button
               type="button"
               className="pib-btn-primary"
-              onClick={() => { setEmailSubject(`Following up on your onboarding — ${selected.businessName}`); setEmailBody(''); setEmailOpen(true) }}
+              onClick={() => { setEmailSubject(`Following up on your onboarding  -  ${selected.businessName}`); setEmailBody(''); setEmailOpen(true) }}
             >
-              <span className="material-symbols-outlined text-[18px]">mail</span>
+              <Icon name="mail" className="text-[18px]" />
               Email contact
             </button>
           </>
@@ -292,7 +294,7 @@ export default function OnboardingPage() {
                 <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Progress</span>
                 <span className="text-xs text-[var(--color-pib-text)]">{selected.progress}%</span>
               </div>
-              <input
+              <input aria-label="Progress"
                 type="range" min={0} max={100} step={5} value={selected.progress} disabled={saving}
                 onChange={(e) => setSelected({ ...selected, progress: Number(e.target.value) })}
                 onMouseUp={(e) => patch(selected.id, { progress: Number((e.target as HTMLInputElement).value) })}
@@ -312,7 +314,7 @@ export default function OnboardingPage() {
             <div className="flex flex-col gap-2">
               <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Internal notes</span>
               <div className="flex gap-2">
-                <input
+                <input aria-label="Add an internal note"
                   className="pib-input flex-1" placeholder="Add an internal note…" value={noteDraft}
                   onChange={(e) => setNoteDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addNote() } }}

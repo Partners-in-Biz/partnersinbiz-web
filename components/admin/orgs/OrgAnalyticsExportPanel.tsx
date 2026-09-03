@@ -99,7 +99,7 @@ export function OrgAnalyticsExportPanel({ slug }: { slug: string }) {
             </span>
           )}
         </div>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-2 text-sm text-[var(--st-danger)]">{error}</p>}
       </Surface>
 
       <Surface header={<span className="font-label">Recent exports</span>}>

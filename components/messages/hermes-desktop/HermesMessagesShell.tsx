@@ -5,6 +5,7 @@ import UnifiedChat from '@/components/chat/UnifiedChat'
 import { ChatMessageContent } from '@/components/chat/MessageBubble'
 import type { Conversation } from '@/components/chat/ConversationListItem'
 import {
+import { Icon } from '@/components/studio'
   normalizeWorkspacePanel,
   WORKSPACE_PANEL_EVENT,
   type WorkspacePanelSpec,
@@ -121,7 +122,7 @@ function StatusPill({ children, tone = 'default' }: { children: ReactNode; tone?
     : tone === 'muted'
       ? 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]'
       : 'border-[var(--color-pib-blue)]/25 bg-[var(--color-pib-blue-soft)] text-[var(--color-pib-blue)]'
-  return <span className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] ${toneClass}`}>{children}</span>
+  return <span className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] ${toneClass}`}>{children}</span>
 }
 
 function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
@@ -129,14 +130,14 @@ function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
     <section data-testid={`generated-workspace-panel-${panel.id}`} className="h-full min-h-0 overflow-y-auto p-4 sm:p-5">
       <div className="mx-auto max-w-5xl">
         <p className="pib-label text-primary">{panel.eyebrow ?? 'Generated workspace UI'}</p>
-        <h2 className="mt-1 text-xl font-semibold text-[var(--color-pib-text)]">{panel.title}</h2>
+        <h2 className="mt-1 text-xl font-medium text-[var(--color-pib-text)]">{panel.title}</h2>
         {panel.body && <div className="mt-3 text-sm leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={panel.body} /></div>}
         {panel.metrics.length > 0 && (
           <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {panel.metrics.map((metric) => (
               <article key={metric.label} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.025] p-3">
                 <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">{metric.label}</p>
-                <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                <p className="mt-1 text-lg font-medium text-[var(--color-pib-text)]">{metric.value}</p>
                 {metric.detail && <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{metric.detail}</p>}
               </article>
             ))}
@@ -146,7 +147,7 @@ function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
           <div className="mt-5 grid gap-3 xl:grid-cols-2">
             {panel.sections.map((section, index) => (
               <article key={`${section.heading ?? 'section'}-${index}`} className="rounded-lg border border-[var(--color-card-border)] bg-black/[0.08] p-4">
-                {section.heading && <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{section.heading}</h3>}
+                {section.heading && <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{section.heading}</h3>}
                 {section.body && <div className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={section.body} /></div>}
                 {section.items && section.items.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[var(--color-pib-text-muted)]">{section.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>}
               </article>
@@ -156,7 +157,7 @@ function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
         {panel.rows.length > 0 && (
           <div className="mt-5 overflow-x-auto rounded-lg border border-[var(--color-card-border)]">
             <table className="min-w-full border-collapse text-left text-xs">
-              {panel.columns.length > 0 && <thead className="bg-white/[0.04]"><tr>{panel.columns.map((column) => <th key={column} className="border-b border-[var(--color-card-border)] px-3 py-2 font-semibold">{column}</th>)}</tr></thead>}
+              {panel.columns.length > 0 && <thead className="bg-white/[0.04]"><tr>{panel.columns.map((column) => <th key={column} className="border-b border-[var(--color-card-border)] px-3 py-2 font-medium">{column}</th>)}</tr></thead>}
               <tbody>{panel.rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-[var(--color-card-border)] last:border-0">{row.map((cell, cellIndex) => <td key={cellIndex} className="px-3 py-2 text-[var(--color-pib-text-muted)]">{cell}</td>)}</tr>)}</tbody>
             </table>
           </div>
@@ -560,11 +561,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     >
       <header data-testid="hermes-messages-shell-topbar" className={`hidden h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5 md:flex ${experienceMode === 'bot' ? 'pl-12' : ''}`}>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
-            {experienceMode === 'bot' ? 'smart_toy' : 'forum'}
-          </span>
+          <Icon name={experienceMode === 'bot' ? 'smart_toy' : 'forum'} className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" />
           <div className="flex min-w-0 items-center gap-2">
-            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{experienceMode === 'bot' ? BOT_MODE_COPY.title : copy.title}</h1>
+            <h1 className="truncate text-sm font-medium leading-tight text-[var(--color-pib-text)]">{experienceMode === 'bot' ? BOT_MODE_COPY.title : copy.title}</h1>
             {experienceMode !== 'bot' && orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
             {experienceMode !== 'bot' && parkedTabs.length > 0 && (
               <span className="hidden rounded-md border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] sm:inline">
@@ -579,15 +578,15 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           {experienceMode !== 'bot' && (
             <>
               <div className="hidden items-center gap-1.5 xl:flex">
-                <StatusPill tone="muted"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill>
+                <StatusPill tone="muted"><Icon name="hub" className="text-[13px]" />{runtimeMode}</StatusPill>
               </div>
-              <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="hidden h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:grid"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
-              <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
-              <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
+              <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="hidden h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:grid"><Icon name={conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'} className="text-[16px]" /></button>
+              <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><Icon name={direction === 'row' ? 'horizontal_split' : 'vertical_split'} className="text-[16px]" /></button>
+              <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><Icon name="splitscreen" className="text-[16px]" /></button>
             </>
           )}
           {experienceMode === 'bot' && (
-            <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="hidden h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:grid"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
+            <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="hidden h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:grid"><Icon name={conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'} className="text-[16px]" /></button>
           )}
         </div>
       </header>
@@ -699,7 +698,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                             disabled={tabTransfer !== null}
                             className="ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-5 xl:w-5 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
                           >
-                            <span aria-hidden="true" className="material-symbols-outlined block text-[13px] leading-none">switch_right</span>
+                            <Icon name="switch_right" className="block text-[13px] leading-none" />
                           </button>
                         )}
                         <button
@@ -709,7 +708,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                           disabled={tabTransfer !== null}
                           className="ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-5 xl:w-5 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
                         >
-                          <span aria-hidden="true" className="material-symbols-outlined block text-[12px] leading-none">close</span>
+                          <Icon name="close" className="block text-[12px] leading-none" />
                         </button>
                       </div>
                       )
@@ -717,7 +716,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
                     {parkedTabsForPane.length > 0 && (
                       <div data-testid="messages-parked-tabs-inline" aria-label="Parked tabs" className="mx-parked-tabs-inline-enter ml-4 flex min-w-0 shrink-0 items-center gap-1 border-l border-[var(--color-card-border)] pl-4">
-                        <span aria-hidden="true" title="Parked tabs" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">pause_circle</span>
+                        <Icon name="pause_circle" className="text-[14px] text-[var(--color-pib-text-muted)]" />
                         {parkedTabsForPane.map((tab) => (
                           <button
                             key={tab.id}
@@ -730,15 +729,15 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                             disabled={tabTransfer !== null}
                             className={`group/parked relative flex min-h-11 min-w-[92px] max-w-[180px] items-center gap-1 overflow-hidden rounded-md border border-dashed border-white/[0.1] px-2 text-left text-[11px] text-[var(--color-pib-text-muted)] hover:border-primary/35 hover:bg-primary/[0.08] hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-6 xl:min-h-0 ${tab.accentSeed ? 'mx-folder-accent' : ''} ${tabTransfer?.id === tab.id && tabTransfer.direction === 'restoring' ? 'mx-parked-tab-restoring' : 'mx-parked-tab-enter'}`}
                           >
-                            <span aria-hidden="true" className="material-symbols-outlined text-[13px] text-primary">switch_left</span>
+                            <Icon name="switch_left" className="text-[13px] text-primary" />
                             <span className="min-w-0 flex-1 truncate">{tab.title}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                  {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
-                  {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:h-6 xl:w-6"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
+                  {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><Icon name="swap_horiz" className="text-[18px]" /></button>}
+                  {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:h-6 xl:w-6"><Icon name="close_fullscreen" className="text-[14px]" /></button>}
                 </div>
                 <div className="min-h-0 min-w-0 flex-1 overflow-hidden p-1">
                   {activeTab?.kind === 'panel' ? <GeneratedWorkspacePanel panel={activeTab.panel} /> : (
@@ -764,7 +763,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
               </div>
             )
           })}
-          {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
+          {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
         </div>
       </section>
     </ModuleShell>

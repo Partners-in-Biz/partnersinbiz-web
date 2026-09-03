@@ -24,8 +24,8 @@ const COLOR_KEYS = [
 ] as const
 
 const SWATCH: Record<string, string> = {
-  violet: 'bg-violet-500', sky: 'bg-sky-500', indigo: 'bg-indigo-500',
-  emerald: 'bg-emerald-500', pink: 'bg-pink-500', amber: 'bg-amber-500',
+  violet: 'bg-[var(--sc-accent)]', sky: 'bg-sky-500', indigo: 'bg-indigo-500',
+  emerald: 'bg-emerald-500', pink: 'bg-pink-500', amber: 'bg-[var(--st-warning)]',
   teal: 'bg-teal-500', rose: 'bg-rose-500', green: 'bg-green-500',
   cyan: 'bg-cyan-500', purple: 'bg-purple-500', blue: 'bg-blue-500',
   lime: 'bg-lime-500', orange: 'bg-orange-500', slate: 'bg-slate-500',
@@ -35,7 +35,7 @@ export interface OrgRoleFormProps {
   orgId: string
   /** null = create mode. */
   node: AgentOrgNode | null
-  /** All nodes of the org — used for the reportsTo select. */
+  /** All nodes of the org  -  used for the reportsTo select. */
   nodes: AgentOrgNode[]
   canEdit?: boolean
   /** Prefer live runtime push when a bound agentId is present. */
@@ -46,7 +46,7 @@ export interface OrgRoleFormProps {
    * Portal: `/api/v1/portal/settings/agents/org-chart`
    */
   apiBase?: string
-  /** When false, hide/disable push-to-live Hermes (portal org admins without admin agent APIs). */
+  /** When false, hide/disable push to live Hermes (portal org admins without admin agent APIs). */
   allowLiveRuntimeSync?: boolean
   onSaved: (node: AgentOrgNode | null) => void
   onDeleted?: () => void
@@ -225,7 +225,7 @@ export default function OrgRoleForm({
         try {
           syncNote = await pushLiveRuntime(boundAgentId, form)
         } catch (syncErr) {
-          // Org node already saved — surface sync failure without rolling back Firestore.
+          // Org node already saved  -  surface sync failure without rolling back Firestore.
           setError(syncErr instanceof Error ? syncErr.message : 'Live runtime sync failed')
           onSaved(savedNode)
           setBusy(null)
@@ -236,7 +236,7 @@ export default function OrgRoleForm({
       setMessage(
         syncNote ??
           (allowLiveRuntimeSync
-            ? 'Org role saved (task defaults only — live Hermes profile unchanged).'
+            ? 'Org role saved (task defaults only  -  live Hermes profile unchanged).'
             : 'Org role saved. Live Hermes profiles are linked via bound agentId + machine install (Pip skill).'),
       )
       onSaved(savedNode)
@@ -280,7 +280,7 @@ export default function OrgRoleForm({
         {error && (
           <div
             role="alert"
-            className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400"
+            className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-[var(--st-danger)]"
           >
             {error}
           </div>
@@ -336,7 +336,7 @@ export default function OrgRoleForm({
             className={inputCls}
             value={form.agentId}
             onChange={(e) => set('agentId', e.target.value)}
-            placeholder="e.g. theo — leave empty for an unbound role"
+            placeholder="e.g. theo  -  leave empty for an unbound role"
             aria-label="Agent id"
             disabled={!canEdit || busy !== null}
           />
@@ -432,7 +432,7 @@ export default function OrgRoleForm({
               <span className="mt-0.5 block text-[11px] text-[var(--color-pib-text-muted)]">
                 Writes Auto primary model + reasoning effort on the bound machine profile
                 ({boundAgentId}) via the admin sidecar, then restarts that gateway.
-                Does not fan out to every linked device automatically — only the agent&apos;s
+                Does not fan out to every linked device automatically  -  only the agent&apos;s
                 configured runtime target (usually VPS Hermes).
               </span>
             </span>
@@ -533,7 +533,7 @@ export default function OrgRoleForm({
                 <button
                   key={c}
                   type="button"
-                  className={`h-3 w-3 rounded-full ${SWATCH[c]} ${form.colorKey === c ? 'ring-2 ring-white/60 ring-offset-1 ring-offset-[var(--color-pib-bg)]' : ''}`}
+                  className={`h-3 w-3  ${SWATCH[c]} ${form.colorKey === c ? 'ring-2 ring-white/60 ring-offset-1 ring-offset-[var(--color-pib-bg)]' : ''}`}
                   title={c}
                   aria-label={`Colour ${c}`}
                   aria-pressed={form.colorKey === c}
@@ -553,7 +553,7 @@ export default function OrgRoleForm({
               type="button"
               onClick={handleDelete}
               disabled={busy !== null}
-              className="btn-pib-ghost btn-pib-sm font-label text-red-400 hover:text-red-300 disabled:opacity-50"
+              className="btn-pib-ghost btn-pib-sm font-label text-[var(--st-danger)] hover:text-red-300 disabled:opacity-50"
               aria-label={`Delete ${node!.name}`}
             >
               {busy === 'delete' ? 'Deleting…' : 'Delete'}

@@ -111,7 +111,7 @@ function DnsRecordsTable({ records }: { records: EmailDomainDnsRecord[] }) {
                 )}
               </td>
               <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                {rec.status ?? '—'}
+                {rec.status ?? ' - '}
               </td>
               <td className="px-3 py-2">
                 <CopyButton value={rec.value} />

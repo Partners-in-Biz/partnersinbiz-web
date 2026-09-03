@@ -16,7 +16,7 @@ const statusLabel: Record<CanvasNodeStatus, string> = {
 }
 
 /**
- * Combine node — the heart of the freeform canvas. Link any image / text /
+ * Combine node  -  the heart of the freeform canvas. Link any image / text /
  * video / audio nodes into it, write one instruction describing how they come
  * together ("the person wears these clothes, the dog sits next to them"),
  * pick an output type, and Generate. The result lands in a new output node

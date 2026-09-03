@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { FormEvent, useState } from 'react'
 import { PARTNER_OPPORTUNITIES } from '@/lib/partner-opportunities'
 
@@ -14,7 +16,7 @@ type SelectedOpportunity = {
 const ACCESS_HANDOFF_OPTIONS = [
   { value: 'none', label: 'No login needed / public links only' },
   { value: 'demo_credentials', label: 'I can provide clearly labelled demo credentials' },
-  { value: 'secure_handoff_needed', label: 'Actual login may be needed — arrange secure handoff' },
+  { value: 'secure_handoff_needed', label: 'Actual login may be needed - arrange secure handoff' },
 ] as const
 
 const DEFAULT_OPPORTUNITY: SelectedOpportunity = {
@@ -24,7 +26,7 @@ const DEFAULT_OPPORTUNITY: SelectedOpportunity = {
 }
 
 const INPUT_CLASS =
-  'rounded-xl border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] px-4 py-3 text-[var(--color-pib-text)] outline-none transition placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)]'
+  'rounded-md border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] px-4 py-3 text-[var(--color-pib-text)] outline-none transition placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)]'
 
 export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }: { opportunity?: SelectedOpportunity }) {
   const claimPrompt = PARTNER_OPPORTUNITIES.find((entry) => entry.id === opportunity.id)?.claimPrompt
@@ -119,8 +121,8 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
     return (
       <div className="bento-card p-8">
         <p className="eyebrow mb-4">Interest registered</p>
-        <h2 className="text-2xl font-display text-[var(--color-pib-text)]">
-          Thanks — we’ll review this exact opportunity and come back to you.
+        <h2 className="text-2xl text-[var(--color-pib-text)]">
+          Thanks - we’ll review this exact opportunity and come back to you.
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           We captured your interest in {opportunity.title}
@@ -135,7 +137,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
   return (
     <form onSubmit={submit} className="bento-card p-6 md:p-8">
       <p className="eyebrow mb-4">Register interest</p>
-      <h2 className="text-2xl font-display leading-tight text-[var(--color-pib-text)]">{opportunity.title}</h2>
+      <h2 className="text-2xl leading-tight text-[var(--color-pib-text)]">{opportunity.title}</h2>
       <p className="mt-3 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
         Capture enough detail for a useful follow-up. Public links and demo credentials are fine; never paste real
         passwords here.
@@ -202,7 +204,7 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
           />
         </label>
 
-        <label className="flex gap-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+        <label className="flex gap-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           <input
             type="checkbox"
             checked={form.consent}
@@ -214,11 +216,11 @@ export default function PartnerWithUsForm({ opportunity = DEFAULT_OPPORTUNITY }:
         </label>
       </div>
 
-      {status === 'error' && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      {status === 'error' && <p className="mt-4 text-sm text-[var(--st-danger)]">{error}</p>}
 
       <button type="submit" disabled={status === 'loading'} className="btn-pib-accent mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-70">
         {status === 'loading' ? 'Registering...' : 'Register interest'}
-        <span className="material-symbols-outlined text-base">send</span>
+        <Icon name="send" />
       </button>
     </form>
   )

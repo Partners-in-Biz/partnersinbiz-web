@@ -1,12 +1,12 @@
 'use client'
 
-// LeadCaptureSourceForm — create/edit UI for the v2 "lead capture" system
+// LeadCaptureSourceForm - create/edit UI for the v2 "lead capture" system
 // (collection: lead_capture_sources, API: /api/v1/capture-sources).
 //
 // Closes:
-//   US-057 — opt-in mode, success message, fields configurator, theme,
+//   US-057 - opt-in mode, success message, fields configurator, theme,
 //            auto-apply tags.
-//   US-091 — webhook URL + secret, plus a "Delivery log" panel showing the
+//   US-091 - webhook URL + secret, plus a "Delivery log" panel showing the
 //            last N webhook delivery attempts.
 //
 // Distinct from CaptureSourcesWorkspace.tsx, which drives the LEGACY
@@ -168,7 +168,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
   const [type, setType] = useState<CaptureSourceType>('newsletter')
   const [active, setActive] = useState(true)
   const [doubleOptIn, setDoubleOptIn] = useState<DoubleOptInMode>('off')
-  const [successMessage, setSuccessMessage] = useState('Thanks — you are subscribed!')
+  const [successMessage, setSuccessMessage] = useState('Thanks - you are subscribed!')
   const [successRedirectUrl, setSuccessRedirectUrl] = useState('')
   const [tags, setTags] = useState('')
   const [fields, setFields] = useState<CaptureField[]>([])
@@ -187,7 +187,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
     setType((s.type as CaptureSourceType) ?? 'newsletter')
     setActive(s.active !== false)
     setDoubleOptIn(s.doubleOptIn === 'on' ? 'on' : 'off')
-    setSuccessMessage(s.successMessage ?? 'Thanks — you are subscribed!')
+    setSuccessMessage(s.successMessage ?? 'Thanks - you are subscribed!')
     setSuccessRedirectUrl(s.successRedirectUrl ?? '')
     setTags((s.tagsToApply ?? []).join(', '))
     setFields(Array.isArray(s.fields) ? s.fields : [])
@@ -267,7 +267,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
       type,
       active,
       doubleOptIn,
-      successMessage: successMessage.trim() || 'Thanks — you are subscribed!',
+      successMessage: successMessage.trim() || 'Thanks - you are subscribed!',
       successRedirectUrl: successRedirectUrl.trim(),
       tagsToApply,
       fields: cleanedFields,
@@ -313,7 +313,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
     return (
       <div className="space-y-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="pib-skeleton h-28 rounded-xl" />
+          <div key={i} className="pib-skeleton h-28 rounded-md" />
         ))}
       </div>
     )
@@ -321,9 +321,9 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
   if (loadError) {
     return (
-      <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-        <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-        <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+      <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/[0.07] p-5">
+        <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Source health</p>
+        <h2 className="mt-1 text-xl text-[var(--color-pib-text)]">
           Could not load this capture source
         </h2>
         <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
@@ -335,13 +335,13 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
   }
 
   return (
-    <form onSubmit={handleSave} className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <form onSubmit={handleSave} className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <header className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-3 py-2">
         <div>
           <p className="eyebrow">{surface === 'admin-org' ? 'Client lead capture' : 'Lead capture'}</p>
-          <h1 className="mt-0.5 text-base font-semibold text-[var(--color-pib-text)]">{isEdit ? 'Edit capture source' : 'New capture source'}</h1>
+          <h1 className="mt-0.5 text-base font-medium text-[var(--color-pib-text)]">{isEdit ? 'Edit capture source' : 'New capture source'}</h1>
           <p className="max-w-2xl text-xs leading-4 text-[var(--color-pib-text-muted)]">
-            Configure how this source collects leads — opt-in mode, the fields it asks for, theming,
+            Configure how this source collects leads - opt-in mode, the fields it asks for, theming,
             auto-applied tags, and an optional outbound webhook.
           </p>
         </div>
@@ -358,11 +358,12 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
               onChange={(e) => setName(e.target.value)}
               placeholder="Homepage newsletter"
               className={INPUT}
-            />
+                aria-label="Name"
+              />
           </div>
           <div>
             <label className={LABEL}>Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value as CaptureSourceType)} className={INPUT}>
+            <select value={type} onChange={(e) => setType(e.target.value as CaptureSourceType)} className={INPUT} aria-label="Type">
               {TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -424,9 +425,10 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             value={successMessage}
             onChange={(e) => setSuccessMessage(e.target.value)}
             rows={2}
-            placeholder="Thanks — you are subscribed!"
+            placeholder="Thanks - you are subscribed!"
             className={INPUT}
-          />
+                aria-label="Success message"
+              />
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
             Shown to the visitor after a successful submit.
           </p>
@@ -439,7 +441,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             placeholder="https://example.com/thanks"
             type="url"
             className={INPUT}
-          />
+                aria-label="Redirect URL (optional)"
+              />
         </div>
       </div>
 
@@ -490,7 +493,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       onChange={(e) => updateField(idx, { label: e.target.value })}
                       placeholder="First name"
                       className={INPUT}
-                    />
+                aria-label="Label"
+              />
                   </div>
                   <div>
                     <label className={LABEL}>Type</label>
@@ -498,7 +502,9 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       value={f.type}
                       onChange={(e) => updateField(idx, { type: e.target.value as CaptureFieldType })}
                       className={INPUT}
-                    >
+                    
+                aria-label="Type"
+              >
                       {FIELD_TYPE_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
@@ -513,7 +519,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       onChange={(e) => updateField(idx, { key: e.target.value.trim() })}
                       placeholder="firstName"
                       className={`${INPUT} font-mono`}
-                    />
+                aria-label="Key"
+              />
                   </div>
                 </div>
 
@@ -532,7 +539,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       }
                       placeholder="Small, Medium, Large"
                       className={INPUT}
-                    />
+                aria-label="Options (comma-separated)"
+              />
                   </div>
                 )}
 
@@ -568,7 +576,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
           onChange={(e) => setTags(e.target.value)}
           placeholder="lead, newsletter, website"
           className={INPUT}
-        />
+                aria-label="Auto-tags"
+              />
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           Comma-separated. These tags are applied to every contact created or matched through this
           source.
@@ -587,11 +596,13 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 value={theme.primaryColor}
                 onChange={(e) => setTheme((t) => ({ ...t, primaryColor: e.target.value }))}
                 className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
+                aria-label="Primary color picker"
               />
               <input
                 value={theme.primaryColor}
                 onChange={(e) => setTheme((t) => ({ ...t, primaryColor: e.target.value }))}
                 className={`${INPUT} font-mono`}
+                aria-label="Primary color hex"
               />
             </div>
           </div>
@@ -603,11 +614,13 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 value={theme.textColor}
                 onChange={(e) => setTheme((t) => ({ ...t, textColor: e.target.value }))}
                 className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
+                aria-label="Text color picker"
               />
               <input
                 value={theme.textColor}
                 onChange={(e) => setTheme((t) => ({ ...t, textColor: e.target.value }))}
                 className={`${INPUT} font-mono`}
+                aria-label="Text color hex"
               />
             </div>
           </div>
@@ -619,11 +632,13 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 value={theme.backgroundColor}
                 onChange={(e) => setTheme((t) => ({ ...t, backgroundColor: e.target.value }))}
                 className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
+                aria-label="Background color picker"
               />
               <input
                 value={theme.backgroundColor}
                 onChange={(e) => setTheme((t) => ({ ...t, backgroundColor: e.target.value }))}
                 className={`${INPUT} font-mono`}
+                aria-label="Background color hex"
               />
             </div>
           </div>
@@ -635,7 +650,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
               value={theme.headingText}
               onChange={(e) => setTheme((t) => ({ ...t, headingText: e.target.value }))}
               className={INPUT}
-            />
+                aria-label="Heading text"
+              />
           </div>
           <div>
             <label className={LABEL}>Subheading text</label>
@@ -643,7 +659,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
               value={theme.subheadingText}
               onChange={(e) => setTheme((t) => ({ ...t, subheadingText: e.target.value }))}
               className={INPUT}
-            />
+                aria-label="Subheading text"
+              />
           </div>
           <div>
             <label className={LABEL}>Button text</label>
@@ -651,7 +668,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
               value={theme.buttonText}
               onChange={(e) => setTheme((t) => ({ ...t, buttonText: e.target.value }))}
               className={INPUT}
-            />
+                aria-label="Button text"
+              />
           </div>
           <div>
             <label className={LABEL}>Border radius (px)</label>
@@ -664,7 +682,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 setTheme((t) => ({ ...t, borderRadius: Number.isFinite(+e.target.value) ? +e.target.value : t.borderRadius }))
               }
               className={INPUT}
-            />
+                aria-label="Border radius (px)"
+              />
           </div>
         </div>
       </div>
@@ -684,7 +703,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             placeholder="https://hooks.example.com/pib"
             type="url"
             className={INPUT}
-          />
+                aria-label="Webhook URL"
+              />
         </div>
         <div>
           <label className={LABEL}>Signing secret (optional)</label>
@@ -693,7 +713,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             onChange={(e) => setWebhookSecret(e.target.value)}
             placeholder="Used to HMAC-SHA256 sign each delivery (X-PIB-Signature)"
             className={`${INPUT} font-mono`}
-          />
+                aria-label="Signing secret (optional)"
+              />
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
             When set, deliveries include <code>X-PIB-Signature: sha256=…</code> and{' '}
             <code>X-PIB-Timestamp</code> headers so the receiver can verify authenticity.
@@ -725,7 +746,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-medium border ${
                           d.status === 'success'
                             ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
                             : 'border-red-400/30 bg-red-500/10 text-red-200'
@@ -751,7 +772,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                           >
                             #{a.attempt} {a.ok ? 'ok' : 'fail'}{' '}
                             {a.statusCode ? `(${a.statusCode})` : ''} {a.durationMs}ms
-                            {a.error ? ` — ${a.error}` : ''}
+                            {a.error ? ` - ${a.error}` : ''}
                           </p>
                         ))}
                       </div>

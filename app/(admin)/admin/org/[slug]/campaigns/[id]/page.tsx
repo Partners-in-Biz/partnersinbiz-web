@@ -388,7 +388,7 @@ export default function CampaignDetailPage() {
         <div
           role="alertdialog"
           aria-label="Confirm campaign launch"
-          className="rounded-lg border border-amber-300/30 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 p-3 text-xs text-[var(--color-pib-amber)] space-y-3"
+          className="rounded-lg border border-amber-300/30 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] p-3 text-xs text-[var(--color-pib-amber)] space-y-3"
         >
           <p>
             Enroll {audienceSize} contact{audienceSize === 1 ? '' : 's'} and start sending?

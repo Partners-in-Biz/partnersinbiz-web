@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Icon } from '@/components/studio'
 import type {
   CrmGmailIntent,
   CrmImportStatus,
@@ -69,24 +70,22 @@ function templateIcon(kind: CrmStarterTemplate['kind']) {
 function SetupLoadingState() {
   return (
     <div className="max-w-5xl space-y-2">
-      <div className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
-        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
-          rocket_launch
-        </span>
+      <div className="flex h-11 items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <Icon name="rocket_launch" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" />
         <div className="min-w-0">
           <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM setup</p>
-          <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Preparing CRM setup workspace</h1>
+          <h1 className="truncate text-sm font-medium leading-tight text-[var(--color-pib-text)]">Preparing CRM setup workspace</h1>
         </div>
       </div>
       <p className="px-1 text-xs text-[var(--color-pib-text-muted)]">
         Loading pipeline templates, import status, and launch blockers for this workspace.
       </p>
 
-      <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45" aria-label="CRM setup loading preview">
+      <section className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45" aria-label="CRM setup loading preview">
         <div className="flex flex-col gap-3 border-b border-[var(--color-card-border)] p-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Setup command center</p>
-            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">CRM launch readiness</h2>
+            <h2 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">CRM launch readiness</h2>
             <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
               We are preparing the workflow, starter assets, and first actions before the team starts editing setup.
             </p>
@@ -94,7 +93,7 @@ function SetupLoadingState() {
           <div className="min-w-[150px] shrink-0 rounded-md border border-[var(--color-card-border)] bg-black/10 px-3 py-2">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Readiness</p>
             <div className="pib-skeleton mt-2 h-6 w-16 rounded" />
-            <div className="pib-skeleton mt-2 h-1.5 w-full rounded-full" />
+            <div className="pib-skeleton mt-2 h-1.5 w-full rounded-md" />
           </div>
         </div>
 
@@ -213,13 +212,11 @@ export function CrmSetupWizard() {
 
   return (
     <div className="max-w-5xl space-y-2">
-      <div className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
-        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
-          rocket_launch
-        </span>
+      <div className="flex h-11 items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <Icon name="rocket_launch" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" />
         <div className="min-w-0">
           <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Settings / CRM</p>
-          <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">CRM setup</h1>
+          <h1 className="truncate text-sm font-medium leading-tight text-[var(--color-pib-text)]">CRM setup</h1>
         </div>
         <p className="ml-auto hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:block">
           Set the first version of your sales workflow, import plan, and starter templates.
@@ -239,34 +236,34 @@ export function CrmSetupWizard() {
 
       <CrmSetupCommandCenter setup={setup} recommendedTemplates={recommendedTemplates} portalPath={setupPortalPath} />
 
-      <section className="grid gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 md:grid-cols-2">
+      <section className="grid gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 md:grid-cols-2">
         <Field label="Sales process">
-          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.salesProcess} onChange={(e) => update('salesProcess', e.target.value as CrmSalesProcess)}>
+          <select aria-label="Sales process" className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.salesProcess} onChange={(e) => update('salesProcess', e.target.value as CrmSalesProcess)}>
             {SALES_PROCESS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="Pipeline preference">
-          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.pipelinePreference} onChange={(e) => update('pipelinePreference', e.target.value as CrmPipelinePreference)}>
+          <select aria-label="Pipeline preference" className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.pipelinePreference} onChange={(e) => update('pipelinePreference', e.target.value as CrmPipelinePreference)}>
             {PIPELINE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="CSV import status">
-          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.importStatus} onChange={(e) => update('importStatus', e.target.value as CrmImportStatus)}>
+          <select aria-label="CSV import status" className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.importStatus} onChange={(e) => update('importStatus', e.target.value as CrmImportStatus)}>
             {IMPORT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="Gmail connection">
-          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.gmailIntent} onChange={(e) => update('gmailIntent', e.target.value as CrmGmailIntent)}>
+          <select aria-label="Gmail connection" className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={setup.gmailIntent} onChange={(e) => update('gmailIntent', e.target.value as CrmGmailIntent)}>
             {GMAIL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
       </section>
 
-      <section role="region" aria-label="Team rollout plan" className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <section role="region" aria-label="Team rollout plan" className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
         <div className="flex flex-col gap-2 border-b border-[var(--color-card-border)] p-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CEO rollout</p>
-            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Team rollout plan</h2>
+            <h2 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">Team rollout plan</h2>
             <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
               Capture who owns setup, what the team should launch first, and which decisions need to be visible before CRM becomes daily operating rhythm.
             </p>
@@ -279,9 +276,9 @@ export function CrmSetupWizard() {
         <div className="grid gap-2 border-b border-[var(--color-card-border)] p-3 md:grid-cols-3">
           {TEAM_ROLLOUT_PLAN.map((step) => (
             <div key={step.title} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">{step.icon}</span>
+              <Icon name={step.icon} className="mt-0.5 text-[16px] text-primary" />
               <div className="min-w-0">
-                <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{step.title}</h3>
+                <h3 className="text-xs font-medium text-[var(--color-pib-text)]">{step.title}</h3>
                 <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{step.description}</p>
               </div>
             </div>
@@ -299,10 +296,10 @@ export function CrmSetupWizard() {
         </label>
       </section>
 
-      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+      <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xs font-semibold text-[var(--color-pib-text)]">Import contacts</h2>
+            <h2 className="text-xs font-medium text-[var(--color-pib-text)]">Import contacts</h2>
             <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
               Use the existing CSV importer once your source file is ready. Validate first to preview mapping and skipped rows.
             </p>
@@ -311,22 +308,22 @@ export function CrmSetupWizard() {
             href={setupPortalPath('/portal/capture-sources/import')}
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload_file</span>
+            <Icon name="upload_file" className="text-[16px]" />
             Open CSV import
           </Link>
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <section className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
         <div className="flex h-11 items-center justify-between border-b border-[var(--color-card-border)] px-3">
-          <h2 className="text-xs font-semibold text-[var(--color-pib-text)]">Starter templates</h2>
+          <h2 className="text-xs font-medium text-[var(--color-pib-text)]">Starter templates</h2>
           <button
             type="button"
             onClick={saveSetup}
             disabled={saving}
             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+            <Icon name="save" className="text-[16px]" />
             {saving ? 'Saving...' : 'Save setup'}
           </button>
         </div>
@@ -338,10 +335,10 @@ export function CrmSetupWizard() {
             return (
               <div key={template.id} className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
                 <div className="flex items-start gap-2">
-                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">{templateIcon(template.kind)}</span>
+                  <Icon name={templateIcon(template.kind)} className="mt-0.5 text-[16px] text-primary" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{template.name}</h3>
+                      <h3 className="text-xs font-medium text-[var(--color-pib-text)]">{template.name}</h3>
                       <span className="pib-pill pib-pill-accent">{template.kind}</span>
                     </div>
                     <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{template.description}</p>
@@ -371,7 +368,7 @@ export function CrmSetupWizard() {
                             : `Apply ${template.name} template`
                       }
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{applied ? 'check' : 'add'}</span>
+                      <Icon name={applied ? 'check' : 'add'} className="text-[16px]" />
                       {applied ? 'Applied' : applyingId === template.id ? 'Applying...' : 'Apply pipeline'}
                     </button>
                   )}

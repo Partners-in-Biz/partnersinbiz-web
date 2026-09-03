@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { ReportsWorkspaceReport } from './ReportsWorkspace'
 
+import { Icon } from '@/components/studio'
+
 interface ShareState {
   enabled: boolean
   expiresAt: string | null
@@ -136,9 +138,9 @@ export function ReportShareDialog({ report, orgId, onClose, onMutated }: Props) 
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between">
-          <h2 className="font-display text-xl">Share report</h2>
+          <h2 className="text-xl">Share report</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined">close</span>
+            <Icon name="close" />
           </button>
         </header>
 
@@ -168,7 +170,7 @@ export function ReportShareDialog({ report, orgId, onClose, onMutated }: Props) 
             {/* URL + copy */}
             {publicToken ? (
               <div className="flex items-center gap-2">
-                <input
+                <input aria-label="Share Url"
                   readOnly
                   value={shareUrl}
                   className="pib-input flex-1 !text-xs font-mono"
@@ -187,7 +189,7 @@ export function ReportShareDialog({ report, orgId, onClose, onMutated }: Props) 
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">
                 Link expiry date
               </label>
-              <input
+              <input aria-label="Link expiry date"
                 type="date"
                 value={share.expiresAt ?? ''}
                 disabled={saving}
@@ -233,21 +235,21 @@ export function ReportShareDialog({ report, orgId, onClose, onMutated }: Props) 
             {/* Email share */}
             <div className="space-y-3">
               <h3 className="text-sm font-medium">Share by email</h3>
-              <input
+              <input aria-label="emails, comma-separated"
                 type="text"
                 placeholder="emails, comma-separated"
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
                 className="pib-input !text-sm w-full"
               />
-              <input
+              <input aria-label="Subject (optional)"
                 type="text"
                 placeholder="Subject (optional)"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 className="pib-input !text-sm w-full"
               />
-              <textarea
+              <textarea aria-label="Personal message (optional)"
                 placeholder="Personal message (optional)"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}

@@ -104,7 +104,7 @@ function tsToDate(ts: any): Date | null {
 
 function fmtDate(ts: any) {
   const d = tsToDate(ts)
-  return d ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+  return d ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : ' - '
 }
 
 function fmtNum(n: number): string {
@@ -263,7 +263,7 @@ export default function AnalyticsPage() {
 
     const avgEngagementRate = totalImpressions > 0
       ? ((totalEngagements / totalImpressions) * 100).toFixed(2) + '%'
-      : '—'
+      : ' - '
 
     return { totalPublished: filtered.length, totalImpressions, totalEngagements, totalLikes, totalComments, totalShares, totalClicks, avgEngagementRate }
   }, [analytics, filtered])
@@ -358,7 +358,7 @@ export default function AnalyticsPage() {
                 <StatCard label="Engagement Rate" value={stats.avgEngagementRate} />
               </div>
 
-              {/* Engagement Breakdown — Horizontal Bar Chart */}
+              {/* Engagement Breakdown  -  Horizontal Bar Chart */}
               <div className="pib-card space-y-3">
                 <p className="pib-label">
                   Engagement Breakdown
@@ -374,7 +374,7 @@ export default function AnalyticsPage() {
                 />
               </div>
 
-              {/* Platform Breakdown — Donut + Detail Cards */}
+              {/* Platform Breakdown  -  Donut + Detail Cards */}
               {Object.keys(platformBreakdown).length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Donut */}

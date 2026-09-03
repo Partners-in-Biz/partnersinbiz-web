@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
+import { Icon } from '@/components/studio'
 
 const PHASE_LABELS = ['Pre-launch', 'Foundation', 'Content', 'Authority', 'Compounding'] as const
 
@@ -124,9 +125,7 @@ export function SeoSprintOverview({
   if (sprints.length === 0) {
     return (
       <div className="pib-card p-6 text-center max-w-xl mx-auto" data-module-accent="green">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green mx-auto mb-3"><span className="material-symbols-outlined text-[22px]">
-          trending_up
-        </span></span>
+        <Icon name="trending_up" className="mx-auto mb-3 text-[22px]" />
         <h1 className="pib-page-title mb-2">{emptyTitle}</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {emptyDescription}
@@ -163,7 +162,7 @@ export function SeoSprintOverview({
                 <div className="text-xs text-[var(--color-pib-text-muted)]">
                   {phase === 4 ? `Compounding - Day ${day}` : `Day ${day} of 90`} - {phaseLabel(phase)}
                 </div>
-                <h3 className="text-lg font-semibold">{sprint.siteName}</h3>
+                <h2 className="text-lg font-medium">{sprint.siteName}</h2>
                 <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{sprint.siteUrl}</p>
                 <p className="text-sm font-medium pt-2">
                   {signals === 0 ? 'All systems normal' : `${signals} attention items`}
@@ -200,7 +199,7 @@ export function SeoSprintOverview({
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-semibold tabular-nums">{stats.pct}%</div>
+            <div className="text-2xl font-medium tabular-nums">{stats.pct}%</div>
             <div className="text-xs text-[var(--color-pib-text-muted)]">tasks complete</div>
           </div>
         </div>
@@ -210,9 +209,9 @@ export function SeoSprintOverview({
             <span>{stats.doneTasks} of {stats.totalTasks} tasks done</span>
             <span>{phase === 4 ? 'Beyond Day 90' : `${overallPct}% through 90 days`}</span>
           </div>
-          <div className="w-full h-2 bg-[var(--color-pib-line)] rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-[var(--color-pib-line)] overflow-hidden rounded-md">
             <div
-              className="h-2 bg-[var(--color-pib-accent)] rounded-full transition-all"
+              className="h-2 rounded-md bg-[var(--color-pib-accent)] transition-all"
               style={{ width: `${stats.pct}%` }}
             />
           </div>
@@ -220,12 +219,12 @@ export function SeoSprintOverview({
       </section>
 
       {signals.length > 0 && (
-        <section className="pib-card p-5 border-amber-500/30 bg-amber-500/5 space-y-2">
+        <section className="pib-card p-5 border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)] space-y-2">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-500 text-[20px]">notifications_active</span>
-            <h3 className="font-semibold text-sm">
+            <Icon name="notifications_active" className="text-[var(--st-warning)] text-[20px]" />
+            <h2 className="font-medium text-sm">
               {signals.length} thing{signals.length === 1 ? '' : 's'} need attention
-            </h3>
+            </h2>
           </div>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             The autoresearch loop has flagged signals worth investigating. Your team is on it.
@@ -266,8 +265,8 @@ export function SeoSprintOverview({
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">today</span></span>
+          <h3 className="font-medium text-sm flex items-center gap-2">
+            <Icon name="today" className="text-[15px]" />
             Today&apos;s focus
           </h3>
           <div className="space-y-2 text-sm">
@@ -280,13 +279,13 @@ export function SeoSprintOverview({
             className="text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline inline-flex items-center gap-1 pt-1"
           >
             View today&apos;s plan
-            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            <Icon name="arrow_forward" className="text-[14px]" />
           </Link>
         </div>
 
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">trending_up</span></span>
+          <h3 className="font-medium text-sm flex items-center gap-2">
+            <Icon name="trending_up" className="text-[15px]" />
             Top movers
           </h3>
           {stats.movers.length === 0 ? (
@@ -310,13 +309,13 @@ export function SeoSprintOverview({
             className="text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline inline-flex items-center gap-1 pt-1"
           >
             All keywords
-            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            <Icon name="arrow_forward" className="text-[14px]" />
           </Link>
         </div>
 
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">check_circle</span></span>
+          <h3 className="font-medium text-sm flex items-center gap-2">
+            <Icon name="check_circle" className="text-[15px]" />
             Recent wins
           </h3>
           {stats.recentWins.length === 0 ? (
@@ -384,7 +383,7 @@ function DeepLink({ href, icon, label }: { href: string; icon: string; label: st
       href={href}
       className="pib-card pib-card-hover p-3 flex items-center gap-2 transition-colors"
     >
-      <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">{icon}</span></span>
+      <Icon name={icon} className="text-[15px]" />
       <span className="text-sm font-medium">{label}</span>
     </Link>
   )

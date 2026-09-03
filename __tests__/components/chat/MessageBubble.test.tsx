@@ -511,7 +511,7 @@ describe('MessageBubble', () => {
 
     expect(screen.getByRole('heading', { name: 'Visual options' })).toBeInTheDocument()
     expect(screen.getByText('Plain copy').closest('li')).toBeInTheDocument()
-    expect(screen.getByText('Structured')).toHaveClass('font-semibold')
+    expect(screen.getByText('Structured')).toHaveClass('font-medium')
     expect(screen.getByRole('img', { name: 'Mermaid diagram' })).toBeInTheDocument()
     expect(screen.getByText('Client request')).toBeInTheDocument()
     expect(screen.queryByText(/flowchart TD/)).not.toBeInTheDocument()
@@ -552,7 +552,7 @@ describe('MessageBubble', () => {
     expect(screen.getByRole('columnheader', { name: 'What to give me' })).toHaveStyle({ textAlign: 'center' })
     expect(screen.getByRole('columnheader', { name: 'Notes' })).toHaveStyle({ textAlign: 'right' })
     expect(screen.getByText('Staging Postgres').closest('td')).toBeInTheDocument()
-    expect(screen.getByText('DATABASE_URL')).toHaveClass('font-semibold')
+    expect(screen.getByText('DATABASE_URL')).toHaveClass('font-medium')
     expect(screen.getByText('SSL flag').closest('td')).toBeInTheDocument()
     expect(screen.getByText('Do not send yet.')).toBeInTheDocument()
   })

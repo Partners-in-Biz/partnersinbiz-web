@@ -20,14 +20,14 @@ export function SettingsSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         checked
           ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/80'
           : 'border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
+        className={`inline-block h-4 w-4 rounded-md bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
       />
     </button>
   )

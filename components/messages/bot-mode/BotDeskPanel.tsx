@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { computersForBot } from '@/lib/messages/bot-computers'
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
+import { Icon } from '@/components/studio'
 
 type RoutineRow = {
   id: string
@@ -51,7 +52,7 @@ export function BotDeskPanel({
           onClick={onOpenScreen}
           className="mt-2 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] text-center hover:border-primary/30 hover:bg-primary/[0.06]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-primary">screenshot_monitor</span>
+          <Icon name="screenshot_monitor" className="text-[28px] text-primary" />
           <span className="px-3 text-[11px] text-[var(--color-pib-text)]">{screenLabel}</span>
           <span className="text-[10px] text-[var(--color-pib-text-muted)]">
             {workbenchOpen ? 'Computer is open' : online.length > 0 ? 'Click to watch the computer' : 'Pair a Mac or VPS'}
@@ -135,7 +136,7 @@ function BotRoutinesList({
               type="button"
               data-testid="bot-desk-new-routine"
               onClick={onNewRoutine}
-              className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
             >
               New
             </button>

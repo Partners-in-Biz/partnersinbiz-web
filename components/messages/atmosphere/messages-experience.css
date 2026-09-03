@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────────────────────────────────
-   Messages Experience — July 2026 cinematic layer
+   Messages Experience - July 2026 cinematic layer
    Scoped entirely under [data-messages-experience]. Safe for light + dark.
    Uses: OKLCH accents, scroll-driven timelines, liquid glass, container queries,
    view-timeline message entrance, GPU-composited glows. Reduced-motion safe.
@@ -11,7 +11,7 @@
   --mx-line: color-mix(in oklab, white 12%, transparent);
   --mx-line-hot: color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
   --mx-glow-a: color-mix(in oklab, var(--color-pib-accent) 42%, transparent);
-  --mx-glow-v: color-mix(in oklab, var(--color-pib-violet) 38%, transparent);
+  --mx-glow-v: color-mix(in oklab, var(--sc-ink-soft) 38%, transparent);
   --mx-glow-c: color-mix(in oklab, var(--color-pib-cyan) 32%, transparent);
   --mx-radius-shell: 0;
   --mx-radius-pane: 0;
@@ -67,7 +67,7 @@
   opacity: 0.55;
 }
 
-/* CSS aurora fallback — only when WebGL is unavailable or reduced-motion */
+/* CSS aurora fallback - only when WebGL is unavailable or reduced-motion */
 .messages-atmosphere-fallback {
   position: absolute;
   inset: 0;
@@ -112,7 +112,7 @@
   border-radius: inherit;
 }
 
-/* Specular rim light — disabled so the shell reads flush with the page */
+/* Specular rim light - disabled so the shell reads flush with the page */
 [data-messages-experience]::before {
   content: none;
 }
@@ -165,7 +165,7 @@
   inset: 0 auto 0 0;
   width: 42%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-pib-accent), var(--color-pib-violet), var(--color-pib-cyan));
+  background: linear-gradient(90deg, var(--color-pib-accent), var(--sc-ink-soft), var(--color-pib-cyan));
   background-size: 200% 100%;
   animation: mx-meter-flow 3.6s linear infinite;
 }
@@ -243,7 +243,7 @@
     180deg,
     transparent,
     var(--color-pib-accent) 20%,
-    var(--color-pib-violet) 55%,
+    var(--sc-ink-soft) 55%,
     var(--color-pib-cyan) 80%,
     transparent
   );
@@ -278,7 +278,7 @@
   align-items: center;
   justify-content: center;
 }
-[data-messages-experience] [data-testid='context-dock-header'] .material-symbols-outlined {
+[data-messages-experience] [data-testid='context-dock-header'] . {
   display: block;
   overflow: visible;
   font-size: 18px !important;
@@ -360,7 +360,7 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* ── Message bubbles — scroll-driven entrance + liquid glass ───────────── */
+/* ── Message bubbles - scroll-driven entrance + liquid glass ───────────── */
 
 [data-messages-experience] .mx-message {
   --mx-enter: 1;
@@ -415,7 +415,7 @@
     linear-gradient(
       145deg,
       color-mix(in oklab, var(--color-pib-accent) 88%, white 12%),
-      color-mix(in oklab, var(--color-pib-accent) 72%, var(--color-pib-violet) 28%)
+      color-mix(in oklab, var(--color-pib-accent) 72%, var(--sc-ink-soft) 28%)
     ) !important;
   color: #121214 !important;
   box-shadow:
@@ -464,7 +464,7 @@
     border-radius: 999px;
     background: linear-gradient(
       180deg,
-      var(--color-pib-violet),
+      var(--sc-ink-soft),
       var(--color-pib-cyan)
     );
     opacity: 0.7;
@@ -472,7 +472,7 @@
   }
 }
 
-/* Folder / project accent — same 2px left rail language as agent bubbles */
+/* Folder / project accent - same 2px left rail language as agent bubbles */
 [data-messages-experience] .mx-folder-accent {
   position: relative;
 }
@@ -487,7 +487,7 @@
   pointer-events: none;
 }
 
-/* Workspace tab: agent turn in flight on a background tab — pulse accent border */
+/* Workspace tab: agent turn in flight on a background tab - pulse accent border */
 [data-messages-experience] .mx-tab-running {
   --mx-tab-activity: var(--mx-folder-accent, var(--color-primary));
   border-color: color-mix(in oklab, var(--mx-tab-activity) 55%, transparent) !important;
@@ -501,7 +501,7 @@
   animation: mx-tab-accent-pulse 1.5s ease-in-out infinite;
 }
 
-/* Workspace tab: turn finished while away — solid bottom underline until opened */
+/* Workspace tab: turn finished while away - solid bottom underline until opened */
 [data-messages-experience] .mx-tab-unread {
   --mx-tab-activity: var(--mx-folder-accent, var(--color-primary));
   border-bottom: 2px solid var(--mx-tab-activity) !important;
@@ -597,7 +597,7 @@
     linear-gradient(
       120deg,
       color-mix(in oklab, var(--color-pib-accent) 8%, transparent),
-      color-mix(in oklab, var(--color-pib-violet) 10%, transparent),
+      color-mix(in oklab, var(--sc-ink-soft) 10%, transparent),
       color-mix(in oklab, var(--color-pib-cyan) 8%, transparent)
     ) !important;
   background-size: 200% 100%;
@@ -645,7 +645,7 @@
   background: conic-gradient(
     from 0deg,
     var(--color-pib-accent),
-    var(--color-pib-violet),
+    var(--sc-ink-soft),
     var(--color-pib-cyan),
     var(--color-pib-accent)
   );
@@ -695,7 +695,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Scanline subtlety on body — very low opacity, premium CRT-glass feel */
+/* Scanline subtlety on body - very low opacity, premium CRT-glass feel */
 [data-messages-experience] .messages-scanlines {
   position: absolute;
   inset: 0;

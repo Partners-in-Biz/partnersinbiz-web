@@ -37,7 +37,7 @@ export function BookProjectAssemblyPanel({ manifest, assembling, error, missingO
         {manifest ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="rose">Version {manifest.version ?? '—'}</StatusPill>
+              <StatusPill tone="rose">Version {manifest.version ?? ' - '}</StatusPill>
               <StatusPill tone={qaTone(manifest.qaStatus)}>{humanizeToken(manifest.qaStatus)}</StatusPill>
               {manifest.generatedAt ? (
                 <span className="text-xs text-[var(--color-pib-text-muted)]">Generated {manifest.generatedAt}</span>

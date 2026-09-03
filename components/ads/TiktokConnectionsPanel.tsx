@@ -1,16 +1,16 @@
 'use client'
 //
-// TikTok Ads connection panel — separate component from `ConnectionsPanel`
+// TikTok Ads connection panel - separate component from `ConnectionsPanel`
 // (which owns Meta), `GoogleConnectionsPanel`, and `LinkedinConnectionsPanel`
 // so each provider can evolve independently. Rendered alongside the other
 // panels on `app/(admin)/admin/org/[slug]/ads/connections/page.tsx`.
 //
 // Flow:
-//   - No connection → "Connect TikTok Ads" button → POST authorize → redirect
-//   - Connection without selectedAdvertiserId → fetch advertisers
-//     (`GET /api/v1/ads/tiktok/accounts`) → render <select> picker →
+// - No connection → "Connect TikTok Ads" button → POST authorize → redirect
+// - Connection without selectedAdvertiserId → fetch advertisers
+//     (`GET /api/v1/ads/tiktok/accounts`) → render advertiser select picker →
 //     submit PATCHes `selectedAdvertiserId` then router.refresh()
-//   - Connection with selectedAdvertiserId → status pill + disconnect button
+// - Connection with selectedAdvertiserId → status pill + disconnect button
 //
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -174,7 +174,7 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Disconnect TikTok Ads connection?</h2>
+              <h2 className="font-medium text-red-100">Disconnect TikTok Ads connection?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 This revokes TikTok Marketing API advertiser access for this workspace. Campaign history stays in PiB.
               </p>
@@ -246,7 +246,7 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
       {tiktok && selectedAdvertiserId && (
         <div className="mt-4">
-          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
+          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
             Advertiser {selectedAdvertiserId}
           </span>
         </div>

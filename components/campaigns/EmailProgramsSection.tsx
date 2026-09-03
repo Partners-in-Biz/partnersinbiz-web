@@ -2,7 +2,7 @@
 
 import { Icon } from '@/components/studio'
 
-// US-101 — interactive Email Programs section: status filter, "New campaign"
+// US-101  -  interactive Email Programs section: status filter, "New campaign"
 // button, recipients badge, and delete-draft with confirmation.
 //
 // Split out of CampaignsWorkspace (a server component) so the interactive
@@ -72,7 +72,7 @@ function recipientLabel(campaign: CampaignWorkspaceRecord): string {
   const contactIds = Array.isArray(campaign.contactIds) ? campaign.contactIds : []
   if (contactIds.length > 0) return contactIds.length.toLocaleString('en-ZA')
   if (typeof campaign.tagId === 'string' && campaign.tagId) return 'Tag'
-  return '—'
+  return ' - '
 }
 
 export interface EmailProgramItem {

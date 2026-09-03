@@ -34,7 +34,7 @@ export interface CanvasLandingProps {
   onRenameBoard?: (id: string, title: string) => void
   onDeleteBoard?: (id: string) => void
   orgId?: string
-  /** Tab to focus when the landing is (re)opened — e.g. 'providers' from a Connect chip. */
+  /** Tab to focus when the landing is (re)opened  -  e.g. 'providers' from a Connect chip. */
   initialTab?: 'all' | 'templates' | 'providers'
 }
 

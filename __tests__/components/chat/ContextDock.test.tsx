@@ -77,6 +77,7 @@ it.each(['company', 'contact', 'task'] as const)('renders a safe rich %s canvas 
   expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveTextContent('Record opened')
   expect(screen.getByRole('link', { name: 'Open Related company' })).toHaveAttribute('href', '/admin/crm/companies/company-related')
   expect(screen.getByRole('link', { name: /Open full workspace/i })).toHaveAttribute('href', `/admin/${kind}/${kind}-1`)
+  fireEvent.click(screen.getByRole('button', { name: `Show summary for ${kind} record` }))
   fireEvent.click(screen.getByRole('button', { name: 'Follow up' }))
   expect(onAction).toHaveBeenCalledWith(action)
 })

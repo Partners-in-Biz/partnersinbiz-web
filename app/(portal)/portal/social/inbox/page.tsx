@@ -70,7 +70,7 @@ function tsToDate(ts: any): Date | null {
 
 function timeAgo(ts: any): string {
   const date = tsToDate(ts)
-  if (!date) return '—'
+  if (!date) return ' - '
 
   const now = new Date()
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)

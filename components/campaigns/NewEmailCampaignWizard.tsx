@@ -2,7 +2,7 @@
 
 import { Icon } from '@/components/studio'
 
-// US-102 — Step 1 "Settings" of the new email campaign wizard.
+// US-102  -  Step 1 "Settings" of the new email campaign wizard.
 //
 // Collects name / subject / preview text / sender / recipient selector, creates
 // a draft campaign via POST /api/v1/campaigns, persists subject+previewText via
@@ -354,7 +354,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
         </div>
         <FieldRow label="Sending domain">
           <select value={fromDomainId} onChange={(e) => setFromDomainId(e.target.value)} className="pib-input" aria-label="Input">
-            <option value="">Shared — {SHARED_DOMAIN} (always available)</option>
+            <option value="">Shared  -  {SHARED_DOMAIN} (always available)</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id} disabled={d.status !== 'verified'}>
                 {d.name} {d.status === 'verified' ? '· verified' : `· ${d.status} (not usable yet)`}
@@ -364,7 +364,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
         </FieldRow>
         {fromDomainId && domains.find((d) => d.id === fromDomainId)?.status !== 'verified' && (
           <p className="text-xs text-[var(--sc-ink-soft)]">
-            This domain isn&apos;t verified yet — sends will fall back to the shared domain until DNS is confirmed.
+            This domain isn&apos;t verified yet  -  sends will fall back to the shared domain until DNS is confirmed.
           </p>
         )}
         <FieldRow label="Reply-to" hint="Optional. Where replies should land.">

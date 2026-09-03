@@ -91,7 +91,7 @@ export type BookPage = {
 }
 
 export function formatBytes(bytes?: number): string {
-  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '—'
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return ' - '
   if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
   const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
@@ -100,6 +100,6 @@ export function formatBytes(bytes?: number): string {
 }
 
 export function humanizeToken(value?: string): string {
-  if (!value) return '—'
+  if (!value) return ' - '
   return value.replace(/_/g, ' ')
 }

@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import type { ModuleAccent } from '@/components/ui/ModuleShell'
 
+import { Icon } from '@/components/studio'
+
 type StatCardProps = {
   label: ReactNode
   value: ReactNode
@@ -13,7 +15,7 @@ type StatCardProps = {
   href?: string
 }
 
-/** Compact KPI card — Studio `st-panel` with mono label and tabular value. */
+/** Compact KPI card  -  Studio `st-panel` with mono label and tabular value. */
 export function StatCard({ label, value, detail, icon, accent: _accent, className }: StatCardProps) {
   void _accent
   return (
@@ -25,9 +27,7 @@ export function StatCard({ label, value, detail, icon, accent: _accent, classNam
           {detail ? <p className="sc-body mt-1 text-[0.875rem] text-[var(--sc-ink-soft)]">{detail}</p> : null}
         </div>
         {icon ? (
-          <span className="material-symbols-outlined shrink-0 text-[20px] text-[var(--sc-ink-soft)]" aria-hidden="true">
-            {icon}
-          </span>
+          <Icon name={icon} className="shrink-0 text-[20px] text-[var(--sc-ink-soft)]" />
         ) : null}
       </div>
     </article>

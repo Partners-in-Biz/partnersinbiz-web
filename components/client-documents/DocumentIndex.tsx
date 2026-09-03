@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
@@ -312,15 +314,13 @@ export function DocumentIndex({
         type="button"
         onClick={() => setShowArchived((current) => !current)}
         aria-pressed={showArchived}
-        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
           showArchived
             ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/15 text-[var(--color-pib-accent)]'
             : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
         }`}
       >
-        <span className="material-symbols-outlined text-base">
-          {showArchived ? 'visibility' : 'visibility_off'}
-        </span>
+        <Icon name={showArchived ? 'visibility' : 'visibility_off'} />
         Show archived/trash
       </button>
     </div>
@@ -336,8 +336,8 @@ export function DocumentIndex({
           </p>
         )}
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
-          <h2 className="mt-4 font-display text-2xl">No documents match this view.</h2>
+          <Icon name="description" />
+          <h2 className="mt-4 text-2xl">No documents match this view.</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
             Change the filter or create a Research Report for evidence, a Website/App Build Spec for what to build, a Change Request for scope changes, or a strategy/report for marketing and performance work.
           </p>
@@ -354,7 +354,7 @@ export function DocumentIndex({
           {deleteError}
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 :grid-cols-3">
         {visibleDocuments.map((document) => {
           const relationshipText = relationshipLabelList(relationshipLabels[document.id])
           const documentHref = hrefFor?.(document) || `${basePath}/${document.id}`
@@ -374,14 +374,14 @@ export function DocumentIndex({
                       </span>
                     )}
                   </p>
-                  <h2 className="font-display text-xl leading-snug">
+                  <h2 className="text- leading-snug">
                     <Link href={documentHref} className="hover:text-[var(--color-pib-accent)]">
                       {document.title}
                     </Link>
                   </h2>
                 </div>
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">description</span>
+                <span aria-hidden="true" className="shrink-0">
+                  <Icon name="description" />
                 </span>
               </div>
 
@@ -463,14 +463,12 @@ export function DocumentIndex({
                       aria-label={`Delete ${document.title}`}
                       title="Delete document"
                     >
-                      <span className="material-symbols-outlined text-base">
-                        {deletingId === document.id ? 'progress_activity' : 'delete'}
-                      </span>
+                      <Icon name={deletingId === document.id ? 'progress_activity' : 'delete'} />
                     </button>
                   )}
                   <Link href={documentHref} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
                     Open
-                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    <Icon name="arrow_forward" />
                   </Link>
                 </div>
               </div>

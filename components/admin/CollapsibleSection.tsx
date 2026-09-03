@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { Icon } from '@/components/studio'
+
 interface CollapsibleSectionProps {
   /** Stable key used to persist open/closed state in localStorage. */
   storageKey: string
@@ -69,18 +71,17 @@ export function CollapsibleSection({
       >
         <span className="flex items-center gap-2">
           {icon ? (
-            <span className="material-symbols-outlined text-[16px] opacity-70">{icon}</span>
+            <Icon name={icon} className="text-[16px] opacity-70" />
           ) : null}
           <span className="eyebrow !text-[9px]">{label}</span>
         </span>
-        <span
+        <Icon
+          name="chevron_right"
           className={[
-            'material-symbols-outlined text-[18px] transition-transform duration-200',
+            'text-[18px] transition-transform duration-200',
             hydrated && open ? 'rotate-90' : '',
           ].join(' ')}
-        >
-          chevron_right
-        </span>
+        />
       </button>
       <div
         className={[

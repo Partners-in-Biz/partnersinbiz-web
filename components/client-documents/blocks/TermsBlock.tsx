@@ -6,7 +6,7 @@ export function TermsBlock({ block, index }: { block: DocumentBlock; index: numb
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-6 text-xl font-semibold text-[var(--doc-text)] md:text-2xl">
+        <h2 className="mb-6 text-xl font-medium text-[var(--doc-text)] md:text-2xl">
           {block.title}
         </h2>
       )}

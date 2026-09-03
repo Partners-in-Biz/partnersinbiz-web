@@ -241,7 +241,7 @@ export default function CanvasTopBar({
           <button
             type="button"
             onClick={onOpenSpend}
-            title={creditsTitle ?? 'Creative Canvas credits used — click for spend breakdown'}
+            title={creditsTitle ?? 'Creative Canvas credits used  -  click for spend breakdown'}
             data-tip={creditsTone === 'over' ? 'Credit limit reached' : creditsTone === 'warn' ? 'Approaching credit limit' : 'View spend breakdown'}
             style={{
               display: 'inline-flex',
@@ -271,7 +271,7 @@ export default function CanvasTopBar({
           ⋯
         </button>
 
-        {/* Overflow menu — Save / auto-save / view live here so the bar stays clean.
+        {/* Overflow menu  -  Save / auto-save / view live here so the bar stays clean.
             Hidden with sr-only when closed (still in the accessibility tree) so the
             controls remain reachable; shown as a popover when open. */}
         <div

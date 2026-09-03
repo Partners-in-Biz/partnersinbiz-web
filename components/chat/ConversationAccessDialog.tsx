@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useMemo, useState } from 'react'
 
 type ShareMode = 'private' | 'shared' | 'org'
@@ -226,16 +227,16 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         role="dialog"
         aria-modal="true"
         aria-labelledby="conversation-access-title"
-        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-card-border)] p-5">
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.2em] text-primary">{workspaceConversation ? 'Workspace access' : 'Team conversation'}</p>
-            <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{workspaceConversation ? 'Manage conversation access' : 'Manage people'}</h2>
+            <h2 id="conversation-access-title" className="mt-1 text-lg font-medium text-[var(--color-pib-text)]">{workspaceConversation ? 'Manage conversation access' : 'Manage people'}</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{conversation.title}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <Icon name="close" className="text-[18px]" />
           </button>
         </header>
 
@@ -243,9 +244,9 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
           {workspaceConversation && <fieldset className="space-y-2">
             <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Who can open this conversation?</legend>
             {OPTIONS.map((option) => (
-              <label key={option.value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
+              <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[6px] border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
                 <input type="radio" name="share-mode" value={option.value} checked={shareMode === option.value} onChange={() => chooseMode(option.value)} className="sr-only" />
-                <span className="pib-icon-tint pib-icon-tint-blue mt-0.5"><span className="material-symbols-outlined text-[18px]">{option.icon}</span></span>
+                <span className="mt-0.5"><Icon name={option.icon} className="text-[18px]" /></span>
                 <span>
                   <span className="block text-sm font-medium text-[var(--color-pib-text)]">{option.label}</span>
                   <span className="mt-0.5 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{option.description}</span>
@@ -272,16 +273,12 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                     .some((member) => selectedUids.includes(member.uid))
                   const isExpanded = expandedDepartments.has(department)
                   return (
-                    <div key={department} className="space-y-1.5 rounded-xl border border-white/[0.08] px-2 py-2">
+                    <div key={department} className="space-y-1.5 rounded-[6px] border border-white/[0.08] px-2 py-2">
                       <label
                         onMouseDown={(event) => {
                           if (!isOwnerOnly) event.preventDefault()
                         }}
-                        className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${
-                          allSelected || someSelected
-                            ? 'bg-white/8 border border-white/15'
-                            : 'hover:bg-white/5 border border-transparent'
-                        }`}
+                        className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' }`}
                       >
                         <input
                           type="checkbox"
@@ -298,9 +295,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                           <span className="block truncate text-sm text-[var(--color-pib-text)]">{department}</span>
                           <span className="block text-[11px] text-[var(--color-pib-text-muted)]">{selectedCount}/{totalCount} selected</span>
                         </div>
-                        <span className="material-symbols-outlined text-sm text-[var(--color-pib-text-muted)]">
-                          {isExpanded ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <Icon name={isExpanded ? 'expand_less' : 'expand_more'} className="text-sm text-[var(--color-pib-text-muted)]" />
                         <button
                           type="button"
                           className="pib-icon-button text-[11px] text-primary"
@@ -313,7 +308,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                             return next
                           })}
                         >
-                          <span className="material-symbols-outlined text-[16px]">{isExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                          <Icon name={isExpanded ? 'unfold_less' : 'unfold_more'} className="text-[16px]" />
                         </button>
                       </label>
                       {isExpanded && (

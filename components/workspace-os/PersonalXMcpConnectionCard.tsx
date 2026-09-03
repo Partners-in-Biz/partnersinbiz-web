@@ -49,8 +49,8 @@ function statusLabel(connection: WorkspaceConnectionSummary | null): string {
 
 function statusClass(connection: WorkspaceConnectionSummary | null): string {
   return isXMcpVerified(connection)
-    ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300'
-    : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'
+    ? 'rounded-md bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300'
+    : 'rounded-md bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-[var(--st-warning)]'
 }
 
 export function PersonalXMcpConnectionCard({
@@ -168,7 +168,7 @@ export function PersonalXMcpConnectionCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-accent)]">Personal intelligence</p>
-          <h2 className="mt-1 font-headline text-xl font-bold text-[var(--color-pib-text)]">Personal X MCP and bookmarks</h2>
+          <h2 className="mt-1 font-headline text-xl font-medium text-[var(--color-pib-text)]">Personal X MCP and bookmarks</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
             This is for your own X account permissions: bookmarks, searches, timelines, posts, news, and article drafts. It is separate from company X/Twitter accounts used for brand publishing below.
           </p>
@@ -186,9 +186,9 @@ export function PersonalXMcpConnectionCard({
       </div>
 
       {error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-      {notice && <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">{notice}</p>}
+      {notice && <p className="rounded-md border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-sm text-[var(--st-warning)]">{notice}</p>}
       {connection && !isXMcpVerified(connection) && (
-        <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+        <p className="rounded-md border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-sm text-[var(--st-warning)]">
           X MCP setup metadata is saved, but authorization is still required in xurl and PiB cannot verify a local xurl OAuth session yet. Agents will not use this MCP record for bookmarks until a verified authorization/health check exists.
         </p>
       )}
@@ -200,7 +200,7 @@ export function PersonalXMcpConnectionCard({
           disabled={loading || preparing || Boolean(connection) || !connectionListPath}
           className="pib-btn-primary text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {preparing ? 'Preparing…' : connection ? 'X MCP setup saved — authorize in xurl' : 'Prepare personal X MCP'}
+          {preparing ? 'Preparing…' : connection ? 'X MCP setup saved  -  authorize in xurl' : 'Prepare personal X MCP'}
         </button>
         <a href="https://docs.x.com/tools/mcp" className="pib-btn-secondary text-xs" target="_blank" rel="noreferrer">
           Open X MCP docs

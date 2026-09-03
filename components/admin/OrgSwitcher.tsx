@@ -6,6 +6,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import type { OrganizationSummary } from '@/lib/organizations/types'
 
+import { Icon } from '@/components/studio'
+
 const LS_RECENT_KEY = 'pib_recent_orgs'
 const MAX_RECENTS = 5
 const MENU_MIN_WIDTH = 280
@@ -116,7 +118,7 @@ export function OrgSwitcher() {
     setOpen(false)
     setSearch('')
     // Keep the top-level section (e.g. /messages, /projects) but drop any
-    // deeper record path — a project or post ID from the old org is meaningless.
+    // deeper record path  -  a project or post ID from the old org is meaningless.
     const orgMatch = pathname.match(/^\/admin\/org\/[^/]+\/([^/]+)/)
     const section = orgMatch ? `/${orgMatch[1]}` : '/dashboard'
     router.push(`/admin/org/${org.slug}${section}`)
@@ -146,7 +148,7 @@ export function OrgSwitcher() {
           ref={menuRef}
           role="listbox"
           aria-label="Organisations"
-          className="fixed z-[80] bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] rounded-xl shadow-2xl overflow-hidden"
+          className="fixed z-[80] bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] rounded-md overflow-hidden"
           style={{
             top: menuPos.top,
             left: menuPos.left,
@@ -159,13 +161,13 @@ export function OrgSwitcher() {
               onClick={selectAllOrgs}
               className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] flex items-center gap-2.5 shrink-0"
             >
-              <span className="material-symbols-outlined text-[18px]">grid_view</span>
+              <Icon name="grid_view" className="text-[18px]" />
               All orgs
             </button>
 
             {recentOrgs.length > 0 && (
               <div className="border-b border-[var(--color-pib-line)] shrink-0">
-                <p className="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                <p className="px-3.5 pt-2.5 pb-1 text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   Recent
                 </p>
                 {recentOrgs.map((org) => (
@@ -177,7 +179,7 @@ export function OrgSwitcher() {
                       selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
                     ].join(' ')}
                   >
-                    <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
+                    <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-medium text-[var(--color-pib-text-muted)] shrink-0">
                       {org.name?.[0]?.toUpperCase() ?? '?'}
                     </span>
                     <span className="truncate">{org.name}</span>
@@ -188,8 +190,8 @@ export function OrgSwitcher() {
 
             <div className="px-3.5 py-2 border-b border-[var(--color-pib-line)] shrink-0">
               <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--color-pib-surface-2)] rounded-lg">
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
-                <input
+                <Icon name="search" className="text-[16px] text-[var(--color-pib-text-muted)] shrink-0" />
+                <input aria-label="Search orgs"
                   ref={searchRef}
                   type="text"
                   value={search}
@@ -198,8 +200,8 @@ export function OrgSwitcher() {
                   className="flex-1 bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                 />
                 {search && (
-                  <button onClick={() => setSearch('')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  <button aria-label="Search orgs…" onClick={() => setSearch('')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+                    <Icon name="close" className="text-[14px]" />
                   </button>
                 )}
               </div>
@@ -215,7 +217,7 @@ export function OrgSwitcher() {
                     selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
                   ].join(' ')}
                 >
-                  <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
+                  <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-medium text-[var(--color-pib-text-muted)] shrink-0">
                     {org.name?.[0]?.toUpperCase() ?? '?'}
                   </span>
                   <span className="truncate">{org.name}</span>
@@ -243,11 +245,11 @@ export function OrgSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="w-6 h-6 rounded-md bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-accent-hover)] shrink-0">
+        <span className="w-6 h-6 rounded-md bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-medium text-[var(--color-pib-accent-hover)] shrink-0">
           {initial}
         </span>
         <span className="truncate flex-1 text-left">{label}</span>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">unfold_more</span>
+        <Icon name="unfold_more" className="text-[18px] text-[var(--color-pib-text-muted)]" />
       </button>
       {menu}
     </div>

@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Icon } from '@/components/studio'
 import type {
   BehavioralOp,
   BehavioralRule,
@@ -41,7 +42,7 @@ interface ScopeOption {
 interface BehavioralRuleEditorProps {
   rules: BehavioralRule[]
   onChange: (rules: BehavioralRule[]) => void
-  /** Hits the preview endpoint with the current filter state — set by parent. */
+  /** Hits the preview endpoint with the current filter state - set by parent. */
   liveCount?: number | null
   liveCountLoading?: boolean
 }
@@ -103,7 +104,7 @@ export function BehavioralRuleEditor({
             onClick={addRule}
             className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <Icon name="add" className="text-[16px]" />
             Add rule
           </button>
         </div>
@@ -156,6 +157,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
           <select
             value={rule.op}
             onChange={(e) => onChange({ op: e.target.value as BehavioralOp })}
+            aria-label="Action"
             className={INPUT_CLS}
           >
             {OPS.map((o) => (
@@ -177,6 +179,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                 scopeId: undefined,
               })
             }
+            aria-label="Scope"
             className={INPUT_CLS}
           >
             {SCOPES.map((s) => (
@@ -217,6 +220,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
               onChange({ withinDays: Number.isFinite(n) && n > 0 ? n : undefined })
             }}
             placeholder="any time"
+            aria-label="Within days"
             className={INPUT_CLS}
           />
         </div>
@@ -297,6 +301,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
           value={scopeId}
           onChange={(e) => onChange(e.target.value)}
           placeholder="newsletter"
+          aria-label="Topic ID"
           className={INPUT_CLS}
         />
       </>
@@ -312,6 +317,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
           value={scopeId}
           onChange={(e) => onChange(e.target.value)}
           placeholder="/pricing"
+          aria-label="URL contains"
           className={INPUT_CLS}
         />
       </>
@@ -328,6 +334,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
             value={scopeId}
             onChange={(e) => onChange(e.target.value, scopeStepNumber)}
             className={`${INPUT_CLS} col-span-2`}
+            aria-label="Sequence"
             disabled={loading}
           >
             <option value="" className="bg-black">
@@ -348,6 +355,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
               onChange(scopeId, Number.isFinite(n) ? n : undefined)
             }}
             placeholder="Step #"
+            aria-label="Step number"
             className={INPUT_CLS}
           />
         </div>
@@ -370,6 +378,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
         value={scopeId}
         onChange={(e) => onChange(e.target.value)}
         className={INPUT_CLS}
+        aria-label={labelMap[scope] ?? 'Scope'}
         disabled={loading}
       >
         <option value="" className="bg-black">

@@ -2,6 +2,8 @@
 import type { ComponentPropsWithoutRef } from 'react'
 import { cn } from '@/lib/utils'
 
+import { Icon } from '@/components/studio'
+
 type CardProps = ComponentPropsWithoutRef<'div'> & {
   children: React.ReactNode
   className?: string
@@ -48,9 +50,7 @@ export function MetricCard({ label, value, sub, trend, accent: _accent, icon, on
       <div className="flex items-start justify-between gap-2">
         <p className="sc-tiny">{label}</p>
         {icon ? (
-          <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-[var(--sc-ink-soft)]">
-            {icon}
-          </span>
+          <Icon name={icon} className="text-[20px] text-[var(--sc-ink-soft)]" />
         ) : null}
       </div>
       <p className="st-num text-[1.75rem] leading-none text-[var(--sc-ink)]">{value}</p>

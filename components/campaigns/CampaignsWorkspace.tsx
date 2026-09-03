@@ -69,9 +69,9 @@ type CampaignsWorkspaceProps = {
   contentMeta?: (campaign: CampaignWorkspaceRecord) => ReactNode
   visibleSections?: CampaignsWorkspaceSection[]
   brandStyle?: CSSProperties
-  /** US-101 — href to the new-email-campaign wizard. Shows a prominent button. */
+  /** US-101  -  href to the new-email-campaign wizard. Shows a prominent button. */
   newEmailCampaignHref?: string
-  /** US-101 — when set, draft email campaigns get a delete action. */
+  /** US-101  -  when set, draft email campaigns get a delete action. */
   enableCampaignDelete?: boolean
 }
 

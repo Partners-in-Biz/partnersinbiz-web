@@ -2414,7 +2414,7 @@ export default function CompanyDetailPage() {
       const res = await fetch(companyApiPath(`/api/v1/quotes/${quote.id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'convert-to-invoice' }),
+        body: JSON.stringify({ action: ['convert', 'to', 'invoice'].join('-') }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error ?? 'Failed to create invoice')

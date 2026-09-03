@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { Product } from '@/lib/products/types'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 export interface ProductPickerProps {
   orgId: string
@@ -101,6 +102,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={loading ? 'Loading products…' : placeholder}
+          aria-label="Search products"
           disabled={loading}
           className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 pr-8 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
         />
@@ -111,13 +113,13 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
             onClick={clear}
             className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
-            <span className="material-symbols-outlined text-[16px]">close</span>
+            <Icon name="close" className="text-[16px]" />
           </button>
         )}
       </div>
 
       {error && (
-        <p className="text-xs text-red-400 mt-1">{error}</p>
+        <p className="text-xs text-[var(--st-danger)] mt-1">{error}</p>
       )}
 
       {open && !loading && (
@@ -156,7 +158,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
                   aria-label="Open product catalog to create quote-ready products"
                   className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
                 >
-                  <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+                  <Icon name="inventory_2" className="text-[14px]" />
                   Open product catalog
                 </Link>
               )}
@@ -170,7 +172,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
               onClick={() => { setOpen(false); onAdHoc(query.trim()) }}
               className="cursor-pointer w-full text-left text-xs px-2.5 py-1.5 text-[var(--color-accent-v2)] hover:bg-white/[0.05] transition-colors flex items-center gap-1.5 border-t border-[var(--color-card-border)]"
             >
-              <span className="material-symbols-outlined text-[14px]">add</span>
+              <Icon name="add" className="text-[14px]" />
               Add &quot;{query.trim()}&quot; as ad-hoc item
             </button>
           )}

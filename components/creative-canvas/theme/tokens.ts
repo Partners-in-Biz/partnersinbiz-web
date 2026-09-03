@@ -1,5 +1,5 @@
 // Higgsfield-parity design tokens for the Creative Canvas surface.
-// Components consume these tokens — never hardcode raw hex in canvas components.
+// Components consume these tokens  -  never hardcode raw hex in canvas components.
 export const canvasTheme = {
   bg: '#0b0d10', // near-black canvas
   bgGridDot: '#23262b', // dotted grid
@@ -9,7 +9,7 @@ export const canvasTheme = {
   borderActive: '#3a4150',
   text: '#e7eaf0',
   textMuted: '#8b93a1',
-  accent: '#d4f000', // neon lime — primary actions only
+  accent: '#d4f000', // neon lime  -  primary actions only
   accentText: '#0b0d10', // text on lime
   accentGlow: '0 0 0 1px #d4f000, 0 0 16px -4px #d4f000',
   nodeShadow: '0 8px 30px -12px rgba(0,0,0,0.7)',

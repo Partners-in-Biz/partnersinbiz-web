@@ -15,7 +15,7 @@ interface Props {
   successRedirectUrl: string
   submitUrl: string
   turnstileSiteKey?: string
-  // Optional multi-step config — when present and `display.mode === 'multi-step'`
+  // Optional multi-step config  -  when present and `display.mode === 'multi-step'`
   // with at least one step, the form progresses step-by-step using the
   // progressive endpoint. Any other mode is rendered as a normal inline form
   // (overlay modes don't make sense inside an iframe).
@@ -206,7 +206,7 @@ export function LeadCaptureEmbedForm(props: Props) {
       }
     } catch (err) {
       console.error('[lead-capture] submit error', err)
-      setError('Network error — please try again.')
+      setError('Network error  -  please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -293,7 +293,7 @@ export function LeadCaptureEmbedForm(props: Props) {
         {stepIndex === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ fontSize: 13, fontWeight: 500 }}>Email</label>
-            <input
+            <input aria-label="you@example.com"
               type="email"
               required
               value={email}
@@ -311,7 +311,7 @@ export function LeadCaptureEmbedForm(props: Props) {
             return (
               <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 13, fontWeight: 500 }}>{lbl}</label>
-                <textarea
+                <textarea aria-label="V"
                   required={field.required}
                   value={v}
                   onChange={(e) => setField(field.key, e.target.value)}
@@ -326,7 +326,7 @@ export function LeadCaptureEmbedForm(props: Props) {
             return (
               <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 13, fontWeight: 500 }}>{lbl}</label>
-                <select
+                <select aria-label="V"
                   required={field.required}
                   value={v}
                   onChange={(e) => setField(field.key, e.target.value)}
@@ -343,7 +343,7 @@ export function LeadCaptureEmbedForm(props: Props) {
           return (
             <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <label style={{ fontSize: 13, fontWeight: 500 }}>{lbl}</label>
-              <input
+              <input aria-label="V"
                 type={field.type === 'tel' ? 'tel' : field.type === 'email' ? 'email' : 'text'}
                 required={field.required}
                 value={v}

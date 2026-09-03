@@ -120,7 +120,7 @@ export default function CampaignAbPanel({ campaignId, orgId, disabled }: Props) 
         }
         const data = unwrap<{ ab: AbConfig }>(body)
         setAb(data.ab ?? ab)
-        setNotice(`Winner ${variantId.toUpperCase()} declared — it will fan out to the remaining audience shortly.`)
+        setNotice(`Winner ${variantId.toUpperCase()} declared  -  it will fan out to the remaining audience shortly.`)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to declare winner')
       } finally {

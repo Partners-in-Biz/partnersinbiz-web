@@ -513,14 +513,14 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     function handler(e: KeyboardEvent) {
       const metaOrCtrl = e.metaKey || e.ctrlKey
 
-      // Cmd/Ctrl+K — command palette (works even while typing).
+      // Cmd/Ctrl+K  -  command palette (works even while typing).
       if (metaOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setCmdOpen(v => !v)
         return
       }
 
-      // Cmd/Ctrl+S — broadcast a save event for form pages to listen on.
+      // Cmd/Ctrl+S  -  broadcast a save event for form pages to listen on.
       if (metaOrCtrl && e.key.toLowerCase() === 's') {
         e.preventDefault()
         window.dispatchEvent(new CustomEvent('pib:save'))
@@ -530,7 +530,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       // The rest are single-key shortcuts: ignore when typing or modifiers held.
       if (metaOrCtrl || e.altKey || isTyping(e.target)) return
 
-      // ? — open the shortcuts cheat sheet.
+      // ?  -  open the shortcuts cheat sheet.
       if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -786,7 +786,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       : path
 
   const canManageTeamSettings = memberRole === 'owner' || memberRole === 'admin'
-  // US-207: client-role users get a stripped-down sidebar — Dashboard, Reports,
+  // US-207: client-role users get a stripped-down sidebar  -  Dashboard, Reports,
   // Documents only.
   const effectiveRole = memberRole || userRole
   const isClientRole = effectiveRole === 'client'
@@ -797,7 +797,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
     if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
     if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
-    // Wiki holds workspace knowledge notes and agent activity logs — owner/admin only.
+    // Wiki holds workspace knowledge notes and agent activity logs  -  owner/admin only.
     if (item.href === '/portal/wiki' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio

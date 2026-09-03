@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getProduct } from '@/lib/onboarding/products'
@@ -30,7 +31,7 @@ export default async function StartProductPage({ params }: Props) {
       <div className="relative z-10 max-w-screen-xl mx-auto px-8 md:px-16 pt-32 pb-24">
         {/* Header */}
         <div className="mb-16">
-          <span className="font-headline font-bold text-white/30 uppercase tracking-[0.3em] mb-4 block text-sm">
+          <span className="font-headline font-medium text-white/30 uppercase tracking-[0.3em] mb-4 block text-sm">
             Partners in Biz · Get Started
           </span>
           <h1 className="font-headline font-black uppercase tracking-tight text-white mb-6" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 0.9 }}>
@@ -61,7 +62,7 @@ export default async function StartProductPage({ params }: Props) {
                 <ul className="space-y-3">
                   {product.features.map((f) => (
                     <li key={f} className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-white/60 text-lg mt-0.5 flex-shrink-0">check</span>
+                      <Icon name="check" className="text-white/60 mt-0.5 flex-shrink-0" />
                       <span className="font-body text-sm text-white/70 leading-snug">{f}</span>
                     </li>
                   ))}

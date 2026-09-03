@@ -6,11 +6,11 @@ export function ApprovalBlock({ block, index }: { block: DocumentBlock; index: n
   return (
     <BlockFrame block={block} index={index} noBorder>
       <div
-        className="rounded-2xl border-2 p-8 text-center md:p-12"
+        className="rounded-md border-2 p-8 text-center md:p-12"
         style={{ borderColor: 'var(--doc-accent)', background: 'var(--doc-accent-soft)' }}
       >
         {block.title && (
-          <h2 className="text-2xl font-semibold text-[var(--doc-text)] md:text-3xl">
+          <h2 className="text-2xl font-medium text-[var(--doc-text)] md:text-3xl">
             {block.title}
           </h2>
         )}

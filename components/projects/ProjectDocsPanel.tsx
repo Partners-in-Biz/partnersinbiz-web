@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState } from 'react'
 
 export interface ProjectDoc {
@@ -102,12 +104,12 @@ export function ProjectDocsPanel({
       <div className="pib-card rounded-[var(--radius-card)] p-3.5">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-2.5">
-            <span className="pib-icon-tint-cyan mt-0.5 shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined text-[16px]">menu_book</span>
+            <span className="mt-0.5 shrink-0" aria-hidden="true">
+              <Icon name="menu_book" />
             </span>
             <div>
             <p className="pib-label">Project docs</p>
-            <h2 className="mt-0.5 text-lg font-headline font-bold text-[var(--color-pib-text)]">Brief and knowledge base</h2>
+            <h2 className="mt-0.5 text-lg font-headline font-medium text-[var(--color-pib-text)]">Brief and knowledge base</h2>
             <p className="mt-1 max-w-2xl text-xs text-[var(--color-pib-text-muted)]">Keep project context close to the board. Open any document to preview it before editing.</p>
             </div>
           </div>
@@ -116,7 +118,7 @@ export function ProjectDocsPanel({
             onClick={() => onEditDoc(blankDoc())}
             className="pib-btn-primary btn-pib-sm font-label"
           >
-            <span className="material-symbols-outlined text-[15px]">note_add</span>
+            <Icon name="note_add" />
             New Document
           </button>
         </div>
@@ -126,7 +128,7 @@ export function ProjectDocsPanel({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="pib-label">Source of truth</p>
-            <h2 className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">Project Brief</h2>
+            <h2 className="mt-0.5 text-base font-headline font-medium text-[var(--color-pib-text)]">Project Brief</h2>
           </div>
           {!editingBrief && (
             <button onClick={onEditBrief} className="pib-btn-secondary btn-pib-sm font-label">Edit brief</button>
@@ -138,6 +140,7 @@ export function ProjectDocsPanel({
               value={briefValue}
               onChange={e => onBriefChange(e.target.value)}
               placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
+              aria-label="Project brief"
               className="pib-textarea w-full"
               rows={4}
             />
@@ -159,7 +162,7 @@ export function ProjectDocsPanel({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="pib-label">Library</p>
-            <h2 className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">Documents</h2>
+            <h2 className="mt-0.5 text-base font-headline font-medium text-[var(--color-pib-text)]">Documents</h2>
           </div>
           <span className="pib-pill pib-pill-cyan !text-xs normal-case">{docs.length} docs</span>
         </div>
@@ -171,11 +174,13 @@ export function ProjectDocsPanel({
               placeholder="Document title..."
               value={editingDoc.title}
               onChange={e => onEditingDocChange({ ...editingDoc, title: e.target.value })}
+              aria-label="Document title"
               className="pib-input h-8 w-full"
             />
             <select
               value={editingDoc.type}
               onChange={e => onEditingDocChange({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
+              aria-label="Document type"
               className="pib-select h-8 w-full"
             >
               <option value="brief">Brief</option>
@@ -187,6 +192,7 @@ export function ProjectDocsPanel({
               placeholder="Content (markdown)..."
               value={projectDocContent(editingDoc.content)}
               onChange={e => onEditingDocChange({ ...editingDoc, content: e.target.value })}
+              aria-label="Document content"
               className="pib-textarea w-full"
               rows={8}
             />
@@ -210,13 +216,13 @@ export function ProjectDocsPanel({
                         className="flex w-full items-start gap-3 rounded-[var(--radius-btn)] px-3 py-3 text-left"
                         aria-label={`Preview ${doc.title}`}
                       >
-                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan mt-0.5">
-                          <span className="material-symbols-outlined text-[18px]">description</span>
+                        <span aria-hidden="true" className="mt-0.5">
+                          <Icon name="description" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{doc.title}</span>
+                          <span className="block text-sm font-medium text-[var(--color-pib-text)]">{doc.title}</span>
                           <span className="mt-2 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{docPreview(doc.content)}</span>
-                          <span className={`mt-3 inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
+                          <span className={`mt-3 inline-block rounded-md border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
                             {doc.type}
                           </span>
                         </span>
@@ -226,7 +232,7 @@ export function ProjectDocsPanel({
                         <button
                           type="button"
                           onClick={() => setDeleteCandidate(doc)}
-                          className="text-xs font-label text-red-400 hover:text-red-300"
+                          className="text-xs font-label text-[var(--st-danger)] hover:text-red-300"
                         >
                           <span className="sr-only">Delete project document {doc.title}</span>
                           <span aria-hidden="true">Delete</span>
@@ -271,8 +277,8 @@ export function ProjectDocsPanel({
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <span className={`inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[selectedDoc.type] || TYPE_COLORS.notes}`}>{selectedDoc.type}</span>
-                          <h3 className="mt-3 text-xl font-headline font-bold text-[var(--color-pib-text)]">{selectedDoc.title}</h3>
+                          <span className={`inline-block rounded-md border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[selectedDoc.type] || TYPE_COLORS.notes}`}>{selectedDoc.type}</span>
+                          <h3 className="mt-3 text-xl font-headline font-medium text-[var(--color-pib-text)]">{selectedDoc.title}</h3>
                           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Updated {formatDate(selectedDoc.updatedAt ?? selectedDoc.createdAt)}</p>
                         </div>
                         <button onClick={() => onEditDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
@@ -283,8 +289,8 @@ export function ProjectDocsPanel({
                     </div>
                   ) : (
                     <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
-                      <span className="material-symbols-outlined text-[40px] text-[var(--color-pib-text-muted)]">preview</span>
-                      <h3 className="mt-3 text-base font-headline font-bold text-[var(--color-pib-text)]">Select a document</h3>
+                      <Icon name="preview" />
+                      <h3 className="mt-3 text-base font-headline font-medium text-[var(--color-pib-text)]">Select a document</h3>
                       <p className="mt-2 max-w-xs text-sm text-[var(--color-pib-text-muted)]">Click a document on the left to open its preview here.</p>
                     </div>
                   )}
@@ -292,8 +298,8 @@ export function ProjectDocsPanel({
               </div>
             ) : (
               <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] bg-[var(--color-background)] p-8 text-center">
-                <span className="material-symbols-outlined text-[40px] text-[var(--color-pib-text-muted)]">draft</span>
-                <h3 className="mt-3 text-base font-headline font-bold text-[var(--color-pib-text)]">No documents yet</h3>
+                <Icon name="draft" />
+                <h3 className="mt-3 text-base font-headline font-medium text-[var(--color-pib-text)]">No documents yet</h3>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Create the first project note, brief, requirement, or reference doc.</p>
                 <button onClick={() => onEditDoc(blankDoc())} className="pib-btn-secondary mt-4 text-sm font-label">
                   New Document

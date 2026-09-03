@@ -3,7 +3,7 @@
 // components/admin/sequences/ConditionPicker.tsx
 //
 // UI for picking a BranchCondition (also used for WaitCondition where the
-// option set differs — see `mode`). Renders a kind selector plus the field
+// option set differs  -  see `mode`). Renders a kind selector plus the field
 // inputs appropriate for that kind.
 
 import type { BranchCondition, WaitCondition } from '@/lib/sequences/types'
@@ -83,7 +83,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <select
+      <select aria-label="Kind"
         value={value.kind}
         onChange={(e) => setKind(e.target.value)}
         className="w-full pib-input"
@@ -96,7 +96,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
       </select>
 
       {value.kind === 'clicked-link' && (
-        <input
+        <input aria-label="URL contains (e.g. /pricing)"
           type="text"
           value={value.urlSubstring}
           onChange={(e) => onChange({ ...value, urlSubstring: e.target.value })}
@@ -105,7 +105,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
         />
       )}
       {(value.kind === 'contact-has-tag' || value.kind === 'contact-tag-added') && (
-        <input
+        <input aria-label="Tag (e.g. demo-booked)"
           type="text"
           value={value.tag}
           onChange={(e) => onChange({ ...value, tag: e.target.value })}
@@ -114,7 +114,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
         />
       )}
       {(value.kind === 'contact-at-stage' || value.kind === 'contact-stage-reached') && (
-        <select
+        <select aria-label="Tag (e.g. demo-booked)"
           value={value.stage}
           onChange={(e) => onChange({ ...value, stage: e.target.value })}
           className="w-full pib-input"
@@ -127,7 +127,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
         </select>
       )}
       {value.kind === 'days-since-step' && (
-        <input
+        <input aria-label="Days"
           type="number"
           min={0}
           value={value.days}
@@ -192,7 +192,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
         </div>
       )}
       {value.kind === 'goal-hit' && (
-        <input
+        <input aria-label="Goal id"
           type="text"
           value={value.goalId}
           onChange={(e) => onChange({ ...value, goalId: e.target.value })}

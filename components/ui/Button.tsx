@@ -18,7 +18,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * App Button — thin compatibility wrapper over the Studio kit Button.
+ * App Button  -  thin compatibility wrapper over the Studio kit Button.
  * Keeps the historical ui/Button import path and defaults (`secondary`, `sm`).
  */
 export function Button({

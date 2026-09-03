@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import type { ContextItemSummary } from '@/lib/chat-context/types'
 import { displayStateStyle, displayStateLabel } from '@/lib/chat-context/displayStateStyles'
 
@@ -39,8 +40,8 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
       className="space-y-2 border-t border-white/[0.08] bg-black/20 px-3 py-2.5"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${style.badgeClassName}`}>
-          {live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
+        <span className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[10px] font-medium ${style.badgeClassName}`}>
+          {live && <span className="h-1.5 w-1.5 animate-pulse rounded-[4px] bg-current" aria-hidden="true" />}
           {displayStateLabel(item.state)}
         </span>
         {agent?.agentStatus && (
@@ -50,8 +51,8 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
           </span>
         )}
         {live && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-200">
-            <span className="material-symbols-outlined text-[12px]" aria-hidden="true">sensors</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--st-warning)]">
+            <Icon name="sensors" className="text-[12px]" />
             Live feed
           </span>
         )}
@@ -78,7 +79,7 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
       {!agent?.summary && !item.detail && !agent?.inputSpec && (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           {live
-            ? 'Agent is working — status updates appear here as the task progresses.'
+            ? 'Agent is working - status updates appear here as the task progresses.'
             : item.state === 'complete'
               ? 'No agent summary was recorded for this completed task.'
               : 'No agent activity recorded yet for this card.'}
@@ -97,9 +98,7 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
                   rel="noreferrer"
                   className="inline-flex max-w-full items-center gap-1 truncate text-[11px] text-primary hover:underline"
                 >
-                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                    {artifact.type === 'url' ? 'link' : 'draft'}
-                  </span>
+                  <Icon name={artifact.type === 'url' ? 'link' : 'draft'} className="text-[13px]" />
                   {artifact.label || artifact.ref}
                 </a>
               </li>
@@ -120,7 +119,7 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
           className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.05]"
         >
           Open in project
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">open_in_new</span>
+          <Icon name="open_in_new" className="text-[14px]" />
         </a>
       )}
     </div>

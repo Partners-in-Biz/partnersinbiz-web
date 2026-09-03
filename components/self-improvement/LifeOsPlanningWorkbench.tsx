@@ -162,48 +162,48 @@ export function LifeOsPlanningWorkbench() {
   }
 
   return (
-    <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="space-y-6 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Life OS</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Life OS planning engine</h1>
+          <p className="text-sm font-medium uppercase tracking-wide text-emerald-700">Life OS</p>
+          <h1 className="text-2xl font-medium tracking-tight text-slate-950">Life OS planning engine</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Break long-term direction into quarterly outcomes, weekly commitments, daily actions, and reviewable evidence without turning missed days into shame.
           </p>
         </div>
-        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-right">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Reviewable progress</p>
-          <p className="text-2xl font-semibold text-emerald-950">{progressLabel}</p>
+        <div className="rounded-md bg-emerald-50 px-4 py-3 text-right">
+          <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Reviewable progress</p>
+          <p className="text-2xl font-medium text-emerald-950">{progressLabel}</p>
           <p className="text-xs text-emerald-800">
             {plan.reviewProgress.completedActions}/{plan.reviewProgress.totalActions} daily actions complete
           </p>
         </div>
       </div>
 
-      <aside className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reflection privacy and safety</p>
-        <p className="mt-2 font-semibold">{dailyCheckIn.safetyCopy.disclosure}</p>
+      <aside className="rounded-md border border-amber-200 bg-[var(--st-warning)]/15 p-4 text-sm leading-6 text-[var(--st-warning)]">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--st-warning)]">Reflection privacy and safety</p>
+        <p className="mt-2 font-medium">{dailyCheckIn.safetyCopy.disclosure}</p>
         <p className="mt-1">{dailyCheckIn.safetyCopy.consent}</p>
         <p className="mt-1">{dailyCheckIn.safetyCopy.pressure}</p>
       </aside>
 
       <div className="grid gap-4 lg:grid-cols-4">
-        <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Long-term vision</p>
-          <h2 className="mt-2 text-lg font-semibold text-slate-950">{plan.vision.title}</h2>
+        <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Long-term vision</p>
+          <h2 className="mt-2 text-lg font-medium text-slate-950">{plan.vision.title}</h2>
           <p className="mt-2 text-sm text-slate-600">Horizon: {plan.vision.horizon}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {plan.vision.domains.map((domain) => (
-              <span key={domain} className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
+              <span key={domain} className="rounded-md bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
                 {domain}
               </span>
             ))}
           </div>
         </article>
 
-        <article className="rounded-2xl border border-slate-200 p-4">
+        <article className="rounded-md border border-slate-200 p-4">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quarterly outcomes</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Quarterly outcomes</p>
             <StatePill state={quarter.state} />
           </div>
           {isEditingQuarter ? (
@@ -213,23 +213,23 @@ export function LifeOsPlanningWorkbench() {
               </label>
               <input
                 id="quarter-title"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 value={quarterTitle}
                 onChange={(event) => setQuarterTitle(event.target.value)}
               />
-              <button className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white" onClick={saveQuarterTitle}>
+              <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white" onClick={saveQuarterTitle}>
                 Save quarterly outcome
               </button>
             </div>
           ) : (
             <>
-              <h2 className="mt-2 text-lg font-semibold text-slate-950">{quarter.title}</h2>
+              <h2 className="mt-2 text-lg font-medium text-slate-950">{quarter.title}</h2>
               <p className="mt-2 text-sm text-slate-600">{quarter.targetMetric}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="rounded-full border border-slate-300 px-3 py-1.5 text-sm" onClick={() => setIsEditingQuarter(true)}>
+                <button className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" onClick={() => setIsEditingQuarter(true)}>
                   Edit quarterly outcome
                 </button>
-                <button className="rounded-full border border-rose-200 px-3 py-1.5 text-sm text-rose-700" onClick={archiveQuarter}>
+                <button className="rounded-md border border-rose-200 px-3 py-1.5 text-sm text-rose-700" onClick={archiveQuarter}>
                   Archive quarterly outcome
                 </button>
               </div>
@@ -237,12 +237,12 @@ export function LifeOsPlanningWorkbench() {
           )}
         </article>
 
-        <article className="rounded-2xl border border-slate-200 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Weekly commitments</p>
+        <article className="rounded-md border border-slate-200 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Weekly commitments</p>
           {plan.weeklyCommitments.map((commitment) => (
-            <div key={commitment.id} className="mt-3 rounded-xl bg-slate-50 p-3">
+            <div key={commitment.id} className="mt-3 rounded-md bg-slate-50 p-3">
               <div className="flex items-start justify-between gap-2">
-                <h2 className="font-semibold text-slate-950">{commitment.title}</h2>
+                <h2 className="font-medium text-slate-950">{commitment.title}</h2>
                 <StatePill state={commitment.state} />
               </div>
               <p className="mt-1 text-sm text-slate-600">Cadence: {commitment.cadence}</p>
@@ -250,16 +250,16 @@ export function LifeOsPlanningWorkbench() {
           ))}
         </article>
 
-        <article className="rounded-2xl border border-slate-200 p-4">
+        <article className="rounded-md border border-slate-200 p-4">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Daily actions</p>
-            <button className="rounded-full border border-slate-300 px-3 py-1 text-xs" onClick={moveFirstActionDown}>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Daily actions</p>
+            <button className="rounded-md border border-slate-300 px-3 py-1 text-xs" onClick={moveFirstActionDown}>
               Move action down
             </button>
           </div>
           <ul className="mt-3 space-y-3" data-testid="daily-actions">
             {plan.dailyActions.map((action) => (
-              <li key={action.id} className="rounded-xl bg-slate-50 p-3">
+              <li key={action.id} className="rounded-md bg-slate-50 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-medium text-slate-950">{action.title}</span>
                   <StatePill state={action.state} />
@@ -268,8 +268,8 @@ export function LifeOsPlanningWorkbench() {
                   {action.date} · {action.status}
                 </p>
                 {action.recovery ? (
-                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
-                    <p className="font-semibold">Recovery options</p>
+                  <div className="mt-3 rounded-md border border-amber-200 bg-[var(--st-warning)]/15 p-3 text-xs text-[var(--st-warning)]">
+                    <p className="font-medium">Recovery options</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {action.recovery.options.map((option) => (
                         <span key={option.action} className="rounded-lg bg-white px-2 py-1">
@@ -282,7 +282,7 @@ export function LifeOsPlanningWorkbench() {
               </li>
             ))}
           </ul>
-          <button className="mt-4 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-950" onClick={markMissed}>
+          <button className="mt-4 rounded-md bg-[var(--st-warning)]/15 px-3 py-1.5 text-sm font-medium text-[var(--st-warning)]" onClick={markMissed}>
             Missed action recovery
           </button>
         </article>
@@ -314,39 +314,39 @@ export function LifeOsPlanningWorkbench() {
             `Next experiments: ${weeklyReview.nextExperiments.join('; ')}`,
           ]}
         />
-        <article className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI coach workflow</p>
-          <h2 className="mt-2 text-lg font-semibold text-indigo-950">{coachWorkflow.context.identityDirection}</h2>
+        <article className="rounded-md border border-indigo-100 bg-indigo-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">AI coach workflow</p>
+          <h2 className="mt-2 text-lg font-medium text-indigo-950">{coachWorkflow.context.identityDirection}</h2>
           <div className="mt-3 space-y-3 text-sm leading-6 text-indigo-950">
             <section>
-              <p className="font-semibold">Prompt guardrails</p>
+              <p className="font-medium">Prompt guardrails</p>
               <p>{coachWorkflow.promptGuardrails.system}</p>
             </section>
             <section>
-              <p className="font-semibold">Plan suggestions</p>
+              <p className="font-medium">Plan suggestions</p>
               <p>{coachWorkflow.planSuggestions[0]?.suggestedAction}</p>
             </section>
             <section>
-              <p className="font-semibold">Obstacle diagnosis</p>
+              <p className="font-medium">Obstacle diagnosis</p>
               <p>{coachWorkflow.obstacleDiagnosis.likelyPattern}</p>
             </section>
             <section>
-              <p className="font-semibold">Reflection summary</p>
+              <p className="font-medium">Reflection summary</p>
               <p>{coachWorkflow.reflectionSummary.split('\n')[0]}</p>
             </section>
             <section>
-              <p className="font-semibold">Experiment recommendations</p>
+              <p className="font-medium">Experiment recommendations</p>
               <p>{coachWorkflow.experimentRecommendations[0]?.nextAction}</p>
             </section>
             <section>
-              <p className="font-semibold">Safety boundaries</p>
+              <p className="font-medium">Safety boundaries</p>
               <p>{coachWorkflow.safetyBoundary.message}</p>
               <p className="mt-2">{coachWorkflow.boundaryCopy.role}</p>
               <p className="mt-2">{coachWorkflow.boundaryCopy.emergency}</p>
               <p className="mt-2">{coachWorkflow.boundaryCopy.scope}</p>
             </section>
           </div>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-indigo-700">Insights dashboard signals</p>
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-indigo-700">Insights dashboard signals</p>
           <p className="mt-2 text-sm text-indigo-950">
             {insightSummary.totalWins} wins · {insightSummary.totalMisses} misses · {insightSummary.totalLessons} lessons · {insightSummary.totalBlockers} blockers · energy {insightSummary.averageEnergy}/5 · mood {insightSummary.averageMood}/5
           </p>
@@ -354,15 +354,15 @@ export function LifeOsPlanningWorkbench() {
         </article>
       </div>
 
-      <article className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+      <article className="rounded-md border border-cyan-100 bg-cyan-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Experiment loop</p>
-            <h2 className="mt-2 text-lg font-semibold text-cyan-950">{experiment.title}</h2>
+            <p className="text-xs font-medium uppercase tracking-wide text-cyan-700">Experiment loop</p>
+            <h2 className="mt-2 text-lg font-medium text-cyan-950">{experiment.title}</h2>
             <p className="mt-2 text-sm leading-6 text-cyan-950">Hypothesis: {experiment.hypothesis}</p>
             <p className="mt-1 text-sm text-cyan-900">Duration: {experiment.startDate} → {experiment.endDate} · {experiment.durationDays} days</p>
           </div>
-          <div className="rounded-2xl bg-white px-4 py-3 text-sm text-cyan-950">
+          <div className="rounded-md bg-white px-4 py-3 text-sm text-cyan-950">
             <p>{experimentSummary.activeExperiments} active · {experimentSummary.completedExperiments} completed</p>
             <p>Decision: {experiment.decision ? experiment.decision.charAt(0).toUpperCase() + experiment.decision.slice(1) : 'Pending'}</p>
           </div>
@@ -372,17 +372,17 @@ export function LifeOsPlanningWorkbench() {
           <ExperimentList title="Evidence" items={experiment.result?.evidence ?? experiment.evidencePlan} />
           <ExperimentList title="Result" items={[experiment.result?.summary ?? 'Collect evidence before deciding.']} />
         </div>
-        <div className="mt-4 rounded-2xl border border-cyan-200 bg-white p-3 text-sm text-cyan-950">
-          <p className="font-semibold">Adaptation suggestion: {experiment.adaptationSuggestions[0]?.suggestedChange}</p>
+        <div className="mt-4 rounded-md border border-cyan-200 bg-white p-3 text-sm text-cyan-950">
+          <p className="font-medium">Adaptation suggestion: {experiment.adaptationSuggestions[0]?.suggestedChange}</p>
           <p className="mt-1 text-cyan-800">{experimentSummary.nextAdaptationPrompt}</p>
         </div>
       </article>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">Reviewable progress</p>
+      <div className="rounded-md border border-slate-200 bg-slate-950 p-4 text-white">
+        <p className="text-xs font-medium uppercase tracking-wide text-emerald-300">Reviewable progress</p>
         <p className="mt-2 text-sm leading-6 text-slate-200">{plan.reviewProgress.nextReviewPrompt}</p>
         {plan.reviewProgress.recoveryQueue.length > 0 ? (
-          <p className="mt-2 text-sm text-amber-200">Recovery queue: {plan.reviewProgress.recoveryQueue.join(', ')}</p>
+          <p className="mt-2 text-sm text-[var(--st-warning)]">Recovery queue: {plan.reviewProgress.recoveryQueue.join(', ')}</p>
         ) : null}
       </div>
     </section>
@@ -391,8 +391,8 @@ export function LifeOsPlanningWorkbench() {
 
 function ExperimentList({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-2xl bg-white p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">{title}</p>
+    <div className="rounded-md bg-white p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-cyan-700">{title}</p>
       <ul className="mt-2 space-y-1 text-sm leading-6 text-cyan-950">
         {items.map((item) => (
           <li key={item}>{title}: {item}</li>
@@ -404,9 +404,9 @@ function ExperimentList({ title, items }: { title: string; items: string[] }) {
 
 function ReflectionCard({ title, eyebrow, items }: { title: string; eyebrow: string; items: string[] }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{eyebrow}</p>
-      <h2 className="mt-2 text-lg font-semibold text-slate-950">{title}</h2>
+    <article className="rounded-md border border-slate-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{eyebrow}</p>
+      <h2 className="mt-2 text-lg font-medium text-slate-950">{title}</h2>
       <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
         {items.map((item) => (
           <li key={item}>{item}</li>
@@ -420,7 +420,7 @@ function StatePill({ state }: { state: string }) {
   const label = state.charAt(0).toUpperCase() + state.slice(1)
 
   return (
-    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+    <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
       {label}
     </span>
   )

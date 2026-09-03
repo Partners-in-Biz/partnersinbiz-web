@@ -36,7 +36,7 @@ type ThemedSelectProps = {
  * Themed select with a frozen public API.
  *
  * Default trigger: `.st-select`. Option popover: Studio Menu surface
- * (`.st-menu` / `.st-menu__list` / `.st-menu__item` — same markup Menu ships).
+ * (`.st-menu` / `.st-menu__list` / `.st-menu__item`  -  same markup Menu ships).
  *
  * The Studio `Menu` component is not mounted here: it always wraps its trigger
  * in a secondary `Button` and uses `role="menu"`, which would break listbox

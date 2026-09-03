@@ -163,7 +163,7 @@ export function AdminTopbarNav({
 
           <div className="hidden h-4 w-px shrink-0 bg-[var(--sc-line)] md:block" />
 
-          {/* Nav + tools — scrollable */}
+          {/* Nav + tools  -  scrollable */}
           <nav className="scrollbar-none hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto md:flex">
             {navItems.map((item) => (
               <NavItemRenderer key={item.href} item={item} pathname={pathname} />

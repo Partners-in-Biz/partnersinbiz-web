@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
@@ -9,7 +11,7 @@ import Link from 'next/link'
 // redirects the browser into the provider's OAuth consent screen. Analytics
 // connects through the portal Properties page, which initiates the
 // /api/v1/properties/{id}/connections/{provider}/authorize OAuth flow per
-// property. Slack and WhatsApp are intentionally omitted — no connect route
+// property. Slack and WhatsApp are intentionally omitted - no connect route
 // exists for them.
 
 type SocialPlatform = 'facebook' | 'instagram' | 'linkedin' | 'twitter'
@@ -166,16 +168,16 @@ export function IntegrationsGrid({ orgId }: { orgId?: string }) {
                   className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--color-pib-line)]"
                   style={{ color: tile.accent, background: `${tile.accent}14` }}
                 >
-                  <span className="material-symbols-outlined text-[20px]" aria-hidden>{tile.icon}</span>
+                  <Icon name={tile.icon} />
                 </span>
                 {loading ? (
-                  <span className="h-5 w-16 rounded-full bg-[var(--color-pib-line)] animate-pulse" aria-hidden />
+                  <span className="h-5 w-16 rounded-md bg-[var(--color-pib-line)] animate-pulse" aria-hidden />
                 ) : connected ? (
-                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
+                  <span className="rounded-md border border-emerald-500/25 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
                     Connected
                   </span>
                 ) : (
-                  <span className="rounded-full border border-[var(--color-pib-line-strong)] bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                  <span className="rounded-md border border-[var(--color-pib-line-strong)] bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     Not connected
                   </span>
                 )}
@@ -186,13 +188,13 @@ export function IntegrationsGrid({ orgId }: { orgId?: string }) {
               </div>
               <p className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
                 {connected ? 'Manage' : 'Connect'}
-                <span className="material-symbols-outlined text-[14px]" aria-hidden>arrow_forward</span>
+                <Icon name="arrow_forward" />
               </p>
             </>
           )
 
           const className =
-            'block text-left rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 transition-colors hover:border-[var(--color-pib-accent)]/60 hover:bg-white/[0.04]'
+            'block text-left rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 transition-colors hover:border-[var(--color-pib-accent)]/60 hover:bg-white/[0.04]'
 
           return isAnchor ? (
             <a key={key} href={href} className={className} aria-label={`${connected ? 'Manage' : 'Connect'} ${tile.name}`}>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { Product } from '@/lib/products/types'
 import type { Currency } from '@/lib/crm/types'
+import { Icon } from '@/components/studio'
 
 interface Props {
   product: Product | null
@@ -89,8 +90,9 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
             type="button"
             onClick={onClose}
             className="pib-dialog-close cursor-pointer"
+            aria-label="Close"
           >
-            <span className="material-symbols-outlined text-[16px]">close</span>
+            <Icon name="close" className="text-[16px]" />
           </button>
         </div>
 
@@ -98,10 +100,11 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
         <form id="product-form" onSubmit={handleSubmit} className="pib-dialog-body space-y-4">
           {/* Name */}
           <div>
-            <label className="pib-label">
+            <label htmlFor="product-name" className="pib-label">
               Name <span className="text-[var(--color-error)]">*</span>
             </label>
             <input
+              id="product-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -113,10 +116,11 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
 
           {/* Description */}
           <div>
-            <label className="pib-label">
+            <label htmlFor="product-description" className="pib-label">
               Description
             </label>
             <textarea
+              id="product-description"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -128,10 +132,11 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
           {/* Unit price + Currency row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="pib-label">
+              <label htmlFor="product-unit-price" className="pib-label">
                 Unit price <span className="text-[var(--color-error)]">*</span>
               </label>
               <input
+                id="product-unit-price"
                 type="number"
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(e.target.value)}
@@ -142,10 +147,11 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
               />
             </div>
             <div>
-              <label className="pib-label">
+              <label htmlFor="product-currency" className="pib-label">
                 Currency
               </label>
               <select
+                id="product-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as Currency)}
                 className="pib-select w-full cursor-pointer text-sm"
@@ -159,10 +165,11 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
 
           {/* Unit */}
           <div>
-            <label className="pib-label">
+            <label htmlFor="product-unit" className="pib-label">
               Unit
             </label>
             <input
+              id="product-unit"
               type="text"
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
@@ -174,7 +181,7 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
           {/* Inline error */}
           {error && (
             <p className="text-sm text-[var(--color-error)] flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">error</span>
+              <Icon name="error" className="text-[16px]" />
               {error}
             </p>
           )}
@@ -195,7 +202,7 @@ export function ProductModal({ product, orgId, onSave, onClose }: Props) {
             disabled={saving}
             className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
           >
-            <span className="material-symbols-outlined text-[15px]">save</span>
+            <Icon name="save" className="text-[15px]" />
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
           </button>
         </div>

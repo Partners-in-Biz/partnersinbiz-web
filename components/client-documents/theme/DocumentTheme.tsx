@@ -2,9 +2,9 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { DocumentTheme as DocumentThemeType } from '@/lib/client-documents/types'
 
 const DARK_DEFAULTS = {
-  bg: '#0A0A0B',
+  bg: 'var(--sc-ink)',
   text: '#F7F4EE',
-  accent: '#F5A623',
+  accent: 'var(--sc-accent)',
   muted: '#888888',
   border: '#222222',
   surface: '#141416',

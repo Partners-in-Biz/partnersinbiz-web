@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useRef, useState } from 'react'
 
 type CommerceKind = 'invoice' | 'quote'
@@ -213,7 +214,7 @@ export function CommerceDocumentContextPreview({
       setActionMessage(
         emailed
           ? `Sent to ${meta.recipientEmail} with PDF attached.`
-          : `Marked as sent. Email to ${meta.recipientEmail} may still be delivering — check if needed.`,
+          : `Marked as sent. Email to ${meta.recipientEmail} may still be delivering - check if needed.`,
       )
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : `Could not send ${label.toLowerCase()}`)
@@ -224,7 +225,7 @@ export function CommerceDocumentContextPreview({
 
   if (state === 'error') {
     return (
-      <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-4 text-xs text-amber-100">
+      <div role="status" className="rounded-[6px] border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-3 py-4 text-xs text-[var(--st-warning)]">
         The {label.toLowerCase()} preview is unavailable. Open the full workspace to continue.
       </div>
     )
@@ -242,7 +243,7 @@ export function CommerceDocumentContextPreview({
         </h3>
         {(state === 'loading' || softRefreshing) && (
           <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]">
-            <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
+            <Icon name="progress_activity" className="animate-spin text-[14px]" />
             {state === 'loading' ? 'Loading…' : 'Updating…'}
           </span>
         )}
@@ -256,7 +257,7 @@ export function CommerceDocumentContextPreview({
             disabled={downloading}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 text-[11px] font-medium text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:opacity-50 xl:min-h-8"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+            <Icon name="picture_as_pdf" className="text-[15px]" />
             {downloading ? 'Downloading…' : 'Download PDF'}
           </button>
           {meta?.status === 'draft' && (
@@ -268,9 +269,9 @@ export function CommerceDocumentContextPreview({
               }}
               disabled={!canSend || sending}
               title={!meta.recipientEmail ? `Add a client email on this ${label.toLowerCase()} before sending` : undefined}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 text-[11px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-50 xl:min-h-8"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 text-[11px] font-medium text-primary hover:bg-primary/15 disabled:opacity-50 xl:min-h-8"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">send</span>
+              <Icon name="send" className="text-[15px]" />
               Send email
             </button>
           )}
@@ -286,7 +287,7 @@ export function CommerceDocumentContextPreview({
         <div
           role="dialog"
           aria-label={`Confirm send ${label.toLowerCase()}`}
-          className="rounded-xl border border-primary/25 bg-primary/[0.06] p-3 space-y-2"
+          className="rounded-[6px] border border-primary/25 bg-primary/[0.06] p-3 space-y-2"
         >
           <p className="text-xs text-[var(--color-pib-text)]">
             Email <strong>{meta.number}</strong> to <strong>{meta.recipientEmail}</strong> with the PDF attached?
@@ -296,7 +297,7 @@ export function CommerceDocumentContextPreview({
               type="button"
               onClick={() => void handleSend()}
               disabled={sending}
-              className="inline-flex min-h-11 items-center rounded-lg bg-primary px-3 text-[11px] font-semibold text-black disabled:opacity-50 xl:min-h-8"
+              className="inline-flex min-h-11 items-center rounded-lg bg-primary px-3 text-[11px] font-medium text-black disabled:opacity-50 xl:min-h-8"
             >
               {sending ? 'Sending…' : 'Confirm & send'}
             </button>
@@ -328,7 +329,7 @@ export function CommerceDocumentContextPreview({
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-white">
+      <div className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-white">
         <iframe
           ref={iframeRef}
           title={`${label} preview`}

@@ -260,7 +260,7 @@ export default function AgentsBoardClient() {
             <div key={item.label} className="st-panel p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="sc-tiny">{item.label}</span>
-                <span aria-hidden="true" className="!h-6 !w-6 !rounded-md">
+                <span aria-hidden="true" className="!h-6 !w-6 rounded-md">
                   <Icon name={item.icon} className="text-[14px]" />
                 </span>
               </div>

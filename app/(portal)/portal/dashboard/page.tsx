@@ -896,7 +896,7 @@ export default function PortalDashboard() {
           <section>
             <div className="mb-3 flex items-baseline justify-between">
               <h2 className="sc-tiny">Headline metrics</h2>
-              <span className="sc-tiny text-[var(--sc-ink-soft)]">Month-to-date</span>
+              <span className="sc-tiny text-[var(--sc-ink-soft)]">Month to date</span>
             </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Tile label="Total revenue" value={fmtZar.format(data.kpis.total_revenue)} delta={data.kpis.deltas.total_revenue} icon="payments" emphasis />

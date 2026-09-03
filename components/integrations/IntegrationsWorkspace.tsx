@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   CRM_INTEGRATION_PROVIDERS,
@@ -29,7 +31,7 @@ interface IntegrationsWorkspaceProps {
 const STATUS_STYLES: Record<CrmIntegrationStatus, string> = {
   pending: 'bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line-strong)]',
   active: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
-  syncing: 'bg-amber-500/15 text-amber-300 border border-amber-500/25',
+  syncing: 'bg-[var(--st-warning)]/15 text-[var(--st-warning)] border border-amber-500/25',
   error: 'bg-red-500/15 text-red-300 border border-red-500/25',
   paused: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25',
   disabled: 'bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line-strong)]',
@@ -46,7 +48,7 @@ const STATUS_LABELS: Record<CrmIntegrationStatus, string> = {
 
 function StatusBadge({ status }: { status: CrmIntegrationStatus }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_STYLES[status]}`}>
+    <span className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${STATUS_STYLES[status]}`}>
       {STATUS_LABELS[status]}
     </span>
   )
@@ -55,27 +57,27 @@ function StatusBadge({ status }: { status: CrmIntegrationStatus }) {
 function HealthBadge({ integration }: { integration: PublicCrmIntegrationView }) {
   if (integration.status === 'error' || integration.lastSyncStats.errored > 0 || integration.lastError) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-red-500/25 bg-red-500/10 text-red-200">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-red-500/25 bg-red-500/10 text-red-200">
         Needs review
       </span>
     )
   }
   if (integration.status === 'active' && integration.lastSyncedAt) {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
         Healthy sync
       </span>
     )
   }
   if (integration.status === 'paused' || integration.status === 'disabled') {
     return (
-      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/25 bg-amber-500/10 text-amber-200">
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-amber-500/25 bg-[var(--st-warning)]/10 text-[var(--st-warning)]">
         Paused
       </span>
     )
   }
   return (
-    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
+    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
       Setup pending
     </span>
   )
@@ -93,17 +95,15 @@ function MetricCard({
   icon: string
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {label}
           </p>
-          <p className="mt-2 truncate text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+          <p className="mt-2 truncate text-2xl text-[var(--color-pib-text)]">{value}</p>
         </div>
-        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
-          {icon}
-        </span>
+        <Icon name={icon} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2" />
       </div>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
@@ -172,7 +172,7 @@ function ProviderTile({
       onClick={() => !disabled && onAdd(entry.provider)}
       disabled={disabled}
       className={[
-        'text-left p-4 rounded-xl border bg-[var(--color-pib-surface)] border-[var(--color-pib-line)] transition-colors',
+        'text-left p-4 rounded-md border bg-[var(--color-pib-surface)] border-[var(--color-pib-line)] transition-colors',
         selected ? 'ring-2 ring-[var(--color-pib-accent)]/45 border-[var(--color-pib-accent)]/70 bg-[var(--color-pib-accent-soft)]' : '',
         disabled
           ? 'opacity-60 cursor-not-allowed'
@@ -182,17 +182,17 @@ function ProviderTile({
       <div className="flex items-center justify-between gap-2 mb-1">
         <span className="font-medium text-[var(--color-pib-text)]">{entry.displayName}</span>
         {connectedCount > 0 && (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 uppercase tracking-wide">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 uppercase tracking-wide">
             {connectedCount} connected
           </span>
         )}
         {entry.comingSoon && (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line-strong)] uppercase tracking-wide">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line-strong)] uppercase tracking-wide">
             Coming soon
           </span>
         )}
         {!entry.comingSoon && entry.configFields.length === 0 && (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-300 border border-blue-500/25 uppercase tracking-wide">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/15 text-blue-300 border border-blue-500/25 uppercase tracking-wide">
             No setup
           </span>
         )}
@@ -251,7 +251,7 @@ function AddIntegrationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4 space-y-4">
+    <form onSubmit={handleSubmit} className="rounded-md bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-[var(--color-pib-text)]">Connect {entry.displayName}</h3>
         <button
@@ -266,29 +266,29 @@ function AddIntegrationForm({
       <div>
         <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
           Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="mt-1.5 w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+          />
         </label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
-        />
       </div>
 
       {entry.configFields.map((field) => (
         <div key={field.key}>
           <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
             {field.label}{field.required ? ' *' : ''}
+            <input
+              type={field.type === 'password' ? 'password' : 'text'}
+              value={config[field.key] ?? ''}
+              onChange={(e) => setConfig((prev) => ({ ...prev, [field.key]: e.target.value }))}
+              placeholder={field.placeholder}
+              required={field.required}
+              autoComplete="off"
+              className="mt-1.5 w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm font-mono"
+            />
           </label>
-          <input
-            type={field.type === 'password' ? 'password' : 'text'}
-            value={config[field.key] ?? ''}
-            onChange={(e) => setConfig((prev) => ({ ...prev, [field.key]: e.target.value }))}
-            placeholder={field.placeholder}
-            required={field.required}
-            autoComplete="off"
-            className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm font-mono"
-          />
           {field.helpText && (
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{field.helpText}</p>
           )}
@@ -449,12 +449,10 @@ function IntegrationCard({
   ]
 
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
+    <div className="rounded-md bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]">
-            extension
-          </span>
+          <Icon name="extension" className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2" />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-[var(--color-pib-text)] truncate">
               {displayName}
@@ -475,7 +473,7 @@ function IntegrationCard({
               {readinessItems.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                  className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
                 >
                   {item}
                 </span>
@@ -532,7 +530,7 @@ function IntegrationCard({
             role="alertdialog"
             aria-modal="false"
             aria-labelledby={`integration-delete-title-${integration.id}`}
-            className="rounded-xl border border-red-500/25 bg-red-500/10 p-4"
+            className="rounded-md border border-red-500/25 bg-red-500/10 p-4"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -592,14 +590,14 @@ function IntegrationCard({
           <div>
             <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Auto-tags
+              <input
+                value={tagsDraft}
+                onChange={(e) => setTagsDraft(e.target.value)}
+                onBlur={handleTagsBlur}
+                placeholder="newsletter, mailchimp"
+                className="mt-1.5 w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              />
             </label>
-            <input
-              value={tagsDraft}
-              onChange={(e) => setTagsDraft(e.target.value)}
-              onBlur={handleTagsBlur}
-              placeholder="newsletter, mailchimp"
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
-            />
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
               Comma-separated. Applied to every imported contact.
             </p>
@@ -638,17 +636,17 @@ function IntegrationCard({
           <div>
             <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Sync cadence
+              <select
+                value={integration.cadenceMinutes}
+                onChange={(e) => patch({ cadenceMinutes: Number(e.target.value) })}
+                disabled={busy}
+                className="mt-1.5 block px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              >
+                {CADENCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </label>
-            <select
-              value={integration.cadenceMinutes}
-              onChange={(e) => patch({ cadenceMinutes: Number(e.target.value) })}
-              disabled={busy}
-              className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
-            >
-              {CADENCE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
           </div>
 
           {sensitiveFields.length > 0 && (
@@ -657,25 +655,25 @@ function IntegrationCard({
                 <div key={f.key}>
                   <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
                     Update {f.label}
+                    <div className="mt-1.5 flex gap-2">
+                      <input
+                        type="password"
+                        value={secretDrafts[f.key] ?? ''}
+                        onChange={(e) => setSecretDrafts((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder="Leave blank to keep current"
+                        autoComplete="off"
+                        className="flex-1 px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSecretSave(f.key)}
+                        disabled={busy || !(secretDrafts[f.key] ?? '').trim()}
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-pib-line)] disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                    </div>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={secretDrafts[f.key] ?? ''}
-                      onChange={(e) => setSecretDrafts((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                      placeholder="Leave blank to keep current"
-                      autoComplete="off"
-                      className="flex-1 px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSecretSave(f.key)}
-                      disabled={busy || !(secretDrafts[f.key] ?? '').trim()}
-                      className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-pib-line)] disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
@@ -835,7 +833,7 @@ export function IntegrationsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
           </div>
         </div>
 
-        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+        <div className="rounded-md bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
           <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Sync discipline</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Healthy CRM imports need three things: a recent sync, source tags, and a deliberate nurture path for the right leads.
@@ -871,20 +869,18 @@ export function IntegrationsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
         {loading ? (
           <div className="space-y-3">
             {[...Array(2)].map((_, i) => (
-              <div key={i} className="pib-skeleton h-20 rounded-xl" />
+              <div key={i} className="pib-skeleton h-20 rounded-md" />
             ))}
           </div>
         ) : integrations.length === 0 ? (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+          <div className="overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
             <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="p-5">
                 <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                  <span className="material-symbols-outlined text-[21px]" aria-hidden>
-                    hub
-                  </span>
+                  <Icon name="hub" />
                 </span>
                 <p className="eyebrow !text-[10px]">Source launch</p>
-                <h3 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+                <h3 className="mt-3 text-xl font-medium text-[var(--color-pib-text)]">
                   No connected CRM sources yet.
                 </h3>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -896,9 +892,7 @@ export function IntegrationsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
                     onClick={() => setAddingProvider(firstConnectableProvider.provider)}
                     className="btn-pib-accent mt-5 inline-flex items-center gap-1.5 text-sm"
                   >
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden>
-                      add_link
-                    </span>
+                    <Icon name="add_link" />
                     Connect {firstConnectableProvider.displayName}
                   </button>
                 )}

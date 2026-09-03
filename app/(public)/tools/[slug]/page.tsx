@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -49,11 +50,11 @@ export default async function ToolPage({ params }: { params: ToolPageParams }) {
       <JsonLd data={faqSchema(tool.faqs)} />
 
       <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
+        <div className="absolute inset-0 -z-10 opacity-70" />
         <div className="container-pib">
           <Reveal>
             <Link href="/tools" className="pib-link-underline inline-flex items-center gap-1 text-sm text-[var(--color-pib-accent)]">
-              <span className="material-symbols-outlined text-base">arrow_back</span>
+              <Icon name="arrow_back" />
               All tools
             </Link>
           </Reveal>
@@ -75,7 +76,7 @@ export default async function ToolPage({ params }: { params: ToolPageParams }) {
                 ['Proof angle', tool.proofPoint],
                 ['Data handling', 'Browser-first or public-safe wrapper'],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 p-5 backdrop-blur">
+                <div key={label} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/70 p-5">
                   <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-pib-text-faint)]">{label}</p>
                   <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
                 </div>
@@ -106,7 +107,7 @@ export default async function ToolPage({ params }: { params: ToolPageParams }) {
             <Reveal delay={140}>
               <div className="bento-card p-6">
                 <p className="eyebrow mb-4">Next step</p>
-                <h2 className="font-display text-2xl text-[var(--color-pib-text)]">{tool.cta}</h2>
+                <h2 className="text-2xl text-[var(--color-pib-text)]">{tool.cta}</h2>
                 <p className="mt-3 text-sm text-[var(--color-pib-text-muted)] leading-relaxed">
                   Save the numbers, then ask PiB to turn the result into a practical plan, audit, or build scope.
                 </p>
@@ -146,7 +147,7 @@ export default async function ToolPage({ params }: { params: ToolPageParams }) {
           <div className="grid gap-5 md:grid-cols-2">
             {tool.faqs.map(faq => (
               <div key={faq.q} className="bento-card p-7">
-                <h2 className="font-display text-xl text-[var(--color-pib-text)]">{faq.q}</h2>
+                <h2 className="text-xl text-[var(--color-pib-text)]">{faq.q}</h2>
                 <p className="mt-3 text-[var(--color-pib-text-muted)] leading-relaxed">{faq.a}</p>
               </div>
             ))}

@@ -238,34 +238,34 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
 
         <form onSubmit={save} className="pib-card-section p-5 space-y-4 h-fit lg:sticky lg:top-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">{form.id ? 'Edit app' : 'Add app'}</h2>
+            <h2 className="font-headline font-medium text-[var(--color-pib-text)]">{form.id ? 'Edit app' : 'Add app'}</h2>
             {form.id && <button type="button" onClick={() => setForm(emptyForm)} className="text-xs text-[var(--color-pib-text-muted)]">New</button>}
           </div>
           <Field label="App name" value={form.name} onChange={v => update('name', v)} required />
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Platform" value={form.platform} onChange={v => update('platform', v as MobileAppPlatform)} options={['ios', 'android', 'huawei', 'web', 'other']} />
-            <Select label="Status" value={form.status} onChange={v => update('status', v as MobileAppStatus)} options={['planned', 'live', 'paused', 'deprecated']} />
+            <Select aria-label="Platform" label="Platform" value={form.platform} onChange={v => update('platform', v as MobileAppPlatform)} options={['ios', 'android', 'huawei', 'web', 'other']} />
+            <Select aria-label="Status" label="Status" value={form.status} onChange={v => update('status', v as MobileAppStatus)} options={['planned', 'live', 'paused', 'deprecated']} />
           </div>
           <Field label="App Store URL" value={form.appStoreUrl} onChange={v => update('appStoreUrl', v)} />
           <Field label="Google Play URL" value={form.playStoreUrl} onChange={v => update('playStoreUrl', v)} />
           <div className="grid grid-cols-2 gap-3"><Field label="Bundle ID" value={form.bundleId} onChange={v => update('bundleId', v)} /><Field label="Package name" value={form.packageName} onChange={v => update('packageName', v)} /></div>
           <Field label="Listing title" value={form.title} onChange={v => update('title', v)} />
           <Field label="Subtitle / short line" value={form.subtitle} onChange={v => update('subtitle', v)} />
-          <TextArea label="Short description" value={form.shortDescription} onChange={v => update('shortDescription', v)} />
-          <TextArea label="Long description" value={form.longDescription} onChange={v => update('longDescription', v)} rows={4} />
-          <TextArea label="ASO keywords" value={form.keywords} onChange={v => update('keywords', v)} placeholder="One per line or comma-separated" />
+          <TextArea aria-label="Short Description" label="Short description" value={form.shortDescription} onChange={v => update('shortDescription', v)} />
+          <TextArea aria-label="Long Description" label="Long description" value={form.longDescription} onChange={v => update('longDescription', v)} rows={4} />
+          <TextArea aria-label="One per line or comma-separated" label="ASO keywords" value={form.keywords} onChange={v => update('keywords', v)} placeholder="One per line or comma-separated" />
           <div className="grid grid-cols-2 gap-3"><Field label="Category" value={form.category} onChange={v => update('category', v)} /><Field label="Target audience" value={form.targetAudience} onChange={v => update('targetAudience', v)} /></div>
-          <TextArea label="ASO notes" value={form.asoNotes} onChange={v => update('asoNotes', v)} rows={3} />
+          <TextArea aria-label="One per line or comma-separated" label="ASO notes" value={form.asoNotes} onChange={v => update('asoNotes', v)} rows={3} />
           <Field label="Icon URL" value={form.iconUrl} onChange={v => update('iconUrl', v)} />
-          <TextArea label="Screenshot URLs" value={form.screenshotUrls} onChange={v => update('screenshotUrls', v)} />
+          <TextArea aria-label="One per line or comma-separated" label="Screenshot URLs" value={form.screenshotUrls} onChange={v => update('screenshotUrls', v)} />
           <div className="grid grid-cols-2 gap-3"><Field label="Installs" value={form.installs} onChange={v => update('installs', v)} /><Field label="Active users" value={form.activeUsers} onChange={v => update('activeUsers', v)} /></div>
           <div className="grid grid-cols-2 gap-3"><Field label="Rating" value={form.averageRating} onChange={v => update('averageRating', v)} /><Field label="Reviews" value={form.reviewCount} onChange={v => update('reviewCount', v)} /></div>
           <div className="grid grid-cols-2 gap-3"><Field label="Current version" value={form.currentVersion} onChange={v => update('currentVersion', v)} /><Field label="Upcoming version" value={form.upcomingVersion} onChange={v => update('upcomingVersion', v)} /></div>
-          <TextArea label="Release notes" value={form.releaseNotes} onChange={v => update('releaseNotes', v)} rows={3} />
-          <Select label="Access status" value={form.accessStatus} onChange={v => update('accessStatus', v)} options={['unknown', 'no_access', 'invited', 'active', 'blocked']} />
-          <TextArea label="Internal access notes" value={form.accessNotes} onChange={v => update('accessNotes', v)} rows={3} />
-          <TextArea label="Internal notes" value={form.internalNotes} onChange={v => update('internalNotes', v)} rows={3} />
-          <TextArea label="Client-visible notes" value={form.clientNotes} onChange={v => update('clientNotes', v)} rows={3} />
+          <TextArea aria-label="One per line or comma-separated" label="Release notes" value={form.releaseNotes} onChange={v => update('releaseNotes', v)} rows={3} />
+          <Select aria-label="Access Status" label="Access status" value={form.accessStatus} onChange={v => update('accessStatus', v)} options={['unknown', 'no_access', 'invited', 'active', 'blocked']} />
+          <TextArea aria-label="Access Notes" label="Internal access notes" value={form.accessNotes} onChange={v => update('accessNotes', v)} rows={3} />
+          <TextArea aria-label="Internal Notes" label="Internal notes" value={form.internalNotes} onChange={v => update('internalNotes', v)} rows={3} />
+          <TextArea aria-label="Client Notes" label="Client-visible notes" value={form.clientNotes} onChange={v => update('clientNotes', v)} rows={3} />
           <label className="flex items-start gap-2 text-sm text-[var(--color-pib-text-muted)]">
             <input
               type="checkbox"

@@ -153,7 +153,7 @@ export default function JobsClient() {
             <div key={q.collection + q.name} className={`st-panel p-4 ${q.instrumented ? '' : 'opacity-70'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-label text-[var(--color-pib-text)]">{q.name}</span>
-                <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+                <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
                   <Icon name={q.instrumented ? 'queue' : 'do_not_disturb_on'} />
                 </span>
               </div>

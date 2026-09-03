@@ -1,6 +1,6 @@
 'use client'
 // components/ads/linkedin/audience-builders/EngagementAudienceBuilder.tsx
-// LinkedIn Engagement (ENGAGEMENT) audience builder — Phase 3 Batch 3
+// LinkedIn Engagement (ENGAGEMENT) audience builder - Phase 3 Batch 3
 
 import { useState } from 'react'
 
@@ -15,7 +15,7 @@ type EngagementType = 'VISITORS' | 'FOLLOWERS' | 'VIDEO_VIEWERS'
 type State = 'idle' | 'submitting' | 'done' | 'error'
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 const ENGAGEMENT_TYPES: { value: EngagementType; label: string }[] = [
@@ -132,7 +132,7 @@ export function LinkedinEngagementAudienceBuilder({ orgId, onCreated, onCancel }
           disabled={state === 'submitting'}
         />
         <span className="text-xs text-white/40 mt-1 block">
-          Format: urn:li:organization:&#123;id&#125; — client LinkedIn company page URN
+          Format: urn:li:organization:&#123;id&#125; - client LinkedIn company page URN
         </span>
       </label>
 

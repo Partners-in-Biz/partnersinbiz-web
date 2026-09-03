@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 /**
  * Drop-in "share this record with a linked partner" control, for use on the
@@ -9,7 +10,7 @@ import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-rou
  * doesn't have to start from /portal/partners.
  *
  * Only lists partner links whose sharedCapabilities already cover this record
- * type — the same gate the API enforces — so the reason a partner is missing is
+ * type - the same gate the API enforces - so the reason a partner is missing is
  * visible here rather than surfacing as a server error on submit.
  */
 
@@ -161,10 +162,10 @@ export function ShareWithPartnerButton({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label={`${label} — ${resourceType.replace('_', ' ')}`}
+        aria-label={`${label} - ${resourceType.replace('_', ' ')}`}
         className={className || 'btn-pib-secondary inline-flex items-center gap-1.5'}
       >
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">handshake</span>
+        <Icon name="handshake" className="text-[16px]" />
         {label}
         {sharedWith.size > 0 ? (
           <span className="pib-pill pib-pill-info px-1.5 py-0 text-[10px]">{sharedWith.size}</span>
@@ -172,7 +173,7 @@ export function ShareWithPartnerButton({
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-30 mt-1 w-80 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 shadow-lg">
+        <div className="absolute right-0 z-30 mt-1 w-80 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
           {loading ? (
             <p className="text-xs text-[var(--color-pib-text-muted)]">Loading partners…</p>
           ) : links.length === 0 ? (
@@ -216,7 +217,7 @@ export function ShareWithPartnerButton({
                           type="button"
                           onClick={() => void share(link)}
                           disabled={busy}
-                          className="rounded bg-[var(--color-accent-v2)] px-2 py-0.5 text-[11px] font-semibold text-black disabled:opacity-50"
+                          className="rounded bg-[var(--color-accent-v2)] px-2 py-0.5 text-[11px] font-medium text-black disabled:opacity-50"
                         >
                           Share
                         </button>
@@ -228,7 +229,7 @@ export function ShareWithPartnerButton({
 
               {ineligible.length > 0 ? (
                 <p className="mt-2 border-t border-[var(--color-pib-line)] pt-2 text-[10px] leading-4 text-[var(--color-pib-text-muted)]">
-                  {ineligible.length} partner{ineligible.length === 1 ? '' : 's'} hidden — your link with them
+                  {ineligible.length} partner{ineligible.length === 1 ? '' : 's'} hidden - your link with them
                   doesn&rsquo;t share <strong>{capability}</strong>. Enable it on the Partners page.
                 </p>
               ) : null}

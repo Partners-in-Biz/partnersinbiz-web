@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { Icon } from '@/components/studio'
+
 // ── Feature definitions ───────────────────────────────────────────────────
 
 /**
@@ -106,7 +108,7 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
     fetchOrgData().then((data) => {
       if (cancelled) return
       if (!data) {
-        // Could not determine — default to showing feature (fail open)
+        // Could not determine  -  default to showing feature (fail open)
         setEnabled(true)
         return
       }
@@ -142,7 +144,7 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
         style={{ zIndex: 10 }}
       >
         <div
-          className="flex flex-col items-center gap-4 rounded-2xl p-8 text-center shadow-xl"
+          className="flex flex-col items-center gap-4 rounded-md p-8 text-center"
           style={{
             background: 'var(--color-pib-surface-2)',
             border: '1px solid var(--color-pib-line-strong)',
@@ -151,19 +153,11 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
           }}
         >
           {/* Lock icon */}
-          <span
-            className="material-symbols-outlined"
-            style={{
-              fontSize: '40px',
-              color: 'var(--color-pib-accent)',
-            }}
-          >
-            lock
-          </span>
+          <Icon name="lock" style={{ fontSize: '40px', color: 'var(--color-pib-accent)', }} />
 
           {/* Heading */}
           <h2
-            className="text-base font-headline font-semibold"
+            className="text-base font-headline font-medium"
             style={{ color: 'var(--color-pib-text)' }}
           >
             This feature isn&apos;t included in your plan
@@ -181,15 +175,13 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
           {/* CTA */}
           <Link
             href={href}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-label font-semibold transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-label font-medium transition-colors"
             style={{
               background: 'var(--color-pib-accent)',
               color: 'var(--color-pib-ink)',
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-              arrow_upward
-            </span>
+            <Icon name="arrow_upward" style={{ fontSize: '18px' }} />
             Upgrade plan
           </Link>
         </div>

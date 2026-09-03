@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -48,23 +49,18 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
 
       {/* Hero */}
       <section className="section relative overflow-hidden pt-28 md:pt-36 pb-0">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
+        <div className="absolute inset-0 -z-10 opacity-70" />
         <div className="container-pib">
           <Reveal eager>
             <Link href="/partner-with-us" prefetch={false} className="btn-pib-secondary">
-              <span className="material-symbols-outlined text-base">arrow_back</span>
+              <Icon name="arrow_back" />
               All ventures
             </Link>
           </Reveal>
 
           <Reveal delay={80} eager>
             <div className="mt-10 flex items-center gap-3">
-              <span
-                className="material-symbols-outlined text-[var(--color-pib-accent)]"
-                style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0, 'wght' 300" }}
-              >
-                {opportunity.icon}
-              </span>
+              <Icon name={opportunity.icon} />
               <span className="pill text-xs">{opportunity.eyebrow}</span>
             </div>
           </Reveal>
@@ -90,19 +86,19 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
                   className="btn-pib-accent"
                 >
                   {opportunity.liveLabel ?? 'See it live'}
-                  <span className="material-symbols-outlined text-base">open_in_new</span>
+                  <Icon name="open_in_new" />
                 </a>
               )}
               <a href="#apply" className="btn-pib-secondary">
                 Register interest
-                <span className="material-symbols-outlined text-base">arrow_downward</span>
+                <Icon name="arrow_downward" />
               </a>
             </div>
           </Reveal>
 
           {/* Stats strip */}
           <Reveal delay={320} eager>
-            <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-[var(--color-pib-line)] bg-[var(--color-pib-line)]">
+            <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-px rounded-md overflow-hidden border border-[var(--color-pib-line)] bg-[var(--color-pib-line)]">
               {opportunity.stats.map((stat) => (
                 <div key={stat.label} className="bg-[var(--color-pib-surface)] p-5 md:p-6">
                   <p className="eyebrow !text-xs text-[var(--color-pib-text-faint)]">{stat.label}</p>
@@ -124,7 +120,7 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
                 <ul className="grid gap-4">
                   {opportunity.whatsBuilt.map((item) => (
                     <li key={item} className="flex items-start gap-3 text-[var(--color-pib-text)] leading-relaxed">
-                      <span className="material-symbols-outlined mt-0.5 text-lg text-[var(--color-pib-accent)]">check_circle</span>
+                      <Icon name="check_circle" className="mt-0.5" />
                       <span className="text-pretty">{item}</span>
                     </li>
                   ))}
@@ -153,7 +149,7 @@ export default async function PartnerOpportunityPage({ params }: PageProps) {
                   <ul className="grid gap-4">
                     {opportunity.whatYouGet.map((item) => (
                       <li key={item} className="flex items-start gap-3 text-[var(--color-pib-text)] leading-relaxed">
-                        <span className="material-symbols-outlined mt-0.5 text-lg text-[var(--color-pib-accent)]">handshake</span>
+                        <Icon name="handshake" className="mt-0.5" />
                         <span className="text-pretty">{item}</span>
                       </li>
                     ))}
@@ -205,13 +201,8 @@ function InfoCard({ title, body, icon }: { title: string; body: string; icon: st
   return (
     <Reveal>
       <article className="bento-card h-full p-8">
-        <span
-          className="material-symbols-outlined text-[var(--color-pib-accent)]"
-          style={{ fontSize: '28px', fontVariationSettings: "'FILL' 0, 'wght' 300" }}
-        >
-          {icon}
-        </span>
-        <h2 className="mt-4 text-lg font-display text-[var(--color-pib-text)]">{title}</h2>
+        <Icon name={icon} />
+        <h2 className="mt-4 text-lg text-[var(--color-pib-text)]">{title}</h2>
         <p className="mt-2 text-sm leading-relaxed text-[var(--color-pib-text-muted)] text-pretty">{body}</p>
       </article>
     </Reveal>

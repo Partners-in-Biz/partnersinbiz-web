@@ -32,7 +32,7 @@ const DISPLAY_MODES: { value: WidgetDisplayMode; label: string; help: string }[]
   { value: 'popup', label: 'Popup modal', help: 'Full-screen modal triggered by delay or scroll.' },
   { value: 'slide-in', label: 'Slide-in toast', help: 'Small card sliding in from a corner.' },
   { value: 'exit-intent', label: 'Exit-intent', help: 'Popup that fires only when the visitor signals leaving.' },
-  { value: 'multi-step', label: 'Multi-step', help: 'Progressive form — captures email first, then more fields.' },
+  { value: 'multi-step', label: 'Multi-step', help: 'Progressive form  -  captures email first, then more fields.' },
 ]
 
 const POSITIONS: WidgetPosition[] = [
@@ -268,7 +268,7 @@ function Tabs(props: { tab: TabKey; setTab: (t: TabKey) => void; submissionCount
 function Section(props: { title: string; children: React.ReactNode; description?: string }) {
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-semibold text-[var(--color-pib-text)] mb-1">{props.title}</h3>
+      <h2 className="text-sm font-medium text-[var(--color-pib-text)] mb-1">{props.title}</h2>
       {props.description ? <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">{props.description}</p> : null}
       {props.children}
     </div>
@@ -281,11 +281,13 @@ function Input(props: {
   onChange: (v: string) => void
   placeholder?: string
   type?: string
+  'aria-label'?: string
 }) {
   return (
     <label className="block mb-3">
       <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       <input
+        aria-label={props['aria-label'] ?? props.label}
         type={props.type ?? 'text'}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
@@ -296,11 +298,19 @@ function Input(props: {
   )
 }
 
-function TextArea(props: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+function TextArea(props: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  rows?: number
+  'aria-label'?: string
+}) {
   return (
     <label className="block mb-3">
       <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       <textarea
+        aria-label={props['aria-label'] ?? props.label}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder={props.placeholder}
@@ -316,7 +326,7 @@ function SetupTab(props: { state: EditableSource; update: <K extends keyof Edita
   return (
     <div>
       <Section title="Name & opt-in mode">
-        <Input label="Name" value={state.name} onChange={(v) => update('name', v)} />
+        <Input aria-label="Name" label="Name" value={state.name} onChange={(v) => update('name', v)} />
         <label className="block mb-3">
           <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Opt-in mode</span>
           <select
@@ -335,13 +345,14 @@ function SetupTab(props: { state: EditableSource; update: <K extends keyof Edita
           title="Confirmation email"
           description="Sent to the subscriber. Use {{confirmUrl}} where you want the confirmation link."
         >
-          <Input
+          <Input aria-label="Please confirm your subscription"
             label="Subject"
             value={state.confirmationSubject}
             onChange={(v) => update('confirmationSubject', v)}
             placeholder="Please confirm your subscription"
           />
           <TextArea
+            aria-label="Confirmation HTML body"
             label="HTML body"
             value={state.confirmationBodyHtml}
             onChange={(v) => update('confirmationBodyHtml', v)}
@@ -352,8 +363,8 @@ function SetupTab(props: { state: EditableSource; update: <K extends keyof Edita
       )}
 
       <Section title="Success behaviour" description="Shown after a successful submission.">
-        <Input label="Success message" value={state.successMessage} onChange={(v) => update('successMessage', v)} />
-        <Input label="Redirect URL (optional)" value={state.successRedirectUrl} onChange={(v) => update('successRedirectUrl', v)} placeholder="https://yoursite.com/thanks" />
+        <Input aria-label="Success message" label="Success message" value={state.successMessage} onChange={(v) => update('successMessage', v)} />
+        <Input aria-label="Redirect URL" label="Redirect URL (optional)" value={state.successRedirectUrl} onChange={(v) => update('successRedirectUrl', v)} placeholder="https://yoursite.com/thanks" />
       </Section>
     </div>
   )
@@ -380,19 +391,19 @@ function FieldsTab(props: {
           props.fields.map((f, i) => (
             <div key={i} className="p-3 rounded-lg bg-[var(--color-pib-surface-soft)] space-y-2">
               <div className="flex gap-2">
-                <input
+                <input aria-label="key"
                   className="flex-1 pib-input"
                   placeholder="key"
                   value={f.key}
                   onChange={(e) => props.onPatch(i, { key: e.target.value })}
                 />
-                <input
+                <input aria-label="Label"
                   className="flex-1 pib-input"
                   placeholder="Label"
                   value={f.label}
                   onChange={(e) => props.onPatch(i, { label: e.target.value })}
                 />
-                <select
+                <select aria-label="Label"
                   value={f.type}
                   onChange={(e) => props.onPatch(i, { type: e.target.value as CaptureFieldType })}
                   className="pib-input"
@@ -417,14 +428,14 @@ function FieldsTab(props: {
                 </button>
               </div>
               <div className="flex gap-2">
-                <input
+                <input aria-label="placeholder (optional)"
                   className="flex-1 pib-input"
                   placeholder="placeholder (optional)"
                   value={f.placeholder ?? ''}
                   onChange={(e) => props.onPatch(i, { placeholder: e.target.value })}
                 />
                 {f.type === 'select' && (
-                  <input
+                  <input aria-label="options, comma-separated"
                     className="flex-1 pib-input"
                     placeholder="options, comma-separated"
                     value={(f.options ?? []).join(', ')}
@@ -503,7 +514,7 @@ function ChipList(props: { values: string[]; onChange: (v: string[]) => void; pl
   return (
     <div>
       <div className="flex gap-2 mb-2">
-        <input
+        <input aria-label="Input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
@@ -514,7 +525,7 @@ function ChipList(props: { values: string[]; onChange: (v: string[]) => void; pl
       </div>
       <div className="flex flex-wrap gap-1">
         {props.values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--color-pib-surface-soft)] text-xs text-[var(--color-pib-text)]">
+          <span key={v} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[var(--color-pib-surface-soft)] text-xs text-[var(--color-pib-text)]">
             {v}
             <button
               onClick={() => props.onChange(props.values.filter((x) => x !== v))}
@@ -594,22 +605,29 @@ function RoutingTab(props: {
   )
 }
 
-function ColorInput(props: { label: string; value: string; onChange: (v: string) => void }) {
+function ColorInput(props: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  'aria-label'?: string
+}) {
   return (
     <label className="block mb-3">
       <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2">
         <input
+          aria-label={props['aria-label'] ?? props.label}
           type="color"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="h-9 w-12 rounded-lg border border-[var(--color-pib-line)]"
+          className="h-10 w-14 pib-input p-1"
         />
         <input
+          aria-label={`${props['aria-label'] ?? props.label} hex`}
           type="text"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="flex-1 pib-input"
+          className="flex-1 pib-input font-mono"
         />
       </div>
     </label>
@@ -625,12 +643,12 @@ function WidgetTab(props: {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <div>
-        <Input label="Heading" value={props.theme.headingText} onChange={(v) => props.updateTheme('headingText', v)} />
-        <Input label="Subheading" value={props.theme.subheadingText} onChange={(v) => props.updateTheme('subheadingText', v)} />
-        <Input label="Button text" value={props.theme.buttonText} onChange={(v) => props.updateTheme('buttonText', v)} />
-        <ColorInput label="Primary color" value={props.theme.primaryColor} onChange={(v) => props.updateTheme('primaryColor', v)} />
-        <ColorInput label="Text color" value={props.theme.textColor} onChange={(v) => props.updateTheme('textColor', v)} />
-        <ColorInput label="Background color" value={props.theme.backgroundColor} onChange={(v) => props.updateTheme('backgroundColor', v)} />
+        <Input aria-label="Heading" label="Heading" value={props.theme.headingText} onChange={(v) => props.updateTheme('headingText', v)} />
+        <Input aria-label="Subheading" label="Subheading" value={props.theme.subheadingText} onChange={(v) => props.updateTheme('subheadingText', v)} />
+        <Input aria-label="Button text" label="Button text" value={props.theme.buttonText} onChange={(v) => props.updateTheme('buttonText', v)} />
+        <ColorInput aria-label="Primary color" label="Primary color" value={props.theme.primaryColor} onChange={(v) => props.updateTheme('primaryColor', v)} />
+        <ColorInput aria-label="Text color" label="Text color" value={props.theme.textColor} onChange={(v) => props.updateTheme('textColor', v)} />
+        <ColorInput aria-label="Background color" label="Background color" value={props.theme.backgroundColor} onChange={(v) => props.updateTheme('backgroundColor', v)} />
         <label className="block mb-3">
           <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Border radius (px)</span>
           <input
@@ -644,7 +662,7 @@ function WidgetTab(props: {
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">Save to refresh the preview.</p>
       </div>
       <div>
-        <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
+        <div className="rounded-md bg-[var(--color-pib-surface-soft)] p-4">
           <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Live preview (iframe)</p>
           <iframe
             key={previewKey}
@@ -699,7 +717,7 @@ function SpamProtectionTab(props: {
           />
           Require Cloudflare Turnstile on this form
         </label>
-        <Input
+        <Input aria-label="0x4AAAAAAA"
           label="Turnstile site key (public, safe to embed)"
           value={state.turnstileSiteKey}
           onChange={(v) => update('turnstileSiteKey', v)}
@@ -712,7 +730,7 @@ function SpamProtectionTab(props: {
 
       <Section
         title="Honeypot field"
-        description="Adds a hidden _hp input — invisible to humans, often filled by bots. Recommended ON."
+        description="Adds a hidden _hp input  -  invisible to humans, often filled by bots. Recommended ON."
       >
         <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
           <input
@@ -809,7 +827,7 @@ function StatTile(props: { label: string; value: number; highlight?: boolean }) 
       }`}
     >
       <div className="text-xs text-[var(--color-pib-text-muted)]">{props.label}</div>
-      <div className="text-xl font-semibold text-[var(--color-pib-text)] mt-1">{props.value}</div>
+      <div className="text-xl font-medium text-[var(--color-pib-text)] mt-1">{props.value}</div>
     </div>
   )
 }
@@ -854,11 +872,11 @@ function CodeBlock(props: { value: string }) {
 function tsToDate(t: CaptureSubmission['createdAt']): string {
   const seconds = (t as { _seconds?: number; seconds?: number } | null)?._seconds
     ?? (t as { seconds?: number } | null)?.seconds
-  if (!seconds) return '—'
+  if (!seconds) return ' - '
   try {
     return new Date(seconds * 1000).toLocaleString()
   } catch {
-    return '—'
+    return ' - '
   }
 }
 
@@ -887,7 +905,7 @@ function SubmissionsTab(props: { submissions: CaptureSubmission[] }) {
           {sorted.map((s) => (
             <tr key={s.id} className="border-t border-[var(--color-pib-line)]">
               <td className="py-2 pr-4 font-medium text-[var(--color-pib-text)]">{s.email}</td>
-              <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{Object.entries(s.data || {}).map(([k, v]) => `${k}=${v}`).join(', ') || '—'}</td>
+              <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{Object.entries(s.data || {}).map(([k, v]) => `${k}=${v}`).join(', ') || ' - '}</td>
               <td className="py-2 pr-4">{s.confirmedAt ? <span className="pib-pill pib-pill-success">Yes</span> : <span className="pib-pill pib-pill-warn">Pending</span>}</td>
               <td className="py-2 pr-4 text-[var(--color-pib-text-muted)] truncate max-w-[10ch]">{s.contactId}</td>
               <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{tsToDate(s.createdAt)}</td>

@@ -43,7 +43,7 @@ const STATUS_LABEL: Record<CampaignDetailedStats['contactActivity'][number]['sta
   bounced: 'Bounced',
   delivered: 'Delivered',
   sent: 'Sent',
-  none: '—',
+  none: ' - ',
 }
 
 export function CampaignAnalyticsWorkspace({
@@ -111,7 +111,7 @@ export function CampaignAnalyticsWorkspace({
       a.remove()
       URL.revokeObjectURL(url)
     } catch {
-      // Best-effort — surface nothing intrusive; the button just re-enables.
+      // Best-effort  -  surface nothing intrusive; the button just re-enables.
     } finally {
       setExporting(false)
     }

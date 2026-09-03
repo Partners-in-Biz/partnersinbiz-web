@@ -28,19 +28,19 @@ const CHANNEL_STYLES: Record<string, { label: string; badge: string; frame: stri
   instagram_square: {
     label: 'Instagram square',
     badge: 'IG 1:1',
-    frame: 'aspect-square -br from-fuchsia-500/25 via-rose-500/20 to-amber-400/25',
+    frame: 'aspect-square -br   ',
     icon: '◎',
   },
   instagram_reel: {
     label: 'Instagram reel',
     badge: 'IG Reel',
-    frame: 'aspect-[9/16] max-h-64 -b from-purple-500/25 via-pink-500/20 to-orange-400/20',
+    frame: 'aspect-[9/16] max-h-64 -b   ',
     icon: '▶',
   },
   instagram_story: {
     label: 'Instagram story',
     badge: 'IG Story',
-    frame: 'aspect-[9/16] max-h-64 -b from-indigo-500/25 via-fuchsia-500/20 to-rose-400/20',
+    frame: 'aspect-[9/16] max-h-64 -b   ',
     icon: '◌',
   },
   facebook: {

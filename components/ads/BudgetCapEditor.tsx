@@ -156,7 +156,7 @@ export function BudgetCapEditor({
         </div>
       )}
 
-      <div className="rounded border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+      <div className="rounded border border-amber-300/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
         Admin guardrail only: creating or increasing a cap does not approve new paid spend. Campaign launch and spend changes still require recorded approval evidence.
       </div>
 
@@ -186,7 +186,7 @@ export function BudgetCapEditor({
         />
       </label>
 
-      {/* Scope — only in create mode */}
+      {/* Scope - only in create mode */}
       {!budgetId && (
         <fieldset>
           <legend className="text-sm font-medium">Scope *</legend>
@@ -243,7 +243,7 @@ export function BudgetCapEditor({
               Find IDs at{' '}
               <a
                 href={`/admin/org/${orgSlug}/ads/campaigns`}
-                className="underline text-[#F5A623]"
+                className="underline text-[var(--sc-accent)]"
                 target="_blank"
                 rel="noreferrer"
               >

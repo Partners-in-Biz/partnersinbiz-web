@@ -35,7 +35,7 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-8 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-8 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
@@ -56,7 +56,7 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
           return (
             <div
               key={i}
-              className="rounded-xl border p-5"
+              className="rounded-md border p-5"
               style={{ borderColor: 'var(--doc-border)', background: 'var(--doc-surface)' }}
             >
               <p className="text-xs uppercase tracking-wider text-[var(--doc-muted)]">
@@ -66,7 +66,7 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
                 <div className="mt-3 flex items-center gap-4" data-testid="metric-ring-row">
                   <MiniRing value={valueNum} max={targetNum} />
                   <p
-                    className="text-3xl font-semibold md:text-4xl"
+                    className="text-3xl font-medium md:text-4xl"
                     style={{ color: 'var(--doc-accent)' }}
                     data-counter={item.value}
                   >
@@ -75,7 +75,7 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
                 </div>
               ) : item.value ? (
                 <p
-                  className="mt-3 text-3xl font-semibold md:text-4xl"
+                  className="mt-3 text-3xl font-medium md:text-4xl"
                   style={{ color: 'var(--doc-accent)' }}
                   data-counter={item.value}
                 >

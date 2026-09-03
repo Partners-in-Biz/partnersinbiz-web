@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
+import { Icon } from '@/components/studio'
+
 interface RssRecipient {
   kind: 'segment' | 'tag' | 'contacts'
   segmentId?: string
@@ -156,16 +158,16 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+      <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <p className="text-sm text-[var(--color-pib-text-muted)]">Loading RSS automations…</p>
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+    <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
       {error && (
-        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+        <div className="rounded-lg border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
           {error}
           <button type="button" onClick={load} className="ml-3 underline">
             Retry
@@ -175,7 +177,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
       {!draft && (
         <button type="button" onClick={() => setDraft(emptyDraft())} className="flex h-8 w-fit items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black">
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <Icon name="add" className="text-[16px]" />
           New RSS digest
         </button>
       )}
@@ -183,7 +185,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
       {/* Editor */}
       {draft && (
         <div className="mt-3 space-y-3 border-t border-[var(--color-card-border)] pt-3">
-          <h3 className="text-sm font-semibold">{draft.id ? 'Edit RSS digest' : 'New RSS digest'}</h3>
+          <h3 className="text-sm font-medium">{draft.id ? 'Edit RSS digest' : 'New RSS digest'}</h3>
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
@@ -366,8 +368,8 @@ export default function RssAutomationManager({ orgScope }: Props) {
       {/* List */}
       {list.length === 0 && !draft ? (
         <div className="mt-3 border-t border-[var(--color-card-border)] p-3 text-center">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-8 !w-8 mx-auto mb-2">
-            <span className="material-symbols-outlined text-[16px]">rss_feed</span>
+          <span aria-hidden="true" className="!h-8 !w-8 mx-auto mb-2">
+            <Icon name="rss_feed" className="text-[16px]" />
           </span>
           <p className="text-sm text-[var(--color-pib-text-muted)]">No RSS digests yet. Create one to auto-email new posts.</p>
         </div>
@@ -380,10 +382,10 @@ export default function RssAutomationManager({ orgScope }: Props) {
                   <div className="mb-1 flex items-center gap-2">
                     <span
                       className={[
-                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]',
+                        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]',
                         item.enabled
                           ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
-                          : 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+                          : 'border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]',
                       ].join(' ')}
                     >
                       {item.enabled ? 'Active' : 'Paused'}
@@ -395,7 +397,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                       {item.schedule.timezone ?? 'UTC'}
                     </span>
                   </div>
-                  <h3 className="truncate text-sm font-semibold">{item.name}</h3>
+                  <h3 className="truncate text-sm font-medium">{item.name}</h3>
                   <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{item.feedUrl}</p>
                   <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{recipientLabel(item.recipient)}</p>
                 </div>
@@ -406,7 +408,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     title={item.enabled ? 'Pause' : 'Activate'}
                     className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"
                   >
-                    <span className="material-symbols-outlined text-[17px]">{item.enabled ? 'pause' : 'play_arrow'}</span>
+                    <Icon name={item.enabled ? 'pause' : 'play_arrow'} className="text-[17px]" />
                   </button>
                   <button
                     type="button"
@@ -414,15 +416,15 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     title="Edit"
                     className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"
                   >
-                    <span className="material-symbols-outlined text-[17px]">edit</span>
+                    <Icon name="edit" className="text-[17px]" />
                   </button>
                   <button
                     type="button"
                     onClick={() => remove(item.id)}
                     title="Delete"
-                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-red-400/[0.08] hover:text-red-400"
+                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-red-400/[0.08] hover:text-[var(--st-danger)]"
                   >
-                    <span className="material-symbols-outlined text-[17px]">delete</span>
+                    <Icon name="delete" className="text-[17px]" />
                   </button>
                 </div>
               </div>

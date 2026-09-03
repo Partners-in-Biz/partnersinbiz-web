@@ -56,7 +56,7 @@ export default async function AdminLayout({
       // middleware.ts for every `/admin/*` request, so we can reliably detect
       // the challenge page and avoid a redirect loop. If the path genuinely
       // cannot be determined we still redirect (the admin shell must never
-      // render without a satisfied challenge) — the only path we skip is the
+      // render without a satisfied challenge)  -  the only path we skip is the
       // challenge page itself.
       const hdrs = await headers()
       const currentPath =

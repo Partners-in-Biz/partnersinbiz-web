@@ -217,14 +217,14 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
   }
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   return (
     <div className="mx-auto max-w-2xl">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New Google Shopping campaign</h1>
+        <h1 className="text-2xl font-medium">New Google Shopping campaign</h1>
         {onCancel && (
           <button
             type="button"
@@ -243,7 +243,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center transition-colors ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -263,7 +263,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
               className={inputCls}
               value={step1.campaignName}
               onChange={(e) => setStep1((s) => ({ ...s, campaignName: e.target.value }))}
-              placeholder="e.g. Shopping — Summer Sale 2026"
+              placeholder="e.g. Shopping - Summer Sale 2026"
               aria-label="Campaign name"
             />
           </label>
@@ -291,7 +291,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step1.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -335,7 +335,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
               </p>
               <a
                 href={`/admin/org/${orgSlug}/ads/merchant-center`}
-                className="mt-2 inline-block text-[#F5A623] underline hover:text-[#F5A623]/80 text-sm"
+                className="mt-2 inline-block text-[var(--sc-accent)] underline hover:text-[color-mix(in_srgb,var(--sc-accent)_80%,transparent)] text-sm"
                 aria-label="Connect Merchant Center first"
               >
                 Connect Merchant Center →
@@ -364,7 +364,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
                   }}
                   aria-label="Merchant Center account"
                 >
-                  <option value="">— select account —</option>
+                  <option value=""> -  select account - </option>
                   {bindings.map((b) => (
                     <option key={b.merchantId} value={b.merchantId}>
                       Merchant ID: {b.merchantId}
@@ -384,7 +384,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
                     onChange={(e) => setStep2((s) => ({ ...s, feedLabel: e.target.value }))}
                     aria-label="Feed label"
                   >
-                    <option value="">— select feed label —</option>
+                    <option value=""> -  select feed label - </option>
                     {feedLabelOptions.map((label) => (
                       <option key={label} value={label}>
                         {label}
@@ -420,7 +420,7 @@ export function ShoppingCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
 
           <div className="rounded border border-white/10 bg-white/[0.02] p-4 text-sm text-white/50">
             <p>
-              Shopping campaigns use <strong className="text-white/70">Product ads</strong> —
+              Shopping campaigns use <strong className="text-white/70">Product ads</strong> - 
               Google automatically pulls product titles, images, and prices from the client Merchant
               Center feed. No ad creative assets are required.
             </p>

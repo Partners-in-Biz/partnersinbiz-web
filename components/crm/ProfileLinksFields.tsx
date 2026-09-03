@@ -1,6 +1,7 @@
 'use client'
 
 import {
+import { Icon } from '@/components/studio'
   PROFILE_LINK_FIELDS,
   type ProfileLink,
   type ProfileLinkFieldKey,
@@ -76,7 +77,7 @@ export function ProfileLinksFields({
         </div>
         {otherLinks.length === 0 ? (
           <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-            Add any extra profile or property URL — portfolio, blog, Crunchbase, docs.
+            Add any extra profile or property URL - portfolio, blog, Crunchbase, docs.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -120,7 +121,7 @@ export function ProfileLinksFields({
                     onClick={() => onOtherLinksChange(otherLinks.filter((_, i) => i !== index))}
                     className="grid h-9 w-9 place-items-center rounded-md border border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+                    <Icon name="close" className="text-[16px]" />
                   </button>
                 </div>
               )

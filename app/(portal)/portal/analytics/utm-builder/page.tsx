@@ -139,7 +139,7 @@ export default function UtmBuilderPage() {
         <div>
           <label className="pib-label mb-1">Generated URL</label>
           <div className="flex items-start gap-2">
-            <textarea name="enter-a-destination-url-to-generate-a-ta"
+            <textarea name="enter-a-destination-url-for-utm-tags"
               readOnly
               value={generated}
               placeholder="Enter a destination URL to generate a tagged link."

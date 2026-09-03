@@ -26,7 +26,7 @@ import { Wordmark } from '@/components/marketing/stage/StageChrome'
 
 // useSearchParams() must be inside a Suspense boundary in Next.js 15+,
 // otherwise the static prerender pass errors out. This page is fully dynamic
-// anyway — there is nothing to prerender — so we also opt out of static
+// anyway  -  there is nothing to prerender  -  so we also opt out of static
 // rendering explicitly.
 export const dynamic = 'force-dynamic'
 

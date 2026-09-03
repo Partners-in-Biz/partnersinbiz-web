@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { CompanyRecordEmptyPanel, CompanyRecordStatusChip } from '@/components/crm/CompanyRecordPrimitives'
+import { Icon } from '@/components/studio'
 
 export type CompanyRowsPanelRow = {
   id: string
@@ -83,7 +84,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
   return (
     <div className="space-y-2">
       {enableFilters ? (
-        <div className="grid gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+        <div className="grid gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5 md:grid-cols-[minmax(0,1fr)_180px_180px]">
           <label className="block">
             <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Search</span>
             <input
@@ -119,7 +120,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
       {filteredRows.length === 0 ? (
         <CompanyRecordEmptyPanel icon="filter_alt_off" label={filteredEmptyLabel ?? emptyLabel} />
       ) : (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-card-border)]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-card-border)]">
           {filteredRows.map((row) => {
             const rowTitle = title(row)
             const href = hrefFor?.(row) ?? undefined
@@ -143,9 +144,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                 <div className="flex shrink-0 items-center gap-1.5">
                   {'status' in row ? <CompanyRecordStatusChip value={row.status} emptyLabel={statusEmptyLabel} /> : null}
                   {href && linkedRow ? (
-                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
-                      open_in_new
-                    </span>
+                    <Icon name="open_in_new" className="text-[16px] text-[var(--color-pib-text-muted)]" />
                   ) : null}
                 </div>
               </>

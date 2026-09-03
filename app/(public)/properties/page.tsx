@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE, CTA_LABEL } from '@/lib/seo/site'
@@ -159,8 +160,8 @@ export default function PropertiesPage() {
 
       {/* Hero */}
       <section className="relative pt-28 md:pt-40 pb-20 md:pb-24 overflow-hidden">
-        <div className="absolute inset-0 pib-mesh pointer-events-none" />
-        <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-40" />
+        <div className="absolute inset-0 pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none opacity-40" />
         <div className="container-pib relative">
           <Reveal>
             <p className="eyebrow mb-6">
@@ -185,7 +186,7 @@ export default function PropertiesPage() {
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link href={SITE.cal.url} className="btn-pib-accent">
                 {CTA_LABEL}
-                <span className="material-symbols-outlined text-base">arrow_outward</span>
+                <Icon name="arrow_outward" />
               </Link>
               <Link href="/pricing#properties" className="btn-pib-secondary">
                 See pricing
@@ -246,13 +247,8 @@ export default function PropertiesPage() {
             {FEATURES.map((f, i) => (
               <Reveal key={f.title} delay={i * 60}>
                 <div className="bento-card h-full p-7 flex flex-col gap-4">
-                  <span
-                    className="material-symbols-outlined text-[var(--color-pib-accent)]"
-                    style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0, 'wght' 300" }}
-                  >
-                    {f.icon}
-                  </span>
-                  <h2 className="font-display text-xl text-[var(--color-pib-text)]">{f.title}</h2>
+                  <Icon name={f.icon} />
+                  <h2 className="text-xl text-[var(--color-pib-text)]">{f.title}</h2>
                   <p className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed flex-1">
                     {f.body}
                   </p>
@@ -281,7 +277,7 @@ export default function PropertiesPage() {
                   <span className="font-mono text-xs tracking-widest text-[var(--color-pib-accent)]">
                     {s.step}
                   </span>
-                  <h2 className="font-display text-2xl text-[var(--color-pib-text)]">{s.title}</h2>
+                  <h2 className="text-2xl text-[var(--color-pib-text)]">{s.title}</h2>
                   <p className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed">
                     {s.body}
                   </p>
@@ -333,9 +329,7 @@ export default function PropertiesPage() {
                       key={item}
                       className="flex items-start gap-3 text-[var(--color-pib-text)]"
                     >
-                      <span className="material-symbols-outlined text-[var(--color-pib-accent)] mt-0.5 shrink-0">
-                        check_circle
-                      </span>
+                      <Icon name="check_circle" className="mt-0.5 shrink-0" />
                       <span className="text-pretty">{item}</span>
                     </li>
                   ))}
@@ -375,7 +369,7 @@ export default function PropertiesPage() {
               <div className="flex flex-col sm:flex-row gap-3 shrink-0">
                 <Link href={SITE.cal.url} className="btn-pib-accent">
                   {CTA_LABEL}
-                  <span className="material-symbols-outlined text-base">arrow_outward</span>
+                  <Icon name="arrow_outward" />
                 </Link>
               </div>
             </div>

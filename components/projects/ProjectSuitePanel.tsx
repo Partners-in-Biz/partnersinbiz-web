@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WorkflowGraphAuthoringPanel } from '@/components/projects/WorkflowGraphAuthoringPanel'
 
@@ -317,7 +319,7 @@ function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditIte
                       onClick={() => onEditItem(item)}
                       className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-pib-text)]"
                     >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                      <Icon name="edit" />
                     </button>
                   ) : null}
                 </div>
@@ -1114,138 +1116,138 @@ function ItemList({
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
               <span className="inline-flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">event</span>
+                <Icon name="event" />
                 {formatDate(item.dueDate)}
               </span>
               {item.severity ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                  <Icon name="priority_high" />
                   {item.severity}
                 </span>
               ) : null}
               {item.visibility ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                  <Icon name="visibility" />
                   {item.visibility}
                 </span>
               ) : null}
               {item.channel ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">notifications</span>
+                  <Icon name="notifications" />
                   {item.channel}
                 </span>
               ) : null}
               {item.eventType ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">campaign</span>
+                  <Icon name="campaign" />
                   {labelStatus(item.eventType)}
                 </span>
               ) : null}
               {item.itemType ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">my_location</span>
+                  <Icon name="my_location" />
                   {item.itemId ? `${item.itemType} ${item.itemId}` : item.itemType}
                 </span>
               ) : null}
               {item.trigger ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  <Icon name="bolt" />
                   {labelStatus(item.trigger)}
                 </span>
               ) : null}
               {item.cadence ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">event_repeat</span>
+                  <Icon name="event_repeat" />
                   {labelStatus(item.cadence)}
                 </span>
               ) : null}
               {item.templateKind ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">dynamic_form</span>
+                  <Icon name="dynamic_form" />
                   {labelStatus(item.templateKind)}
                 </span>
               ) : null}
               {item.recurrenceRule ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">repeat</span>
+                  <Icon name="repeat" />
                   {item.recurrenceRule}
                 </span>
               ) : null}
               {item.nextRunAt ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">today</span>
+                  <Icon name="today" />
                   Next {formatDate(item.nextRunAt)}
                 </span>
               ) : null}
               {playbookTemplateStepCount(item) > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">checklist</span>
+                  <Icon name="checklist" />
                   {playbookTemplateStepCount(item)} steps
                 </span>
               ) : null}
               {item.autoCreateTasks ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">auto_awesome_motion</span>
+                  <Icon name="auto_awesome_motion" />
                   Auto-create
                 </span>
               ) : null}
               {item.capacityMinutes ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                  <Icon name="schedule" />
                   {formatMinutes(item.capacityMinutes)}
                 </span>
               ) : null}
               {typeof item.amount === 'number' ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">payments</span>
+                  <Icon name="payments" />
                   {formatMoney(item.amount, item.currency)}
                 </span>
               ) : null}
               {item.actorName ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">history</span>
+                  <Icon name="history" />
                   {item.actorName}
                 </span>
               ) : null}
               {Array.isArray(item.allowedUserIds) && item.allowedUserIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">person</span>
+                  <Icon name="person" />
                   {item.allowedUserIds.join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.allowedOrgIds) && item.allowedOrgIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">business</span>
+                  <Icon name="business" />
                   {item.allowedOrgIds.join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.allowedRoleIds) && item.allowedRoleIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                  <Icon name="admin_panel_settings" />
                   {item.allowedRoleIds.map(labelStatus).join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.recipientRoleIds) && item.recipientRoleIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">groups</span>
+                  <Icon name="groups" />
                   {item.recipientRoleIds.map(labelStatus).join(', ')}
                 </span>
               ) : null}
               {typeof item.enabled === 'boolean' ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">{item.enabled ? 'notifications_active' : 'notifications_off'}</span>
+                  <Icon name={item.enabled ? 'notifications_active' : 'notifications_off'} />
                   {item.enabled ? 'Enabled' : 'Muted'}
                 </span>
               ) : null}
               {Array.isArray(item.permissionPolicyIds) && item.permissionPolicyIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">policy</span>
+                  <Icon name="policy" />
                   {item.permissionPolicyIds.length} policies
                 </span>
               ) : null}
               {item.internalOnly ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">lock</span>
+                  <Icon name="lock" />
                   Internal
                 </span>
               ) : null}
@@ -1262,7 +1264,7 @@ function ItemList({
                       onRun(type, item.id as string).catch(() => {})
                     }}
                   >
-                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                    <Icon name="play_arrow" />
                     Run
                   </button>
                 ) : null}
@@ -1347,7 +1349,7 @@ function PlanningDiscoveryPanel({
               key={turn.id ?? turn.question}
               className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-sm"
             >
-              <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || '—'}</p>
+              <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || ' - '}</p>
               {turn.currentGuess && (
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Guess: {turn.currentGuess}</p>
               )}
@@ -1402,47 +1404,47 @@ function PlanningDiscoveryPanel({
           <h4 className="font-headline text-[var(--color-pib-text)]">Decision Brief</h4>
           <dl className="mt-3 grid gap-3 md:grid-cols-2">
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Outcome</dt>
+              <dt className="text-[var(--color-pib-text)]">Outcome</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.outcome || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">User / audience</dt>
+              <dt className="text-[var(--color-pib-text)]">User / audience</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.user || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Why now</dt>
+              <dt className="text-[var(--color-pib-text)]">Why now</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.whyNow || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Success criteria</dt>
+              <dt className="text-[var(--color-pib-text)]">Success criteria</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Constraints</dt>
+              <dt className="text-[var(--color-pib-text)]">Constraints</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.constraints ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Out of scope</dt>
+              <dt className="text-[var(--color-pib-text)]">Out of scope</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.outOfScope ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Assumptions</dt>
+              <dt className="text-[var(--color-pib-text)]">Assumptions</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.assumptions ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Risks</dt>
+              <dt className="text-[var(--color-pib-text)]">Risks</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.risks ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Approval gates</dt>
+              <dt className="text-[var(--color-pib-text)]">Approval gates</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.approvalGates ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className=" text-[var(--color-pib-text)]">Revision</dt>
+              <dt className="text-[var(--color-pib-text)]">Revision</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{revision}</dd>
             </div>
             <div className="md:col-span-2">
-              <dt className=" text-[var(--color-pib-text)]">Digest</dt>
+              <dt className="text-[var(--color-pib-text)]">Digest</dt>
               <dd className="break-all font-mono text-xs text-[var(--color-pib-text-muted)]">{state?.digest || 'Not recorded'}</dd>
             </div>
           </dl>

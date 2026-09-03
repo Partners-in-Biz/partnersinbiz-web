@@ -1,9 +1,9 @@
 'use client'
 // components/ads/TiktokCampaignBuilder.tsx
 // 3-step wizard for TikTok campaign creation.
-// Step 1 — Campaign (name + objective + budget mode)
-// Step 2 — AdGroup (name + budget + optimization + bid + placements + pacing + targeting)
-// Step 3 — Ad (identity picker + ad text + CTA + landing URL + creative reference)
+// Step 1 - Campaign (name + objective + budget mode)
+// Step 2 - AdGroup (name + budget + optimization + bid + placements + pacing + targeting)
+// Step 3 - Ad (identity picker + ad text + CTA + landing URL + creative reference)
 // Sub-3c Phase 2 Batch 3B.
 
 import { useState, useEffect } from 'react'
@@ -205,7 +205,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
         }
       })
       .catch(() => {
-        // Non-fatal — user can still proceed with manual input
+        // Non-fatal - user can still proceed with manual input
       })
       .finally(() => setIdentitiesLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,7 +245,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
     setStep((s) => Math.max(0, s - 1))
   }
 
-  // ─── Objective change — auto-update optimizationGoal ──────────────────────
+  // ─── Objective change - auto-update optimizationGoal ──────────────────────
 
   function handleObjectiveChange(obj: TkObjective) {
     const defaultGoal = OBJECTIVES.find((o) => o.value === obj)?.defaultOptGoal ?? 'CLICK'
@@ -367,7 +367,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
   // ─── Styles ───────────────────────────────────────────────────────────────────
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   // ─── Render ───────────────────────────────────────────────────────────────────
@@ -376,7 +376,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
     <div className="mx-auto max-w-2xl">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New TikTok campaign</h1>
+        <h1 className="text-2xl font-medium">New TikTok campaign</h1>
         {onCancel && (
           <button
             type="button"
@@ -395,7 +395,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center transition-colors ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -415,7 +415,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
               className={inputCls}
               value={step1.campaignName}
               onChange={(e) => setStep1((s) => ({ ...s, campaignName: e.target.value }))}
-              placeholder="e.g. Brand Awareness — Q3 2026"
+              placeholder="e.g. Brand Awareness - Q3 2026"
               aria-label="Campaign name"
             />
           </label>
@@ -428,7 +428,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step1.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -499,7 +499,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
               className={inputCls}
               value={step2.adGroupName}
               onChange={(e) => setStep2((s) => ({ ...s, adGroupName: e.target.value }))}
-              placeholder="e.g. US 18-34 — May 2026"
+              placeholder="e.g. US 18-34 - May 2026"
               aria-label="AdGroup name"
             />
           </label>
@@ -545,7 +545,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                   key={bt}
                   className={`flex items-center gap-2 rounded border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
                     step2.bidType === bt
-                      ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                       : 'border-white/10 text-white/60 hover:bg-white/5'
                   }`}
                 >
@@ -592,7 +592,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                   key={p.value}
                   className={`flex items-center gap-2 rounded border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
                     step2.placements.includes(p.value)
-                      ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                       : 'border-white/10 text-white/60 hover:bg-white/5'
                   }`}
                 >
@@ -619,7 +619,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                   key={p.value}
                   className={`flex items-center gap-2 rounded border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
                     step2.pacing === p.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                       : 'border-white/10 text-white/60 hover:bg-white/5'
                   }`}
                 >
@@ -658,7 +658,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
               className={inputCls}
               value={step3.adName}
               onChange={(e) => setStep3((s) => ({ ...s, adName: e.target.value }))}
-              placeholder="e.g. Hero video — May 2026"
+              placeholder="e.g. Hero video - May 2026"
               aria-label="Ad name"
             />
           </label>
@@ -671,7 +671,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                 <p className="mt-2 text-sm text-white/40">Loading identities…</p>
               ) : identities.length === 0 ? (
                 <p className="mt-2 rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-300">
-                  No identities found — make sure a TikTok user has been linked to this
+                  No identities found - make sure a TikTok user has been linked to this
                   advertiser in TikTok Business Center.
                 </p>
               ) : (
@@ -688,7 +688,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
                   }}
                   aria-label="TikTok identity"
                 >
-                  <option value="">— select an identity —</option>
+                  <option value=""> -  select an identity - </option>
                   {identities.map((id) => (
                     <option key={id.identityId} value={id.identityId}>
                       {id.displayName ? `${id.displayName} (${id.identityId})` : id.identityId}
@@ -772,7 +772,7 @@ export function TiktokCampaignBuilder({ orgId, orgSlug, currency = 'USD', initia
               />
             </label>
             <div className="mt-2 rounded border border-white/10 bg-white/[0.02] p-3 text-xs text-white/50">
-              <p className="font-medium text-white/70 mb-1">Phase 2 — manual asset ID</p>
+              <p className="font-medium text-white/70 mb-1">Phase 2 - manual asset ID</p>
               <p>
                 Upload the approved image in TikTok Ads Manager and paste the asset ID here. Phase
                 3 will replace this with a native Creative Sync upload step.

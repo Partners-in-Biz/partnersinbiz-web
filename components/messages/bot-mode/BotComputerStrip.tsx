@@ -3,6 +3,7 @@
 import type { WorkbenchTab } from '@/lib/messages/workbench/types'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
+import { Icon } from '@/components/studio'
 
 const WORKBENCH_TABS: Array<{ id: WorkbenchTab; label: string; icon: string }> = [
   { id: 'files', label: 'Files', icon: 'folder' },
@@ -40,7 +41,7 @@ export function BotComputerStrip({
       className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-black/[0.12] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}
     >
       <span className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
-        <span aria-hidden="true" className="material-symbols-outlined text-[14px]">computer</span>
+        <Icon name="computer" className="text-[14px]" />
         {BOT_MODE_COPY.computersLabel}
       </span>
       {computers.length === 0 ? (
@@ -59,7 +60,7 @@ export function BotComputerStrip({
           >
             <span
               aria-hidden="true"
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${computer.online ? 'bg-emerald-300' : 'bg-amber-300'}`}
+              className={`h-1.5 w-1.5 shrink-0 ${computer.online ? 'bg-emerald-300' : 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]'}`} style={{ borderRadius: '50%' }}
             />
             <span className="min-w-0 truncate">
               {computer.kind === 'vps' ? 'VPS' : 'Computer'} · {computer.label}
@@ -70,7 +71,7 @@ export function BotComputerStrip({
       })}
       {isolatedFolder && (
         <span data-testid="bot-isolated-folder" className="inline-flex h-11 max-w-[260px] items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] xl:h-8">
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">folder_managed</span>
+          <Icon name="folder_managed" className="text-[14px]" />
           <span className="min-w-0 truncate">{isolatedFolder}</span>
           {browserProfileId ? <span className="hidden truncate sm:inline">· {browserProfileId}</span> : null}
         </span>
@@ -84,7 +85,7 @@ export function BotComputerStrip({
             onClick={() => onOpenWorkbench(tab.id)}
             className="grid h-11 w-11 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-8 xl:w-8"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+            <Icon name={tab.icon} className="text-[16px]" />
           </button>
         ))}
         {onToggleWorkbench && (
@@ -95,7 +96,7 @@ export function BotComputerStrip({
             onClick={onToggleWorkbench}
             className="inline-flex h-11 items-center gap-1 rounded-md border border-white/[0.1] px-2 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.06] xl:h-8"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">dock_to_left</span>
+            <Icon name="dock_to_left" className="text-[15px]" />
             Workbench
           </button>
         )}

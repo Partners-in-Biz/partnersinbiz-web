@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import type { WorkbenchChangeFile, WorkbenchChangeStatus } from '@/lib/messages/workbench/types'
+import { Icon } from '@/components/studio'
 
 const STATUS_META: Record<WorkbenchChangeStatus, { label: string; className: string }> = {
   added: { label: 'A', className: 'text-emerald-300 border-emerald-400/30 bg-emerald-500/10' },
-  modified: { label: 'M', className: 'text-amber-300 border-amber-400/30 bg-amber-500/10' },
+  modified: { label: 'M', className: 'text-[var(--st-warning)] border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' },
   deleted: { label: 'D', className: 'text-red-300 border-red-400/30 bg-red-500/10' },
   renamed: { label: 'R', className: 'text-sky-300 border-sky-400/30 bg-sky-500/10' },
   unknown: { label: '?', className: 'text-[var(--color-pib-text-muted)] border-[var(--color-card-border)] bg-white/[0.04]' },
@@ -16,7 +17,7 @@ export interface WorkbenchChangesPanelProps {
   onOpenInFiles?: (path: string) => void
   /** Phase 2b status note (e.g. approval/failure feedback from the last `git.status` run). */
   message?: string | null
-  /** Where `changes` came from — shows a small "Live" banner when a `git.status` job has completed. */
+  /** Where `changes` came from - shows a small "Live" banner when a `git.status` job has completed. */
   source?: 'live' | 'events' | 'none'
   loading?: boolean
 }
@@ -34,7 +35,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
 
   const liveBanner = source === 'live' && (
     <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--color-card-border)] bg-emerald-500/[0.06] px-2.5 py-1 text-[10px] font-medium text-emerald-300">
-      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${loading ? 'animate-pulse' : ''}`} />
+      <span aria-hidden="true" className={`h-1.5 w-1.5 bg-emerald-400 ${loading ? 'animate-pulse' : ''}`} style={{ borderRadius: '50%' }} />
       Live from linked computer (git status)
     </div>
   )
@@ -51,7 +52,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
         {liveBanner}
         {statusNote}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-          <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">difference</span>
+          <Icon name="difference" className="text-[28px] text-[var(--color-pib-text-muted)]" />
           <p className="text-xs font-medium text-[var(--color-pib-text)]">No changes yet</p>
           <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
             Files written, edited or patched by the agent will show up here with their diffs.
@@ -81,7 +82,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
                 active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'
               }`}
             >
-              <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] font-bold ${meta.className}`}>
+              <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] font-medium ${meta.className}`}>
                 {meta.label}
               </span>
               <span className="min-w-0 flex-1 truncate font-mono">{change.path}</span>

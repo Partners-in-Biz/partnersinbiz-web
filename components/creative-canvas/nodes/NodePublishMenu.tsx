@@ -21,7 +21,7 @@ export interface NodePublishMenuProps {
   nodeTitle: string
   busy?: boolean
   error?: string
-  /** Set after a successful publish — shown with a done state. */
+  /** Set after a successful publish  -  shown with a done state. */
   successMessage?: string
   onPublish: (target: NodePublishTarget, caption: string, platforms: NodePublishPlatform[]) => void
   onClose: () => void
@@ -142,7 +142,7 @@ export default function NodePublishMenu({ nodeTitle, busy = false, error, succes
           <textarea
             value={caption}
             onChange={(event) => setCaption(event.target.value)}
-            placeholder="Caption (optional — the node prompt is used if empty)"
+            placeholder="Caption (optional  -  the node prompt is used if empty)"
             rows={2}
             aria-label="Social caption"
             style={{

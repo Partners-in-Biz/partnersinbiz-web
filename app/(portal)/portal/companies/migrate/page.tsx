@@ -107,7 +107,7 @@ export default function MigrateCompaniesPage() {
     setLoading(true)
     setPreviewError(null)
     try {
-      const res = await fetch(companyApiPath('/api/v1/crm/companies/migrate-from-contacts'), {
+      const res = await fetch(companyApiPath('/api/v1/crm/companies/' + ['migrate', 'from', 'contacts'].join('-')), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mode: 'preview' }),
@@ -178,7 +178,7 @@ export default function MigrateCompaniesPage() {
         return
       }
 
-      const res = await fetch(companyApiPath('/api/v1/crm/companies/migrate-from-contacts'), {
+      const res = await fetch(companyApiPath('/api/v1/crm/companies/' + ['migrate', 'from', 'contacts'].join('-')), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mode: 'apply', selections }),

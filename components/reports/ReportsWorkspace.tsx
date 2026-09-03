@@ -10,6 +10,8 @@ import {
   type ReportCategory,
 } from '@/lib/reports/types'
 
+import { Icon } from '@/components/studio'
+
 export interface ReportsWorkspaceReport {
   id: string
   type: string
@@ -192,7 +194,7 @@ export function ReportsWorkspace({
             )}
             {newReportHref && (
               <Link href={newReportHref} className="btn-pib-accent !py-2 !px-4 !text-sm">
-                <span className="material-symbols-outlined text-base">add</span>
+                <Icon name="add" className="text-base" />
                 Generate new report
               </Link>
             )}
@@ -202,8 +204,8 @@ export function ReportsWorkspace({
 
       {visible.length === 0 ? (
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">analytics</span>
-          <h2 className="font-display text-2xl mt-4">No reports yet.</h2>
+          <Icon name="analytics" className="text-4xl text-[var(--color-pib-accent)]" />
+          <h2 className="text-2xl mt-4">No reports yet.</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2">{emptyMessage}</p>
         </div>
       ) : (
@@ -227,7 +229,7 @@ export function ReportsWorkspace({
                         className="pib-pill pib-pill-info inline-flex items-center gap-1"
                         title="This report is on a schedule"
                       >
-                        <span className="material-symbols-outlined text-[13px] leading-none">schedule</span>
+                        <Icon name="schedule" className="text-[13px] leading-none" />
                         scheduled
                       </span>
                     ) : null}
@@ -255,7 +257,7 @@ export function ReportsWorkspace({
                       className={isAdmin ? 'btn-pib-secondary !py-2 !px-4 !text-sm' : 'btn-pib-accent !py-2 !px-4 !text-sm'}
                     >
                       {isAdmin ? 'Preview' : 'Open report'}
-                      <span className="material-symbols-outlined text-base">arrow_outward</span>
+                      <Icon name="arrow_outward" className="text-base" />
                     </Link>
                   ) : (
                     <span className="pib-pill">{report.publicToken ? 'link off' : 'draft'}</span>
@@ -271,7 +273,7 @@ export function ReportsWorkspace({
                         className="btn-pib-secondary !py-2 !px-3 !text-sm disabled:opacity-60"
                         title="Download PDF"
                       >
-                        <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+                        <Icon name="picture_as_pdf" className="text-base" />
                       </button>
 
                       <button
@@ -281,7 +283,7 @@ export function ReportsWorkspace({
                         className="btn-pib-secondary !py-2 !px-3 !text-sm"
                         title="Share settings"
                       >
-                        <span className="material-symbols-outlined text-base">share</span>
+                        <Icon name="share" className="text-base" />
                       </button>
 
                       <button
@@ -291,7 +293,7 @@ export function ReportsWorkspace({
                         className="btn-pib-secondary !py-2 !px-3 !text-sm"
                         title="Schedule"
                       >
-                        <span className="material-symbols-outlined text-base">schedule_send</span>
+                        <Icon name="schedule_send" className="text-base" />
                       </button>
 
                       {onSendReport ? (
@@ -332,7 +334,7 @@ export function ReportsWorkspace({
                           className="btn-pib-secondary !py-2 !px-3 !text-sm"
                           title="Delete"
                         >
-                          <span className="material-symbols-outlined text-base">delete</span>
+                          <Icon name="delete" className="text-base" />
                         </button>
                       )}
                     </>

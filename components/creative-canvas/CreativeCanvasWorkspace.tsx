@@ -784,7 +784,7 @@ function coerceCanvasModel(id: string | undefined | null): string {
 /**
  * Text edits pull in upstream linked text nodes (characters feeding a chapter,
  * chapters feeding a chapter, notes feeding a screen) so the rewrite is
- * grounded in the linked context — same walk as inline generation.
+ * grounded in the linked context  -  same walk as inline generation.
  */
 export function gatherUpstreamTextFragments(nodeId: string, nodes: Node[], edges: Edge[]): string[] {
   return edges
@@ -834,21 +834,21 @@ function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
   }
 }
 
-/** Credits accumulate as floats (0.1 + 0.2 → 0.30000000000000004) — clamp to 2dp for display. */
+/** Credits accumulate as floats (0.1 + 0.2 → 0.30000000000000004)  -  clamp to 2dp for display. */
 function roundCredits(value: number): number {
   return Math.round(value * 100) / 100
 }
 
 /** Turn a run's error code/message into a short, human message for the card.
- *  Provider hiccups read as "temporarily unavailable — will retry" rather than
+ *  Provider hiccups read as "temporarily unavailable  -  will retry" rather than
  *  a raw CLI dump, so a failed run never just silently stops. */
 function friendlyRunError(code?: string, message?: string): string {
-  if (code === 'higgsfield_ip_check_pending') return 'Provider is verifying the source image — retrying automatically'
-  if (code === 'platform_complete_failed') return 'Saved output but the canvas rejected it — tap Generate to retry'
-  if (code === 'higgsfield_missing_output') return 'Provider returned no media — tap Generate to retry'
-  if (/timed out|timeout|ETIMEDOUT|ECONNRESET|fetch failed|network/i.test(message ?? '')) return 'Provider timed out — tap Generate to retry'
+  if (code === 'higgsfield_ip_check_pending') return 'Provider is verifying the source image  -  retrying automatically'
+  if (code === 'platform_complete_failed') return 'Saved output but the canvas rejected it  -  tap Generate to retry'
+  if (code === 'higgsfield_missing_output') return 'Provider returned no media  -  tap Generate to retry'
+  if (/timed out|timeout|ETIMEDOUT|ECONNRESET|fetch failed|network/i.test(message ?? '')) return 'Provider timed out  -  tap Generate to retry'
   if (/insufficient|quota|balance/i.test(message ?? '')) return 'Provider is out of credits'
-  return 'Generation failed — the provider may be temporarily down. Tap Generate to retry.'
+  return 'Generation failed  -  the provider may be temporarily down. Tap Generate to retry.'
 }
 
 function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
@@ -868,7 +868,7 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
       prompt: promptValue,
       model: node.provider?.model,
       // data.assetUrl carries node-owned media with no output/source payload
-      // (screen mockups write there) — surface it too.
+      // (screen mockups write there)  -  surface it too.
       assetUrl: node.output?.url ?? node.source?.url ?? previewUrl
         ?? (typeof (node.data as Record<string, unknown> | undefined)?.assetUrl === 'string'
           ? String((node.data as Record<string, unknown>).assetUrl)
@@ -1183,7 +1183,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   // Latest run per generator node, so a card can reflect the true provider state
   // (still queued/running, or failed) even after the client's local spinner has
-  // cleared — async runs (video) settle minutes later.
+  // cleared  -  async runs (video) settle minutes later.
   const latestRunByNodeId = useMemo(() => {
     const runSeconds = (run: CreativeCanvasRun & { id: string }): number => {
       const at = run.createdAt as { _seconds?: number; seconds?: number } | number | undefined
@@ -1311,7 +1311,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }), [collaboratorsByNodeId, edges, generatingNodeIds, latestRunByNodeId, nodes])
 
   // Persisted edges carry no handle ids, but presentation nodes expose multiple
-  // typed handles — without an explicit handle id React Flow cannot attach the
+  // typed handles  -  without an explicit handle id React Flow cannot attach the
   // edge. Resolve each edge onto the target input whose kind matches the
   // source node's output kind (falling back to the first input).
   const displayEdges = useMemo(() => edges.map((edge) => {
@@ -1907,7 +1907,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const lastStructuralSignatureRef = useRef('')
   const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>('select')
 
-  // Fresh nodes for long-lived async loops (generation polls) — the collaboration
+  // Fresh nodes for long-lived async loops (generation polls)  -  the collaboration
   // SSE stream may deliver an output node between poll ticks; loops check here
   // before spending a fetch.
   const liveNodesRef = useRef<Node[]>([])
@@ -2044,7 +2044,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   // Keep the credit balance fresh in the background. Async runs (especially
   // video, whose provider IP-check retries settle minutes after the client
   // stops polling for output) charge on dispatch and refund on terminal
-  // failure — without a periodic refresh the top bar would linger on the
+  // failure  -  without a periodic refresh the top bar would linger on the
   // mid-flight charged value and read as if credits were lost.
   useEffect(() => {
     if (!activeCanvas?.id) return
@@ -3463,7 +3463,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       operation: 'node_add',
       source: 'local',
     })
-    setActivityMessage(`${nextNodes.length} video segment${nextNodes.length === 1 ? '' : 's'} created — edits on a segment only process that clip`)
+    setActivityMessage(`${nextNodes.length} video segment${nextNodes.length === 1 ? '' : 's'} created  -  edits on a segment only process that clip`)
   }, [nodes, splitVideoNodeId, resolvedOrgId, recordCanvasActivity])
 
   const attachReferenceUrl = useCallback((nodeId: string, url: string) => {
@@ -3552,7 +3552,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
    * Make sure a server-persisted canvas exists and the current graph is saved.
    * The create endpoint intentionally ignores nodes/edges (they are versioned
    * through the graph endpoint), so create bare then PUT the graph. Never
-   * applyCanvasSnapshot with the freshly created canvas — its empty graph
+   * applyCanvasSnapshot with the freshly created canvas  -  its empty graph
    * would wipe the nodes the user just built.
    */
   const ensurePersistedCanvas = useCallback(async (): Promise<{ canvasId: string; canvasOrgId: string } | null> => {
@@ -3606,7 +3606,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     // The API also returns 402, but blocking here saves a round trip and gives
     // a clear message.
     if (creditBudget.atLimit) {
-      setActivityMessage('Credit limit reached — generation is paused until the limit is raised')
+      setActivityMessage('Credit limit reached  -  generation is paused until the limit is raised')
       return
     }
     const target = nodes.find((node) => node.id === nodeId)
@@ -3616,7 +3616,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return
     }
     const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
-    // Node-scoped settings win over the shared panel state — clicking Generate
+    // Node-scoped settings win over the shared panel state  -  clicking Generate
     // on an unselected card must use that card's own configuration.
     const nodeGeneration = (typeof nodeData.generation === 'object' && nodeData.generation
       ? nodeData.generation
@@ -3638,9 +3638,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
       .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
     // A generator node's produced media lands on a sibling `${id}-output` node,
-    // not on the generator itself — so resolve a linked generator to its latest
+    // not on the generator itself  -  so resolve a linked generator to its latest
     // output image. This is what makes "video ← image generator" actually feed
-    // the generated still into the video run (image-to-video).
+    // the generated still into the video run (image to video).
     const resolvedOutputImageFor = (upstreamId: string): string | undefined => {
       const outputNode = nodes.find((candidate) => candidate.id === `${upstreamId}-output`)?.data?.canvasNode as CreativeCanvasNode | undefined
       return outputNode?.output?.url && outputNode.output.kind !== 'video' ? outputNode.output.url : undefined
@@ -3683,7 +3683,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     // default image model.
     const activeModel = getCanvasModel(settingModel)
     const requestedKind = resolveGeneratorKind(canvasNode, settingModel)
-    // Some models cap reference media (Soul V2 accepts exactly one — the
+    // Some models cap reference media (Soul V2 accepts exactly one  -  the
     // provider rejects the run otherwise). Fall back to Nano Banana for
     // multi-reference combines and tell the user.
     const modelSupportsRefs = (model: typeof activeModel) => !model?.maxReferenceImages || model.maxReferenceImages >= referenceImageUrls.length
@@ -3693,7 +3693,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ? activeModel.id
       : defaultKindModel
     if (activeModel && activeModel.kind === requestedKind && effectiveModel !== activeModel.id) {
-      setActivityMessage(`${activeModel.label} supports ${activeModel.maxReferenceImages} reference image${activeModel.maxReferenceImages === 1 ? '' : 's'} — using Nano Banana for this ${referenceImageUrls.length}-reference combine`)
+      setActivityMessage(`${activeModel.label} supports ${activeModel.maxReferenceImages} reference image${activeModel.maxReferenceImages === 1 ? '' : 's'}  -  using Nano Banana for this ${referenceImageUrls.length}-reference combine`)
     }
 
     setGeneratingNodeIds((prev) => new Set(prev).add(nodeId))
@@ -3730,7 +3730,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       }
       if (payload?.data?.pending) {
         // Async provider (e.g. Higgsfield video): bounded poll for the output node.
-        setActivityMessage('Generation queued — waiting for output…')
+        setActivityMessage('Generation queued  -  waiting for output…')
         // Pull the new run into history so the node keeps reflecting live state
         // (queued → running → failed) via the periodic refresh, long after this
         // bounded local poll ends.
@@ -3739,7 +3739,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
           // The collaboration stream may have already delivered the output
-          // node — skip the fetch when it has.
+          // node  -  skip the fetch when it has.
           if (liveNodesRef.current.some((liveNode) => liveNode.id === `${nodeId}-output`)) {
             found = true
             setActivityMessage('Generation complete')
@@ -3757,11 +3757,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           } catch { ignoreCanvasBestEffortFailure() }
         }
         if (!found) {
-          setActivityMessage('Still generating — the node shows live status; it will appear here or flag an error if the provider fails')
+          setActivityMessage('Still generating  -  the node shows live status; it will appear here or flag an error if the provider fails')
           void loadRuns(canvasId, canvasOrgId)
         }
       } else {
-        // Sync result — pull the fresh canvas (with the new output node) by id.
+        // Sync result  -  pull the fresh canvas (with the new output node) by id.
         try {
           const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
           const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
@@ -3795,7 +3795,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) {
-      setEditChatError('This node cannot be edited yet — save the canvas first')
+      setEditChatError('This node cannot be edited yet  -  save the canvas first')
       return
     }
     const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
@@ -3837,7 +3837,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return
       }
       setEditChatNodeId(null)
-      setActivityMessage(placement === 'replace' ? 'AI edit queued — the result will replace this node' : 'AI edit queued — the result will branch from this node')
+      setActivityMessage(placement === 'replace' ? 'AI edit queued  -  the result will replace this node' : 'AI edit queued  -  the result will branch from this node')
 
       // Poll for the output node, then place the result.
       const outputNodeId = `${nodeId}-output`
@@ -3852,7 +3852,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         } catch { ignoreCanvasBestEffortFailure() }
       }
       if (!polled) {
-        setActivityMessage('AI edit still processing — it will appear on refresh')
+        setActivityMessage('AI edit still processing  -  it will appear on refresh')
         return
       }
       if (placement === 'branch') {
@@ -3900,11 +3900,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       const replacedCanvas = replacePayload?.data?.canvas
       if (replaceResponse.ok && replacedCanvas?.id) {
         applyCanvasSnapshot(replacedCanvas)
-        setActivityMessage('AI edit complete — node replaced (previous version kept in history)')
+        setActivityMessage('AI edit complete  -  node replaced (previous version kept in history)')
       } else {
         // The branch result still exists server-side; fall back to showing it.
         applyCanvasSnapshot(polled)
-        setActivityMessage(replacePayload?.error ?? 'Could not replace the node — the edit landed as a branch instead')
+        setActivityMessage(replacePayload?.error ?? 'Could not replace the node  -  the edit landed as a branch instead')
       }
     } catch {
       setEditChatError('Edit generation failed')
@@ -3962,7 +3962,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       }
       const createdId = payload?.data?.postId ?? payload?.data?.exportId ?? ''
       const message = target === 'social_draft'
-        ? `Social draft created in Marketing Studio${createdId ? ` (${createdId})` : ''} — approve + schedule there`
+        ? `Social draft created in Marketing Studio${createdId ? ` (${createdId})` : ''}  -  approve + schedule there`
         : `Export draft created${createdId ? ` (${createdId})` : ''}`
       setPublishSuccess(message)
       setActivityMessage(message)
@@ -4042,7 +4042,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return
       }
       const detail = payload?.data
-      setActivityMessage(`Manuscript compiled to Book Studio — ${detail?.chapterCount ?? 0} chapters, ${detail?.wordCount ?? 0} words${detail?.orderingFallback ? ' (chapter order was ambiguous — check the sequence)' : ''}`)
+      setActivityMessage(`Manuscript compiled to Book Studio  -  ${detail?.chapterCount ?? 0} chapters, ${detail?.wordCount ?? 0} words${detail?.orderingFallback ? ' (chapter order was ambiguous  -  check the sequence)' : ''}`)
       recordCanvasActivity({
         actorLabel: 'You',
         action: 'Compiled manuscript',
@@ -4058,8 +4058,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [ensurePersistedCanvas, recordCanvasActivity])
 
   /**
-   * Tidy layout: layered left-to-right layout. Column = longest edge distance
-   * from a root, rows stacked within each column. Local position change —
+   * Tidy layout: layered left to right layout. Column = longest edge distance
+   * from a root, rows stacked within each column. Local position change  - 
    * persists through the normal graph save.
    */
   const tidyLayout = useCallback(() => {
@@ -4104,7 +4104,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return position ? { ...node, position } : node
     }))
     setSaveMessage('')
-    setActivityMessage('Layout tidied — save the canvas to keep it')
+    setActivityMessage('Layout tidied  -  save the canvas to keep it')
   }, [edges, nodes])
 
   // ---- Auto-fill board: agent-writes every empty text card in link order ----
@@ -4144,7 +4144,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       if (!persisted) return
       const { canvasId, canvasOrgId } = persisted
       // Brand-aware writing: ground the agent in the org's brand kit when one
-      // exists (best-effort — a missing kit just means neutral copy).
+      // exists (best-effort  -  a missing kit just means neutral copy).
       let brandContext = ''
       try {
         const brandResponse = await fetch(`/api/v1/brand-kit?orgId=${encodeURIComponent(canvasOrgId)}`)
@@ -4193,13 +4193,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         } catch { ignoreCanvasBestEffortFailure() }
       }
       if (!written.size) {
-        setActivityMessage('Auto-fill could not generate any content — try again or write manually')
+        setActivityMessage('Auto-fill could not generate any content  -  try again or write manually')
         return
       }
       // Drop the transient output nodes the sync generations created and
       // persist the filled texts. Retried: a concurrent debounced autosave can
       // land between our read and write, and the conflict merge resurrects
-      // nodes missing from a stale base snapshot — so re-read and re-clean
+      // nodes missing from a stale base snapshot  -  so re-read and re-clean
       // until the server graph is actually clean.
       const transientIds = new Set([...written.keys()].map((nodeId) => `${nodeId}-output`))
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -4240,7 +4240,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           // Loop once more to verify nothing was resurrected by a merge.
         } catch { ignoreCanvasBestEffortFailure() }
       }
-      setActivityMessage(`Auto-fill complete — ${written.size}/${ordered.length} cards written`)
+      setActivityMessage(`Auto-fill complete  -  ${written.size}/${ordered.length} cards written`)
     } finally {
       setAutoFillBusy(false)
       void loadCanvasCredits()
@@ -4249,7 +4249,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   /**
    * Screen nodes: generate a UI mockup image from the screen's description and
-   * store it on the node itself (data.assetUrl) — replace semantics, the
+   * store it on the node itself (data.assetUrl)  -  replace semantics, the
    * transient output node is dropped like an AI-edit replace.
    */
   const generateScreenMockup = useCallback(async (nodeId: string) => {
@@ -4279,7 +4279,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         setActivityMessage(payload?.error ?? 'Mockup generation failed')
         return
       }
-      setActivityMessage('Mockup queued — waiting for the render…')
+      setActivityMessage('Mockup queued  -  waiting for the render…')
       // Poll for the transient output node, then fold its image back onto the screen node.
       const outputNodeId = `${nodeId}-output`
       let polled: CreativeCanvas | undefined
@@ -4293,7 +4293,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         } catch { ignoreCanvasBestEffortFailure() }
       }
       if (!polled) {
-        setActivityMessage('Mockup still rendering — it will appear on refresh')
+        setActivityMessage('Mockup still rendering  -  it will appear on refresh')
         return
       }
       const outputNode = (polled.nodes ?? []).find((node) => node.id === outputNodeId)
@@ -4321,7 +4321,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         applyCanvasSnapshot(replacedCanvas)
         setActivityMessage('Mockup ready on the screen node')
       } else {
-        setActivityMessage('Mockup generated — refresh to see it on the screen node')
+        setActivityMessage('Mockup generated  -  refresh to see it on the screen node')
       }
     } catch {
       setActivityMessage('Mockup generation failed')
@@ -4336,7 +4336,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [applyCanvasSnapshot, ensurePersistedCanvas, loadCanvasCredits, nodes])
 
   // Re-assigned every render (no dep array) so the handlers always close over
-  // fresh state — duplicate/remove read the current nodes list.
+  // fresh state  -  duplicate/remove read the current nodes list.
   useEffect(() => {
     nodeActionRefs.current = {
       generate: (nodeId: string) => { void generateInlineForNode(nodeId) },
@@ -5168,7 +5168,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="block text-sm text-[var(--color-pib-text)]">🧹 Tidy layout</span>
-                <span className="block text-xs text-[var(--color-pib-text-muted)]">Re-arrange nodes into clean left-to-right columns by link depth.</span>
+                <span className="block text-xs text-[var(--color-pib-text-muted)]">Re-arrange nodes into clean left to right columns by link depth.</span>
               </button>
             </div>
           </div>
@@ -5243,7 +5243,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {templateImporting ? 'Importing…' : 'Import third-party template'}
                 </button>
                 <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
-                  Public https JSON with {'{'} title, nodes, edges {'}'} — free community templates work as-is.
+                  Public https JSON with {'{'} title, nodes, edges {'}'}  -  free community templates work as-is.
                 </p>
               </div>
             </div>
@@ -6232,7 +6232,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">{shareUrl}</p>
               ) : (
                 <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
-                  Read-only preview link anyone can open — no login required.
+                  Read-only preview link anyone can open  -  no login required.
                 </p>
               )}
             </div>

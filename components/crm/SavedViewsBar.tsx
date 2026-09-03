@@ -419,7 +419,7 @@ export function SavedViewsBar({
         <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-black/10 p-3">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5">
-              <span aria-hidden="true" className="">
+              <span aria-hidden="true">
                 <Icon name="saved_search" />
               </span>
               <div>

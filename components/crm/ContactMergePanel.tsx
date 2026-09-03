@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface MergeCandidateContact {
   id: string
@@ -16,7 +17,7 @@ export interface MergeCandidateContact {
 }
 
 interface ContactMergePanelProps {
-  /** The contact currently open — the default winner (record we keep). */
+  /** The contact currently open - the default winner (record we keep). */
   contact: MergeCandidateContact
   apiPath: (path: string) => string
   /** Called after a successful merge so the page can refresh. */
@@ -180,11 +181,11 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
     : []
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" aria-label={`Merge duplicate for ${contactLabel(contact)}`}>
+    <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" aria-label={`Merge duplicate for ${contactLabel(contact)}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Data hygiene</p>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Merge duplicate</h2>
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Merge duplicate</h2>
         </div>
         {!open && (
           <button
@@ -193,7 +194,7 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
             aria-label={`Find and merge a duplicate of ${contactLabel(contact)}`}
             className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+            <Icon name="merge" className="text-[14px]" />
             Merge duplicate
           </button>
         )}
@@ -250,9 +251,7 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                                 : ''}
                             </span>
                           </span>
-                          <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">
-                            arrow_forward
-                          </span>
+                          <Icon name="arrow_forward" className="text-[16px] text-primary" />
                         </button>
                       </li>
                     ))}
@@ -360,7 +359,7 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                   className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
                   aria-label={`Confirm merge of ${contactLabel(duplicate)} into ${contactLabel(contact)}`}
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+                  <Icon name="merge" className="text-[14px]" />
                   {merging ? 'Merging…' : 'Merge contacts'}
                 </button>
               </div>

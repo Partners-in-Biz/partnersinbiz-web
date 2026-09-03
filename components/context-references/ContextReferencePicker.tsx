@@ -137,7 +137,7 @@ export function ContextReferencePicker({
           ].join(' ')}
         />
         {orgId && activeTypePrompt && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-sidebar)] shadow-xl">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-sidebar)]">
             <div className="px-3 py-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Reference types
             </div>
@@ -161,7 +161,7 @@ export function ContextReferencePicker({
           </div>
         )}
         {orgId && activeMention && (results.length > 0 || loading) && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-sidebar)] shadow-xl">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-sidebar)]">
             {loading && results.length === 0 ? (
               <p className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">Searching...</p>
             ) : (

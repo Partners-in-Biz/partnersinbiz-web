@@ -19,11 +19,11 @@ interface Props {
 }
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 export function LinkedinTargetingEditor({ value, onChange }: Props) {
-  // Country chips — derive initial display from value
+  // Country chips - derive initial display from value
   const [countriesRaw, setCountriesRaw] = useState(
     (value.canonical?.geo?.countries ?? ['US']).join(', ')
   )
@@ -58,7 +58,7 @@ export function LinkedinTargetingEditor({ value, onChange }: Props) {
       setJsonError(null)
       onChange({ ...value, liTargetingCriteria: parsed })
     } catch {
-      setJsonError('Invalid JSON — please check the pasted targeting criteria.')
+      setJsonError('Invalid JSON - please check the pasted targeting criteria.')
     }
   }
 
@@ -108,7 +108,7 @@ export function LinkedinTargetingEditor({ value, onChange }: Props) {
           aria-label="LinkedIn targeting criteria JSON"
         />
         {jsonError && (
-          <p className="mt-1 text-xs text-red-400">{jsonError}</p>
+          <p className="mt-1 text-xs text-[var(--st-danger)]">{jsonError}</p>
         )}
         <p className="mt-1 text-xs text-white/40">
           Paste LinkedIn targeting JSON here for facets such as companies, industries, job

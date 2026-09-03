@@ -35,7 +35,7 @@ export function BotInboxRail({
               selected ? 'bg-white/[0.08] ring-1 ring-white/[0.06]' : 'hover:bg-white/[0.045]'
             }`}
           >
-            <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">{thread.title}</span>
+            <span className="block truncate text-[12px] font-medium leading-4 text-[var(--color-pib-text)]">{thread.title}</span>
             <span className="mt-0.5 block truncate text-[10px] leading-3 text-[var(--color-pib-text-muted)]">
               {thread.status}
               {thread.preview ? ` · ${thread.preview}` : ''}

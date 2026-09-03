@@ -8,6 +8,8 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import { TwilioSettingsPanel } from '@/components/twilio/TwilioSettingsPanel'
 import type {
+import { Icon } from '@/components/studio'
+
   CommunicationChannel,
   Conversation,
   ConversationMessage,
@@ -378,7 +380,7 @@ export function CommunicationsConsole({
         }
         actions={
           <Link href={marketingHref} className="btn-pib-secondary btn-pib-sm">
-            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+            <Icon name="arrow_back" className="text-base" />
             Marketing
           </Link>
         }
@@ -550,9 +552,9 @@ function InboxView({
       </div>
 
       <div className="grid min-h-[620px] gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-        <aside className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
+        <aside className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
           <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Conversations</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Conversations</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{loading ? 'Loading...' : `${conversations.length} visible`}</p>
           </div>
           <div className="max-h-[560px] overflow-y-auto">
@@ -584,9 +586,9 @@ function InboxView({
           </div>
         </aside>
 
-        <main className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
+        <main className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
           <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">
               {bundle?.conversation.subject || bundle?.conversation.contactSnapshot?.name || 'Message thread'}
             </p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Human-gated replies, with Hermes suggestions kept internal in V1.</p>
@@ -601,7 +603,7 @@ function InboxView({
                 {bundle.messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`max-w-[82%] rounded-xl border px-4 py-3 ${
+                    className={`max-w-[82%] rounded-md border px-4 py-3 ${
                       message.direction === 'outbound'
                         ? 'ml-auto border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)]'
                         : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
@@ -627,11 +629,11 @@ function InboxView({
             />
             <div className="mt-3 flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => saveDraft({ queueApproved: false })} className="btn-pib-secondary" disabled={!bundle || !reply.trim()}>
-                <span className="material-symbols-outlined text-base">draft</span>
+                <Icon name="draft" className="text-base" />
                 Save draft
               </button>
               <button type="button" onClick={() => saveDraft({ queueApproved: true })} className="btn-pib-accent" disabled={!bundle || !reply.trim()}>
-                <span className="material-symbols-outlined text-base">outgoing_mail</span>
+                <Icon name="outgoing_mail" className="text-base" />
                 Queue approved reply
               </button>
             </div>
@@ -687,11 +689,11 @@ function InboxView({
                     disabled={suggestionBusy}
                     className="btn-pib-accent btn-pib-sm"
                   >
-                    <span className="material-symbols-outlined text-base">send</span>
+                    <Icon name="send" className="text-base" />
                     {suggestionBusy ? 'Sending...' : 'Approve & send'}
                   </button>
                   <button type="button" onClick={useSuggestionDraft} className="btn-pib-secondary btn-pib-sm">
-                    <span className="material-symbols-outlined text-base">edit</span>
+                    <Icon name="edit" className="text-base" />
                     Edit draft
                   </button>
                   <button
@@ -699,12 +701,12 @@ function InboxView({
                     onClick={() => suggestionKey && setDismissedSuggestion(suggestionKey)}
                     className="btn-pib-secondary btn-pib-sm"
                   >
-                    <span className="material-symbols-outlined text-base">close</span>
+                    <Icon name="close" className="text-base" />
                     Dismiss
                   </button>
                 </div>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-                  Internal suggestion only. Nothing sends until a human approves — the server rejects unapproved sends.
+                  Internal suggestion only. Nothing sends until a human approves  -  the server rejects unapproved sends.
                 </p>
               </div>
             ) : (
@@ -782,7 +784,7 @@ function TemplatesView({
           </select>
           <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={7} aria-label="Template body" className={FIELD_CLASS} />
           <button type="button" onClick={createTemplate} disabled={saving || !name.trim()} className="btn-pib-accent w-full justify-center">
-            <span className="material-symbols-outlined text-base">save</span>
+            <Icon name="save" className="text-base" />
             {mode === 'admin' ? 'Create template' : 'Save draft'}
           </button>
         </div>
@@ -964,7 +966,7 @@ function ChannelsView({
             <div className="mt-3 space-y-2">
               {provider.readiness.checks.map((check) => (
                 <div key={check.id} className="flex gap-2 text-xs">
-                  <span className={`mt-1 h-2 w-2 rounded-full ${check.status === 'pass' ? 'bg-green-400' : check.status === 'warn' ? 'bg-yellow-400' : 'bg-red-400'}`} />
+                  <span className={`mt-1 h-2 w-2  ${check.status === 'pass' ? 'bg-green-400' : check.status === 'warn' ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ borderRadius: '50%' }} />
                   <div>
                     <p className="text-[var(--color-pib-text)]">{check.label}</p>
                     {check.detail && <p className="text-[var(--color-pib-text-muted)]">{check.detail}</p>}
@@ -982,7 +984,7 @@ function ChannelsView({
                       {isConnected
                         ? `Connected · ${whatsappAccount?.phoneNumber || whatsappAccount?.senderId || ''}${whatsappAccount?.credentialRef?.accountSidMasked ? ` · ${whatsappAccount.credentialRef.accountSidMasked}` : ''}`
                         : whatsappAccount
-                          ? 'Disconnected — reconnect to resume inbound routing for this sender.'
+                          ? 'Disconnected  -  reconnect to resume inbound routing for this sender.'
                           : 'No per-org sender connected yet. The platform account remains the fallback.'}
                     </p>
                   </div>
@@ -1003,12 +1005,12 @@ function ChannelsView({
                       disabled={saving}
                       className="btn-pib-secondary btn-pib-sm"
                     >
-                      <span className="material-symbols-outlined text-base">link_off</span>
+                      <Icon name="link_off" className="text-base" />
                       Disconnect
                     </button>
                   ) : (
                     <button type="button" onClick={() => setConnectOpen((open) => !open)} className="btn-pib-accent btn-pib-sm">
-                      <span className="material-symbols-outlined text-base">add_link</span>
+                      <Icon name="add_link" className="text-base" />
                       {whatsappAccount ? 'Reconnect WhatsApp Business' : 'Connect WhatsApp Business'}
                     </button>
                   )}
@@ -1060,7 +1062,7 @@ function ChannelsView({
                         disabled={saving || !form.accountSid.trim() || !form.authToken.trim() || !form.whatsappFrom.trim()}
                         className="btn-pib-accent btn-pib-sm"
                       >
-                        <span className="material-symbols-outlined text-base">verified</span>
+                        <Icon name="verified" className="text-base" />
                         {saving ? 'Verifying...' : 'Verify & connect'}
                       </button>
                     </div>
@@ -1118,10 +1120,10 @@ function AnalyticsView({ analytics }: { analytics: Record<string, unknown> | nul
 
 function Panel({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)]">
+    <section className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-surface)]">
       <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-4 py-3">
-        <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]">{icon}</span>
-        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+        <Icon name={icon} className="text-lg text-[var(--color-pib-accent)]" />
+        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">{title}</h2>
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -1132,7 +1134,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4">
       <p className="pib-label">{label}</p>
-      <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }

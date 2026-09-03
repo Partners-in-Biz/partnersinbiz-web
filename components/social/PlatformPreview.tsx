@@ -214,7 +214,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded -br from-amber-400 to-pink-600 flex items-center justify-center text-xs flex-shrink-0">
+          <div className="w-8 h-8 rounded -br flex items-center justify-center text-xs flex-shrink-0">
             {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
           </div>
           <span className="text-sm">{userName}</span>
@@ -259,7 +259,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 -br from-pink-500 to-purple-600 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
+      <div className="absolute top-2 right-2 -br rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         Ig
       </div>
     </div>

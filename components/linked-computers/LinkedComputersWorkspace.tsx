@@ -24,7 +24,7 @@ function agentSyncStatusLabel(status: string): string {
 
 function agentSyncStatusClass(status: string): string {
   if (status === 'in_sync') return 'text-emerald-400'
-  if (status === 'drifted' || status === 'error') return 'text-amber-300'
+  if (status === 'drifted' || status === 'error') return 'text-[var(--st-warning)]'
   if (status === 'installing' || status === 'syncing') return 'text-sky-300'
   return 'text-[var(--color-pib-text-muted)]'
 }
@@ -301,7 +301,7 @@ export function LinkedComputersWorkspace() {
       {executionLocations.length > 0 && (
         <section aria-labelledby="project-execution-locations">
           <div>
-            <h2 id="project-execution-locations" className="text-sm font-semibold">Current project locations</h2>
+            <h2 id="project-execution-locations" className="text-sm font-medium">Current project locations</h2>
             <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
               Existing VPS and computer connections available to project sessions.
             </p>
@@ -311,13 +311,13 @@ export function LinkedComputersWorkspace() {
               <article
                 key={`${location.orgId ?? ''}:${location.locationId}`}
                 aria-label={location.label}
-                className="pib-card rounded-xl border border-[var(--color-pib-line)] p-3.5"
+                className="pib-card rounded-md border border-[var(--color-pib-line)] p-3.5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold">{location.label}</h3>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                      <h3 className="text-sm font-medium">{location.label}</h3>
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                         {location.kind === 'vps' ? 'VPS' : 'Computer'}
                       </span>
                     </div>
@@ -327,7 +327,7 @@ export function LinkedComputersWorkspace() {
                     </p>
                   </div>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] ${
+                    className={`rounded-md px-2 py-0.5 text-[10px] ${
                       location.selectable
                         ? 'bg-emerald-400/10 text-emerald-300'
                         : 'bg-white/5 text-[var(--color-pib-text-muted)]'
@@ -343,7 +343,7 @@ export function LinkedComputersWorkspace() {
                 {location.locationId.startsWith('linked-device:') ? (
                   <p className="mt-1.5 text-xs text-emerald-300">Authenticated runtime</p>
                 ) : (
-                  <p className="mt-1.5 text-xs text-amber-200">
+                  <p className="mt-1.5 text-xs text-[var(--st-warning)]">
                     Legacy project location · Authenticated runtime pairing required
                   </p>
                 )}
@@ -364,17 +364,17 @@ export function LinkedComputersWorkspace() {
             <article
               key={device.deviceId}
               aria-label={device.label}
-              className="pib-card rounded-xl border border-[var(--color-pib-line)] p-4"
+              className="pib-card rounded-md border border-[var(--color-pib-line)] p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold">{device.label}</h2>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                    <h2 className="text-sm font-medium">{device.label}</h2>
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                       {device.deviceKind === 'vps' ? 'VPS' : 'Computer'}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] ${
+                      className={`rounded-md px-2 py-0.5 text-[10px] ${
                         online
                           ? 'bg-emerald-400/10 text-emerald-300'
                           : 'bg-white/5 text-[var(--color-pib-text-muted)]'
@@ -449,7 +449,7 @@ export function LinkedComputersWorkspace() {
               </div>
               <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-semibold">Local agents</p>
+                  <p className="text-xs font-medium">Local agents</p>
                   {device.availableAgentIds?.length ? (
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                       Online: {device.availableAgentIds.join(', ')}
@@ -485,7 +485,7 @@ export function LinkedComputersWorkspace() {
                   ) : null}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold">Organisation access</p>
+                  <p className="text-xs font-medium">Organisation access</p>
                   {device.grants?.length ? (
                     device.grants.map((g) => (
                       <p key={g.orgId} className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
@@ -497,7 +497,7 @@ export function LinkedComputersWorkspace() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold">Workspace mappings</p>
+                  <p className="text-xs font-medium">Workspace mappings</p>
                   {device.mappings?.length ? (
                     device.mappings.map((m) => (
                       <div key={m.mappingId} className="mt-1">
@@ -534,8 +534,8 @@ export function LinkedComputersWorkspace() {
                           )}
                         </div>
                         {m.status === 'pending' && (
-                          <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-2">
-                            <p className="text-xs text-amber-200">
+                          <div className="mt-2 rounded-lg border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-2">
+                            <p className="text-xs text-[var(--st-warning)]">
                               Register the existing Workspace root on this machine. The folder path stays
                               local.
                             </p>
@@ -567,7 +567,7 @@ export function LinkedComputersWorkspace() {
           )
         })}
         {!error && devices.length === 0 && executionLocations.length === 0 && (
-          <p className="rounded-xl border border-dashed border-[var(--color-pib-line)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+          <p className="rounded-md border border-dashed border-[var(--color-pib-line)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
             No computers or VPSs linked yet.
           </p>
         )}
@@ -585,7 +585,7 @@ export function LinkedComputersWorkspace() {
         <AccessibleDialog
           label="Rename computer"
           onClose={() => setRenaming(null)}
-          className="w-full max-w-sm rounded-xl bg-[var(--color-card)] p-4"
+          className="w-full max-w-sm rounded-md bg-[var(--color-card)] p-4"
         >
           <form
             onSubmit={async (e) => {
@@ -618,7 +618,7 @@ export function LinkedComputersWorkspace() {
       )}
       {agentsDevice && (
         <AccessibleDialog label={`Agents on ${agentsDevice.label}`} onClose={() => setAgentsDevice(null)}>
-          <h2 className="text-sm font-semibold">Pull agents onto {agentsDevice.label}</h2>
+          <h2 className="text-sm font-medium">Pull agents onto {agentsDevice.label}</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Select agents to install on this computer. Keep in sync pushes skill-policy updates to every machine that hosts the agent.
           </p>
@@ -659,9 +659,9 @@ export function LinkedComputersWorkspace() {
                     ) : null}
                   </label>
                   {live?.lastError ? (
-                    <p className="mt-1 pl-6 text-xs text-amber-300">
+                    <p className="mt-1 pl-6 text-xs text-[var(--st-warning)]">
                       {live.lastError.includes('hermes binary not found')
-                        ? 'Hermes binary missing — install Hermes (bootstrap) or set PIB_HERMES_BIN, then retry pull.'
+                        ? 'Hermes binary missing  -  install Hermes (bootstrap) or set PIB_HERMES_BIN, then retry pull.'
                         : live.lastError}
                     </p>
                   ) : null}
@@ -700,7 +700,7 @@ export function LinkedComputersWorkspace() {
       )}
       {access && (
         <AccessibleDialog label="Manage computer access" onClose={() => setAccess(null)}>
-          <h2 className="text-sm font-semibold">Manage computer access</h2>
+          <h2 className="text-sm font-medium">Manage computer access</h2>
           <label className="mt-3 block text-sm">
             Organisation
             <select

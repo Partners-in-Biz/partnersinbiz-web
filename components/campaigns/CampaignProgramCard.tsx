@@ -80,7 +80,7 @@ export function CampaignProgramCard({ campaign, href, meta }: CampaignProgramCar
             }}
           />
         )}
-        <div className="absolute inset-0 -t from-black/60 via-black/0 to-black/0" />
+        <div className="absolute inset-0 bg-black/40" />
 
         {isAwaiting && (
           <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded bg-[var(--sc-surface)]/90 text-[var(--sc-ink-soft)]">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Icon } from '@/components/studio'
 import type {
   AutomationRule,
   AutomationAction,
@@ -121,7 +122,7 @@ function ActionRow({
           className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors shrink-0"
           aria-label={`Remove action ${actionNumber}`}
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+          <Icon name="close" className="text-[18px]" />
         </button>
       </div>
 
@@ -335,10 +336,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="sc-tiny !text-[10px]">Rule identity</p>
-            <h2 id="automation-rule-name-label" className="mt-2 text-sm ">Name the business outcome</h2>
+            <h2 id="automation-rule-name-label" className="mt-2 text-sm">Name the business outcome</h2>
           </div>
-          <span aria-hidden="true" className="">
-            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+          <span aria-hidden="true">
+            <Icon name="edit_note" className="text-[18px]" />
           </span>
         </div>
         <input
@@ -356,10 +357,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="sc-tiny !text-[10px]">Trigger</p>
-            <h2 id="automation-trigger-label" className="mt-2 text-sm ">Choose the CRM moment</h2>
+            <h2 id="automation-trigger-label" className="mt-2 text-sm">Choose the CRM moment</h2>
           </div>
-          <span aria-hidden="true" className="">
-            <span className="material-symbols-outlined text-[18px]">bolt</span>
+          <span aria-hidden="true">
+            <Icon name="bolt" className="text-[18px]" />
           </span>
         </div>
         <select
@@ -405,10 +406,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="sc-tiny !text-[10px]">Timing</p>
-            <h2 className="mt-2 text-sm ">Decide when it runs</h2>
+            <h2 className="mt-2 text-sm">Decide when it runs</h2>
           </div>
-          <span aria-hidden="true" className="">
-            <span className="material-symbols-outlined text-[18px]">schedule</span>
+          <span aria-hidden="true">
+            <Icon name="schedule" className="text-[18px]" />
           </span>
         </div>
         <div className="flex gap-3">
@@ -463,10 +464,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="sc-tiny !text-[10px]">Actions</p>
-            <h2 className="mt-2 text-sm ">Build the execution chain</h2>
+            <h2 className="mt-2 text-sm">Build the execution chain</h2>
           </div>
-          <span aria-hidden="true" className="">
-            <span className="material-symbols-outlined text-[18px]">account_tree</span>
+          <span aria-hidden="true">
+            <Icon name="account_tree" className="text-[18px]" />
           </span>
         </div>
 
@@ -492,7 +493,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           onClick={addAction}
           className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] flex items-center gap-1.5 mt-3"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+          <Icon name="add" className="text-[16px]" />
           Add action
         </button>
       </div>
@@ -521,7 +522,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       {/* ── Validation / save errors ── */}
       {(validationError ?? saveError) && (
         <p className="text-sm text-[var(--st-danger)] flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">error</span>
+          <Icon name="error" className="text-[16px]" />
           {validationError ?? saveError}
         </p>
       )}
@@ -534,7 +535,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           disabled={saving}
           className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+          <Icon name="save" className="text-[16px]" />
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create rule'}
         </button>
         <button
@@ -551,7 +552,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       <aside className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:sticky xl:top-4 xl:self-start">
         <div className="border-b border-[var(--color-card-border)] p-3">
           <p className="sc-tiny !text-[10px]">Rule preview</p>
-          <h2 className="mt-2 text-sm ">{name.trim() || 'Untitled automation'}</h2>
+          <h2 className="mt-2 text-sm">{name.trim() || 'Untitled automation'}</h2>
           <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
             When <span className="text-[var(--color-pib-text)]">{TRIGGER_LABELS[trigger.event]}</span> happens, run{' '}
             <span className="text-[var(--color-pib-text)]">{actions.length || 'no'} action{actions.length === 1 ? '' : 's'}</span>{' '}
@@ -560,7 +561,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
               <p className="text-[10px] text-[var(--color-pib-text-muted)]">Ready actions</p>
-              <p className="mt-1 text-lg ">{readyActions}/{actions.length}</p>
+              <p className="mt-1 text-lg">{readyActions}/{actions.length}</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
               <p className="text-[10px] text-[var(--color-pib-text-muted)]">Status</p>
@@ -581,8 +582,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
                 const meta = ACTION_LABELS[action.type]
                 return (
                   <div key={`${action.type}-${index}`} className="flex items-center gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
-                    <span aria-hidden="true" className="shrink-0 " style={{ width: '1.75rem', height: '1.75rem', borderRadius: '8px' }}>
-                      <span className="material-symbols-outlined text-[15px]">{meta.icon}</span>
+                    <span aria-hidden="true" className="shrink-0" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '8px' }}>
+                      <Icon name={meta.icon} className="text-[15px]" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium">{meta.label}</p>

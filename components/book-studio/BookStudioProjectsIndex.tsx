@@ -58,7 +58,7 @@ export function BookStudioProjectsIndex({ orgId, orgSlug }: BookStudioProjectsIn
         <EmptyState
           icon="auto_stories"
           title="No books yet"
-          description="Create your first book — pick a format, optionally start from a template, and begin writing."
+          description="Create your first book  -  pick a format, optionally start from a template, and begin writing."
           action={
             <button type="button" className="btn-pib-primary btn-pib-sm font-label" onClick={() => setDialogOpen(true)}>
               New book

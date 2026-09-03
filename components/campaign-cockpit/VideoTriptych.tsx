@@ -19,7 +19,7 @@ interface Props {
  * client-content-engine preview-site layout so a client sees every
  * platform at once before approving.
  *
- * The post record carries all three URLs on a single media[0] entry —
+ * The post record carries all three URLs on a single media[0] entry  - 
  * { type: 'video', url: <Reel>, urlYoutube: <16:9>, urlStories: <15s> }.
  */
 export function VideoTriptych({ post, brand }: Props) {

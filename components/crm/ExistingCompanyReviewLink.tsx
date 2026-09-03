@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 
 export function ExistingCompanyReviewLink({
   companyId,
@@ -20,7 +21,7 @@ export function ExistingCompanyReviewLink({
       aria-label={`Open ${label}`}
       title={`Open ${label}`}
     >
-      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>
+      <Icon name="open_in_new" className="text-[13px]" />
       <span className="truncate">Open {label}</span>
     </Link>
   )

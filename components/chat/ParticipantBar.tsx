@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useState } from 'react'
 import {
   collectAgentApprovalGates,
@@ -21,9 +22,9 @@ interface ParticipantBarProps {
 }
 
 const AGENT_COLOR: Record<string, { dot: string; label: string }> = {
-  violet:  { dot: 'bg-violet-400', label: 'text-violet-300' },
+  violet:  { dot: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]', label: 'text-[var(--st-info)]' },
   sky:     { dot: 'bg-sky-400',    label: 'text-sky-300' },
-  amber:   { dot: 'bg-amber-400',  label: 'text-amber-300' },
+  amber:   { dot: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',  label: 'text-[var(--st-warning)]' },
   emerald: { dot: 'bg-emerald-400',label: 'text-emerald-300' },
   rose:    { dot: 'bg-rose-400',   label: 'text-rose-300' },
 }
@@ -75,9 +76,9 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
           return (
             <span
               key={`agent-${p.agentId}`}
-              className="relative inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
+              className="relative inline-flex items-center gap-1.5 rounded-[4px] border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
             >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
+              <span className={`w-1.5 h-1.5 rounded-[4px] shrink-0 ${c.dot}`} />
               <span className={c.label}>{p.name}</span>
               {previewSkills.map((skill) => (
                 <span
@@ -97,12 +98,12 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
                     aria-label={`Show ${p.name} skills`}
                     title={`Show ${p.name} skills`}
                     onClick={() => setOpenAgentId(isOpen ? null : p.agentId)}
-                    className="-mr-1 grid h-5 w-5 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                    className="-mr-1 grid h-5 w-5 place-items-center rounded-[4px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                   >
-                    <span className="material-symbols-outlined text-[13px]">psychology</span>
+                    <Icon name="psychology" className="text-[13px]" />
                   </button>
                   {isOpen && (
-                    <span className="absolute left-0 top-full z-20 mt-1 w-72 max-w-[80vw] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-xl">
+                    <span className="absolute left-0 top-full z-20 mt-1 w-72 max-w-[80vw] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left">
                       <span className="block text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                         {p.name} skills
                       </span>
@@ -138,7 +139,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
         return (
           <span
             key={`user-${p.uid}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
           >
             <span className="pib-status-dot pib-status-dot-blue shrink-0" />
             <span className="text-[var(--color-pib-text-muted)]">{name}</span>

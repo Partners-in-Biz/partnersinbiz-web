@@ -5,7 +5,7 @@ import React from 'react'
  * Handles: # / ## / ### headings, paragraphs, **bold**, *italic*,
  * [text](url) links, unordered + ordered lists, blockquotes, horizontal rules.
  *
- * NOT a full markdown parser — but good enough for client-review previews.
+ * NOT a full markdown parser  -  but good enough for client-review previews.
  */
 export function renderMarkdown(src: string): React.ReactNode {
   if (!src) return null

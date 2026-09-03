@@ -153,7 +153,7 @@ export function CampaignCockpitClient({
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-3xl md:text-5xl font-headline">
-              {orgName ? `${orgName} — ` : ''}Marketing Preview
+              {orgName ? `${orgName}  -  ` : ''}Marketing Preview
               {monthLabel && <span className="text-[var(--org-text-muted,var(--color-pib-text-muted))]"> · {monthLabel}</span>}
             </h1>
             {description && (
@@ -796,7 +796,7 @@ function BlogsTab({
             )}
             {showClientApprovals && currentStatus === 'client_approved' && !isReview && (
               <div className="px-5 pb-5 pt-1 text-center text-xs text-emerald-400 font-label">
-                Approved ✓ — awaiting publishing
+                Approved ✓  -  awaiting publishing
               </div>
             )}
           </div>

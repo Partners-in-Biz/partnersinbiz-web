@@ -6,7 +6,7 @@ import { getBookFormat } from '@/lib/book-studio/format-registry'
 import { transitionBookStudioProject, type BookStudioSurface } from '@/lib/book-studio/client'
 import { humanizeToken, type BookProject } from './types'
 
-// Mirrors lib/book-studio/lifecycle.ts TRANSITIONS — kept as a small local
+// Mirrors lib/book-studio/lifecycle.ts TRANSITIONS  -  kept as a small local
 // copy since this is a client component and lib/book-studio/lifecycle.ts
 // pulls in firebase-admin/firestore (server-only) via executeLifecycleTransition.
 // If lifecycle.ts is later split into a server-only file + a shared pure

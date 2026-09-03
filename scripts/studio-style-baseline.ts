@@ -67,6 +67,8 @@ function shouldSkip(rel: string): boolean {
   if (rel === 'app/globals.css') return true
   if (rel === 'components/studio/studio-ui.css') return true
   if (rel === 'app/studio-tokens.css') return true
+  // Icon renders Material Symbols by design (plan 3.4).
+  if (rel === 'components/studio/index.tsx') return true
   return false
 }
 

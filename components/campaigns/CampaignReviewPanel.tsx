@@ -2,7 +2,7 @@
 
 import { Icon } from '@/components/studio'
 
-// US-105 — Review + send/schedule panel. Surfaced as a slide-over from the
+// US-105  -  Review + send/schedule panel. Surfaced as a slide-over from the
 // editor. Shows computed recipient count (real API), a deliverability score,
 // unsubscribe-link presence, a "Send now" action (launch endpoint), and a
 // datetime + timezone scheduler with a live countdown + cancel.
@@ -53,7 +53,7 @@ function unwrap<T>(body: unknown): T | null {
 }
 
 // Heuristic deliverability score 0–100. Pure presentational signal built from
-// document structure + sender config — not a guarantee, an at-a-glance check.
+// document structure + sender config  -  not a guarantee, an at-a-glance check.
 function computeDeliverability(doc: EmailDocument, subject: string, hasUnsub: boolean, hasVerifiedDomain: boolean) {
   let score = 100
   const issues: string[] = []
@@ -62,7 +62,7 @@ function computeDeliverability(doc: EmailDocument, subject: string, hasUnsub: bo
     issues.push('Subject line is empty.')
   } else if (subject.length > 90) {
     score -= 8
-    issues.push('Subject is long — aim for under 60 characters.')
+    issues.push('Subject is long  -  aim for under 60 characters.')
   }
   if (!doc.preheader?.trim()) {
     score -= 8
@@ -70,7 +70,7 @@ function computeDeliverability(doc: EmailDocument, subject: string, hasUnsub: bo
   }
   if (!hasUnsub) {
     score -= 30
-    issues.push('No unsubscribe link — add a footer block.')
+    issues.push('No unsubscribe link  -  add a footer block.')
   }
   if (!hasVerifiedDomain) {
     score -= 12
@@ -79,13 +79,13 @@ function computeDeliverability(doc: EmailDocument, subject: string, hasUnsub: bo
   const textLen = JSON.stringify(doc.blocks).length
   if (textLen < 200) {
     score -= 10
-    issues.push('Very little content — may look thin to spam filters.')
+    issues.push('Very little content  -  may look thin to spam filters.')
   }
   const imageBlocks = doc.blocks.filter((b) => b.type === 'image' || b.type === 'hero').length
   const textBlocks = doc.blocks.filter((b) => b.type === 'paragraph' || b.type === 'heading').length
   if (imageBlocks > 0 && textBlocks === 0) {
     score -= 15
-    issues.push('Image-only emails are flagged by spam filters — add some text.')
+    issues.push('Image-only emails are flagged by spam filters  -  add some text.')
   }
   return { score: Math.max(0, Math.min(100, score)), issues }
 }
@@ -184,7 +184,7 @@ export function CampaignReviewPanel({
         return
       }
       const data = unwrap<{ enrolled?: number }>(body)
-      setMessage(`Campaign launched — ${data?.enrolled ?? 0} contacts enrolled.`)
+      setMessage(`Campaign launched  -  ${data?.enrolled ?? 0} contacts enrolled.`)
       onStatusChange('active')
       setTimeout(() => router.push(doneHref), 1200)
     } finally {
@@ -238,7 +238,7 @@ export function CampaignReviewPanel({
         setError((body && (body.error as string)) || 'Failed to cancel.')
         return
       }
-      setMessage('Schedule cancelled — back to draft.')
+      setMessage('Schedule cancelled  -  back to draft.')
       onStatusChange('draft')
     } finally {
       setBusy(false)
@@ -311,7 +311,7 @@ export function CampaignReviewPanel({
                 <p key={i} className="text-xs text-[var(--sc-ink-soft)]/90 pl-6">• {issue}</p>
               ))}
               {deliverability.issues.length === 0 && (
-                <p className="text-xs text-emerald-300/90 pl-6">Looks great — no issues found.</p>
+                <p className="text-xs text-emerald-300/90 pl-6">Looks great  -  no issues found.</p>
               )}
             </div>
           </section>

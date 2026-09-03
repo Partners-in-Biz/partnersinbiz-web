@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import Link from 'next/link'
 
 export interface ProjectListCardProject {
@@ -123,7 +125,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = STATUS_META[status] ?? { label: status.replace(/_/g, ' '), color: 'var(--color-outline)' }
   return (
     <span
-      className="pib-label inline-flex items-center rounded-full px-2 py-1"
+      className="pib-label inline-flex items-center rounded-md px-2 py-1"
       style={{ background: `${s.color}18`, color: s.color, border: `1px solid ${s.color}33` }}
     >
       {s.label}
@@ -146,11 +148,11 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
       <div className="flex min-w-0 flex-1 flex-col p-3.5 pl-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-2.5">
-            <span className="pib-icon-tint-cyan shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined block text-[16px] leading-none">{meta.icon}</span>
+            <span className="shrink-0" aria-hidden="true">
+              <Icon name={meta.icon} />
             </span>
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-sm font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-cyan)]">
+              <h3 className="line-clamp-2 text-sm font-headline font-medium leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-cyan)]">
                 {project.name}
               </h3>
               <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{updated}</p>
@@ -168,20 +170,20 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
             <span className="pib-label">Delivery progress</span>
             <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]">{meta.progress}%</span>
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-1 overflow-hidden rounded-md bg-white/[0.06]">
             <div
-              className="h-full rounded-full transition-all duration-300"
+              className="h-full rounded-md transition-all duration-300"
               style={{ width: `${meta.progress}%`, background: meta.color }}
             />
           </div>
           <div className="mt-2.5 flex items-center justify-between text-[11px]">
             <span className="inline-flex items-center gap-1 text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[14px]">view_kanban</span>
+              <Icon name="view_kanban" />
               Board workspace
             </span>
             <span className="inline-flex items-center gap-0.5 text-[var(--color-pib-cyan)] opacity-0 transition-opacity group-hover/card:opacity-100">
               Open
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              <Icon name="arrow_forward" />
             </span>
           </div>
         </div>

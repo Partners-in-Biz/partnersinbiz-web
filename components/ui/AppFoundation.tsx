@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react'
 import Link from 'next/link'
-import { Status } from '@/components/studio'
+import { Icon, Status  } from '@/components/studio'
 import { cn } from '@/lib/utils'
 
 type AppShellProps = ComponentPropsWithoutRef<'div'> & {
@@ -121,7 +121,7 @@ export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', 
               if (!tab.disabled) onValueChange?.(tab.value)
             }}
           >
-            {tab.icon ? <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{tab.icon}</span> : null}
+            {tab.icon ? <Icon name={tab.icon} className="text-[18px]" /> : null}
             <span>{tab.label}</span>
             {tab.badge != null ? <span className="pib-tabs-badge">{tab.badge}</span> : null}
           </button>
@@ -163,7 +163,7 @@ export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', varia
             aria-current={selected ? 'page' : undefined}
             className={cn('pib-tab', selected && 'pib-tab-active', tab.disabled && 'pointer-events-none opacity-50')}
           >
-            {tab.icon ? <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{tab.icon}</span> : null}
+            {tab.icon ? <Icon name={tab.icon} className="text-[18px]" /> : null}
             <span>{tab.label}</span>
             {tab.badge != null ? <span className="pib-tabs-badge">{tab.badge}</span> : null}
           </Link>
@@ -338,7 +338,7 @@ export function DialogDrawer({ open, title, description, children, footer, onClo
           </div>
           {onClose ? (
             <button type="button" aria-label="Close dialog" onClick={onClose} className="pib-dialog-close">
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+              <Icon name="close" className="text-[18px]" />
             </button>
           ) : null}
         </div>

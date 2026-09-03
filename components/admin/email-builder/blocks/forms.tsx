@@ -1,6 +1,6 @@
 'use client'
 
-// Per-block-type property forms. One small component per type — bundled
+// Per-block-type property forms. One small component per type  -  bundled
 // into a single file because each one is tiny.
 
 import type {
@@ -26,7 +26,7 @@ export function HeroBlockForm({ props, onChange }: { props: HeroBlockProps; onCh
       <Field label="Text color"><ColorInput value={props.textColor ?? '#FFFFFF'} onChange={(v) => onChange({ ...props, textColor: v })} /></Field>
       <Field label="CTA button text"><TextInput value={props.ctaText ?? ''} onChange={(v) => onChange({ ...props, ctaText: v || undefined })} /></Field>
       <Field label="CTA button URL"><TextInput value={props.ctaUrl ?? ''} onChange={(v) => onChange({ ...props, ctaUrl: v || undefined })} /></Field>
-      <Field label="CTA color"><ColorInput value={props.ctaColor ?? '#F5A623'} onChange={(v) => onChange({ ...props, ctaColor: v })} /></Field>
+      <Field label="CTA color"><ColorInput value={props.ctaColor ?? 'var(--st-warning)'} onChange={(v) => onChange({ ...props, ctaColor: v })} /></Field>
     </div>
   )
 }
@@ -36,17 +36,18 @@ export function HeadingBlockForm({ props, onChange }: { props: HeadingBlockProps
     <div>
       <Field label="Text"><TextInput value={props.text} onChange={(v) => onChange({ ...props, text: v })} /></Field>
       <Field label="Level">
-        <Select<'1' | '2' | '3'>
+        <Select
+          aria-label="Heading level"
           value={String(props.level) as '1' | '2' | '3'}
           onChange={(v) => onChange({ ...props, level: Number(v) as 1 | 2 | 3 })}
           options={[
-            { value: '1', label: 'H1 — Largest' },
-            { value: '2', label: 'H2 — Medium' },
-            { value: '3', label: 'H3 — Small' },
+            { value: '1', label: 'H1  -  Largest' },
+            { value: '2', label: 'H2  -  Medium' },
+            { value: '3', label: 'H3  -  Small' },
           ]}
         />
       </Field>
-      <Field label="Align"><Select value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
+      <Field label="Align"><Select aria-label="Align" value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
     </div>
   )
 }
@@ -55,9 +56,9 @@ export function ParagraphBlockForm({ props, onChange }: { props: ParagraphBlockP
   return (
     <div>
       <Field label="HTML content (allowed tags: b, i, u, a, br, span)">
-        <TextArea value={props.html} onChange={(v) => onChange({ ...props, html: v })} rows={6} />
+        <TextArea aria-label="Html" value={props.html} onChange={(v) => onChange({ ...props, html: v })} rows={6} />
       </Field>
-      <Field label="Align"><Select value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
+      <Field label="Align"><Select aria-label="Align" value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
     </div>
   )
 }
@@ -69,7 +70,7 @@ export function ButtonBlockForm({ props, onChange }: { props: ButtonBlockProps; 
       <Field label="URL"><TextInput value={props.url} onChange={(v) => onChange({ ...props, url: v })} placeholder="https://..." /></Field>
       <Field label="Background color"><ColorInput value={props.color} onChange={(v) => onChange({ ...props, color: v })} /></Field>
       <Field label="Text color"><ColorInput value={props.textColor} onChange={(v) => onChange({ ...props, textColor: v })} /></Field>
-      <Field label="Align"><Select value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
+      <Field label="Align"><Select aria-label="Align" value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
       <CheckboxField checked={props.fullWidth} onChange={(v) => onChange({ ...props, fullWidth: v })} label="Full-width button" />
     </div>
   )
@@ -82,7 +83,7 @@ export function ImageBlockForm({ props, onChange }: { props: ImageBlockProps; on
       <Field label="Alt text"><TextInput value={props.alt} onChange={(v) => onChange({ ...props, alt: v })} /></Field>
       <Field label="Link URL (optional)"><TextInput value={props.link ?? ''} onChange={(v) => onChange({ ...props, link: v || undefined })} /></Field>
       <Field label="Width (px)"><NumberInput value={props.width ?? 552} onChange={(v) => onChange({ ...props, width: v })} min={50} max={600} /></Field>
-      <Field label="Align"><Select value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
+      <Field label="Align"><Select aria-label="Align" value={props.align} onChange={(v) => onChange({ ...props, align: v })} options={ALIGN_SELECT} /></Field>
     </div>
   )
 }
@@ -108,7 +109,7 @@ export function ColumnsBlockForm({ props }: { props: ColumnsBlockProps; onChange
   return (
     <div className="text-xs text-[var(--color-pib-text-muted)]">
       <p className="mb-2">Columns: 2 (left {props.columns[0].length} block(s), right {props.columns[1].length} block(s))</p>
-      <p className="text-zinc-500">Edit child blocks in code — column nesting management is not exposed in the inline editor for this slice.</p>
+      <p className="text-zinc-500">Edit child blocks in code  -  column nesting management is not exposed in the inline editor for this slice.</p>
     </div>
   )
 }

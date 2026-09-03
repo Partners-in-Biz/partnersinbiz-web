@@ -99,7 +99,7 @@ const TEMPLATES: Record<string, Template[]> = {
           y: 720,
           width: 880,
           height: 60,
-          content: '— Author Name',
+          content: ' -  Author Name',
           fontSize: 24,
           fontFamily: 'Inter',
           fontWeight: '600',
@@ -801,7 +801,7 @@ export default function DesignPage() {
           <div className="p-4 space-y-6">
             {Object.entries(TEMPLATES).map(([category, templates]) => (
               <div key={category}>
-                <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-3 uppercase tracking-wider">
+                <h2 className="text-sm font-medium text-[var(--color-pib-rose)] mb-3 uppercase tracking-wider">
                   {category === 'social'
                     ? 'Social Posts'
                     : category === 'story'
@@ -809,7 +809,7 @@ export default function DesignPage() {
                       : category === 'banner'
                         ? 'Banners'
                         : 'YouTube'}
-                </h3>
+                </h2>
                 <div className="space-y-2">
                   {templates.map(template => (
                     <button
@@ -881,7 +881,7 @@ export default function DesignPage() {
 
             <div className="border-l border-[var(--color-pib-line)] h-6" />
 
-            <select
+            <select aria-label="Width"
               value={`${canvas.width}x${canvas.height}`}
               onChange={e => {
                 const [w, h] = e.target.value.split('x').map(Number)
@@ -939,11 +939,11 @@ export default function DesignPage() {
           <div className="p-4 space-y-4">
             {/* Canvas properties */}
             <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
-              <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-4">Canvas</h3>
+              <h3 className="text-sm font-medium text-[var(--color-pib-rose)] mb-4">Canvas</h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-[var(--color-pib-text-muted)]">Width</label>
-                  <input
+                  <input aria-label="Width"
                     type="number"
                     value={canvas.width}
                     onChange={e =>
@@ -954,7 +954,7 @@ export default function DesignPage() {
                 </div>
                 <div>
                   <label className="text-xs text-[var(--color-pib-text-muted)]">Height</label>
-                  <input
+                  <input aria-label="Height"
                     type="number"
                     value={canvas.height}
                     onChange={e =>
@@ -966,7 +966,7 @@ export default function DesignPage() {
                 <div>
                   <label className="text-xs text-[var(--color-pib-text-muted)]">Background Color</label>
                   <div className="flex gap-2 mt-1">
-                    <input
+                    <input aria-label="Background Color"
                       type="color"
                       value={canvas.backgroundColor}
                       onChange={e =>
@@ -974,7 +974,7 @@ export default function DesignPage() {
                       }
                       className="w-12 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                     />
-                    <input
+                    <input aria-label="Background Color"
                       type="text"
                       value={canvas.backgroundColor}
                       onChange={e =>
@@ -992,7 +992,7 @@ export default function DesignPage() {
               <>
                 <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-[var(--color-pib-rose)]">
+                    <h3 className="text-sm font-medium text-[var(--color-pib-rose)]">
                       {selectedLayer.type === 'text'
                         ? 'Text Layer'
                         : selectedLayer.type === 'image'
@@ -1011,7 +1011,7 @@ export default function DesignPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">X</label>
-                        <input
+                        <input aria-label="X"
                           type="number"
                           value={selectedLayer.x}
                           onChange={e =>
@@ -1022,7 +1022,7 @@ export default function DesignPage() {
                       </div>
                       <div>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Y</label>
-                        <input
+                        <input aria-label="Y"
                           type="number"
                           value={selectedLayer.y}
                           onChange={e =>
@@ -1033,7 +1033,7 @@ export default function DesignPage() {
                       </div>
                       <div>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Width</label>
-                        <input
+                        <input aria-label="Width"
                           type="number"
                           value={selectedLayer.width}
                           onChange={e =>
@@ -1044,7 +1044,7 @@ export default function DesignPage() {
                       </div>
                       <div>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Height</label>
-                        <input
+                        <input aria-label="Height"
                           type="number"
                           value={selectedLayer.height}
                           onChange={e =>
@@ -1060,7 +1060,7 @@ export default function DesignPage() {
                       <>
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Text</label>
-                          <textarea
+                          <textarea aria-label="Text"
                             value={selectedLayer.content}
                             onChange={e =>
                               updateSelectedLayer({ content: e.target.value })
@@ -1071,7 +1071,7 @@ export default function DesignPage() {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Font Size</label>
-                            <input
+                            <input aria-label="Font Size"
                               type="number"
                               value={selectedLayer.fontSize}
                               onChange={e =>
@@ -1082,7 +1082,7 @@ export default function DesignPage() {
                           </div>
                           <div>
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Font Weight</label>
-                            <select
+                            <select aria-label="Font Weight"
                               value={selectedLayer.fontWeight}
                               onChange={e =>
                                 updateSelectedLayer({
@@ -1100,7 +1100,7 @@ export default function DesignPage() {
                         </div>
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Font Family</label>
-                          <select
+                          <select aria-label="Font Family"
                             value={selectedLayer.fontFamily}
                             onChange={e =>
                               updateSelectedLayer({ fontFamily: e.target.value })
@@ -1118,7 +1118,7 @@ export default function DesignPage() {
                           <div>
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Color</label>
                             <div className="flex gap-2 mt-1">
-                              <input
+                              <input aria-label="Color"
                                 type="color"
                                 value={selectedLayer.color}
                                 onChange={e =>
@@ -1126,7 +1126,7 @@ export default function DesignPage() {
                                 }
                                 className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
-                              <input
+                              <input aria-label="Color"
                                 type="text"
                                 value={selectedLayer.color}
                                 onChange={e =>
@@ -1138,7 +1138,7 @@ export default function DesignPage() {
                           </div>
                           <div>
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Align</label>
-                            <select
+                            <select aria-label="Align"
                               value={selectedLayer.alignment}
                               onChange={e =>
                                 updateSelectedLayer({
@@ -1161,7 +1161,7 @@ export default function DesignPage() {
                       <>
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Opacity</label>
-                          <input
+                          <input aria-label="Opacity"
                             type="range"
                             min="0"
                             max="1"
@@ -1180,7 +1180,7 @@ export default function DesignPage() {
                         </div>
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Border Radius</label>
-                          <input
+                          <input aria-label="Border Radius"
                             type="range"
                             min="0"
                             max="50"
@@ -1204,7 +1204,7 @@ export default function DesignPage() {
                       <>
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Shape Type</label>
-                          <select
+                          <select aria-label="Shape Type"
                             value={selectedLayer.shapeType}
                             onChange={e =>
                               updateSelectedLayer({
@@ -1221,7 +1221,7 @@ export default function DesignPage() {
                           <div>
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Fill Color</label>
                             <div className="flex gap-2 mt-1">
-                              <input
+                              <input aria-label="Fill Color"
                                 type="color"
                                 value={selectedLayer.fillColor}
                                 onChange={e =>
@@ -1230,6 +1230,7 @@ export default function DesignPage() {
                                 className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
                               <input
+                                aria-label="Fill color"
                                 type="text"
                                 value={selectedLayer.fillColor}
                                 onChange={e =>
@@ -1243,6 +1244,7 @@ export default function DesignPage() {
                             <label className="text-xs text-[var(--color-pib-text-muted)]">Stroke Color</label>
                             <div className="flex gap-2 mt-1">
                               <input
+                                aria-label="Stroke color picker"
                                 type="color"
                                 value={selectedLayer.strokeColor}
                                 onChange={e =>
@@ -1251,6 +1253,7 @@ export default function DesignPage() {
                                 className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
                               <input
+                                aria-label="Stroke color"
                                 type="text"
                                 value={selectedLayer.strokeColor}
                                 onChange={e =>
@@ -1264,6 +1267,7 @@ export default function DesignPage() {
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Stroke Width</label>
                           <input
+                            aria-label="Stroke width"
                             type="number"
                             value={selectedLayer.strokeWidth}
                             onChange={e =>
@@ -1277,6 +1281,7 @@ export default function DesignPage() {
                         <div>
                           <label className="text-xs text-[var(--color-pib-text-muted)]">Opacity</label>
                           <input
+                            aria-label="Shape opacity"
                             type="range"
                             min="0"
                             max="1"
@@ -1306,10 +1311,11 @@ export default function DesignPage() {
 
             {/* Export settings */}
             <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
-              <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-4">Export</h3>
+              <h3 className="text-sm font-medium text-[var(--color-pib-rose)] mb-4">Export</h3>
               <div>
                 <label className="text-xs text-[var(--color-pib-text-muted)]">File Name</label>
                 <input
+                  aria-label="Export file name"
                   type="text"
                   value={exportName}
                   onChange={e => setExportName(e.target.value)}
@@ -1323,7 +1329,7 @@ export default function DesignPage() {
       </div>
 
       {/* Hidden file input */}
-      <input
+      <input data-impeccable-disable="content-invisible-at-rest" aria-label="Upload file"
         ref={fileInputRef}
         type="file"
         accept="image/*"

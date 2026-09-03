@@ -1,6 +1,6 @@
 'use client'
 
-// TwoFactorGate — OPTIONAL post-login 2FA challenge.
+// TwoFactorGate  -  OPTIONAL post-login 2FA challenge.
 //
 // Mount this at the top of the portal layout's main content. When it mounts it
 // checks whether the signed-in user has 2FA enabled and whether THIS browser
@@ -16,6 +16,8 @@
 //   <TwoFactorGate /> at the top of the main content region.
 
 import { useEffect, useState } from 'react'
+
+import { Icon } from '@/components/studio'
 
 const FLAG_KEY = 'pib_2fa_ok'
 const STATUS_ENDPOINT = '/api/v1/account/2fa/status'
@@ -34,7 +36,7 @@ export function TwoFactorGate() {
   useEffect(() => {
     let alive = true
 
-    // Already satisfied this session — skip entirely.
+    // Already satisfied this session  -  skip entirely.
     if (typeof window !== 'undefined' && sessionStorage.getItem(FLAG_KEY) === '1') {
       setPhase('satisfied')
       return
@@ -50,7 +52,7 @@ export function TwoFactorGate() {
         if (data?.enabled === true) {
           setPhase('required')
         } else {
-          // 2FA disabled — nothing to do, mark satisfied to avoid re-checks.
+          // 2FA disabled  -  nothing to do, mark satisfied to avoid re-checks.
           try { sessionStorage.setItem(FLAG_KEY, '1') } catch (error) { void error }
           setPhase('satisfied')
         }
@@ -94,14 +96,14 @@ export function TwoFactorGate() {
       role="dialog"
       aria-modal="true"
       aria-label="Two-factor authentication required"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
     >
       <div className="pib-card w-full max-w-md space-y-5">
         <div className="space-y-2 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined text-[24px]" aria-hidden="true">shield_lock</span>
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+            <Icon name="shield_lock" className="text-[24px]" />
           </span>
-          <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Two-factor authentication</h2>
+          <h2 className="text-lg font-medium text-[var(--color-pib-text)]">Two-factor authentication</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
             {useBackup
               ? 'Enter one of your backup codes to continue.'
@@ -136,7 +138,7 @@ export function TwoFactorGate() {
             />
           )}
 
-          {error && <p className="text-xs text-red-400" role="alert">{error}</p>}
+          {error && <p className="text-xs text-[var(--st-danger)]" role="alert">{error}</p>}
 
           <button
             type="submit"

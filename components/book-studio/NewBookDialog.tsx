@@ -102,9 +102,9 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
         chaptersFailed = true
       }
       if (chaptersFailed) {
-        setError('Project created, but some starter chapters could not be added — open the book to add them manually.')
+        setError('Project created, but some starter chapters could not be added  -  open the book to add them manually.')
       }
-      // The project exists either way — hand the user into the workspace
+      // The project exists either way  -  hand the user into the workspace
       // rather than leaving them stuck in the dialog.
       onCreated(projectId)
     } finally {

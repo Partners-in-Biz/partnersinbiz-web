@@ -42,7 +42,7 @@ interface Props {
   mode: 'email' | 'sequence' | 'newsletter'
   onApply: (result: ApplyPayload) => void
   defaultVoice?: BrandVoice
-  /** Optional org id — sent on requests so the server can default voice. */
+  /** Optional org id  -  sent on requests so the server can default voice. */
   orgId?: string
   /** Existing body, prefilled for the Rewrite tab. */
   existingBody?: string
@@ -68,7 +68,7 @@ function presetToVoice(presetKey: string, fallback?: BrandVoice): BrandVoice | u
       preset.key === 'pib'
         ? 'small SA business owners and operators who want fewer tools, not more'
         : preset.key === 'warm'
-          ? 'clients of a service business — accountants, consultants, agencies'
+          ? 'clients of a service business  -  accountants, consultants, agencies'
           : preset.key === 'bold'
             ? 'founders and operators who get a hundred pitch emails a week'
             : preset.key === 'clinical'
@@ -82,7 +82,7 @@ function presetToVoice(presetKey: string, fallback?: BrandVoice): BrandVoice | u
             'You should not need a developer to schedule a tweet.',
           ]
         : [],
-    signOff: preset.key === 'pib' ? '— Peet' : '',
+    signOff: preset.key === 'pib' ? ' -  Peet' : '',
     ctaStyle: preset.tone === 'professional' || preset.tone === 'authoritative' ? 'soft' : 'direct',
   }
 }
@@ -115,7 +115,7 @@ export default function AiAssistantPanel({
     <div className="h-full flex flex-col bg-[var(--color-pib-surface)] border-l border-[var(--color-pib-line)] w-[420px] max-w-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Pip · AI Assistant</h3>
+          <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Pip · AI Assistant</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Generate, vary, and rewrite email content.</p>
         </div>
         {onClose && (
@@ -196,7 +196,7 @@ function VoiceSelector({
   return (
     <div>
       <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Voice</label>
-      <select
+      <select aria-label="Voice"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
@@ -271,7 +271,7 @@ function EmailTab({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Goal</label>
-        <textarea
+        <textarea aria-label="e.g. follow up with a cold lead after a demo"
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={3}
@@ -281,7 +281,7 @@ function EmailTab({
       </div>
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Audience (optional)</label>
-        <input
+        <input aria-label="e.g. ops manager at a 20-person agency"
           value={audience}
           onChange={(e) => setAudience(e.target.value)}
           placeholder="e.g. ops manager at a 20-person agency"
@@ -292,7 +292,7 @@ function EmailTab({
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Length</label>
-          <select
+          <select aria-label="Length"
             value={length}
             onChange={(e) => setLength(e.target.value as typeof length)}
             className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
@@ -409,7 +409,7 @@ function SubjectsTab({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Topic</label>
-        <input
+        <input aria-label="What is this email about?"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="What is this email about?"
@@ -420,7 +420,7 @@ function SubjectsTab({
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Count</label>
-          <input
+          <input aria-label="Count"
             type="number"
             min={2}
             max={10}
@@ -526,7 +526,7 @@ function SequenceTab({
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Sequence goal</label>
-        <textarea
+        <textarea aria-label="e.g. nurture a free-trial signup to a paid plan over two weeks"
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={3}
@@ -536,7 +536,7 @@ function SequenceTab({
       </div>
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Audience (optional)</label>
-        <input
+        <input aria-label="Audience (optional)"
           value={audience}
           onChange={(e) => setAudience(e.target.value)}
           className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
@@ -546,7 +546,7 @@ function SequenceTab({
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Steps</label>
-          <input
+          <input aria-label="Steps"
             type="number"
             min={2}
             max={10}
@@ -557,7 +557,7 @@ function SequenceTab({
         </div>
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Cadence</label>
-          <select
+          <select aria-label="Cadence"
             value={cadence}
             onChange={(e) => setCadence(e.target.value as typeof cadence)}
             className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
@@ -681,6 +681,7 @@ function NewsletterTab({
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Topic</label>
           <input
+            aria-label="Topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Monthly digest, product update…"
@@ -689,7 +690,7 @@ function NewsletterTab({
         </div>
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Org name</label>
-          <input
+          <input aria-label="Org name"
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
             className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
@@ -702,25 +703,26 @@ function NewsletterTab({
         {stories.map((s, i) => (
           <div key={i} className="rounded-md border border-[var(--color-pib-line)] p-2 space-y-1 bg-[var(--color-pib-surface-2)]">
             <input
+              aria-label={`Story ${i + 1} heading`}
               value={s.heading}
               onChange={(e) => updateStory(i, { heading: e.target.value })}
               placeholder={`Story ${i + 1} heading`}
               className="w-full px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
             />
-            <input
+            <input aria-label="Story body hint"
               value={s.bodyHint}
               onChange={(e) => updateStory(i, { bodyHint: e.target.value })}
-              placeholder="What this story is about — Pip writes the prose"
+              placeholder="What this story is about  -  Pip writes the prose"
               className="w-full px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
             />
             <div className="grid grid-cols-2 gap-1">
-              <input
+              <input aria-label="CTA text (optional)"
                 value={s.ctaText}
                 onChange={(e) => updateStory(i, { ctaText: e.target.value })}
                 placeholder="CTA text (optional)"
                 className="px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
               />
-              <input
+              <input aria-label="CTA URL"
                 value={s.ctaUrl}
                 onChange={(e) => updateStory(i, { ctaUrl: e.target.value })}
                 placeholder="CTA URL"
@@ -730,7 +732,7 @@ function NewsletterTab({
           </div>
         ))}
         {stories.length < 5 && (
-          <button
+          <button aria-label="CTA URL"
             onClick={() => setStories((prev) => [...prev, { heading: '', bodyHint: '', ctaText: '', ctaUrl: '' }])}
             className="text-xs text-primary hover:underline"
           >
@@ -814,6 +816,7 @@ function RewriteTab({
       <div>
         <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Original body</label>
         <textarea
+          aria-label="Original body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={8}
@@ -824,7 +827,7 @@ function RewriteTab({
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
           <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Instruction</label>
-          <select
+          <select aria-label="Instruction"
             value={instruction}
             onChange={(e) => setInstruction(e.target.value as typeof instruction)}
             className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"

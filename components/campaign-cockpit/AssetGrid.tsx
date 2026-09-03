@@ -139,7 +139,7 @@ export function AssetGrid({
                       'Untitled video'}
                   </h3>
                   <span className="pib-pill pib-pill-rose">
-                    {post.status ?? '—'}
+                    {post.status ?? ' - '}
                   </span>
                 </div>
                 <VideoTriptych post={post} brand={brand} />

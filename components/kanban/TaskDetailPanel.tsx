@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { uploadTaskFile } from './TaskComposer'
@@ -696,7 +698,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               type="button"
               aria-label="Back to board"
               onClick={onClose}
-              className="inline-flex sm:hidden items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
+              className="inline-flex sm:hidden items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
             >
               <span aria-hidden="true">←</span>
               Back to board
@@ -716,7 +718,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               type="button"
               aria-label={`Delete project task ${task.title}`}
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors font-label"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors font-label"
             >
               Delete
             </button>
@@ -724,7 +726,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               type="button"
               aria-label="Close task details"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] transition-colors"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-2xl leading-none text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] transition-colors"
             >
               ×
             </button>
@@ -770,13 +772,14 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             <textarea
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full text-lg font-headline font-bold text-[var(--color-pib-text)] bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] p-2 resize-none focus:outline-none focus:border-[var(--color-accent-v2)]"
+              aria-label="Task title"
+              className="w-full text-lg font-headline font-medium text-[var(--color-pib-text)] bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] p-2 resize-none focus:outline-none focus:border-[var(--color-accent-v2)]"
               rows={2}
               autoFocus
             />
           ) : (
             <h2
-              className="text-lg font-headline font-bold text-[var(--color-pib-text)] cursor-pointer hover:text-[var(--color-pib-text-muted)] transition-colors"
+              className="text-lg font-headline font-medium text-[var(--color-pib-text)] cursor-pointer hover:text-[var(--color-pib-text-muted)] transition-colors"
               onClick={() => setEditing(true)}
             >
               {task.title}
@@ -811,6 +814,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
+                aria-label={isAdminSurface ? 'Operator brief' : 'Description'}
                 className="w-full text-sm text-[var(--color-pib-text)] bg-[var(--color-card)] border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] p-3 resize-none focus:outline-none focus:border-[var(--color-accent-v2)] min-h-24"
                 rows={4}
                 placeholder={isAdminSurface ? 'Add an internal admin note...' : 'Add a description...'}
@@ -828,7 +832,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           {isApprovalGate && (
             <div className="rounded-[var(--radius-card)] border border-[var(--color-accent-v2)]/40 bg-[var(--color-accent-v2)]/10 p-4">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-[20px] text-[var(--color-accent-v2)]">approval</span>
+                <Icon name="approval" />
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
                     <p className="text-sm font-label text-[var(--color-pib-text)]">Approval gate</p>
@@ -869,7 +873,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           {hasReviewPackage && (
             <div className="rounded-[var(--radius-card)] border border-purple-400/25 bg-purple-500/5 p-4">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-[20px] text-purple-300">fact_check</span>
+                <Icon name="fact_check" className="text-purple-300" />
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
                     <p className="text-sm font-label text-[var(--color-pib-text)]">Review package</p>
@@ -968,6 +972,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 value={labelsText}
                 onChange={e => setLabelsText(e.target.value)}
                 placeholder="design, blocked, client"
+                aria-label="Labels"
                 className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             ) : task.labels && task.labels.length > 0 ? (
@@ -1080,11 +1085,11 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'smart_toy'}</span>
+                    <Icon name={agent.iconKey ?? 'smart_toy'} />
                     <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{agentLabel(agent, agent.agentId)}</span>
                     {agent.lastHealthStatus && (
-                      <span className={`h-1.5 w-1.5 rounded-full ${
-                        agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
+                      <span className={`h-1.5 w-1.5 rounded-md ${
+                        agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-[var(--st-warning)]/15' : 'bg-red-400'
                       }`} />
                     )}
                   </label>
@@ -1100,7 +1105,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     readOnly
                     className="accent-[var(--color-accent-v2)]"
                   />
-                  <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">hub</span>
+                  <Icon name="hub" />
                   <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">Pip orchestration</span>
                 </label>
               </div>
@@ -1162,6 +1167,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   type="datetime-local"
                   value={agentReleaseAt}
                   onChange={e => { setAgentReleaseAt(e.target.value); setEditing(true) }}
+                  aria-label="Agent release time"
                   className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
                 <p className="text-[10px] leading-snug text-[var(--color-pib-text-muted)]">
@@ -1178,10 +1184,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               const STATUS_STYLE: Record<string, { label: string; className: string }> = {
                 'pending':        { label: 'Waiting',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
                 'picked-up':      { label: 'Picked up', className: 'bg-sky-500/20 text-sky-400' },
-                'in-progress':    { label: 'Working',   className: 'bg-amber-500/20 text-amber-400' },
+                'in-progress':    { label: 'Working',   className: 'bg-[var(--st-warning)]/20 text-[var(--st-warning)]' },
                 'awaiting-input': { label: 'Needs your input', className: 'bg-orange-500/20 text-orange-400' },
                 'done':           { label: 'Done',      className: 'bg-emerald-500/20 text-emerald-400' },
-                'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-red-400' },
+                'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-[var(--st-danger)]' },
               }
               const style = blockerRecovery.needsPeet
                 ? { label: 'Needs Peet', className: 'bg-orange-500/20 text-orange-300' }
@@ -1200,7 +1206,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           type="button"
                           onClick={() => onUpdate(task.id, { assigneeAgentId: task.assigneeAgentId as AgentId })}
                           className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors"
-                          title="Agent may be stuck — reset to re-queue"
+                          title="Agent may be stuck - reset to re-queue"
                         >
                           Retry
                         </button>
@@ -1221,7 +1227,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           onClick={handleApproveReview}
                           className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                          <Icon name="check_circle" />
                           Mark review passed
                         </button>
                       )}
@@ -1229,9 +1235,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                         <button
                           type="button"
                           onClick={() => setShowRevisionForm(true)}
-                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-red-500/10 text-[var(--st-danger)] hover:bg-red-500/20 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">replay</span>
+                          <Icon name="replay" />
                           Request Revision
                         </button>
                       )}
@@ -1250,7 +1256,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           }}
                           className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-[var(--color-accent-v2)]/10 text-[var(--color-accent-v2)] hover:bg-[var(--color-accent-v2)]/20 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">forum</span>
+                          <Icon name="forum" />
                           {task.agentConversationId ? 'View session' : `Chat with ${agentName}`}
                         </button>
                       )}
@@ -1258,16 +1264,17 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   </div>
                   {stale && (
                     <p className="text-[10px] text-orange-400/80 leading-snug">
-                      No heartbeat in over 5 minutes — the agent may be stuck. Hit Retry to re-queue it.
+                      No heartbeat in over 5 minutes - the agent may be stuck. Hit Retry to re-queue it.
                     </p>
                   )}
                   {showRevisionForm && (
                     <div className="rounded border border-red-500/20 bg-red-500/5 p-3 space-y-2">
-                      <p className="text-[10px] font-label uppercase tracking-widest text-red-400">What needs to change?</p>
+                      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--st-danger)]">What needs to change?</p>
                       <textarea
                         value={revisionNote}
                         onChange={e => setRevisionNote(e.target.value)}
                         placeholder="Describe what's wrong or what to do differently…"
+                        aria-label="Revision note"
                         rows={3}
                         className="w-full rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-red-400 focus:outline-none resize-none"
                         autoFocus
@@ -1284,9 +1291,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           type="button"
                           onClick={handleRequestRevision}
                           disabled={!revisionNote.trim() || submittingRevision}
-                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-3 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40 transition-colors"
+                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-3 py-1 rounded bg-red-500/20 text-[var(--st-danger)] hover:bg-red-500/30 disabled:opacity-40 transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[12px]">replay</span>
+                          <Icon name="replay" />
                           {submittingRevision ? 'Sending…' : 'Re-queue with feedback'}
                         </button>
                       </div>
@@ -1308,7 +1315,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                             className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 disabled:opacity-40 transition-colors"
                             title="Clear the blocked state only once the listed approval/input and proof are satisfied"
                           >
-                            <span className="material-symbols-outlined text-[12px]">lock_open</span>
+                            <Icon name="lock_open" />
                             {unblocking ? 'Unblocking…' : blockerRecovery.continueActionLabel}
                           </button>
                         )}
@@ -1351,7 +1358,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       onChange={() => { setReviewerAgentId(agent.agentId); setEditing(true) }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'rate_review'}</span>
+                    <Icon name={agent.iconKey ?? 'rate_review'} />
                     <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{agentLabel(agent, agent.agentId)}</span>
                   </label>
                 ))}
@@ -1368,7 +1375,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             )}
             {task.agentConversationId && orgSlug && (
               <div className="mt-2 flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-md bg-sky-400 animate-pulse" />
                 <button
                   type="button"
                   onClick={() => {
@@ -1399,6 +1406,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     type="checkbox"
                     checked={item.done}
                     onChange={() => handleToggleChecklistItem(item.id)}
+                    aria-label={item.text || 'Checklist item'}
                     className="mt-0.5 accent-[var(--color-accent-v2)]"
                   />
                   <span className={`min-w-0 flex-1 text-xs ${item.done ? 'text-[var(--color-pib-text-muted)] line-through' : 'text-[var(--color-pib-text)]'}`}>
@@ -1407,10 +1415,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   <button
                     type="button"
                     onClick={() => handleRemoveChecklistItem(item.id)}
-                    className="text-[var(--color-pib-text-muted)] hover:text-red-400"
+                    className="text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)]"
                     title="Remove item"
                   >
-                    <span className="material-symbols-outlined text-[15px]">close</span>
+                    <Icon name="close" />
                   </button>
                 </div>
               ))}
@@ -1418,6 +1426,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <input
                   value={newChecklistItem}
                   onChange={e => setNewChecklistItem(e.target.value)}
+                  aria-label="Add checklist item"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -1428,7 +1437,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   className="min-w-0 flex-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
                 <button onClick={handleAddChecklistItem} className="pib-btn-secondary px-3 py-2 text-xs" title="Add checklist item">
-                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <Icon name="add" />
                 </button>
               </div>
             </div>
@@ -1441,13 +1450,15 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 Attachments {attachments.length > 0 && `(${attachments.length})`}
               </p>
               <label className="inline-flex cursor-pointer items-center gap-1 text-xs text-[var(--color-accent-v2)] hover:underline">
-                <span className="material-symbols-outlined text-[15px]">cloud_upload</span>
+                <Icon name="cloud_upload" />
                 {uploadingAttachment ? 'Uploading...' : 'Upload'}
                 <input
                   type="file"
                   multiple
                   accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                  className="hidden"
+                  className="sr-only"
+                  data-impeccable-disable="content-invisible-at-rest"
+                  aria-label="Upload attachment"
                   disabled={uploadingAttachment}
                   onChange={(event) => {
                     handleUploadFiles(event.target.files)
@@ -1464,9 +1475,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 {attachments.map((att, idx) => (
                   <div key={idx} className="flex items-start gap-2 p-2 rounded border border-[var(--color-pib-line)] hover:border-[var(--color-accent-v2)] transition-colors group">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <span className="material-symbols-outlined mt-0.5 flex-shrink-0 text-[18px] text-[var(--color-pib-text-muted)]">
-                        {getAttachmentIcon(att.mimeType ?? att.type)}
-                      </span>
+                      <Icon name={getAttachmentIcon(att.mimeType ?? att.type)} className="mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <a
                           href={att.url}
@@ -1490,10 +1499,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
                     <button
                       onClick={() => handleRemoveAttachment(idx)}
-                      className="text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors text-sm flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      className="text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors text-sm flex-shrink-0 opacity-0 group-hover:opacity-100"
                       title="Remove attachment"
                     >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+                      <Icon name="close" />
                     </button>
                   </div>
                 ))}
@@ -1505,6 +1514,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <input
                   type="url"
                   placeholder="https://example.com/file.pdf"
+                  aria-label="Attachment URL"
                   value={attachmentUrl}
                   onChange={e => setAttachmentUrl(e.target.value)}
                   disabled={savingAttachment}
@@ -1513,6 +1523,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <input
                   type="text"
                   placeholder="File name"
+                  aria-label="Attachment file name"
                   value={attachmentName}
                   onChange={e => setAttachmentName(e.target.value)}
                   disabled={savingAttachment}
@@ -1540,7 +1551,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 onClick={() => setShowAddAttachment(true)}
                 className="inline-flex items-center gap-1 text-xs text-[var(--color-accent-v2)] hover:underline cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[15px]">add_link</span>
+                <Icon name="add_link" />
                 Add link
               </button>
             )}
@@ -1562,7 +1573,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     <div className="flex items-center gap-2 mb-1">
                       {/* Avatar */}
                       <div
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                        className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-medium text-white"
                         style={{ background: getCommentAvatarColor(comment.userRole) }}
                       >
                         {getCommentInitial(comment)}
@@ -1612,6 +1623,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <input
                   type="text"
                   placeholder={isAdminSurface ? 'Internal admin note...' : 'Type a comment...'}
+                  aria-label={isAdminSurface ? 'Internal admin note' : 'Comment'}
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   onKeyDown={e => {

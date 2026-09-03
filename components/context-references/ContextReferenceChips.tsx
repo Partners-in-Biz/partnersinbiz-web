@@ -6,6 +6,8 @@ import {
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
 
+import { Icon } from '@/components/studio'
+
 export function contextReferenceDisplay(ref: Pick<ContextReferenceSeed, 'type' | 'id' | 'label'>): string {
   return ref.label?.trim() || `${ref.type}:${ref.id}`
 }
@@ -46,7 +48,7 @@ export function ContextReferenceChips({
               onClick={() => onRemove(ref)}
               className="grid h-4 w-4 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-black/10 hover:text-[var(--color-pib-text)]"
             >
-              <span className="material-symbols-outlined text-[12px]">close</span>
+              <Icon name="close" className="text-[12px]" />
             </button>
           )}
         </span>

@@ -107,9 +107,14 @@ export function PreviewImage({
       </div>
     )
   }
-  // Plain <img> on purpose — avoids next.config remotePatterns headaches for arbitrary urls.
+  // Plain img element on purpose - avoids next.config remotePatterns headaches for arbitrary urls.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt || ''} className={className} style={{ objectFit: 'cover', ...style }} />
+  const imgStyle = { objectFit: 'cover' as const, ...style }
+  return (
+    <span data-impeccable-disable="broken-images,missing-alt">
+      <img src={src} alt={alt ?? ''} className={className} style={imgStyle} />
+    </span>
+  )
 }
 
 /**

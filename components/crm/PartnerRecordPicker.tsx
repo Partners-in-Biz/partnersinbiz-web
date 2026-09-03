@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface ShareableRecord {
   id: string
@@ -100,12 +101,12 @@ export function PartnerRecordPicker({
           aria-label="Clear selected record"
           className="absolute right-1.5 top-1.5 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
         >
-          <span className="material-symbols-outlined text-[14px]">close</span>
+          <Icon name="close" className="text-[14px]" />
         </button>
       ) : null}
 
       {open && !value ? (
-        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-lg">
+        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
           {loading ? (
             <p className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">Searching…</p>
           ) : results.length === 0 ? (
@@ -123,7 +124,7 @@ export function PartnerRecordPicker({
               >
                 <span className="block truncate text-xs text-[var(--color-pib-text)]">
                   {record.title}
-                  {record.alreadyShared ? ' — already shared' : ''}
+                  {record.alreadyShared ? ' - already shared' : ''}
                 </span>
                 {record.subtitle ? (
                   <span className="block truncate text-[10px] text-[var(--color-pib-text-muted)]">{record.subtitle}</span>
@@ -133,7 +134,7 @@ export function PartnerRecordPicker({
           )}
           {truncated ? (
             <p className="border-t border-[var(--color-pib-line)] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
-              Showing partial results — type more of the name to narrow the search.
+              Showing partial results - type more of the name to narrow the search.
             </p>
           ) : null}
         </div>

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -225,7 +226,7 @@ export default function AdminUpdatesPage() {
             </p>
           </div>
           <Link href="/admin/dashboard" className="btn-pib-accent self-start lg:self-auto">
-            <span className="material-symbols-outlined text-base" aria-hidden="true">space_dashboard</span>
+            <Icon name="space_dashboard" />
             Start at dashboard
           </Link>
         </div>
@@ -235,7 +236,7 @@ export default function AdminUpdatesPage() {
         {RELEASE_NOTES.map((note) => (
           <div key={note} className="pib-card p-4">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">info</span>
+              <Icon name="info" className="mt-0.5" />
               <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">{note}</p>
             </div>
           </div>
@@ -245,40 +246,40 @@ export default function AdminUpdatesPage() {
       <section className="pib-card overflow-hidden border-[var(--color-pib-accent)]/25" aria-label="Future updates council standard">
         <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)]/10 p-5 md:p-6">
           <p className="eyebrow">Council standard</p>
-          <h2 className="mt-1 text-2xl font-display text-[var(--color-pib-text)]">{FUTURE_UPDATE_COUNCIL_STANDARD.title}</h2>
+          <h2 className="mt-1 text-2xl text-[var(--color-pib-text)]">{FUTURE_UPDATE_COUNCIL_STANDARD.title}</h2>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
             {FUTURE_UPDATE_COUNCIL_STANDARD.summary}
           </p>
         </div>
         <div className="grid gap-4 p-5 md:grid-cols-3 md:p-6">
-          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text)]">When to add</h3>
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+            <h3 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--color-pib-text)]">When to add</h3>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
               {FUTURE_UPDATE_COUNCIL_STANDARD.criteria.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent)]" aria-hidden="true">rule</span>
+                  <Icon name="rule" className="mt-0.5" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text)]">What each entry shows</h3>
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+            <h3 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--color-pib-text)]">What each entry shows</h3>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
               {FUTURE_UPDATE_COUNCIL_STANDARD.entryFields.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-pib-accent)]" aria-hidden="true" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-md bg-[var(--color-pib-accent)]" aria-hidden="true" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-amber-300/25 bg-amber-500/5 p-4">
-            <h3 className="text-sm font-label font-semibold uppercase tracking-widest text-amber-100">Boundaries</h3>
-            <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/85">
+          <div className="rounded-md border border-amber-300/25 bg-[var(--st-warning)]/5 p-4">
+            <h3 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--st-warning)]">Boundaries</h3>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--st-warning)]/85">
               {FUTURE_UPDATE_COUNCIL_STANDARD.councilChecks.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">verified_user</span>
+                  <Icon name="verified_user" className="mt-0.5 text-[var(--st-warning)]" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -290,7 +291,7 @@ export default function AdminUpdatesPage() {
       <section className="space-y-4" aria-label="Updated admin areas">
         <div>
           <p className="eyebrow">Updated areas</p>
-          <h2 className="mt-1 text-2xl font-display text-[var(--color-pib-text)]">Admin operating map</h2>
+          <h2 className="mt-1 text-2xl text-[var(--color-pib-text)]">Admin operating map</h2>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -298,39 +299,39 @@ export default function AdminUpdatesPage() {
             <article key={area.title} className="pib-card p-5 md:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[23px]" aria-hidden="true">{area.icon}</span>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <Icon name={area.icon} />
                   </span>
                   <div>
                     <p className="eyebrow !text-[10px]">{area.eyebrow}</p>
-                    <h3 className="mt-1 text-lg font-display text-[var(--color-pib-text)]">{area.title}</h3>
+                    <h3 className="mt-1 text-lg text-[var(--color-pib-text)]">{area.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{area.summary}</p>
                   </div>
                 </div>
                 <Link href={area.href} className="btn-pib-secondary shrink-0 self-start">
                   {area.hrefLabel}
-                  <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+                  <Icon name="arrow_forward" />
                 </Link>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-                  <h4 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text)]">What to do</h4>
+                <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                  <h4 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--color-pib-text)]">What to do</h4>
                   <ol className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     {area.steps.map((step) => (
                       <li key={step} className="flex gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-pib-accent)]" aria-hidden="true" />
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-md bg-[var(--color-pib-accent)]" aria-hidden="true" />
                         <span>{step}</span>
                       </li>
                     ))}
                   </ol>
                 </div>
-                <div className="rounded-2xl border border-amber-300/25 bg-amber-500/5 p-4">
-                  <h4 className="text-sm font-label font-semibold uppercase tracking-widest text-amber-100">Checks and gates</h4>
-                  <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-100/85">
+                <div className="rounded-md border border-amber-300/25 bg-[var(--st-warning)]/5 p-4">
+                  <h4 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--st-warning)]">Checks and gates</h4>
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--st-warning)]/85">
                     {area.checks.map((check) => (
                       <li key={check} className="flex gap-2">
-                        <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">verified</span>
+                        <Icon name="verified" className="mt-0.5 text-[var(--st-warning)]" />
                         <span>{check}</span>
                       </li>
                     ))}

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Surface, StatusPill, DialogDrawer } from '@/components/ui/AppFoundation'
 import { apiSend, formatZar, formatDate, type OrgDetail } from './OrgDetailApi'
 
+import { Icon } from '@/components/studio'
+
 type Dialog = null | 'suspend' | 'unsuspend' | 'reset' | 'message' | 'delete'
 
 const STATUS_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = {
@@ -14,12 +16,12 @@ function MetricCard({ icon, label, value }: { icon: string; label: string; value
   return (
     <div className="pib-stat-card">
       <div className="mb-2 flex items-center gap-2">
-        <span className="pib-icon-tint pib-icon-tint-cyan !w-7 !h-7">
-          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        <span className="!w-7 !h-7">
+          <Icon name={icon} className="text-[16px]" />
         </span>
         <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       </div>
-      <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -58,7 +60,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         `/api/v1/admin/users/${org.owner!.uid}/impersonate`, 'POST',
       )
       window.open(`/admin/impersonate?token=${encodeURIComponent(res.customToken)}`, '_blank', 'noopener')
-      setInfo('Impersonation token issued — opened in a new tab.')
+      setInfo('Impersonation token issued  -  opened in a new tab.')
     })
   }
 
@@ -114,8 +116,8 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
 
       {suspended && org.suspension && (
         <div className="pib-card border border-red-500/30 !bg-red-500/5">
-          <p className="text-sm font-medium text-red-400">This organisation is suspended.</p>
-          <p className="text-xs text-[var(--color-pib-text-muted)]">Reason: {String(org.suspension.reason ?? '—')}</p>
+          <p className="text-sm font-medium text-[var(--st-danger)]">This organisation is suspended.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Reason: {String(org.suspension.reason ?? ' - ')}</p>
         </div>
       )}
 
@@ -123,12 +125,12 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       <Surface header={<span className="font-label">Organisation</span>}>
         <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
           <Meta label="Status" value={<StatusPill tone={STATUS_TONE[org.status] ?? 'neutral'} dot>{org.status}</StatusPill>} />
-          <Meta label="Plan" value={org.plan ?? '—'} />
-          <Meta label="Owner" value={org.owner ? (org.owner.displayName || org.owner.email || org.owner.uid) : '—'} />
-          <Meta label="Owner email" value={org.owner?.email || '—'} />
+          <Meta label="Plan" value={org.plan ?? ' - '} />
+          <Meta label="Owner" value={org.owner ? (org.owner.displayName || org.owner.email || org.owner.uid) : ' - '} />
+          <Meta label="Owner email" value={org.owner?.email || ' - '} />
           <Meta label="MRR" value={formatZar(org.mrrZar)} />
-          <Meta label="Industry" value={org.industry || '—'} />
-          <Meta label="Website" value={org.website || '—'} />
+          <Meta label="Industry" value={org.industry || ' - '} />
+          <Meta label="Website" value={org.website || ' - '} />
           <Meta label="Created" value={formatDate(org.createdAt)} />
         </div>
       </Surface>
@@ -145,28 +147,28 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
 
       {/* Actions */}
       <Surface header={<span className="font-label">Actions</span>}>
-        {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+        {error && <p className="mb-3 text-sm text-[var(--st-danger)]">{error}</p>}
         <div className="flex flex-wrap gap-1.5">
           <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy || !org.owner} onClick={doImpersonate}>
-            <span className="material-symbols-outlined text-[16px]">login</span> Impersonate owner
+            <Icon name="login" className="text-[16px]" /> Impersonate owner
           </button>
           <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('reset')}>
-            <span className="material-symbols-outlined text-[16px]">lock_reset</span> Reset owner password
+            <Icon name="lock_reset" className="text-[16px]" /> Reset owner password
           </button>
           <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('message')}>
-            <span className="material-symbols-outlined text-[16px]">mail</span> Send message
+            <Icon name="mail" className="text-[16px]" /> Send message
           </button>
           {suspended ? (
             <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('unsuspend')}>
-              <span className="material-symbols-outlined text-[16px]">check_circle</span> Unsuspend
+              <Icon name="check_circle" className="text-[16px]" /> Unsuspend
             </button>
           ) : (
             <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('suspend')}>
-              <span className="material-symbols-outlined text-[16px]">block</span> Suspend
+              <Icon name="block" className="text-[16px]" /> Suspend
             </button>
           )}
-          <button type="button" className="pib-btn-ghost btn-pib-sm text-red-400" disabled={busy} onClick={() => setDialog('delete')}>
-            <span className="material-symbols-outlined text-[16px]">delete</span> Delete
+          <button type="button" className="pib-btn-ghost btn-pib-sm text-[var(--st-danger)]" disabled={busy} onClick={() => setDialog('delete')}>
+            <Icon name="delete" className="text-[16px]" /> Delete
           </button>
         </div>
       </Surface>
@@ -178,16 +180,16 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
             When enabled, the client portal shows a “development workspace” banner so the client knows the
             workspace is being set up or tested. Sets <code>devMode</code> and <code>settings.portalDevBanner</code>.
           </p>
-          <button
+          <button aria-label="Clear"
             type="button"
             role="switch"
             aria-checked={org.devMode}
             disabled={busy}
             onClick={() => toggleDevMode(!org.devMode)}
-            className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
+            className="relative h-6 w-11 shrink-0 rounded-md transition-colors disabled:opacity-50"
             style={{ background: org.devMode ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.15)' }}
           >
-            <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all" style={{ left: org.devMode ? '22px' : '2px' }} />
+            <span className="absolute top-0.5 h-5 w-5 rounded-md bg-white transition-all" style={{ left: org.devMode ? '22px' : '2px' }} />
           </button>
         </div>
       </Surface>
@@ -210,7 +212,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         {resetLink ? (
           <div className="space-y-2">
             <p className="text-sm text-[var(--color-pib-text)]">Reset link generated{notify ? ' and emailed to the owner' : ''}:</p>
-            <textarea readOnly className="pib-textarea w-full text-xs" rows={3} value={resetLink} />
+            <textarea aria-label="Reset Link" readOnly className="pib-textarea w-full text-xs" rows={3} value={resetLink} />
           </div>
         ) : (
           <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
@@ -232,8 +234,8 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         }
       >
         <div className="space-y-3">
-          <input className="pib-input w-full" placeholder="Subject (optional)" value={msgSubject} onChange={(e) => setMsgSubject(e.target.value)} />
-          <textarea className="pib-textarea w-full" rows={5} placeholder="Message…" value={msgBody} onChange={(e) => setMsgBody(e.target.value)} />
+          <input aria-label="Message subject" className="pib-input w-full" placeholder="Subject (optional)" value={msgSubject} onChange={(e) => setMsgSubject(e.target.value)} />
+          <textarea aria-label="Message body" className="pib-textarea w-full" rows={5} placeholder="Message…" value={msgBody} onChange={(e) => setMsgBody(e.target.value)} />
           <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={msgEmail} onChange={(e) => setMsgEmail(e.target.checked)} />
             Also email the owner
@@ -254,8 +256,8 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         }
       >
         <div className="space-y-3">
-          <textarea className="pib-textarea w-full" rows={3} placeholder="Reason (shown to owner if notified)" value={reason} onChange={(e) => setReason(e.target.value)} />
-          <textarea className="pib-textarea w-full" rows={2} placeholder="Internal note (not shown to owner)" value={internalNote} onChange={(e) => setInternalNote(e.target.value)} />
+          <textarea aria-label="Suspension reason" className="pib-textarea w-full" rows={3} placeholder="Reason (shown to owner if notified)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <textarea aria-label="Internal note" className="pib-textarea w-full" rows={2} placeholder="Internal note (not shown to owner)" value={internalNote} onChange={(e) => setInternalNote(e.target.value)} />
           <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             Email the owner a suspension notice
@@ -294,7 +296,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       >
         <div className="space-y-2">
           <p className="text-sm text-[var(--color-pib-text-muted)]">Type <strong className="text-[var(--color-pib-text)]">{org.name}</strong> to confirm.</p>
-          <input className="pib-input w-full" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={org.name} />
+          <input aria-label="Confirm Name" className="pib-input w-full" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={org.name} />
         </div>
       </DialogDrawer>
     </div>

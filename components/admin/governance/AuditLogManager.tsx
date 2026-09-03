@@ -123,7 +123,7 @@ export function AuditLogManager() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Governance
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Audit Log</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Audit Log</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Immutable record of platform activity across {data.scope === 'restricted' ? 'your assigned' : 'all'} organisations,
             with suspicious-activity alerting and old → new change tracking.
@@ -139,9 +139,9 @@ export function AuditLogManager() {
 
       {/* Alerts */}
       {data.alerts.length > 0 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-amber-400">
-            Suspicious activity — {data.alerts.length} alert{data.alerts.length === 1 ? '' : 's'}
+        <div className="rounded-md border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)] p-4 space-y-3">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--st-warning)]">
+            Suspicious activity  -  {data.alerts.length} alert{data.alerts.length === 1 ? '' : 's'}
           </p>
           <div className="space-y-2">
             {data.alerts.map((alert) => (
@@ -150,15 +150,15 @@ export function AuditLogManager() {
                 className={`rounded-lg border px-3 py-2.5 ${
                   alert.severity === 'high'
                     ? 'border-red-500/30 bg-red-500/10'
-                    : 'border-amber-500/30 bg-amber-500/10'
+                    : 'border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]'
                 }`}
               >
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className={`text-[10px] font-label uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-label uppercase tracking-widest px-2 py-0.5 rounded-md ${
                       alert.severity === 'high'
                         ? 'bg-red-500/20 text-red-300'
-                        : 'bg-amber-500/20 text-amber-300'
+                        : 'bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)] text-[var(--st-warning)]'
                     }`}
                   >
                     {alert.severity}
@@ -182,7 +182,7 @@ export function AuditLogManager() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Admin (actor)</label>
-            <input
+            <input aria-label="Name or ID"
               className={inputClass}
               list="audit-actor-list"
               placeholder="Name or ID"
@@ -197,7 +197,7 @@ export function AuditLogManager() {
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Action (type)</label>
-            <input
+            <input aria-label="e.g. delete, billing"
               className={inputClass}
               list="audit-action-list"
               placeholder="e.g. delete, billing"
@@ -212,7 +212,7 @@ export function AuditLogManager() {
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">From</label>
-            <input
+            <input aria-label="From"
               type="date"
               className={inputClass}
               value={filters.from}
@@ -221,7 +221,7 @@ export function AuditLogManager() {
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">To</label>
-            <input
+            <input aria-label="To"
               type="date"
               className={inputClass}
               value={filters.to}
@@ -257,7 +257,7 @@ export function AuditLogManager() {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
         <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
             <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
@@ -289,14 +289,14 @@ export function AuditLogManager() {
                 <tr
                   key={row.id}
                   className={`border-b border-[var(--color-card-border)] last:border-b-0 hover:bg-[var(--color-row-hover)] transition-colors ${
-                    row.sensitive ? 'bg-amber-500/5' : ''
+                    row.sensitive ? 'bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)]' : ''
                   }`}
                 >
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-[var(--color-pib-text-muted)] align-top">
-                    {row.createdAt || '—'}
+                    {row.createdAt || ' - '}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    <p className="font-medium text-[var(--color-pib-text)] whitespace-nowrap">{row.actorName || '—'}</p>
+                    <p className="font-medium text-[var(--color-pib-text)] whitespace-nowrap">{row.actorName || ' - '}</p>
                     {row.actorRole && (
                       <p className="text-[11px] text-[var(--color-pib-text-muted)]">{row.actorRole}</p>
                     )}
@@ -305,7 +305,7 @@ export function AuditLogManager() {
                     <span
                       className={`whitespace-nowrap ${
                         row.sensitive
-                          ? 'inline-block rounded px-1.5 py-0.5 text-xs bg-amber-500/15 text-amber-300'
+                          ? 'inline-block rounded px-1.5 py-0.5 text-xs bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]'
                           : 'pib-pill pib-pill-cyan'
                       }`}
                     >
@@ -324,7 +324,7 @@ export function AuditLogManager() {
                         )}
                       </>
                     ) : (
-                      '—'
+                      ' - '
                     )}
                   </td>
                   <td className="px-3 py-2 align-top max-w-[240px]">
@@ -341,14 +341,14 @@ export function AuditLogManager() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-[var(--color-pib-text-muted)]">—</span>
+                      <span className="text-[var(--color-pib-text-muted)]"> - </span>
                     )}
                   </td>
                   <td className="px-3 py-2 align-top text-xs font-mono text-[var(--color-pib-text-muted)] whitespace-nowrap">
-                    {row.ip || '—'}
+                    {row.ip || ' - '}
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-[var(--color-pib-text-muted)] max-w-[260px]">
-                    <span className="break-words">{row.description || '—'}</span>
+                    <span className="break-words">{row.description || ' - '}</span>
                   </td>
                 </tr>
               ))

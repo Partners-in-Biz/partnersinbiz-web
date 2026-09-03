@@ -12,6 +12,8 @@ import {
 } from '@/lib/organizations/module-policies'
 import type { PortalModuleKey } from '@/lib/organizations/portal-modules'
 
+import { Icon } from '@/components/studio'
+
 export type OrganizationPolicyActionRow = {
   id: string
   title: string
@@ -254,7 +256,7 @@ export function OrganizationModulePolicyRoleGrid({
       {rows.map((row) => (
         <div key={row.id} data-testid={`${testIdPrefix}-${row.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,auto)]">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{row.title}</h3>
+            <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{row.title}</h3>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{row.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -335,7 +337,7 @@ export function OrganizationModulePolicySaveBar({
         disabled={loading || saving || saveState !== 'dirty'}
         className="pib-btn-primary justify-center text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className="material-symbols-outlined text-[18px]">save</span>
+        <Icon name="save" className="text-[18px]" />
         {saving ? 'Saving' : 'Save settings'}
       </button>
     </div>

@@ -114,7 +114,7 @@ export function ScrolledbrainAnalytics() {
       if (!res.ok) throw new Error(body?.error || 'Rotation failed')
       const payload = body.data ?? body
       setRevealedKey(payload.ingestKey)
-      setNotice({ tone: 'ok', text: 'Ingest key rotated. Copy it now — it is shown once.' })
+      setNotice({ tone: 'ok', text: 'Ingest key rotated. Copy it now  -  it is shown once.' })
       await load()
     } catch (e) {
       setNotice({ tone: 'err', text: e instanceof Error ? e.message : 'Rotation failed.' })
@@ -128,7 +128,7 @@ export function ScrolledbrainAnalytics() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Analytics</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Scrolledbrain Analytics</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Scrolledbrain Analytics</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Dedicated ingest + usage view for the Scrolledbrain property, with period comparison, an ingestion error
             log, and env-sync controls.
@@ -177,7 +177,7 @@ export function ScrolledbrainAnalytics() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="pib-card">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Events ({period})</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.current.events}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{data.current.events}</p>
               <div className="mt-0.5 flex items-center gap-1.5">
                 <Delta pct={data.comparison.eventsDeltaPct} />
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">vs prev {data.previous.events}</span>
@@ -185,7 +185,7 @@ export function ScrolledbrainAnalytics() {
             </div>
             <div className="pib-card">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Sessions ({period})</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.current.sessions}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{data.current.sessions}</p>
               <div className="mt-0.5 flex items-center gap-1.5">
                 <Delta pct={data.comparison.sessionsDeltaPct} />
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">vs prev {data.previous.sessions}</span>
@@ -193,12 +193,12 @@ export function ScrolledbrainAnalytics() {
             </div>
             <div className="pib-card">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</p>
-              <p className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.property.status}</p>
+              <p className="text-lg font-headline font-medium text-[var(--color-pib-text)] mt-1">{data.property.status}</p>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 font-mono break-all">{data.property.id}</p>
             </div>
             <div className="pib-card">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Ingest errors</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.errors.length}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{data.errors.length}</p>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">dead-letter records</p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export function ScrolledbrainAnalytics() {
           </p>
 
           {/* Top pages compare */}
-          <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+          <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
             <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
               <thead>
                 <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
@@ -264,9 +264,9 @@ export function ScrolledbrainAnalytics() {
                     {data.errors.map((e) => (
                       <tr key={e.id} className="border-b border-[var(--color-card-border)] last:border-b-0">
                         <td className="px-2 py-1.5 text-xs">{e.event}</td>
-                        <td className="px-2 py-1.5 text-xs text-amber-300/80">{e.reason || '—'}</td>
-                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] max-w-[280px] break-words">{e.error || '—'}</td>
-                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{e.failedAt || '—'}</td>
+                        <td className="px-2 py-1.5 text-xs text-[color-mix(in_srgb,var(--st-warning)_80%,transparent)]">{e.reason || ' - '}</td>
+                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] max-w-[280px] break-words">{e.error || ' - '}</td>
+                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{e.failedAt || ' - '}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -303,7 +303,7 @@ export function ScrolledbrainAnalytics() {
                     key={c.key}
                     className="flex items-start gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2"
                   >
-                    <span className={`mt-0.5 text-sm ${c.ok ? 'text-green-300' : 'text-amber-300'}`}>{c.ok ? '✓' : '!'}</span>
+                    <span className={`mt-0.5 text-sm ${c.ok ? 'text-green-300' : 'text-[var(--st-warning)]'}`}>{c.ok ? '✓' : '!'}</span>
                     <div>
                       <p className="text-xs font-medium text-[var(--color-pib-text)]">{c.label}</p>
                       <p className="text-[11px] text-[var(--color-pib-text-muted)]">{c.detail}</p>

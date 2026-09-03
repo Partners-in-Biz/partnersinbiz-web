@@ -1,6 +1,6 @@
 'use client'
 // components/ads/google/audience-builders/RemarketingBuilder.tsx
-// Google Remarketing (website visitor) audience builder — Sub-3a Phase 5 Batch 3 F
+// Google Remarketing (website visitor) audience builder - Sub-3a Phase 5 Batch 3 F
 
 import { useState } from 'react'
 
@@ -14,7 +14,7 @@ type RuleKind = 'URL_CONTAINS' | 'URL_EQUALS' | 'URL_STARTS_WITH' | 'APP_ID'
 type State = 'idle' | 'submitting' | 'done' | 'error'
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 const RULE_KINDS: { value: RuleKind; label: string }[] = [
@@ -142,7 +142,7 @@ export function RemarketingBuilder({ orgId }: Props) {
         <span className={labelCls}>URL / App rule</span>
         <div className="flex gap-2">
           <select
-            className="rounded border border-white/10 bg-white/5 px-2 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60"
+            className="rounded border border-white/10 bg-white/5 px-2 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]"
             value={ruleKind}
             onChange={(e) => setRuleKind(e.target.value as RuleKind)}
             aria-label="Rule kind"
@@ -155,7 +155,7 @@ export function RemarketingBuilder({ orgId }: Props) {
             ))}
           </select>
           <input
-            className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60"
+            className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]"
             value={ruleValue}
             onChange={(e) => setRuleValue(e.target.value)}
             aria-label="Rule value"
