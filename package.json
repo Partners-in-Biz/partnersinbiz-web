@@ -80,7 +80,9 @@
     "design:gate:light": "tsx scripts/design-audit-gate.ts --light --staged",
     "design:gate:deep": "tsx scripts/design-audit-gate.ts --deep",
     "design:doctor": "tsx scripts/design-audit-doctor.ts",
-    "prepare": "node scripts/install-design-hooks.mjs"
+    "prepare": "node scripts/install-design-hooks.mjs",
+    "studio:manifest": "tsx scripts/studio-migration-manifest.ts",
+    "studio:baseline": "tsx scripts/studio-style-baseline.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",
