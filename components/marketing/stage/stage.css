@@ -516,8 +516,8 @@
   margin: 0;
 }
 
-/* Paper marker (overrides retired in Phase 1; definitions are global now). */
-.sc-paper {}
+/* .sc-paper classname stays on auth/public/lead/embed shells as a layout
+   marker only — no CSS rule. Paper tokens are the default on :root. */
 .sc-paper-page {
   min-height: 100svh;
   padding: calc(var(--sc-u) * 28) var(--sc-pad) var(--sc-section-pad);
