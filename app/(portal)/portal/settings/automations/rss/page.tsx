@@ -1,6 +1,9 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
+
 import { useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -18,17 +21,15 @@ export default function RssAutomationsPage() {
         <button
           type="button"
           onClick={() => router.push(href('/portal/settings/automations'))}
-          className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+          className="mb-4 inline-flex items-center gap-1 text-xs text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
+          <Icon name="arrow_back" />
           Automations
         </button>
-        <p className="eyebrow">Settings · RSS to email</p>
-        <h1 className="pib-page-title mt-2">RSS digest automations</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Auto-email your audience when new posts hit an RSS or Atom feed. Pick a feed, a schedule, and
-          a recipient segment or tag — the platform fetches new items and sends the digest.
-        </p>
+        <PageHeader
+          title="RSS digest automations."
+          description="Auto-email your audience when new posts hit an RSS or Atom feed. Pick a feed, a schedule, and a recipient segment or tag. The platform fetches new items and sends the digest."
+        />
       </header>
 
       <RssAutomationManager orgScope={orgScope} />

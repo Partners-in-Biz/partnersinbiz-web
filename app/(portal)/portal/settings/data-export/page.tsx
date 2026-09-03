@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -23,7 +25,7 @@ type ListResponse = { data?: { exports: ExportJob[]; count: number }; error?: st
 type CreateResponse = { data?: { id: string; status: string; downloadUrl: string; totalRecords: number }; error?: string }
 
 function formatBytes(bytes: number | null): string {
-  if (bytes === null) return '—'
+  if (bytes === null) return ' - '
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -32,16 +34,16 @@ function formatBytes(bytes: number | null): string {
 function StatusPill({ status }: { status: string }) {
   if (status === 'complete') {
     return <span className="pib-pill-success inline-flex items-center gap-1">
-      <span className="material-symbols-outlined text-[14px]">check_circle</span>Complete
+      <Icon name="check_circle" />Complete
     </span>
   }
   if (status === 'failed') {
-    return <span className="pib-pill !text-red-400 inline-flex items-center gap-1">
-      <span className="material-symbols-outlined text-[14px]">error</span>Failed
+    return <span className="pib-pill !text-[var(--st-danger)] inline-flex items-center gap-1">
+      <Icon name="error" />Failed
     </span>
   }
   return <span className="pib-pill pib-pill-cyan inline-flex items-center gap-1">
-    <span className="material-symbols-outlined text-[14px] animate-pulse">hourglass_top</span>Processing
+    <Icon name="hourglass_top" />Processing
   </span>
 }
 
@@ -94,7 +96,7 @@ export default function DataExportPage() {
         <p className="eyebrow">Security &amp; compliance</p>
         <h1 className="pib-page-title mt-2">Data export</h1>
         <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Export all of your organisation&apos;s data — contacts, companies, deals, projects, activity and more — as a single
+          Export all of your organisation&apos;s data - contacts, companies, deals, projects, activity and more - as a single
           GDPR-compliant JSON file. Your data is yours.
         </p>
       </div>
@@ -110,18 +112,18 @@ export default function DataExportPage() {
           <button type="button" onClick={startExport} disabled={exporting} className="pib-btn-primary shrink-0 disabled:opacity-60 inline-flex items-center gap-1.5">
             {exporting ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-pulse">hourglass_top</span>
+                <Icon name="hourglass_top" />
                 Preparing export...
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-[16px]">download</span>
+                <Icon name="download" />
                 Export all data
               </>
             )}
           </button>
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
       </div>
 
       <div>
@@ -150,7 +152,7 @@ export default function DataExportPage() {
                 ) : exports.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-16 text-center">
-                      <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">cloud_download</span>
+                      <Icon name="cloud_download" />
                       <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No exports yet. Generate your first export above.</p>
                     </td>
                   </tr>
@@ -158,15 +160,15 @@ export default function DataExportPage() {
                   exports.map((job) => (
                     <tr key={job.id} className="border-b border-[var(--color-pib-line)] last:border-0 align-top">
                       <td className="whitespace-nowrap px-4 py-3 text-[var(--color-pib-text-muted)]">
-                        {job.createdAt ? new Date(job.createdAt).toLocaleString() : '—'}
+                        {job.createdAt ? new Date(job.createdAt).toLocaleString() : ' - '}
                       </td>
                       <td className="px-4 py-3">
                         <StatusPill status={job.status} />
                         {job.status === 'failed' && job.error && (
-                          <div className="mt-1 text-xs text-red-400">{job.error}</div>
+                          <div className="mt-1 text-xs text-[var(--st-danger)]">{job.error}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[var(--color-pib-text)]">{job.totalRecords ?? '—'}</td>
+                      <td className="px-4 py-3 text-[var(--color-pib-text)]">{job.totalRecords ?? ' - '}</td>
                       <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{formatBytes(job.sizeBytes)}</td>
                       <td className="px-4 py-3">
                         {job.downloadUrl ? (
@@ -176,11 +178,11 @@ export default function DataExportPage() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] hover:underline"
                           >
-                            <span className="material-symbols-outlined text-[16px]">download</span>
+                            <Icon name="download" />
                             Download
                           </a>
                         ) : (
-                          <span className="text-[var(--color-pib-text-muted)]">—</span>
+                          <span className="text-[var(--color-pib-text-muted)]"> - </span>
                         )}
                       </td>
                     </tr>

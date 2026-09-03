@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -345,7 +347,7 @@ export default function OrganisationAgentsPage() {
             className="btn-pib-primary btn-pib-sm font-label"
             onClick={startCreateAgent}
           >
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <Icon name="add" />
             New custom agent
           </button>
         )}
@@ -382,7 +384,7 @@ export default function OrganisationAgentsPage() {
         <section id="agents-machines-panel" role="tabpanel" aria-labelledby="agents-machines-tab" className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Machines and their agents</h2>
+              <h2 className="text-sm text-[var(--color-pib-text)]">Machines and their agents</h2>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                 See exactly which agents belong to each linked machine. You can change only agents and machines you own or have been granted access to.
               </p>
@@ -412,7 +414,7 @@ export default function OrganisationAgentsPage() {
                           {device.runtimeVersion ? ` · runtime ${device.runtimeVersion}` : ''}
                         </p>
                       </div>
-                      <span className={`rounded-full border px-2 py-1 text-[10px] ${device.supportsCustomAgents ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+                      <span className={`rounded border px-2 py-1 text-[10px] ${device.supportsCustomAgents ? 'border-emerald-500/40 text-emerald-300' : 'border-[var(--sc-line)] text-[var(--st-warning)]'}`}>
                         {device.supportsCustomAgents ? 'Agent-ready' : 'Update required'}
                       </span>
                     </div>
@@ -458,9 +460,9 @@ export default function OrganisationAgentsPage() {
       {activeTab === 'marketplace' && (
       <section id="agents-marketplace-panel" role="tabpanel" aria-labelledby="agents-marketplace-tab" className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Marketplace templates</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">Marketplace templates</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-            Install a published agent onto your computer. You get runtime skills suitable for general work — not Partners in Biz internal ops, client data, or admin powers. Templates cannot be edited.
+            Install a published agent onto your computer. You get runtime skills suitable for general work - not Partners in Biz internal ops, client data, or admin powers. Templates cannot be edited.
           </p>
         </div>
 
@@ -487,7 +489,7 @@ export default function OrganisationAgentsPage() {
               </select>
             </label>
             <p className="text-[10px] text-[var(--color-pib-text-muted)]/80">
-              Pack: public skills only. Your own LLM credentials on that computer are used — never org secrets from another machine.
+              Pack: public skills only. Your own LLM credentials on that computer are used - never org secrets from another machine.
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => { setPullTemplateId(null); setPullDeviceId('') }}>
@@ -506,7 +508,7 @@ export default function OrganisationAgentsPage() {
           ) : marketplace.map((template) => (
             <article key={template.templateId} className="pib-card flex flex-col gap-3 p-4">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-[22px] text-primary">{template.iconKey}</span>
+                <Icon name={template.iconKey} />
                 <div className="min-w-0 flex-1">
                   <h3 className="font-medium text-[var(--color-pib-text)]">{template.name}</h3>
                   <p className="text-xs text-[var(--color-pib-text-muted)]">{template.role}</p>
@@ -541,7 +543,7 @@ export default function OrganisationAgentsPage() {
       {activeTab === 'marketplace' && (
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Skills marketplace</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">Skills marketplace</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Public skills only. Attach these to marketplace agents you own. PiB ops skills (CRM, client documents, CEO gatherers, etc.) are never listed here.
           </p>
@@ -558,7 +560,7 @@ export default function OrganisationAgentsPage() {
                   <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{skill.name}</h3>
                   <p className="mt-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">{skill.skillId}</p>
                 </div>
-                <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="rounded border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {skill.tier}
                 </span>
               </div>
@@ -577,7 +579,7 @@ export default function OrganisationAgentsPage() {
       {/* Installed marketplace instances */}
       {activeTab === 'machines' && marketplaceInstalled.length > 0 && (
         <section id="marketplace-agents" className="space-y-3">
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Installed from marketplace</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">Installed from marketplace</h2>
 
           {skillsAgentId && (
             <form onSubmit={saveMarketplaceSkills} className="pib-card space-y-3 p-4">
@@ -654,7 +656,7 @@ export default function OrganisationAgentsPage() {
                     )}
                   </div>
                   <div className="shrink-0 space-y-2 text-right text-xs text-[var(--color-pib-text-muted)]">
-                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1">Marketplace</span>
+                    <span className="rounded border border-[var(--color-pib-line)] px-2 py-1">Marketplace</span>
                     <p className="mt-2">{device?.label ?? 'Linked computer'}</p>
                     <p className="mt-1 capitalize">{agent.provisioningStatus ?? 'ready'}</p>
                     {agent.canConfigureMarketplace && (
@@ -694,7 +696,7 @@ export default function OrganisationAgentsPage() {
       <section id="custom-agents" className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Your custom agents</h2>
+            <h2 className="text-sm text-[var(--color-pib-text)]">Your custom agents</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Agents you create. Owners can edit purpose and re-sync the profile to their computer.
             </p>
@@ -804,7 +806,7 @@ export default function OrganisationAgentsPage() {
                       <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{agent.persona}</p>
                     </div>
                     <div className="shrink-0 space-y-2 text-right text-xs text-[var(--color-pib-text-muted)]">
-                      <span className="inline-block rounded-full border border-[var(--color-pib-line)] px-2 py-1">
+                      <span className="inline-block rounded border border-[var(--color-pib-line)] px-2 py-1">
                         {agent.accessScope === 'organization' ? 'Organisation' : 'Personal'}
                       </span>
                       <p>{device?.label ?? 'Linked computer'}</p>

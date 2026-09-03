@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Button, ButtonLink, Icon, Notice, Panel, Status, Title, Toolbar } from '@/components/studio'
 
 type SessionRow = {
   id: string
@@ -28,7 +30,7 @@ function unwrap(body: unknown): Record<string, unknown> {
 }
 
 function fmt(ms: number | null): string {
-  if (!ms) return '—'
+  if (!ms) return '-'
   return new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
@@ -100,98 +102,88 @@ export default function SessionsSettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <div>
-        <p className="eyebrow">Portal settings</p>
-        <h1 className="pib-page-title mt-2">Sessions &amp; devices</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Review where your account is signed in. Revoking all other sessions forces every other device to sign in again.
-        </p>
-      </div>
+      <PageHeader
+        title="Sessions and devices."
+        description="Review where your account is signed in. Revoking all other sessions forces every other device to sign in again."
+      />
 
-      {error && <p className="text-xs text-red-400" role="alert">{error}</p>}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      <section data-testid="sessions-panel" className="pib-card-section">
-        <div className="pib-card-section-header flex items-center justify-between gap-3">
+      <section data-testid="sessions-panel"><Panel className="pib-card-section !p-0 overflow-hidden">
+        <Toolbar className="pib-card-section-header border-b border-[var(--sc-line)] px-5 py-4">
           <div>
-            <p className="pib-label">Active sessions</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Where you&apos;re signed in</h2>
+            <p className="sc-tiny">Active sessions</p>
+            <Title className="mt-2">Where you are signed in</Title>
           </div>
-          <button
-            type="button"
-            onClick={revokeAll}
-            disabled={revokingAll}
-            className="btn-pib-danger shrink-0"
-          >
-            {revokingAll ? 'Revoking…' : 'Revoke all other sessions'}
-          </button>
-        </div>
+          <Button type="button" variant="danger" size="sm" onClick={revokeAll} loading={revokingAll}>
+            Revoke all other sessions
+          </Button>
+        </Toolbar>
 
-        <div className="divide-y divide-[var(--color-pib-line)]">
+        <div className="divide-y divide-[var(--sc-line)]">
           {loading ? (
-            <p className="p-5 text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+            <p className="sc-body p-5 text-[var(--sc-ink-soft)]">Loading…</p>
           ) : sessions.length === 0 ? (
-            <p className="p-5 text-sm text-[var(--color-pib-text-muted)]">No session records yet.</p>
+            <p className="sc-body p-5 text-[var(--sc-ink-soft)]">No session records yet.</p>
           ) : (
             sessions.map((s) => (
               <div key={s.id} data-testid={`session-row-${s.id}`} className="flex items-center justify-between gap-4 p-5 max-sm:flex-col max-sm:items-start">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span className="pib-icon-tint-cyan mt-0.5 shrink-0">
-                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                      {/Mobile|iPhone|Android/.test(s.userAgent) ? 'smartphone' : 'computer'}
-                    </span>
-                  </span>
+                <div className="flex min-w-0 items-start gap-4">
+                  <Icon name={/Mobile|iPhone|Android/.test(s.userAgent) ? 'smartphone' : 'computer'} />
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{deviceLabel(s.userAgent)}</p>
-                      {s.current && <span className="pib-pill pib-pill-success">This device</span>}
-                      {s.revoked && <span className="pib-pill">Revoked</span>}
+                      <p className="text-sm text-[var(--sc-ink)]">{deviceLabel(s.userAgent)}</p>
+                      {s.current ? <Status tone="success">This device</Status> : null}
+                      {s.revoked ? <Status>Revoked</Status> : null}
                     </div>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">IP {s.ip} · Last seen {fmt(s.lastSeenAt)}</p>
-                    <p className="truncate text-xs text-[var(--color-pib-text-muted)]" title={s.userAgent}>{s.userAgent}</p>
+                    <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">IP {s.ip} · Last seen {fmt(s.lastSeenAt)}</p>
+                    <p className="truncate text-[0.75rem] text-[var(--sc-ink-soft)]" title={s.userAgent}>{s.userAgent}</p>
                   </div>
                 </div>
-                {!s.current && !s.revoked && (
-                  <button
+                {!s.current && !s.revoked ? (
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => revokeOne(s.id)}
-                    disabled={busyId === s.id}
-                    className="btn-pib-secondary shrink-0"
+                    loading={busyId === s.id}
                   >
-                    {busyId === s.id ? 'Revoking…' : 'Revoke'}
-                  </button>
-                )}
+                    Revoke
+                  </Button>
+                ) : null}
               </div>
             ))
           )}
         </div>
-      </section>
+      </Panel></section>
 
-      <section data-testid="login-history-panel" className="pib-card-section">
-        <div className="pib-card-section-header">
-          <p className="pib-label">Login history</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Recent activity</h2>
+      <section data-testid="login-history-panel"><Panel className="pib-card-section !p-0 overflow-hidden">
+        <div className="pib-card-section-header px-5 py-4">
+          <p className="sc-tiny">Login history</p>
+          <Title className="mt-2">Recent activity</Title>
         </div>
-        <div className="divide-y divide-[var(--color-pib-line)]">
+        <div className="divide-y divide-[var(--sc-line)]">
           {loading ? (
-            <p className="p-5 text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+            <p className="sc-body p-5 text-[var(--sc-ink-soft)]">Loading…</p>
           ) : history.length === 0 ? (
-            <p className="p-5 text-sm text-[var(--color-pib-text-muted)]">No login history recorded yet.</p>
+            <p className="sc-body p-5 text-[var(--sc-ink-soft)]">No login history recorded yet.</p>
           ) : (
             history.map((h) => (
               <div key={h.id} className="flex items-center justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="text-sm text-[var(--color-pib-text)]">{h.event === 'login' ? deviceLabel(h.userAgent) : h.event.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">{h.ip ? `IP ${h.ip} · ` : ''}{fmt(h.at)}</p>
+                  <p className="text-sm text-[var(--sc-ink)]">{h.event === 'login' ? deviceLabel(h.userAgent) : h.event.replace(/_/g, ' ')}</p>
+                  <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">{h.ip ? `IP ${h.ip} · ` : ''}{fmt(h.at)}</p>
                 </div>
               </div>
             ))
           )}
         </div>
-      </section>
+      </Panel></section>
 
-      <p className="text-sm text-[var(--color-pib-text-muted)]">
+      <p className="sc-body text-[var(--sc-ink-soft)]">
         Set up two-factor authentication on the{' '}
-        <a href="/portal/settings/security" className="text-[var(--color-pib-accent)] hover:underline">Security</a> page.
+        <ButtonLink href="/portal/settings/security" variant="ghost" size="sm">Security</ButtonLink>
+        {' '}page.
       </p>
     </div>
   )

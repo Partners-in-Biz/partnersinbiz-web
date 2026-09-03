@@ -1,6 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ProductModal } from '@/components/crm/ProductModal'
@@ -58,9 +60,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-3 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -254,7 +256,7 @@ export default function ProductsPage() {
                     onClick={handleOpenCreate}
                     className="btn-pib-primary btn-pib-sm shrink-0"
                   >
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                    <Icon name="add" />
                     New product
                   </button>
         )}
@@ -277,12 +279,10 @@ export default function ProductsPage() {
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-3">
-                  <span className="pib-icon-tint mt-0.5 shrink-0">
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">rule_settings</span>
-                  </span>
+                  <Icon name="rule_settings" />
                   <div>
                     <p className="eyebrow">Catalog readiness</p>
-                    <h2 className="mt-1 font-display text-xl">Quote readiness needs cleanup</h2>
+                    <h2 className="mt-1 text-xl">Quote readiness needs cleanup</h2>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.
                     </p>
@@ -302,7 +302,7 @@ export default function ProductsPage() {
                   aria-label={`Fix catalog setup for ${productDisplayName(firstIncompleteProduct)}`}
                   className="btn-pib-secondary shrink-0"
                 >
-                  <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
+                  <Icon name="edit_note" />
                   Fix catalog setup
                 </button>
               </div>
@@ -315,6 +315,7 @@ export default function ProductsPage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
+                  aria-label="Search products"
                   className="pib-input min-w-[220px] flex-1"
                   placeholder="Search product, unit, currency..."
                 />
@@ -347,7 +348,7 @@ export default function ProductsPage() {
                   onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
                   className="btn-pib-ghost"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  <Icon name="filter_alt_off" />
                   Clear filters
                 </button>
               ) : null}
@@ -361,16 +362,16 @@ export default function ProductsPage() {
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
+                <div className="rounded border border-[var(--color-pib-line)] p-3">
+                  <p className="text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
                   <p className="pib-label mt-1">No price</p>
                 </div>
-                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
+                <div className="rounded border border-[var(--color-pib-line)] p-3">
+                  <p className="text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
                   <p className="pib-label mt-1">No unit</p>
                 </div>
-                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
+                <div className="rounded border border-[var(--color-pib-line)] p-3">
+                  <p className="text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
                   <p className="pib-label mt-1">No copy</p>
                 </div>
               </div>
@@ -387,12 +388,10 @@ export default function ProductsPage() {
         <section className="pib-card">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div>
                 <p className="eyebrow">Source health</p>
-                <h2 className="mt-1 font-display text-xl">
+                <h2 className="mt-1 text-xl">
                   Product catalog could not load
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
@@ -404,7 +403,7 @@ export default function ProductsPage() {
               className="btn-pib-secondary shrink-0"
               aria-label="Retry loading products"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
@@ -413,11 +412,9 @@ export default function ProductsPage() {
         <div className="pib-card overflow-hidden !p-0">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
             <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
-              <span className="pib-icon-tint-cyan mb-4">
-                <span className="material-symbols-outlined text-[24px]">inventory_2</span>
-              </span>
+              <Icon name="inventory_2" />
               <p className="pib-label">Catalog setup</p>
-              <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+              <h2 className="mt-2 text-2xl leading-tight text-[var(--color-pib-text)]">
                 Build a quote-ready catalog
               </h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -429,7 +426,7 @@ export default function ProductsPage() {
                 onClick={handleOpenCreate}
                 className="btn-pib-primary mt-5"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                <Icon name="add" />
                 Create the first catalog item
               </button>
             </div>
@@ -440,9 +437,9 @@ export default function ProductsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="pib-label">{item.label}</p>
-                      <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                      <p className="mt-2 text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
                     </div>
-                    <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                    <Icon name={item.icon} />
                   </div>
                   <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
                 </div>
@@ -452,7 +449,7 @@ export default function ProductsPage() {
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="pib-empty-state">
-          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+          <Icon name="search_off" />
           <p className="pib-label">Filtered catalog view</p>
           <h2 className="pib-empty-state-title">No products match this view.</h2>
           <p className="pib-empty-state-description">Clear the product filters to return to the full quote-ready catalog.</p>
@@ -463,7 +460,7 @@ export default function ProductsPage() {
               className="btn-pib-secondary"
               aria-label="Show all products"
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+              <Icon name="filter_alt_off" />
               Show all products
             </button>
           </div>
@@ -511,7 +508,7 @@ export default function ProductsPage() {
                             aria-label={`Add description for ${displayName}`}
                             className="pib-pill cursor-pointer gap-1 transition-colors hover:border-[var(--color-pib-line-strong)]"
                           >
-                            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                            <Icon name="edit_note" />
                             Add copy
                           </button>
                         )}
@@ -525,9 +522,9 @@ export default function ProductsPage() {
                             {p.active === false ? 'Inactive' : health.score >= 80 ? 'Ready' : 'Needs work'}
                           </span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+                        <div className="h-1.5 overflow-hidden rounded bg-[var(--color-pib-line)]">
                           <div
-                            className="h-full rounded-full bg-[var(--color-pib-cyan)]"
+                            className="h-full rounded bg-[var(--color-pib-cyan)]"
                             style={{ width: `${health.score}%` }}
                           />
                         </div>
@@ -541,7 +538,7 @@ export default function ProductsPage() {
                                 aria-label={`Fix pricing setup for ${displayName}`}
                                 className="pib-pill pib-pill-warn cursor-pointer gap-1"
                               >
-                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">price_check</span>
+                                <Icon name="price_check" />
                                 Fix pricing
                               </button>
                             )}
@@ -563,7 +560,7 @@ export default function ProductsPage() {
                           title="Edit product"
                           className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                          <Icon name="edit" />
                         </button>
                         <button
                           type="button"
@@ -573,7 +570,7 @@ export default function ProductsPage() {
                           title="Delete product"
                           className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)] disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
+                          <Icon name={deletingId === p.id ? 'hourglass_empty' : 'delete'} />
                         </button>
                       </div>
                     </td>
@@ -603,12 +600,10 @@ export default function ProductsPage() {
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div>
                 <p className="eyebrow">Catalog delete confirmation</p>
-                <h2 id="delete-product-title" className="mt-1 font-display text-lg">
+                <h2 id="delete-product-title" className="mt-1 text-lg">
                   Delete catalog product &quot;{productDisplayName(pendingDeleteProduct)}&quot;?
                 </h2>
                 <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
@@ -618,7 +613,7 @@ export default function ProductsPage() {
                   <div
                     role="status"
                     aria-label="Catalog product delete failed"
-                    className="mt-3 rounded-xl border border-[var(--color-pib-line)] p-3"
+                    className="mt-3 rounded border border-[var(--color-pib-line)] p-3"
                   >
                     <p className="text-sm font-medium text-[var(--color-pib-text)]">{deleteError}</p>
                     <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -648,9 +643,7 @@ export default function ProductsPage() {
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Confirm delete catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                  delete
-                </span>
+                <Icon name="delete" />
                 {deletingId === pendingDeleteProduct.id ? 'Deleting...' : 'Delete product'}
               </button>
             </div>

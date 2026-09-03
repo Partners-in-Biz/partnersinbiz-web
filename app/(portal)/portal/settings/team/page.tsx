@@ -2,7 +2,9 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Icon } from '@/components/studio'
+
+import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { MemberRow } from '@/components/settings/MemberRow'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
@@ -43,13 +45,18 @@ interface AgentRuntimeTarget {
   availableAgentIds?: string[]
 }
 
-function InviteField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+function InviteField({ id, label, children }: { id: string; label: string; children: ReactElement }) {
   return (
-    <div className="flex flex-col gap-1.5" data-module-accent="cyan">
+    <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="pib-label !mb-0">
         {label}
       </label>
-      {children}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+            id,
+            'aria-label': (children.props as { 'aria-label'?: string })['aria-label'] ?? label,
+          })
+        : children}
     </div>
   )
 }
@@ -331,7 +338,7 @@ export default function TeamPage() {
           title="Team"
         />
         <section className="pib-card space-y-2">
-          <h2 className="text-lg font-semibold">Owner or admin access required</h2>
+          <h2 className="text-lg">Owner or admin access required</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
             Team roles and workspace access can only be managed by workspace owners and admins.
           </p>
@@ -359,7 +366,7 @@ export default function TeamPage() {
         <div className="pib-card-section-header flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Members</p>
-            <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Workspace access</h2>
+            <h2 className="mt-1 text-base text-[var(--color-pib-text)]">Workspace access</h2>
           </div>
           <span className="pib-pill pib-pill-cyan w-fit">
             {members.length} member{members.length === 1 ? '' : 's'}
@@ -391,12 +398,12 @@ export default function TeamPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="team-access-drawer-title"
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-5 shadow-2xl"
+          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-5"
         >
           <div className="flex items-start justify-between gap-4 border-b border-[var(--color-pib-line)] pb-4">
             <div>
               <p className="eyebrow !text-[10px]">Team member access</p>
-              <h2 id="team-access-drawer-title" className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+              <h2 id="team-access-drawer-title" className="mt-1 text-xl text-[var(--color-pib-text)]">
                 Edit access for {memberDisplayName(editingAccessMember)}
               </h2>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
@@ -413,7 +420,7 @@ export default function TeamPage() {
               aria-label="Close access editor"
               className="grid h-9 w-9 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+              <Icon name="close" />
             </button>
           </div>
 
@@ -446,6 +453,7 @@ export default function TeamPage() {
                   <InviteField id="team-access-crm-scope" label="CRM record scope">
                     <select
                       id="team-access-crm-scope"
+                      aria-label="CRM record scope"
                       value={accessDraft.recordScopes.crm}
                       onChange={e => setRecordScope('crm', e.target.value as RecordScope)}
                       className="pib-select"
@@ -458,6 +466,7 @@ export default function TeamPage() {
                   <InviteField id="team-access-projects-scope" label="Projects record scope">
                     <select
                       id="team-access-projects-scope"
+                      aria-label="Projects record scope"
                       value={accessDraft.recordScopes.projects}
                       onChange={e => setRecordScope('projects', e.target.value as RecordScope)}
                       className="pib-select"
@@ -571,7 +580,7 @@ export default function TeamPage() {
               className="btn-pib-accent text-sm"
               disabled={accessSaving || accessLoading || !accessDraft}
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+              <Icon name="save" />
               {accessSaving ? 'Saving...' : 'Save access'}
             </button>
           </div>
@@ -587,12 +596,10 @@ export default function TeamPage() {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
-                person_remove
-              </span>
+              <Icon name="person_remove" />
               <div>
                 <p className="eyebrow !text-[10px] !text-red-100/80">Workspace access removal</p>
-                <h2 id="team-remove-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                <h2 id="team-remove-confirm-title" className="mt-1 text-lg text-red-50">
                   Remove {[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from this workspace?
                 </h2>
                 <p id="team-remove-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -623,9 +630,9 @@ export default function TeamPage() {
                 onClick={() => handleRemove(pendingRemoveMember.uid)}
                 disabled={removingUid === pendingRemoveMember.uid}
                 aria-label={`Confirm remove ${[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from workspace`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">person_remove</span>
+                <Icon name="person_remove" />
                 {removingUid === pendingRemoveMember.uid ? 'Removing...' : 'Remove member'}
               </button>
             </div>
@@ -636,12 +643,10 @@ export default function TeamPage() {
       {canInvite && (
         <section className="pib-card space-y-5">
           <div className="flex items-start gap-3">
-            <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-              <span className="material-symbols-outlined text-[18px]">person_add</span>
-            </span>
+            <Icon name="person_add" />
             <div>
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Invite access</p>
-              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Invite team member</h2>
+              <h2 className="mt-1 text-base text-[var(--color-pib-text)]">Invite team member</h2>
               <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
                 Send a workspace invite with the right role, department context, and access focus.
               </p>
@@ -653,6 +658,7 @@ export default function TeamPage() {
               <InviteField id="team-invite-email" label="Email">
                 <input
                   id="team-invite-email"
+                  aria-label="Email"
                   type="email"
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
@@ -664,6 +670,7 @@ export default function TeamPage() {
               <InviteField id="team-invite-role" label="Role">
                 <select
                   id="team-invite-role"
+                  aria-label="Role"
                   value={inviteRole}
                   onChange={e => setInviteRole(e.target.value as Exclude<OrgRole, 'owner'>)}
                   className="pib-select"
@@ -676,6 +683,7 @@ export default function TeamPage() {
               <InviteField id="team-invite-job-title" label="Job title">
                 <input
                   id="team-invite-job-title"
+                  aria-label="Job title"
                   type="text"
                   value={inviteJobTitle}
                   onChange={e => setInviteJobTitle(e.target.value)}
@@ -686,6 +694,7 @@ export default function TeamPage() {
               <InviteField id="team-invite-department" label="Department">
                 <input
                   id="team-invite-department"
+                  aria-label="Department"
                   type="text"
                   value={inviteDepartment}
                   onChange={e => setInviteDepartment(e.target.value)}
@@ -696,6 +705,7 @@ export default function TeamPage() {
               <InviteField id="team-invite-access" label="Workspace access">
                 <select
                   id="team-invite-access"
+                  aria-label="Workspace access"
                   value={inviteAccessScope}
                   onChange={e => setInviteAccessScope(e.target.value)}
                   className="pib-select"
@@ -711,7 +721,7 @@ export default function TeamPage() {
               </InviteField>
               <div className="flex items-end">
                 <button type="submit" disabled={inviting} className="btn-pib-accent w-full">
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send</span>
+                  <Icon name="send" />
                   {inviting ? 'Inviting...' : 'Send invite'}
                 </button>
               </div>
@@ -719,6 +729,7 @@ export default function TeamPage() {
             <InviteField id="team-invite-note" label="Invite note">
               <textarea
                 id="team-invite-note"
+                aria-label="Invite note"
                 value={inviteNote}
                 onChange={e => setInviteNote(e.target.value)}
                 placeholder="Add onboarding context or first responsibilities."
@@ -729,13 +740,13 @@ export default function TeamPage() {
           </form>
           {inviteSent && (
             <p className="flex items-center gap-1.5 text-xs text-[var(--color-pib-accent)]">
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">check_circle</span>
+              <Icon name="check_circle" />
               Invite sent.
             </p>
           )}
           {inviteError && (
             <p className="flex items-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-100">
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">error</span>
+              <Icon name="error" />
               {inviteError}
             </p>
           )}

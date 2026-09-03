@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PipelineDefinitionsList } from '@/components/crm/PipelineDefinitionsList'
@@ -56,9 +58,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-2 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -187,7 +189,7 @@ export default function PipelinesPage() {
       const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        // 400 means live deals are attached — surface a friendly message
+        // 400 means live deals are attached - surface a friendly message
         const msg = res.status === 400
           ? (body.error ?? 'This pipeline has live deals and cannot be deleted. Archive it instead.')
           : (body.error ?? 'Failed to delete pipeline.')
@@ -280,7 +282,7 @@ export default function PipelinesPage() {
             onClick={openCreate}
             className="btn-pib-primary btn-pib-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            <Icon name="add" />
             New pipeline
           </button>
         ) : undefined}
@@ -303,12 +305,10 @@ export default function PipelinesPage() {
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alt_route</span>
-              </span>
+              <Icon name="alt_route" />
               <div className="min-w-0">
                 <p className="pib-label">Revenue routing</p>
-                <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Default route is missing</h2>
+                <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">Default route is missing</h2>
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   New deals need a default revenue path before the team scales pipeline entry.
                 </p>
@@ -332,7 +332,7 @@ export default function PipelinesPage() {
                   aria-label={`Set ${pipelineDisplayName(defaultCandidatePipeline)} as default pipeline route`}
                   className="btn-pib-secondary shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">star</span>
+                  <Icon name="star" />
                   Set default route
                 </button>
               ) : (
@@ -342,7 +342,7 @@ export default function PipelinesPage() {
                   aria-label={`Review ${pipelineDisplayName(defaultCandidatePipeline)} before setting a default pipeline route`}
                   className="btn-pib-secondary shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+                  <Icon name="edit_note" />
                   Review setup
                 </button>
               )
@@ -354,7 +354,7 @@ export default function PipelinesPage() {
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
         <div className="pib-card flex items-center gap-2 !py-3 text-xs text-[var(--color-pib-text-muted)]">
-          <span className="material-symbols-outlined text-[16px]">info</span>
+          <Icon name="info" />
           Only admins can manage pipelines.
         </div>
       )}
@@ -366,7 +366,8 @@ export default function PipelinesPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="pib-input min-w-[220px] flex-1"
+                aria-label="Search pipelines"
+                  className="pib-input min-w-[220px] flex-1"
                 placeholder="Search pipeline, stage, or outcome..."
               />
               <select
@@ -394,7 +395,7 @@ export default function PipelinesPage() {
                   onClick={() => { setSearch(''); setHealthFilter('all') }}
                   className="btn-pib-ghost"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  <Icon name="filter_alt_off" />
                   Clear filters
                 </button>
               ) : null}
@@ -409,16 +410,16 @@ export default function PipelinesPage() {
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{averageStages.toFixed(1)}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{averageStages.toFixed(1)}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Avg stages</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{wonStageCount}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{wonStageCount}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Won exits</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{lostStageCount}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{lostStageCount}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Lost exits</p>
               </div>
             </div>
@@ -428,7 +429,7 @@ export default function PipelinesPage() {
 
       {deleteError && (
         <div className="pib-card flex items-center gap-2 !py-3 text-xs text-[var(--color-error)]">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
+          <Icon name="error" />
           {deleteError}
         </div>
       )}
@@ -440,9 +441,7 @@ export default function PipelinesPage() {
           className="pib-card !py-3"
         >
           <div className="flex gap-3">
-            <span className="pib-icon-tint mt-0.5 shrink-0">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-            </span>
+            <Icon name="warning" />
             <div>
               <p className="text-xs font-medium text-[var(--color-pib-text)]">{actionError}</p>
               <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -463,12 +462,10 @@ export default function PipelinesPage() {
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div className="min-w-0">
                 <p className="pib-label">Pipeline delete</p>
-                <h2 id="pipeline-delete-confirm-title" className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h2 id="pipeline-delete-confirm-title" className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   Delete pipeline &quot;{pipelineDisplayName(pendingDeletePipeline)}&quot;?
                 </h2>
                 <p id="pipeline-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -496,7 +493,7 @@ export default function PipelinesPage() {
                 className="btn-pib-danger"
                 disabled={deletingId === pendingDeletePipeline.id}
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                <Icon name="delete" />
                 {deletingId === pendingDeletePipeline.id ? 'Deleting...' : 'Delete pipeline'}
               </button>
             </div>
@@ -513,12 +510,10 @@ export default function PipelinesPage() {
         <section className="pib-card">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div className="min-w-0">
                 <p className="pib-label">Source health</p>
-                <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   Pipeline definitions could not load
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{fetchError}</p>
@@ -530,14 +525,14 @@ export default function PipelinesPage() {
               className="btn-pib-secondary shrink-0"
               aria-label="Retry loading pipelines"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
         </section>
       ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
         <div className="pib-empty-state">
-          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+          <Icon name="search_off" />
           <p className="pib-label">Filtered revenue path</p>
           <h2 className="pib-empty-state-title">No pipelines match this view.</h2>
           <p className="pib-empty-state-description">Clear the pipeline filters to return to every revenue path.</p>
@@ -548,7 +543,7 @@ export default function PipelinesPage() {
               className="btn-pib-secondary"
               aria-label="Show all pipelines"
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+              <Icon name="filter_alt_off" />
               Show all pipelines
             </button>
           </div>

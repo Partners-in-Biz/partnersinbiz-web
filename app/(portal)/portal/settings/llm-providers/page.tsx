@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { Notice, Panel, Skeleton } from '@/components/studio'
 import LlmProviderConnections from '@/components/settings/LlmProviderConnections'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
@@ -56,21 +57,22 @@ export default function LlmProvidersSettingsPage() {
   }, [orgScope])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4" data-module-accent="cyan">
+    <div className="mx-auto max-w-3xl space-y-8">
       <PageHeader
-        eyebrow="Settings"
-        title="LLM providers"
+        title="LLM providers."
         description="Organisation credentials sync to your shared VPS. Personal credentials sync only to computers owned by your account. A model becomes selectable in Messages only after that exact machine and agent profile passes a live provider check."
-        accent="cyan"
       />
       {resolving ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Resolving organisation…</p>
+        <Panel className="space-y-3">
+          <Skeleton height={20} width={220} />
+          <Skeleton height={16} className="w-full" />
+        </Panel>
       ) : error ? (
-        <p role="alert" className="text-sm text-red-200">{error}</p>
+        <Notice tone="danger">{error}</Notice>
       ) : orgId ? (
         <LlmProviderConnections orgId={orgId} />
       ) : (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">No organisation selected.</p>
+        <Notice tone="info">No organisation selected.</Notice>
       )}
     </div>
   )

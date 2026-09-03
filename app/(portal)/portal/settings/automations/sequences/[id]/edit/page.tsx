@@ -1,6 +1,9 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
+
 import { use, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -19,16 +22,15 @@ export default function EditSequencePage({ params }: { params: Promise<{ id: str
         <button
           type="button"
           onClick={() => router.push(href('/portal/settings/automations'))}
-          className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+          className="mb-4 inline-flex items-center gap-1 text-xs text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
+          <Icon name="arrow_back" />
           Automations
         </button>
-        <p className="eyebrow">Settings · Email sequence builder</p>
-        <h1 className="pib-page-title mt-2">Edit email sequence</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Tune the send / wait / branch flow, trigger, and goals. Preview the path before saving.
-        </p>
+        <PageHeader
+          title="Edit email sequence."
+          description="Tune the send / wait / branch flow, trigger, and goals. Preview the path before saving."
+        />
       </header>
 
       <SequenceBuilder

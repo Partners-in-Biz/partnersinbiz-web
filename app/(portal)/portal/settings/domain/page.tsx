@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -54,7 +56,7 @@ function CopyButton({ value }: { value: string }) {
       className="pib-btn-secondary !px-2 !py-1 text-xs"
       aria-label={`Copy ${value}`}
     >
-      <span className="material-symbols-outlined text-[14px]">{copied ? 'check' : 'content_copy'}</span>
+      <Icon name={copied ? 'check' : 'content_copy'} />
     </button>
   )
 }
@@ -68,7 +70,7 @@ function SslBadge({ status, verified }: { status: SslStatus; verified: boolean }
   const v = map[status]
   return (
     <span className={`${v.cls} inline-flex items-center gap-1.5`}>
-      <span className="material-symbols-outlined text-[14px]">{v.icon}</span>
+      <Icon name={v.icon} />
       {v.label}
     </span>
   )
@@ -166,7 +168,7 @@ export default function DomainSettingsPage() {
     return (
       <div className="space-y-4">
         <div className="pib-skeleton h-6 w-48" />
-        <div className="pib-skeleton h-40 rounded-2xl" />
+        <div className="pib-skeleton h-40 rounded" />
       </div>
     )
   }
@@ -186,12 +188,12 @@ export default function DomainSettingsPage() {
       <div className="pib-card flex flex-wrap items-center gap-3">
         {config.verified ? (
           <span className="pib-pill-success inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[14px]">verified</span>
+            <Icon name="verified" />
             Domain verified
           </span>
         ) : (
           <span className="pib-pill pib-pill-cyan inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[14px]">pending</span>
+            <Icon name="pending" />
             Awaiting verification
           </span>
         )}
@@ -243,7 +245,7 @@ export default function DomainSettingsPage() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
 
         <button type="submit" disabled={saving} className="pib-btn-primary disabled:opacity-60">
           {saving ? 'Saving...' : saved ? 'Saved' : 'Save domain settings'}
@@ -299,12 +301,12 @@ export default function DomainSettingsPage() {
           </div>
 
           {!config.verified && config.lastError && (
-            <p className="text-sm text-amber-400">{config.lastError}</p>
+            <p className="text-sm text-[var(--st-warning)]">{config.lastError}</p>
           )}
           {config.verified && (
             <p className="inline-flex items-center gap-1.5 text-sm text-[var(--color-pib-success)]">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
-              DNS verified — your custom domain is live and SSL is active.
+              <Icon name="check_circle" />
+              DNS verified - your custom domain is live and SSL is active.
             </p>
           )}
         </div>
