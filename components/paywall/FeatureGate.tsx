@@ -153,7 +153,7 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
           }}
         >
           {/* Lock icon */}
-          <Icon name="lock" style={{ fontSize: '40px', color: 'var(--color-pib-accent)', }} />
+          <Icon name="lock" className="text-[40px] text-[var(--color-pib-accent)]" />
 
           {/* Heading */}
           <h2
@@ -181,7 +181,7 @@ export function FeatureGate({ feature, children, upgradeHref }: FeatureGateProps
               color: 'var(--color-pib-ink)',
             }}
           >
-            <Icon name="arrow_upward" style={{ fontSize: '18px' }} />
+            <Icon name="arrow_upward" className="text-[18px]" />
             Upgrade plan
           </Link>
         </div>

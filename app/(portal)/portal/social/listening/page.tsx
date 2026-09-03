@@ -280,7 +280,7 @@ export default function ListeningPage() {
             placeholder="e.g. your brand name, a product, a competitor…"
             aria-label="Monitored term"
             className="pib-input w-full"
-           aria-label="e.g. your brand name, a product, a competitor…"/>
+          />
           <div>
             <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Platforms (leave empty to watch all)</p>
             <div className="flex gap-2 flex-wrap">

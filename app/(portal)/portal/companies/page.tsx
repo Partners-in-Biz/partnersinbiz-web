@@ -16,7 +16,7 @@ import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-import { Icon } from '@/components/studio'
+import { ButtonLink, Icon } from '@/components/studio'
 
 // ── Companies list page ───────────────────────────────────────────────────────
 

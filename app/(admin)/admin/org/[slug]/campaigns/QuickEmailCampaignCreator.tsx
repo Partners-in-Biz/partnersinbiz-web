@@ -67,7 +67,7 @@ export function QuickEmailCampaignCreator({ orgId, slug }: { orgId: string; slug
               {submitting ? 'Creating...' : 'Create draft'}
             </button>
           </div>
-          {error && <p className="text-sm text-red-300 mt-3">{error}</p>}
+          {error && <p className="text-sm text-[var(--st-danger)] mt-3">{error}</p>}
         </div>
       )}
     </section>
