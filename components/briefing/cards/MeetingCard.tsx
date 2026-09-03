@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/studio'
 import { briefingContactChannels } from '@/lib/briefing/cardFacts'
 import type { BriefingCard } from '../cockpit/cockpitTypes'
 import { CARD_PRIMARY_CLASS, CARD_SECONDARY_CLASS, CardFrame, Fact, Pill } from './CardFrame'
-import { companyLine, isPastWhen, meetLink, metaString, personLine, whenLabel } from './format'
-import type { BookCallInput, BriefingCardActions } from './types'
+import { companyLine, isPastWhen, meetLink, metaString, personLine, whenIso, whenLabel } from './format'
+import type { BookCallInput, BriefingCardActions, BusyBlock } from './types'
 
 function defaultStart(): string {
   const next = new Date()
@@ -16,12 +16,83 @@ function defaultStart(): string {
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`
 }
 
-function BookCallForm({ item, onSubmit, onCancel, busy }: { item: BriefingCard; onSubmit: (input: BookCallInput) => Promise<void>; onCancel: () => void; busy: boolean }) {
+const YMD = /^\d{4}-\d{2}-\d{2}$/
+
+function timeOf(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** "10:00–10:30 Buhle" */
+export function busyBlockLabel(block: BusyBlock): string {
+  const range = `${timeOf(block.start)}–${timeOf(block.end)}`
+  const title = block.title?.trim()
+  return title ? `${range} ${title}` : range
+}
+
+function overlaps(block: BusyBlock, start: Date, end: Date): boolean {
+  const blockStart = new Date(block.start).getTime()
+  const blockEnd = new Date(block.end).getTime()
+  if (Number.isNaN(blockStart) || Number.isNaN(blockEnd)) return false
+  return start.getTime() < blockEnd && end.getTime() > blockStart
+}
+
+function BookCallForm({
+  item,
+  onSubmit,
+  onCancel,
+  loadBusy,
+  busy,
+}: {
+  item: BriefingCard
+  onSubmit: (input: BookCallInput) => Promise<void>
+  onCancel: () => void
+  loadBusy: (dateYmd: string) => Promise<BusyBlock[]>
+  busy: boolean
+}) {
   const person = personLine(item) ?? 'contact'
   const [start, setStart] = useState(defaultStart)
   const [duration, setDuration] = useState('30')
   const [title, setTitle] = useState(`Call with ${person}`)
   const [error, setError] = useState<string | null>(null)
+  const [busyBlocks, setBusyBlocks] = useState<BusyBlock[]>([])
+  const busyRequest = useRef(0)
+  // Keep the latest loader without re-fetching when the desk re-creates the callback.
+  const loadBusyRef = useRef(loadBusy)
+  loadBusyRef.current = loadBusy
+
+  const dateYmd = start.slice(0, 10)
+  useEffect(() => {
+    if (!YMD.test(dateYmd)) {
+      setBusyBlocks([])
+      return
+    }
+    const request = ++busyRequest.current
+    let cancelled = false
+    let pending: Promise<BusyBlock[]>
+    try {
+      pending = Promise.resolve(loadBusyRef.current(dateYmd))
+    } catch {
+      pending = Promise.resolve([])
+    }
+    pending
+      .then((blocks) => {
+        if (cancelled || request !== busyRequest.current) return
+        setBusyBlocks(Array.isArray(blocks) ? blocks : [])
+      })
+      .catch(() => {
+        if (cancelled || request !== busyRequest.current) return
+        setBusyBlocks([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [dateYmd])
+
+  const startDate = new Date(start)
+  const endDate = new Date(startDate.getTime() + Number(duration) * 60_000)
+  const conflicts = Number.isNaN(startDate.getTime()) ? [] : busyBlocks.filter((block) => overlaps(block, startDate, endDate))
 
   async function submit() {
     const startDate = new Date(start)
@@ -68,11 +139,27 @@ function BookCallForm({ item, onSubmit, onCancel, busy }: { item: BriefingCard; 
           </select>
         </label>
       </div>
+      {busyBlocks.length ? (
+        <ul className="grid gap-0.5 text-[10px] text-[var(--color-pib-text-muted)]" aria-label="Busy on this day">
+          {busyBlocks.map((block, index) => (
+            <li key={`${block.start}-${block.end}-${index}`} className="flex items-center gap-1">
+              <Icon name="event_busy" className="text-[12px]" />
+              <span className="truncate">{busyBlockLabel(block)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {conflicts.length ? (
+        <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-300" role="status">
+          <Icon name="warning" className="text-[12px]" />
+          Overlaps with {conflicts.map(busyBlockLabel).join(', ')}
+        </p>
+      ) : null}
       {error ? <p className="text-[10px] text-red-500">{error}</p> : null}
       <div className="flex items-center gap-2">
         <button type="submit" className={CARD_PRIMARY_CLASS} disabled={busy}>
           <Icon name="event_available" />
-          Create invite
+          {conflicts.length ? 'Book anyway' : 'Create invite'}
         </button>
         <button type="button" className={CARD_SECONDARY_CLASS} onClick={onCancel} disabled={busy}>
           Cancel
@@ -185,6 +272,8 @@ export function MeetingCard({ item, actions }: { item: BriefingCard; actions: Br
       busy={actions.busy}
       onSelect={actions.select}
       onSnooze={actions.snooze}
+      onSnoozeUntil={actions.snoozeUntil}
+      meetingStartIso={whenIso(item)}
       onMore={actions.openMore}
       actions={
         <>
@@ -213,6 +302,7 @@ export function MeetingCard({ item, actions }: { item: BriefingCard; actions: Br
         <BookCallForm
           item={item}
           busy={actions.busy}
+          loadBusy={actions.loadBusy}
           onCancel={() => setBooking(false)}
           onSubmit={async (input) => {
             await actions.bookCall(item, input)

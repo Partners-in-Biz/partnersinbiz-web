@@ -9,6 +9,10 @@ import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
 import { TodayRail } from './cockpit/TodayRail'
 import { BriefingCardForKind, type BookCallInput, type BriefingCardActions } from './cards/BriefingCardForKind'
+import type { BusyBlock } from './cards/types'
+import { AgentGroupCard } from './cards/AgentGroupCard'
+import { LaneEmptyState } from './cockpit/LaneEmptyState'
+import { canStopAgentRun, harvestPipDraft } from './deskHelpers'
 import { BRIEFING_WORK_LANES, resolveWorkKind, type BriefingWorkKind } from '@/lib/briefing/workKind'
 import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
 import {
@@ -870,6 +874,18 @@ function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
 
+function formatSnoozeUntil(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'later'
+  const sameDay = date.toDateString() === new Date().toDateString()
+  const time = date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return sameDay ? time : `${date.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`
+}
+
+export { canStopAgentRun, harvestPipDraft } from './deskHelpers'
+
+type PipDraft = { conversationId: string; text: string; harvestedAt: number }
+
 type PulseRow = {
   id: string
   name: string
@@ -947,6 +963,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   const [pinnedLane, setPinnedLane] = useState<BriefingWorkKind | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatSeedId, setChatSeedId] = useState<string | null>(null)
+  const [pipDraft, setPipDraft] = useState<PipDraft | null>(null)
+  const [expandedAgentGroups, setExpandedAgentGroups] = useState<Record<string, boolean>>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [snapshotting, setSnapshotting] = useState(false)
@@ -983,6 +1001,21 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     for (const item of pulseScopedItems) buckets[resolveWorkKind(item)].push(item)
     return buckets
   }, [pulseScopedItems])
+
+  // Agent work is one card per agent: a single agent with many runs collapses into one group.
+  const agentGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; agentId: string; agentName: string; items: BriefingCard[] }>()
+    for (const item of laneItems.agent) {
+      const metaAgentId = typeof item.metadata?.agentId === 'string' ? item.metadata.agentId : null
+      const agentId = (item.actor?.type === 'agent' ? item.actor.id.replace(/^agent:/, '') : null) ?? metaAgentId ?? item.actor?.id ?? 'unknown'
+      const agentName = item.actor?.name || (agentId.charAt(0).toUpperCase() + agentId.slice(1))
+      const key = `${item.orgId || item.context.orgId || ''}:${agentId}`
+      const existing = groups.get(key)
+      if (existing) existing.items.push(item)
+      else groups.set(key, { key, agentId, agentName, items: [item] })
+    }
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
+  }, [laneItems.agent])
 
   const laneCounts = useMemo(() => ({
     meeting: laneItems.meeting.length,
@@ -1027,6 +1060,74 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   function askPip(item: BriefingCard) {
     setChatSeedId(item.id)
     setChatOpen(true)
+  }
+
+  // When Pip finishes a turn in the dock, keep her reply handy as a one-click draft for the reply box.
+  function handleChatLifecycle(event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) {
+    if (event.phase !== 'completed') return
+    void harvestPipDraft(event.conversationId).then((text) => {
+      if (!text) return
+      setPipDraft({ conversationId: event.conversationId, text, harvestedAt: Date.now() })
+    }).catch(() => { /* draft harvesting is best-effort */ })
+  }
+
+  function adoptPipDraft(setter: (value: string) => void) {
+    if (!pipDraft) return
+    setter(pipDraft.text)
+    setFlash({ kind: 'ok', message: "Pip's draft copied into the reply box. Edit before sending." })
+  }
+
+  function pipDraftButton(setter: (value: string) => void) {
+    if (!pipDraft) return null
+    return (
+      <button type="button" className="pib-btn-secondary mt-2 w-full justify-center text-xs" onClick={() => adoptPipDraft(setter)} title={pipDraft.text.slice(0, 200)}>
+        <Icon name="smart_toy" />
+        Use Pip&apos;s draft
+      </button>
+    )
+  }
+
+  /** Busy blocks for a calendar day, used by the Book call picker to flag conflicts. */
+  async function loadBusy(dateYmd: string): Promise<BusyBlock[]> {
+    const params = new URLSearchParams({ date: dateYmd })
+    const scopedOrg = orgId || portalScope?.orgId
+    if (scopedOrg) params.set('orgId', scopedOrg)
+    const res = await fetch(`/api/v1/workspace/calendar/today?${params.toString()}`)
+    if (!res.ok) return []
+    const body = await res.json().catch(() => null) as { data?: unknown } | null
+    const data = body?.data
+    const rows = Array.isArray(data)
+      ? data
+      : data && typeof data === 'object' && Array.isArray((data as { meetings?: unknown }).meetings)
+        ? (data as { meetings: unknown[] }).meetings
+        : data && typeof data === 'object' && Array.isArray((data as { events?: unknown }).events)
+          ? (data as { events: unknown[] }).events
+          : []
+    return rows.flatMap((row) => {
+      const event = row as { start?: unknown; end?: unknown; title?: unknown; summary?: unknown; allDay?: unknown; busy?: unknown }
+      if (typeof event.start !== 'string' || typeof event.end !== 'string') return []
+      if (event.allDay === true || event.busy === false) return []
+      const title = typeof event.title === 'string' ? event.title : typeof event.summary === 'string' ? event.summary : null
+      return [{ start: event.start, end: event.end, title }]
+    })
+  }
+
+  async function stopAgentRun(item: BriefingCard) {
+    if (!canStopAgentRun(item, mode)) return
+    const runId = item.context.agentRunId ?? String(item.metadata?.hermesRunId ?? '')
+    const runOrgId = item.orgId || item.context.orgId
+    setBusyAction('stop-run')
+    try {
+      const res = await fetch(`/api/v1/admin/hermes/profiles/${encodeURIComponent(runOrgId)}/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Stop run failed')
+      setFlash({ kind: 'ok', message: `Stop requested for ${item.actor?.name ?? 'the agent'}.` })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Stop run failed' })
+    } finally {
+      setBusyAction(null)
+    }
   }
 
   function selectedDecisionOptionId(item: BriefingCard) {
@@ -1126,22 +1227,28 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     }
   }
 
-  async function setItemState(item: BriefingCard, action: 'handled' | 'snoozed' | 'active') {
+  async function setItemState(item: BriefingCard, action: 'handled' | 'snoozed' | 'active', snoozedUntil?: string) {
     setBusyAction(action)
     try {
+      const until = action === 'snoozed' ? (snoozedUntil ?? defaultSnoozeDate()) : undefined
       const res = await fetch(`/api/v1/briefings/items/${encodeURIComponent(item.id)}/state`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           orgId: item.orgId || item.context.orgId,
           action,
-          snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined,
+          snoozedUntil: until,
         }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'State update failed')
       setFeed((current) => current ? { ...current, items: current.items.filter((row) => row.id !== item.id), total: Math.max(0, current.total - 1) } : current)
-      setFlash({ kind: 'ok', message: action === 'snoozed' ? 'Snoozed for 24 hours.' : action === 'handled' ? 'Marked handled.' : 'Returned to active.' })
+      setFlash({
+        kind: 'ok',
+        message: action === 'snoozed'
+          ? (snoozedUntil ? `Snoozed until ${formatSnoozeUntil(snoozedUntil)}.` : 'Snoozed for 24 hours.')
+          : action === 'handled' ? 'Marked handled.' : 'Returned to active.',
+      })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'State update failed' })
     } finally {
@@ -2367,6 +2474,10 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       setShowMoreActions(true)
     },
     snooze: (item) => { void setItemState(item, 'snoozed') },
+    snoozeUntil: (item, untilIso) => { void setItemState(item, 'snoozed', untilIso) },
+    canStopRun: (item) => canStopAgentRun(item, mode),
+    stopRun: (item) => { void stopAgentRun(item) },
+    loadBusy,
     done: (item) => { void setItemState(item, 'handled') },
     sourceHref: (item) => (mode === 'admin' ? adminSourceHref(item) : sourceHref(item, mode, portalScope)) ?? null,
     askPip,
@@ -2558,11 +2669,21 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   {loading ? (
                     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4 text-center text-xs text-[var(--color-pib-text-muted)]">Loading…</div>
                   ) : items.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-4 text-center text-xs text-[var(--color-pib-text-muted)]">
-                      <span style={{ color: accent }} className="grid place-items-center"><Icon name={lane.icon} className="text-[18px]" /></span>
-                      <p className="mt-1">Nothing here</p>
-                      <p className="mt-0.5 text-[10px]">{lane.description}</p>
-                    </div>
+                    <LaneEmptyState kind={lane.id} />
+                  ) : lane.id === 'agent' ? (
+                    agentGroups.map((group) => group.items.length === 1 ? (
+                      <BriefingCardForKind key={group.items[0].id} item={group.items[0]} kind="agent" actions={cardActions} />
+                    ) : (
+                      <AgentGroupCard
+                        key={group.key}
+                        agentId={group.agentId}
+                        agentName={group.agentName}
+                        items={group.items}
+                        actions={cardActions}
+                        expanded={expandedAgentGroups[group.key] ?? group.items.length <= 3}
+                        onToggle={() => setExpandedAgentGroups((current) => ({ ...current, [group.key]: !(current[group.key] ?? group.items.length <= 3) }))}
+                      />
+                    ))
                   ) : (
                     items.map((item) => (
                       <BriefingCardForKind key={item.id} item={item} kind={lane.id} actions={cardActions} />
@@ -3353,6 +3474,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setMailboxReplyText(event.target.value)}
                       placeholder="Draft a reply without sending it yet..."
                      aria-label="Draft a reply without sending it yet..."/>
+                    {pipDraftButton(setMailboxReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => draftMailboxReply(selected)} disabled={!mailboxReplyText.trim() || mailboxReplyTo(selected).length === 0 || !selected.metadata?.accountId || !!busyAction}>
                       <Icon name="draft" />
                       Draft email reply
@@ -3372,6 +3494,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply with a decision, note, or instruction..."
                      aria-label="Reply with a decision, note, or instruction..."/>
+                    {pipDraftButton(setReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
                       <Icon name="reply" />
                       {canDocumentCommentReplyAct(selected) ? 'Reply to document comment' : canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
@@ -3461,6 +3584,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply to the client and keep the support thread moving..."
                      aria-label="Reply to the client and keep the support thread moving..."/>
+                    {pipDraftButton(setReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSupportTicket(selected, replyText)} disabled={!replyText.trim() || !!busyAction}>
                       <Icon name="support_agent" />
                       Reply to support ticket
@@ -3784,6 +3908,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
         setChatOpen(open)
         if (!open) setChatSeedId(null)
       }}
+      onChatConversationLifecycle={handleChatLifecycle}
       rail={rail}
       workFeedContent={workFeedContent}
     />

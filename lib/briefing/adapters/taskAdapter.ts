@@ -42,6 +42,32 @@ interface TaskDocument extends Record<string, unknown> {
   blockedReason?: string | null
   status?: string
   deleted?: boolean
+  dueDate?: unknown | null
+}
+
+/**
+ * FYI task movement (done/moved columns with nothing to review) is only worth a
+ * card while it is fresh and attached to something that makes it work: an
+ * assigned agent or a due date. Older or unowned FYI movement is noise in the
+ * Agent lane. Real work (needs-peet, critical, review, progress, client-risk)
+ * is never age-gated here.
+ *
+ * "Now" is read from `Date.now()` so tests can pin the clock with
+ * `jest.useFakeTimers({ now })`, matching the rest of the briefing suite.
+ */
+const FYI_TASK_WINDOW_MS = 24 * 60 * 60 * 1000
+
+function taskTouchedAt(doc: TaskDocument): Date | null {
+  return normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.createdAt) ?? normalizeTimestamp(doc.completedAt)
+}
+
+function fyiTaskIsWorthACard(doc: TaskDocument): boolean {
+  const touchedAt = taskTouchedAt(doc)
+  if (!touchedAt) return false
+  if (Date.now() - touchedAt.getTime() > FYI_TASK_WINDOW_MS) return false
+  const hasAgent = typeof doc.assigneeAgentId === 'string' && doc.assigneeAgentId.trim().length > 0
+  const hasDueDate = normalizeTimestamp(doc.dueDate) !== null
+  return hasAgent || hasDueDate
 }
 
 /**
@@ -73,10 +99,12 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Determine if this task should generate a briefing item.
    * Skip deleted tasks and tasks in "backlog" column (too noisy).
+   * FYI-only movement must be recent and owned (agent or due date) to qualify.
    */
-  shouldGenerate(doc: TaskDocument, _docId: string): boolean {
+  shouldGenerate(doc: TaskDocument, docId: string): boolean {
     if (doc.deleted === true) return false
     if (doc.columnId === 'backlog') return false
+    if (taskAdapter.extractPriority(doc, docId) === 'fyi') return fyiTaskIsWorthACard(doc)
     return true
   },
 

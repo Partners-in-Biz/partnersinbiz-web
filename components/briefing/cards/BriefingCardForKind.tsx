@@ -27,4 +27,6 @@ export function BriefingCardForKind({ item, actions, kind }: { item: BriefingCar
 }
 
 export { AgentCard, ApprovalCard, BlockedCard, MeetingCard, ReplyCard }
-export type { BriefingCardActions, BookCallInput } from './types'
+export { AgentGroupCard, summariseAgentItems, type AgentGroupCardProps } from './AgentGroupCard'
+export { snoozeOptionsForKind, type SnoozeOption } from './snooze'
+export type { BriefingCardActions, BookCallInput, BusyBlock } from './types'

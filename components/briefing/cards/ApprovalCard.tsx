@@ -47,6 +47,7 @@ export function ApprovalCard({ item, actions }: { item: BriefingCard; actions: B
       busy={actions.busy}
       onSelect={actions.select}
       onSnooze={actions.snooze}
+      onSnoozeUntil={actions.snoozeUntil}
       onMore={actions.openMore}
       actions={
         <>

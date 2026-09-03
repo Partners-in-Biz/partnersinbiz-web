@@ -36,6 +36,19 @@ export type ContactStage =
   | 'won'
   | 'lost'
 
+/**
+ * Explicit next action a human/agent recorded on a CRM record. When set, the
+ * briefing work-kind classifier honours it deterministically (`call`/`meet` →
+ * meeting lane, `email` → reply lane) instead of guessing from phone/keywords.
+ */
+export type CrmNextAction = 'call' | 'email' | 'meet'
+
+export const CRM_NEXT_ACTIONS: readonly CrmNextAction[] = ['call', 'email', 'meet'] as const
+
+export function isCrmNextAction(value: unknown): value is CrmNextAction {
+  return typeof value === 'string' && (CRM_NEXT_ACTIONS as readonly string[]).includes(value)
+}
+
 export interface Contact {
   id: string
   orgId: string            // required after Phase 1 backfill
@@ -110,6 +123,8 @@ export interface Contact {
   utmCampaign?: string
   utmTerm?: string
   utmContent?: string
+  /** Explicit next step for this contact; null/absent means "not decided". */
+  nextAction?: CrmNextAction | null
 }
 
 export interface ContactCompanyLink {
@@ -175,6 +190,8 @@ export interface Deal {
   stageHistory?: DealStageHistoryEntry[]
   companyId?: string
   companyName?: string
+  /** Explicit next step for this deal; null/absent means "not decided". */
+  nextAction?: CrmNextAction | null
 }
 
 export type DealInput = Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>

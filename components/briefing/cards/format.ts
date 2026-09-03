@@ -53,6 +53,12 @@ export function whenLabel(item: BriefingCard, now: Date = new Date()): string | 
   return time ? `${day} ${time}` : day
 }
 
+/** ISO start time of the meeting/booking on the item, when it can be parsed. */
+export function whenIso(item: BriefingCard): string | null {
+  const when = parseWhen(item)
+  return when ? when.toISOString() : null
+}
+
 export function isPastWhen(item: BriefingCard, now: Date = new Date()): boolean {
   const when = parseWhen(item)
   return Boolean(when && when.getTime() < now.getTime())

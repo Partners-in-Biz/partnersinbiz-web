@@ -59,6 +59,7 @@ export function BlockedCard({ item, actions }: { item: BriefingCard; actions: Br
       busy={actions.busy}
       onSelect={actions.select}
       onSnooze={actions.snooze}
+      onSnoozeUntil={actions.snoozeUntil}
       onMore={actions.openMore}
       actions={
         <>

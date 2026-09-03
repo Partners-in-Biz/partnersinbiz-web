@@ -55,6 +55,34 @@ function isCompleted(status: string): boolean {
   return ['completed', 'complete', 'done', 'succeeded', 'success'].includes(status)
 }
 
+/**
+ * Freshness windows. Completed runs are only briefing-worthy for a day; a run
+ * that still claims to be running but has not been touched for two days is
+ * zombie state, not live work. Failed and approval-paused runs are real work
+ * regardless of age and are never age-gated.
+ *
+ * "Now" is read from `Date.now()` so tests can pin the clock with
+ * `jest.useFakeTimers({ now })`, matching the rest of the briefing suite.
+ */
+const COMPLETED_RUN_WINDOW_MS = 24 * 60 * 60 * 1000
+const RUNNING_RUN_WINDOW_MS = 48 * 60 * 60 * 1000
+
+function isWithinWindow(timestamp: Date | null, windowMs: number): boolean {
+  if (!timestamp) return false
+  const age = Date.now() - timestamp.getTime()
+  return age <= windowMs
+}
+
+function completedRunIsFresh(doc: AgentRunDocument): boolean {
+  const finishedAt = normalizeTimestamp(doc.completedAt) ?? normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.createdAt)
+  return isWithinWindow(finishedAt, COMPLETED_RUN_WINDOW_MS)
+}
+
+function runningRunIsFresh(doc: AgentRunDocument): boolean {
+  const touchedAt = normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.createdAt)
+  return isWithinWindow(touchedAt, RUNNING_RUN_WINDOW_MS)
+}
+
 function agentIdFromProfile(profile: unknown): string {
   const raw = clean(profile) ?? 'unknown'
   return raw.replace(/-main$/i, '').replace(/^agent:/i, '') || 'unknown'
@@ -90,7 +118,13 @@ export const agentRunAdapter: BriefingSourceAdapter<AgentRunDocument> = {
 
   shouldGenerate(doc: AgentRunDocument): boolean {
     const status = runStatus(doc)
-    return isWaitingApproval(status) || isRunning(status) || isFailed(status) || isCompleted(status)
+    // Approval-paused and failed runs are real work at any age.
+    if (isWaitingApproval(status) || isFailed(status)) return true
+    // Live runs only count while they are actually being touched.
+    if (isRunning(status)) return runningRunIsFresh(doc)
+    // Finished runs are only FYI for the first day.
+    if (isCompleted(status)) return completedRunIsFresh(doc)
+    return false
   },
 
   extractPriority(doc: AgentRunDocument): BriefingPriority {

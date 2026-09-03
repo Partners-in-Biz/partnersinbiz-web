@@ -23,6 +23,7 @@ export function AgentCard({ item, actions }: { item: BriefingCard; actions: Brie
   const summary = stripViewLinks(briefingUsefulSummary(item) || item.summary)
   const href = actions.sourceHref(item)
   const canSendBack = actions.canApprove(item)
+  const canStop = actions.canStopRun(item)
   const label = type === 'agent-run' ? 'Agent run' : type === 'project' ? 'Project' : type === 'seo-task' ? 'SEO sprint' : 'Agent task'
 
   return (
@@ -34,6 +35,7 @@ export function AgentCard({ item, actions }: { item: BriefingCard; actions: Brie
       busy={actions.busy}
       onSelect={actions.select}
       onSnooze={actions.snooze}
+      onSnoozeUntil={actions.snoozeUntil}
       onMore={actions.openMore}
       actions={
         <>
@@ -59,6 +61,12 @@ export function AgentCard({ item, actions }: { item: BriefingCard; actions: Brie
               Done
             </button>
           )}
+          {canStop ? (
+            <button type="button" className={CARD_SECONDARY_CLASS} disabled={actions.busy} title="Stop this run" onClick={(event) => { event.stopPropagation(); actions.stopRun(item) }}>
+              <Icon name="stop_circle" />
+              Stop run
+            </button>
+          ) : null}
         </>
       }
     >

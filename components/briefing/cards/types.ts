@@ -6,6 +6,9 @@ export type BookCallInput = {
   title: string
 }
 
+/** A busy slot on the calendar for a given day (ISO datetimes). */
+export type BusyBlock = { start: string; end: string; title?: string | null }
+
 /**
  * Callback bag the desk hands to every kind card. All side effects stay in
  * BriefingControlDesk so the cards remain presentational.
@@ -34,4 +37,11 @@ export type BriefingCardActions = {
   addMeetLink: (item: BriefingCard) => void
   canBookCall: (item: BriefingCard) => boolean
   bookCall: (item: BriefingCard, input: BookCallInput) => Promise<void>
+  /** Snooze until a specific ISO datetime (the desk POSTs snoozedUntil). */
+  snoozeUntil: (item: BriefingCard, untilIso: string) => void
+  /** Admin-only: stop a live Hermes run. */
+  canStopRun: (item: BriefingCard) => boolean
+  stopRun: (item: BriefingCard) => void
+  /** Busy blocks for a calendar day (YYYY-MM-DD) so the Book call picker can flag conflicts. */
+  loadBusy: (dateYmd: string) => Promise<BusyBlock[]>
 }

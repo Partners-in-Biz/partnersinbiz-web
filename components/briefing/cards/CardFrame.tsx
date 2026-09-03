@@ -1,9 +1,10 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '@/components/studio'
 import type { BriefingCard } from '../cockpit/cockpitTypes'
 import type { BriefingWorkKind } from '@/lib/briefing/workKind'
+import { snoozeOptionsForKind } from './snooze'
 
 export const CARD_PRIMARY_CLASS = 'pib-btn-primary min-w-0 flex-1 justify-center px-3 py-2 text-xs'
 export const CARD_SECONDARY_CLASS = 'pib-btn-secondary min-w-0 flex-1 justify-center px-3 py-2 text-xs'
@@ -62,11 +63,94 @@ export type CardFrameProps = {
   actions?: ReactNode
   busy: boolean
   onSelect: (item: BriefingCard) => void
+  /** Default snooze (24h). */
   onSnooze: (item: BriefingCard) => void
+  /** Snooze until a specific ISO datetime chosen from the menu. */
+  onSnoozeUntil: (item: BriefingCard, untilIso: string) => void
   onMore: (item: BriefingCard) => void
+  /** Meeting start (ISO) so the menu can offer "1 hour before". */
+  meetingStartIso?: string | null
 }
 
-export function CardFrame({ item, kind, eyebrowIcon, eyebrow, title, children, actions, busy, onSelect, onSnooze, onMore }: CardFrameProps) {
+function SnoozeMenu({ item, kind, busy, meetingStartIso, onSnooze, onSnoozeUntil }: Pick<CardFrameProps, 'item' | 'kind' | 'busy' | 'meetingStartIso' | 'onSnooze' | 'onSnoozeUntil'>) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointerDown(event: MouseEvent) {
+      if (rootRef.current && event.target instanceof Node && !rootRef.current.contains(event.target)) setOpen(false)
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const options = open ? snoozeOptionsForKind(kind, new Date(), meetingStartIso) : []
+  const itemClass = 'block w-full whitespace-nowrap rounded px-2 py-1.5 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)]'
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        className={CARD_ICON_BUTTON_CLASS}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((value) => !value)
+        }}
+        disabled={busy}
+        title="Snooze"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Icon name="snooze" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Snooze until"
+          className="absolute bottom-full right-0 z-20 mb-1 min-w-[10rem] rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1 shadow-lg"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="menuitem"
+              className={itemClass}
+              title={option.until.toLocaleString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })}
+              onClick={() => {
+                setOpen(false)
+                onSnoozeUntil(item, option.until.toISOString())
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            role="menuitem"
+            className={`${itemClass} ${options.length ? 'border-t border-[var(--color-pib-line)] rounded-t-none' : ''}`}
+            onClick={() => {
+              setOpen(false)
+              onSnooze(item)
+            }}
+          >
+            24 hours
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function CardFrame({ item, kind, eyebrowIcon, eyebrow, title, children, actions, busy, onSelect, onSnooze, onSnoozeUntil, onMore, meetingStartIso }: CardFrameProps) {
   return (
     <article
       data-testid="briefing-card"
@@ -89,18 +173,7 @@ export function CardFrame({ item, kind, eyebrowIcon, eyebrow, title, children, a
 
       <div className="mt-3 flex items-center gap-2">
         {actions}
-        <button
-          type="button"
-          className={CARD_ICON_BUTTON_CLASS}
-          onClick={(event) => {
-            event.stopPropagation()
-            onSnooze(item)
-          }}
-          disabled={busy}
-          title="Snooze 24h"
-        >
-          <Icon name="snooze" />
-        </button>
+        <SnoozeMenu item={item} kind={kind} busy={busy} meetingStartIso={meetingStartIso} onSnooze={onSnooze} onSnoozeUntil={onSnoozeUntil} />
         <button
           type="button"
           className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-2 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"

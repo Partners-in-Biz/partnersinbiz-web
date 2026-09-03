@@ -59,6 +59,22 @@ function hasPhone(item: WorkKindInput): boolean {
   return Boolean(meta(item, 'phone') || meta(item, 'contactPhone') || meta(item, 'mobile'))
 }
 
+/**
+ * Explicit next action recorded on a CRM record (`contacts`/`deals` `nextAction`
+ * field, surfaced by the adapters as `metadata.nextActionKind`). `metadata.nextAction`
+ * normally holds descriptive copy, so it only counts when it is exactly one of
+ * the enum values.
+ */
+type ExplicitNextAction = 'call' | 'email' | 'meet'
+
+function explicitNextAction(item: WorkKindInput): ExplicitNextAction | null {
+  for (const key of ['nextActionKind', 'nextAction']) {
+    const value = meta(item, key)
+    if (value === 'call' || value === 'email' || value === 'meet') return value
+  }
+  return null
+}
+
 function hasCallTag(item: WorkKindInput): boolean {
   const tags = Array.isArray(item.metadata?.tags) ? item.metadata?.tags : []
   return tags.some((tag) => typeof tag === 'string' && /call-ready/i.test(tag))
@@ -106,8 +122,12 @@ export function workKindForItem(item: WorkKindInput): BriefingWorkKind {
   // 1. Meetings: things that end in a call or a calendar slot.
   if (type === 'booking' || type === 'calendar-event') return 'meeting'
   if (type === 'task' && hasCallTag(item)) return 'meeting'
-  if ((type === 'contact' || type === 'deal' || type === 'activity') && (hasPhone(item) || meta(item, 'followUpIntent') || /\b(call|meeting|book)\b/.test(copy))) {
-    return 'meeting'
+  if (type === 'contact' || type === 'deal' || type === 'activity') {
+    // An explicit CRM next action wins over the phone/keyword heuristics.
+    const explicit = explicitNextAction(item)
+    if (explicit === 'call' || explicit === 'meet') return 'meeting'
+    if (explicit === 'email') return 'reply'
+    if (hasPhone(item) || meta(item, 'followUpIntent') || /\b(call|meeting|book)\b/.test(copy)) return 'meeting'
   }
 
   // 2. Blocked work that needs a human to clear it (checked before approvals so

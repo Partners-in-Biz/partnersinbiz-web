@@ -25,6 +25,22 @@ describe('workKindForItem', () => {
     expect(workKindForItem(item('deal', { title: 'Proposal follow-up: ACME' }))).toBe('reply')
   })
 
+  it('honours an explicit CRM nextAction before the phone/keyword heuristics', () => {
+    // call → meeting, even without a phone number or call keywords
+    expect(workKindForItem(item('contact', { metadata: { email: 'a@b.co', nextActionKind: 'call' } }))).toBe('meeting')
+    // meet → meeting
+    expect(workKindForItem(item('deal', { title: 'Proposal follow-up: ACME', metadata: { nextActionKind: 'meet' } }))).toBe('meeting')
+    // email → reply, even when a phone number would otherwise push it to meetings
+    expect(workKindForItem(item('contact', { metadata: { phone: '+27 82 000 0000', nextActionKind: 'email' } }))).toBe('reply')
+    // absent/null → old heuristic still applies
+    expect(workKindForItem(item('contact', { metadata: { phone: '+27 82 000 0000', nextActionKind: null } }))).toBe('meeting')
+    expect(workKindForItem(item('contact', { metadata: { email: 'a@b.co' } }))).toBe('reply')
+    // descriptive nextAction copy is not mistaken for the enum
+    expect(workKindForItem(item('contact', { metadata: { nextAction: 'Book or confirm the next sales step while the prospect is warm.' } }))).toBe('reply')
+    // the enum is also accepted directly on metadata.nextAction
+    expect(workKindForItem(item('activity', { metadata: { nextAction: 'meet' } }))).toBe('meeting')
+  })
+
   it('puts inbox-style sources in replies', () => {
     for (const type of ['mailbox-message', 'social-inbox', 'support-ticket', 'comment', 'enquiry', 'form-submission']) {
       expect(workKindForItem(item(type))).toBe('reply')

@@ -28,6 +28,8 @@ export type CockpitShellProps = {
   /** Controlled Ask Pip dock state; falls back to internal state when omitted. */
   chatOpen?: boolean
   onChatOpenChange?: (open: boolean) => void
+  /** Forwarded to the docked chat so the desk can harvest Pip's latest reply as a draft. */
+  onChatConversationLifecycle?: (event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) => void
 }
 
 export function CockpitShell({
@@ -45,6 +47,7 @@ export function CockpitShell({
   workFeedContent,
   chatOpen,
   onChatOpenChange,
+  onChatConversationLifecycle,
 }: CockpitShellProps) {
   const [internalShowChat, setInternalShowChat] = useState(false)
   const showChat = chatOpen ?? internalShowChat
@@ -115,6 +118,7 @@ export function CockpitShell({
                 label: 'Current Briefings queue',
               }}
               onContextActionResolved={onRefresh}
+              onConversationLifecycle={onChatConversationLifecycle}
               onClose={() => setShowChat(false)}
             />
           </aside>

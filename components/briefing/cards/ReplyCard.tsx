@@ -86,6 +86,7 @@ export function ReplyCard({ item, actions }: { item: BriefingCard; actions: Brie
       busy={actions.busy}
       onSelect={actions.select}
       onSnooze={actions.snooze}
+      onSnoozeUntil={actions.snoozeUntil}
       onMore={actions.openMore}
       actions={
         <>
