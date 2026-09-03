@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 
 import WorkIndexPage from '@/app/(public)/work/page'
 import { CASE_STUDIES } from '@/lib/seo/site'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { actFor } from '@/components/marketing/stage/ScrollCraft'
 import { caseWindow, WORK_ACTS_ATTR } from '@/components/marketing/paper/WorkPinned'
 
@@ -51,8 +52,37 @@ describe('/work is a pinned-plate sequence over the case studies', () => {
       const srcs = imageSources(slide)
       expect(srcs).toHaveLength(1)
       expect(srcs[0]).toContain(c.cover)
+      expect(c.cover).toMatch(/^\/images\/shot-[a-z-]+\.jpg$/)
       expect(slide.querySelector('figure img')?.getAttribute('alt')).toBe(`${c.client}: ${c.headline}`)
     })
+  })
+
+  it('never renders a generated still: every image is a captured shot', () => {
+    const { container } = render(<WorkIndexPage />)
+    const srcs = imageSources(container)
+    expect(srcs.length).toBeGreaterThan(0)
+    for (const src of srcs) {
+      expect(src).not.toContain('case-')
+      expect(src).toContain('/images/shot-')
+    }
+  })
+
+  it('gives the head its one terracotta block behind a real plate with a credit', () => {
+    const { container } = render(<WorkIndexPage />)
+    const head = container.querySelector<HTMLElement>('.sc-article__head--plated')
+    expect(head).not.toBeNull()
+    expect(container.querySelectorAll('.sc-block')).toHaveLength(1)
+    const plate = head?.querySelector('.sc-plate--wide')
+    expect(plate).not.toBeNull()
+    expect(imageSources(plate as ParentNode)[0]).toContain(WORK_SHOTS.ahsLaw.src)
+    expect(plate?.querySelector('img')?.getAttribute('alt')).toBe(WORK_SHOTS.ahsLaw.alt)
+    expect(plate?.querySelector('figcaption')?.textContent).toMatch(/^AHS Law\./)
+  })
+
+  it('names each slide as its own act so ScrollCraft can make the others inert', () => {
+    const { container } = render(<WorkIndexPage />)
+    const slides = Array.from(container.querySelectorAll<HTMLElement>('.wp-slide'))
+    expect(slides.map((s) => s.getAttribute('data-sc-show'))).toEqual(CASE_STUDIES.map((c) => c.slug))
   })
 
   it('mounts the scroll stage with one act per case, in order', () => {
@@ -77,14 +107,20 @@ describe('/work is a pinned-plate sequence over the case studies', () => {
     expect(actFor(1, acts)).toBe(CASE_STUDIES[CASE_STUDIES.length - 1].slug)
   })
 
-  it('opens on the first case and holds the last one through the end of the span', () => {
+  it('opens on the first case, holds the last one through the end, and crossfades at every act boundary', () => {
     const n = CASE_STUDIES.length
     const first = caseWindow(0, n)
     const last = caseWindow(n - 1, n)
     expect(first.s0).toBeLessThan(0)
     expect(last.s1).toBeGreaterThan(1)
     for (let i = 1; i < n; i += 1) {
-      expect(caseWindow(i, n).s0).toBeCloseTo(caseWindow(i - 1, n).s1)
+      const boundary = i / n
+      const outgoing = caseWindow(i - 1, n)
+      const incoming = caseWindow(i, n)
+      // Windows overlap, and the overlap is centred on the act boundary, so
+      // neither slide is ever at zero while the other is still coming in.
+      expect(incoming.s0).toBeLessThan(outgoing.s1)
+      expect((incoming.s0 + outgoing.s1) / 2).toBeCloseTo(boundary)
     }
   })
 

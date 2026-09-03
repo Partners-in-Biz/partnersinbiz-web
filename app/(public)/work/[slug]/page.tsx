@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CASE_STUDIES, SITE } from '@/lib/seo/site'
+import { WORK_SHOTS, type StageStill } from '@/lib/marketing/stage-content'
 import { JsonLd, breadcrumbSchema, caseStudySchema } from '@/lib/seo/schema'
 import { Article, ArticleHead, ArticleList, ArticleRow, CtaSentence, Plate, Quote } from '@/components/marketing/paper/Article'
 
@@ -11,7 +12,8 @@ interface CaseContent {
   contact: { name: string; role: string }
   pullQuote: string
   outcomeQuote: { quote: string; author: string; role: string; avatar: string }
-  visuals: [string, string]
+  /** One real screenshot of the shipped work for "What we built". Never a generated still. */
+  visual: StageStill
   siteUrl?: string
   brief: string
   insight: string
@@ -31,7 +33,7 @@ const CONTENT: Record<Slug, CaseContent> = {
       role: 'Founder, Partners in Biz',
       avatar: '/images/shot-velox.jpg',
     },
-    visuals: ['/images/case-velox-dashboard.png', '/images/shot-velox.jpg'],
+    visual: WORK_SHOTS.velox,
     siteUrl: 'https://veloxmath.com/',
     brief:
       'Velox is a mental math training product built around a sharp promise: beat your calculator, then keep improving with structured practice. The app had to work as a public web product and as a store-ready mobile app without splitting the codebase. The brief was not just "make a math app". It needed a 60-second challenge that anyone could understand, a deeper Math Gym for repeat practice, lesson progression, records, streaks, language-specific training, and a payment path that would survive real App Store and Play Store review.',
@@ -61,7 +63,7 @@ const CONTENT: Record<Slug, CaseContent> = {
       role: 'Founder, Partners in Biz',
       avatar: '/images/shot-lumen.jpg',
     },
-    visuals: ['/images/case-lumen-language.png', '/images/shot-lumen.jpg'],
+    visual: WORK_SHOTS.lumen,
     siteUrl: 'https://lumenspeeds.com/',
     brief:
       'Lumen is a speed-reading and focus trainer for people who want to improve reading speed without losing comprehension. The product expanded into multilingual use: someone can use the interface in English, Afrikaans, or Portuguese while training in a different language path. That meant the app could not treat "language" as a single setting. It needed separate app-language and training-language state, per-language progress, reading history, spaced repetition cards, analytics, onboarding, and a native payment model across web, iOS, and Android.',
@@ -92,7 +94,7 @@ const CONTENT: Record<Slug, CaseContent> = {
       role: 'Co-founder, Athleet',
       avatar: '/images/shot-athleet.jpg',
     },
-    visuals: ['/images/case-athleet-ops.jpg', '/images/shot-athleet.jpg'],
+    visual: WORK_SHOTS.athleet,
     brief:
       'Athleet came to us with a problem most growing sports clubs share but rarely articulate well: their administrative spine was held together with WhatsApp groups, a scattering of Google Sheets, and the occasional PDF emailed at 11pm. Coaches were re-typing rosters. Parents were asking the same questions every week. Membership numbers had quietly tripled in eighteen months and the cracks were now structural. They had tried two off-the-shelf club platforms before us, both built for North-American leagues with rigid season models that did not match how a South African club actually runs. The brief was deceptively simple: build the system we should have started with three years ago, and make it boring enough that admins trust it on day one.',
     insight:
@@ -118,9 +120,9 @@ const CONTENT: Record<Slug, CaseContent> = {
         'They write code like grown-ups. No stubs, no "we will fix it in v2", no surprises in the invoice. The cutover happened on a Wednesday afternoon and nobody noticed except our analytics dashboard.',
       author: 'Sarah van Niekerk',
       role: 'Head of Product, Loyalty Plus',
-      avatar: '/images/case-loyaltyplus-cover.jpg',
+      avatar: '/images/shot-loyaltyplus.jpg',
     },
-    visuals: ['/images/case-loyaltyplus-mobile.jpg', '/images/case-loyaltyplus-cover.jpg'],
+    visual: WORK_SHOTS.loyaltyPlus,
     brief:
       'Loyalty Plus runs the loyalty programmes for a portfolio of aviation clients, airlines, MROs, and ground service providers across three continents. Their platform was ten years old and showing every one of those years. The original Angular 4 codebase had been patched, forked, half-migrated to Angular 8, then frozen. Initial page loads averaged eight seconds on cellular, the iOS Cordova wrapper crashed on long lists, and any new feature took six weeks of cautious archaeology before code could be written. The brief was unambiguous: modernise the front-end without touching the data layer their enterprise customers had built integrations against, and do it without a single minute of customer-facing downtime.',
     insight:
@@ -148,7 +150,7 @@ const CONTENT: Record<Slug, CaseContent> = {
       role: 'Client team',
       avatar: '/images/shot-ahs-law.jpg',
     },
-    visuals: ['/images/case-ahs-law-portal.jpg', '/images/shot-ahs-law.jpg'],
+    visual: WORK_SHOTS.ahsLaw,
     brief:
       'AHS Law is a boutique commercial litigation and corporate advisory firm in Pretoria. They came to us with two problems that turned out to be the same problem. The marketing site, built years earlier on a generic WordPress theme, was ranking nowhere, competitors with half the credentials sat above them on every primary search term. And client document exchange happened via email, with the inevitable 30MB PDFs bouncing off Gmail limits and partners having no audit trail of what had been signed when. The directors did not want a brochure refresh. They wanted measurable inbound and a client experience that matched the standard of work they delivered.',
     insight:
@@ -176,7 +178,7 @@ const CONTENT: Record<Slug, CaseContent> = {
       role: 'Founder, Scrolled Brain',
       avatar: '/images/shot-scrolledbrain.jpg',
     },
-    visuals: ['/images/case-scrolledbrain-dashboard.jpg', '/images/shot-scrolledbrain.jpg'],
+    visual: WORK_SHOTS.scrolledBrain,
     brief:
       'Scrolled Brain is a speed-reading and focus platform aimed at students and knowledge workers. The founder came to us with a marketing site that was technically functional but converting poorly, and an analytics bill on PostHog that was eating more than fifteen percent of monthly revenue. Worse, the data PostHog was collecting did not actually answer the questions the team needed to make product decisions. The brief had two halves: rebuild the marketing site as a serious conversion surface, and build a custom analytics stack that costs a fraction of what they were paying and tells them exactly which onboarding step is bleeding users.',
     insight:
@@ -276,7 +278,15 @@ export default async function CaseStudyPage({
         }
         title={study.headline}
         lede={study.summary}
-        plate={<Plate src={study.cover} alt={`${study.client}: ${study.headline}`} wide priority />}
+        plate={
+          <Plate
+            src={study.cover}
+            alt={`${study.client}: ${study.headline}`}
+            caption={`${study.client}. ${study.metrics[0].value} ${study.metrics[0].label}.`}
+            wide
+            priority
+          />
+        }
       >
         {content.siteUrl && (
           <p className="sc-body">
@@ -298,11 +308,11 @@ export default async function CaseStudyPage({
       <ArticleRow
         title="What we built"
         aside={
-          <>
-            {content.visuals.map((src, i) => (
-              <Plate key={src} src={src} alt={`${study.client}, screen ${i + 1}`} />
-            ))}
-          </>
+          <Plate
+            src={content.visual.src}
+            alt={content.visual.alt}
+            caption={`${study.client}. ${study.metrics[1].value} ${study.metrics[1].label}.`}
+          />
         }
       >
         <p>{content.build}</p>

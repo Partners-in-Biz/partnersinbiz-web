@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { CASE_STUDIES, SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { Article, ArticleHead, ArticleRow, CtaSentence, Quote } from '@/components/marketing/paper/Article'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
+import { Article, ArticleHead, ArticleRow, CtaSentence, Plate, Quote } from '@/components/marketing/paper/Article'
 import { WorkPinned } from '@/components/marketing/paper/WorkPinned'
 
 const TITLE = 'Work'
@@ -41,6 +42,15 @@ export default function WorkIndexPage() {
         kicker="Work"
         title="Real builds. Real names."
         lede="Every project here is a live codebase we can point at. Law firms, sports clubs, an aviation loyalty platform, and two apps in both stores."
+        plate={
+          <Plate
+            src={WORK_SHOTS.ahsLaw.src}
+            alt={WORK_SHOTS.ahsLaw.alt}
+            caption="AHS Law. Number one on Google for its primary practice term in eight weeks."
+            wide
+            priority
+          />
+        }
       />
 
       <WorkPinned />

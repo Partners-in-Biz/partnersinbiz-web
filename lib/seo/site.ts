@@ -178,7 +178,7 @@ export const CASE_STUDIES = [
       { value: '4.1x', label: 'faster page loads' },
       { value: '12+', label: 'enterprise clients' },
     ],
-    cover: '/images/case-loyaltyplus-cover.jpg',
+    cover: '/images/shot-loyaltyplus.jpg',
     stack: ['Angular', 'Ionic', 'Capacitor', 'Firebase'],
     href: '/work/loyalty-plus',
   },
@@ -224,7 +224,7 @@ export const TESTIMONIALS = [
       'Pip and the Partners in Biz team rebuilt our entire platform in 6 weeks. We shipped what our last vendor took 9 months to half-finish.',
     author: 'Founder', // PLACEHOLDER
     role: 'CEO, Athleet',
-    avatar: '/images/case-athleet-cover.jpg',
+    avatar: '/images/shot-athleet.jpg',
     company: 'Athleet',
   },
   {
@@ -232,7 +232,7 @@ export const TESTIMONIALS = [
       'They write code like grown-ups. No stubs, no "we will fix it in v2", no surprises in the invoice.',
     author: 'Operations Lead', // PLACEHOLDER
     role: 'Director, AHS Law',
-    avatar: '/images/case-ahs-law-cover.jpg',
+    avatar: '/images/shot-ahs-law.jpg',
     company: 'AHS Law',
   },
   {
@@ -240,7 +240,7 @@ export const TESTIMONIALS = [
       'The thing that sold me was the process page. They show you exactly what they will do, and then they do it.',
     author: 'Product Lead', // PLACEHOLDER
     role: 'Product, Loyalty Plus',
-    avatar: '/images/case-loyaltyplus-cover.jpg',
+    avatar: '/images/shot-loyaltyplus.jpg',
     company: 'Loyalty Plus',
   },
 ] as const;

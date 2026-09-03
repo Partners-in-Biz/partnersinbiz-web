@@ -19,4 +19,5 @@ export const WORK_SHOTS = {
   velox: { src: '/images/shot-velox.jpg', alt: 'The Velox site: "Beat your calculator in 60 seconds" with App Store and Google Play buttons' },
   lumen: { src: '/images/shot-lumen.jpg', alt: 'The Lumen site: "Train reading in any language" above a live 600 words-per-minute demo' },
   scrolledBrain: { src: '/images/shot-scrolledbrain.jpg', alt: 'The Scrolled Brain landing page: "How cooked is your attention span?" with a take-the-test button' },
+  loyaltyPlus: { src: '/images/shot-loyaltyplus.jpg', alt: 'The Lao Airlines ChampaBonus member web on the Loyalty Plus platform: "Welcome to ChampaBonus" above sign-in and sign-up buttons' },
 } as const satisfies Record<string, StageStill>

@@ -8,7 +8,7 @@
 
 .wp-root {
   --sc-p: 0;
-  --wp-fade: 0.02;
+  --wp-fade: 0.04;
   --wp-span: 390svh;
   position: relative;
   height: calc(100svh + var(--wp-span));
@@ -49,7 +49,11 @@
   list-style: none;
 }
 .wp-rail__item {
-  color: color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), rgba(78, 72, 65, 0.55));
+  color: color-mix(
+    in srgb,
+    var(--sc-accent) calc(var(--on) * 100%),
+    color-mix(in srgb, var(--sc-ink-soft) 55%, transparent)
+  );
   border-bottom: 2px solid color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), transparent);
   padding-bottom: calc(var(--sc-u) * 1);
   white-space: nowrap;
@@ -70,16 +74,21 @@
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: calc(var(--sc-u) * 8);
   align-items: center;
-  opacity: var(--on);
-  /* The aperture: nothing is hit-testable while a slide is off. */
-  clip-path: inset(calc((1 - var(--on)) * 50%));
+  /* Plates crossfade through the whole window; copy swaps in the middle of
+     it (off below --on 0.5) so two headlines never sit on top of each other. */
+  --copy-on: clamp(0, calc(var(--on) * 2 - 1), 1);
+  /* The aperture: nothing is hit-testable while a slide is off. It only
+     closes over the last twelfth of the fade, so a crossfading plate is never
+     cropped and cannot peek through as a grey box. */
+  clip-path: inset(calc(clamp(0, 1 - var(--on) * 12, 1) * 50%));
 }
 .wp-copy {
   grid-column: 1 / 6;
   display: grid;
   gap: calc(var(--sc-u) * 5);
   align-content: center;
-  transform: translateY(calc((1 - var(--on)) * 18px));
+  opacity: var(--copy-on);
+  transform: translateY(calc((1 - var(--copy-on)) * 18px));
 }
 .wp-meta {
   margin: 0;
@@ -142,6 +151,7 @@
   margin: 0;
   background: var(--sc-surface);
   box-shadow: 12px 12px 0 var(--sc-accent);
+  opacity: var(--on);
   transform: translateY(calc((1 - var(--on)) * -14px));
 }
 .wp-plate img {
@@ -153,7 +163,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(26, 23, 20, 0.18);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
   z-index: 2;
 }
 
@@ -176,7 +186,8 @@
   }
 }
 
-/* ── Stacked: narrow screens and reduced motion. Everything visible. ───── */
+/* ── Stacked: narrow screens and reduced motion. Everything visible, and
+   --sc-gate: 0 tells ScrollCraft not to make any slide inert. ───────────── */
 
 @media (max-width: 860px), (prefers-reduced-motion: reduce) {
   .wp-root {
@@ -194,9 +205,7 @@
   .wp-slide {
     position: relative;
     inset: auto;
-    opacity: 1 !important;
     clip-path: none !important;
-    visibility: visible !important;
     display: grid;
     grid-template-columns: 1fr;
     row-gap: calc(var(--sc-u) * 8);
@@ -206,6 +215,7 @@
   .wp-copy,
   .wp-plate {
     grid-column: 1 / -1;
+    opacity: 1 !important;
     transform: none !important;
   }
   .wp-plate {
