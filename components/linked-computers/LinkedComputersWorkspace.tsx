@@ -3,8 +3,16 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { PairComputerDialog } from './PairComputerDialog'
 import { AccessibleDialog, AccessibleMenu } from './AccessibleOverlay'
+import { ShareDeviceForm, grantAccessLabel, type ShareAccessMode } from './ShareDeviceDialog'
 
-type Grant = { orgId: string; orgLabel?: string; status: string; accessMode?: 'owner' | 'organization' | 'selected_users' }
+type Grant = {
+  orgId: string
+  orgLabel?: string
+  status: string
+  accessMode?: ShareAccessMode
+  allowedUserIds?: string[]
+  allowedTeamIds?: string[]
+}
 type Mapping = { mappingId: string; orgId: string; workspaceId: string; label: string; status: string }
 type DesiredAgentRow = { agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }
 type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
@@ -41,7 +49,6 @@ type ExecutionLocation = {
   orgId?: string
   orgName?: string
 }
-type GrantAccessChoice = 'owner' | 'organization'
 const LINKED_COMPUTERS_REFRESH_INTERVAL = 30_000
 
 const SAFE_ERRORS: Record<number, string> = {
@@ -54,7 +61,6 @@ const SAFE_ERRORS: Record<number, string> = {
 
 function safeError(status: number) { return SAFE_ERRORS[status] ?? 'Something went wrong. Try again.' }
 function platformLabel(platform: string) { return platform === 'macos' ? 'macOS' : platform === 'linux' ? 'Linux' : 'Windows' }
-function grantAccessLabel(grant: Grant) { return grant.accessMode === 'organization' ? 'Everyone in organisation' : grant.accessMode === 'selected_users' ? 'Selected users' : 'Only me' }
 function pendingMappingCommand(mappingId: string) { return `pib-runtime map --mapping ${mappingId} --folder <local folder>` }
 function seenMs(value: unknown): number | null {
   if (typeof value === 'string') { const ms = Date.parse(value); return Number.isFinite(ms) ? ms : null }
@@ -80,7 +86,9 @@ export function LinkedComputersWorkspace() {
   const [name, setName] = useState('')
   const [access, setAccess] = useState<Device | null>(null)
   const [orgId, setOrgId] = useState('')
-  const [grantAccessMode, setGrantAccessMode] = useState<GrantAccessChoice | null>('owner')
+  const [shareTeams, setShareTeams] = useState<Array<{ teamId: string; name: string }>>([])
+  const [shareMembers, setShareMembers] = useState<Array<{ uid: string; displayName: string }>>([])
+  const [shareTeamsEnabled, setShareTeamsEnabled] = useState(false)
   const [workspaceId, setWorkspaceId] = useState('')
   const [workspaceLabel, setWorkspaceLabel] = useState('')
   const [mappingCommand,setMappingCommand]=useState('')
@@ -195,7 +203,9 @@ export function LinkedComputersWorkspace() {
   function openAccessDialog(device: Device) {
     setAccess(device)
     setOrgId('')
-    setGrantAccessMode('owner')
+    setShareTeams([])
+    setShareMembers([])
+    setShareTeamsEnabled(false)
     setWorkspaceId('')
     setWorkspaceLabel('')
     setMappingCommand('')
@@ -206,8 +216,82 @@ export function LinkedComputersWorkspace() {
     setWorkspaceId('')
     setWorkspaceLabel('')
     setMappingCommand('')
-    const existingMode = access?.grants?.find(grant => grant.orgId === selectedOrgId)?.accessMode
-    setGrantAccessMode(existingMode === 'organization' || existingMode === 'owner' ? existingMode : existingMode === 'selected_users' ? null : 'owner')
+  }
+
+  useEffect(() => {
+    if (!access || !orgId) {
+      setShareTeams([])
+      setShareMembers([])
+      setShareTeamsEnabled(false)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const [teamsResponse, membersResponse] = await Promise.all([
+          fetch(`/api/v1/orgs/${encodeURIComponent(orgId)}/teams`),
+          fetch(`/api/v1/portal/settings/team?orgId=${encodeURIComponent(orgId)}`),
+        ])
+        if (cancelled) return
+        if (teamsResponse.status === 404) {
+          setShareTeamsEnabled(false)
+          setShareTeams([])
+        } else if (teamsResponse.ok) {
+          const body = await teamsResponse.json().catch(() => null)
+          const rows = Array.isArray(body?.data?.teams) ? body.data.teams : Array.isArray(body?.teams) ? body.teams : []
+          setShareTeamsEnabled(true)
+          setShareTeams(rows.flatMap((row: unknown) => {
+            if (!row || typeof row !== 'object') return []
+            const team = row as { teamId?: unknown; name?: unknown }
+            return typeof team.teamId === 'string'
+              ? [{ teamId: team.teamId, name: typeof team.name === 'string' && team.name.trim() ? team.name : team.teamId }]
+              : []
+          }))
+        } else {
+          setShareTeamsEnabled(false)
+          setShareTeams([])
+        }
+        if (membersResponse.ok) {
+          const body = await membersResponse.json().catch(() => null)
+          const rows = Array.isArray(body?.members) ? body.members : []
+          setShareMembers(rows.flatMap((row: unknown) => {
+            if (!row || typeof row !== 'object') return []
+            const member = row as { uid?: unknown; displayName?: unknown; firstName?: unknown; lastName?: unknown }
+            const uid = typeof member.uid === 'string' ? member.uid : ''
+            if (!uid) return []
+            const displayName = typeof member.displayName === 'string' && member.displayName.trim()
+              ? member.displayName
+              : [member.firstName, member.lastName].filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).join(' ') || uid
+            return [{ uid, displayName }]
+          }))
+        } else {
+          setShareMembers([])
+        }
+      } catch {
+        if (!cancelled) {
+          setShareTeamsEnabled(false)
+          setShareTeams([])
+          setShareMembers([])
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [access, orgId])
+
+  async function saveShareAccess(input: { accessMode: ShareAccessMode; allowedUserIds: string[]; allowedTeamIds: string[] }) {
+    if (!access || !orgId) return
+    await mutate(`/api/v1/linked-computers/${access.deviceId}/grants`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        orgId,
+        status: 'active',
+        accessMode: input.accessMode,
+        ...(input.accessMode === 'selected_users' || input.accessMode === 'teams' ? { allowedUserIds: input.allowedUserIds } : {}),
+        ...(input.accessMode === 'teams' ? { allowedTeamIds: input.allowedTeamIds } : {}),
+      }),
+    })
   }
 
   async function openAgentsDialog(device: Device) {
@@ -487,11 +571,21 @@ export function LinkedComputersWorkspace() {
                 <div>
                   <p className="text-xs font-medium">Organisation access</p>
                   {device.grants?.length ? (
-                    device.grants.map((g) => (
-                      <p key={g.orgId} className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-                        {g.orgLabel ?? g.orgId} · {grantAccessLabel(g)} · {g.status}
-                      </p>
-                    ))
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {device.grants.map((g) => {
+                        const orgLabel = g.orgLabel
+                          || workspaceOptions.find((option) => option.orgId === g.orgId)?.orgName
+                          || g.orgId
+                        return (
+                          <span
+                            key={g.orgId}
+                            className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] text-primary"
+                          >
+                            {`${orgLabel || g.orgId} · ${grantAccessLabel(g)}`}
+                          </span>
+                        )
+                      })}
+                    </div>
                   ) : (
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No organisation granted</p>
                   )}
@@ -720,60 +814,17 @@ export function LinkedComputersWorkspace() {
               )}
             </select>
           </label>
-          <fieldset className="mt-3 space-y-2" disabled={!orgId}>
-            <legend className="text-sm font-medium">Who can use this computer?</legend>
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-2.5 text-sm">
-              <input
-                aria-label="Only me"
-                type="radio"
-                name="computer-access"
-                value="owner"
-                checked={grantAccessMode === 'owner'}
-                onChange={() => setGrantAccessMode('owner')}
-              />
-              <span>
-                <span className="block font-medium">Only me</span>
-                <span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">
-                  Only you can start chats on this computer from this organisation.
-                </span>
-              </span>
-            </label>
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-2.5 text-sm">
-              <input
-                aria-label="Everyone in organisation"
-                type="radio"
-                name="computer-access"
-                value="organization"
-                checked={grantAccessMode === 'organization'}
-                onChange={() => setGrantAccessMode('organization')}
-              />
-              <span>
-                <span className="block font-medium">Everyone in organisation</span>
-                <span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">
-                  Every organisation member can start chats on this computer.
-                </span>
-              </span>
-            </label>
-          </fieldset>
-          {orgId && grantAccessMode === null && (
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
-              This computer is currently shared with selected users. Choose a new access level to replace
-              it.
-            </p>
-          )}
-          <button
-            type="button"
-            disabled={!orgId || grantAccessMode === null}
-            className="btn-pib-secondary btn-pib-sm mt-3"
-            onClick={() =>
-              mutate(`/api/v1/linked-computers/${access.deviceId}/grants`, {
-                method: 'PUT',
-                body: JSON.stringify({ orgId, status: 'active', accessMode: grantAccessMode }),
-              })
-            }
-          >
-            Save organisation access
-          </button>
+          <ShareDeviceForm
+            device={access}
+            orgId={orgId}
+            orgName={workspaceOptions.find((option) => option.orgId === orgId)?.orgName}
+            grant={access.grants?.find((grant) => grant.orgId === orgId) ?? null}
+            teams={shareTeams}
+            members={shareMembers}
+            teamsEnabled={shareTeamsEnabled}
+            disabled={!orgId}
+            onSubmit={saveShareAccess}
+          />
           <label className="mt-3 block text-sm">
             Workspace
             <select

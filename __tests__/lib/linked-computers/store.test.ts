@@ -332,6 +332,47 @@ describe('linked computers tenant domain', () => {
     expect(rows.get('linked_device_grants/org-a_device-a')?.revokedAt).toBe(revokedAt)
   })
 
+  it('putDeviceGrant rejects an archived team', async () => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'member', status: 'active' },
+      'org_teams/org-a_sales': { orgId: 'org-a', status: 'archived' },
+    })
+    await expect(putDeviceGrant({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'user-a', status: 'active',
+      capabilities: ['workspace.execute'], accessMode: 'teams', allowedTeamIds: ['org-a_sales'],
+    }, { db: db as never, now })).rejects.toThrow('unknown or archived team')
+  })
+
+  it('putDeviceGrant rejects a team from another org', async () => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'member', status: 'active' },
+      'org_teams/org-b_sales': { orgId: 'org-b', status: 'active' },
+    })
+    await expect(putDeviceGrant({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'user-a', status: 'active',
+      capabilities: ['workspace.execute'], accessMode: 'teams', allowedTeamIds: ['org-b_sales'],
+    }, { db: db as never, now })).rejects.toThrow('unknown or archived team')
+  })
+
+  it('owner activating a grant on a personal device writes grant.owner_shared', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerType: 'user', ownerUserId: 'user-a', status: 'active' },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'member', status: 'active' },
+    })
+    await putDeviceGrant({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'user-a', status: 'active',
+      capabilities: ['workspace.execute'], accessMode: 'organization',
+    }, { db: db as never, now })
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({
+      action: 'grant.owner_shared', actorUserId: 'user-a', deviceId: 'device-a', orgId: 'org-a',
+    }))
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({
+      action: 'grant.changed', actorUserId: 'user-a', deviceId: 'device-a', orgId: 'org-a',
+    }))
+  })
+
   it('supports multiple tenant-scoped Workspace mappings without storing local paths', async () => {
     const { db, rows } = fakeDb({
       'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },

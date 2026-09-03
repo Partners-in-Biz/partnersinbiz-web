@@ -8,6 +8,7 @@ import React, { cloneElement, isValidElement, useCallback, useEffect, useMemo, u
 import { useSearchParams } from 'next/navigation'
 import { MemberRow } from '@/components/settings/MemberRow'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
+import { TeamsPanel } from '@/components/settings/team/TeamsPanel'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { OrgRole } from '@/lib/organizations/types'
 import { PageHeader } from '@/components/ui/AppFoundation'
@@ -92,6 +93,7 @@ export default function TeamPage() {
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const teamEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
   const [members, setMembers] = useState<Member[]>([])
+  const [orgId, setOrgId] = useState(orgScope.orgId ?? orgScope.id ?? '')
   const [myProfile, setMyProfile] = useState<MyProfile>({ uid: '', role: null })
   const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -132,7 +134,10 @@ export default function TeamPage() {
     // Get current uid from org endpoint
     fetch('/api/v1/portal/org')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.user?.uid) setMyProfile(p => ({ ...p, uid: d.user.uid })) })
+      .then(d => {
+        if (d?.user?.uid) setMyProfile(p => ({ ...p, uid: d.user.uid }))
+        if (typeof d?.org?.id === 'string' && d.org.id.trim()) setOrgId(d.org.id)
+      })
       .catch(() => {})
   }, [teamEndpoint])
 
@@ -361,6 +366,13 @@ export default function TeamPage() {
         canPrepareCrmInvite={canInvite}
         onPrepareCrmInvite={prepareCrmInvite}
       />
+
+      {orgId ? (
+        <TeamsPanel
+          orgId={orgId}
+          members={members.map(member => ({ uid: member.uid, displayName: memberDisplayName(member) }))}
+        />
+      ) : null}
 
       <section className="pib-card-section">
         <div className="pib-card-section-header flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">

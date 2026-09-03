@@ -205,6 +205,15 @@ export const DELETE = withAuth('admin', async (req, user, ctx) => {
     await userRef.set(userUpdates, { merge: true })
   }
 
+  const { removeUserFromAllOrgTeams } = await import('@/lib/org-teams/store')
+  const { revokeMemberShareAccess } = await import('@/lib/llm-providers/share-cascade')
+  await removeUserFromAllOrgTeams({ orgId: id, userId: targetUserId }).catch((err) => {
+    console.error('[org-teams-member-remove]', err)
+  })
+  await revokeMemberShareAccess({ orgId: id, userId: targetUserId, reason: 'member_removed' }).catch((err) => {
+    console.error('[org-teams-share-revoke]', err)
+  })
+
   await adminDb.collection('orgMembers').doc(`${id}_${targetUserId}`).delete().catch(() => undefined)
 
   await markPlatformContactFormerOrgMember({

@@ -6,9 +6,11 @@ import {
   llmConnectionId,
   llmConnectionScopeKey,
   maskLlmConnection,
+  normalizeLlmShareTargets,
   type LlmConnectionScope,
   type LlmProviderConnection,
   type LlmProviderConnectionMasked,
+  type LlmShareTargets,
 } from './types'
 import { encryptLlmCredentials, type LlmConnectionCredentials } from './crypto'
 
@@ -30,6 +32,7 @@ export interface UpsertLlmConnectionInput {
   authKind?: LlmProviderConnection['authKind']
   meta?: Record<string, unknown>
   status?: LlmProviderConnection['status']
+  shareTargets?: LlmShareTargets
 }
 
 export async function upsertLlmProviderConnection(
@@ -42,6 +45,14 @@ export async function upsertLlmProviderConnection(
   const scopeKeyRef = llmConnectionScopeKey(input)
   const ref = adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id)
   const existing = await ref.get()
+  const existingData = existing.exists ? (existing.data() as LlmProviderConnection) : null
+  const orgShareTargets = input.scope === 'org'
+    ? normalizeLlmShareTargets(
+        input.shareTargets !== undefined
+          ? input.shareTargets
+          : existingData?.shareTargets,
+      )
+    : undefined
   const doc: Omit<LlmProviderConnection, 'createdAt' | 'updatedAt'> = {
     id,
     provider: input.provider,
@@ -66,6 +77,7 @@ export async function upsertLlmProviderConnection(
     lastError: null,
     createdBy: actor.uid,
     createdByType: actor.type,
+    ...(orgShareTargets ? { shareTargets: orgShareTargets } : {}),
   }
   await ref.set({
     ...doc,
@@ -108,6 +120,23 @@ export function canManageLlmConnection(
   return conn.scope === 'user' ? conn.ownerUid === caller.uid : conn.orgId === caller.orgId
 }
 
+export async function updateLlmConnectionShareTargets(
+  id: string,
+  shareTargets: LlmShareTargets,
+  actor: { uid: string },
+): Promise<LlmProviderConnectionMasked> {
+  void actor
+  const conn = await getLlmProviderConnection(id)
+  if (!conn) throw new Error('Connection not found')
+  if (conn.scope !== 'org') throw new Error('shareTargets only apply to organisation connections')
+  await adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id).update({
+    shareTargets: normalizeLlmShareTargets(shareTargets),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  const updated = await getLlmProviderConnection(id)
+  return maskLlmConnection(updated as LlmProviderConnection)
+}
+
 export async function revokeLlmProviderConnection(
   id: string,
   caller: { orgId: string; uid: string },
@@ -120,7 +149,9 @@ export async function revokeLlmProviderConnection(
     credentialsEnc: null,
     updatedAt: FieldValue.serverTimestamp(),
   })
+  const { enqueueCredentialRevocations } = await import('./linked-delivery')
   const { revokeConnectionLlmCredentialBindings } = await import('./bindings')
+  await enqueueCredentialRevocations(conn)
   await revokeConnectionLlmCredentialBindings(id)
   const updated = await getLlmProviderConnection(id)
   return maskLlmConnection(updated as LlmProviderConnection)

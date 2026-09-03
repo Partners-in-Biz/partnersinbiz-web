@@ -7,11 +7,15 @@ import {
   getLlmProviderConnection,
   revokeLlmProviderConnection,
   canManageLlmConnection,
+  updateLlmConnectionShareTargets,
 } from '@/lib/llm-providers/store'
+import { normalizeLlmShareTargets } from '@/lib/llm-providers/types'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 import { callAgentPath } from '@/lib/agents/team'
 import type { AgentId } from '@/lib/agents/types'
 import { enqueueCredentialRevocations } from '@/lib/llm-providers/linked-delivery'
+import { reconcileShareBindingsForConnection } from '@/lib/llm-providers/share-cascade'
+import { getOrgTeam } from '@/lib/org-teams/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,4 +105,37 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   } catch (err) {
     return apiError(err instanceof Error ? err.message : 'Sync failed', 502)
   }
+})
+
+export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, ctx) => {
+  const { id } = await (ctx as Ctx).params
+  const orgId = resolveOrgId(req, user)
+  if (!orgId) return apiError('orgId is required', 400)
+  if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+
+  const body = await req.json().catch(() => null) as { shareTargets?: unknown } | null
+  if (!body || typeof body !== 'object' || !('shareTargets' in body)) {
+    return apiError('shareTargets is required', 400)
+  }
+
+  const existing = await getLlmProviderConnection(id)
+  if (!existing) return apiError('Connection not found', 404)
+  if (existing.scope !== 'org') return apiError('shareTargets only apply to organisation connections', 400)
+  if (existing.orgId !== orgId) return apiError('Forbidden', 403)
+  if (!(await canWriteOrgLlmConnection(user, orgId))) {
+    return apiError('Only organisation admins can update organisation credential sharing.', 403)
+  }
+
+  const shareTargets = normalizeLlmShareTargets(body.shareTargets)
+  for (const teamId of shareTargets.teamIds) {
+    const team = await getOrgTeam(orgId, teamId)
+    if (!team) return apiError('unknown team', 400)
+  }
+
+  const connection = await updateLlmConnectionShareTargets(id, shareTargets, { uid: user.uid })
+  const full = await getLlmProviderConnection(id)
+  if (full) {
+    await reconcileShareBindingsForConnection(full, user.uid)
+  }
+  return apiSuccess({ connection })
 })

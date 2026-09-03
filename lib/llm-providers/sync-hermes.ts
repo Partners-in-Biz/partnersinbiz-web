@@ -21,6 +21,7 @@ import { putDesiredLlmCredentialBinding, updateLlmCredentialBinding } from './bi
 import { enqueueCredentialDelivery } from './linked-delivery'
 import {
   resolveOrgLlmSyncTargets,
+  resolveOrgShareLinkedComputerTargets,
   resolveUserLlmSyncTargets,
   type LlmSyncTarget,
 } from './sync-targets'
@@ -113,7 +114,7 @@ export async function syncLlmConnectionToHermes(
   }
 
   if (conn.scope === 'org') {
-    return pushToTargets(connectionId, conn, credentials, await resolveOrgTargets(conn.orgId, options.agentIds))
+    return pushToTargets(connectionId, conn, credentials, await resolveOrgTargets(conn, options.agentIds))
   }
 
   // Personal connection
@@ -208,11 +209,16 @@ export async function ensureFreshXaiCredentialForDispatch(input: {
   return { refreshed: true }
 }
 
-async function resolveOrgTargets(orgId: string, agentIds?: string[]) {
-  const resolved = await resolveOrgLlmSyncTargets(orgId, agentIds)
+async function resolveOrgTargets(connection: LlmProviderConnection, agentIds?: string[]) {
+  const orgTargets = await resolveOrgLlmSyncTargets(connection.orgId, agentIds)
+  const share = await resolveOrgShareLinkedComputerTargets({
+    connection,
+    preferredAgentIds: agentIds,
+  })
+  const targets = [...orgTargets.targets, ...share.targets]
   return {
-    targets: resolved.targets,
-    reasonIfEmpty: resolved.reasonIfEmpty,
+    targets,
+    reasonIfEmpty: targets.length ? undefined : orgTargets.reasonIfEmpty || share.reasonIfEmpty,
   }
 }
 

@@ -15,6 +15,8 @@ import {
   uiActionsFromEvents,
   uiActionsFromPayload,
 } from '@/lib/hermes/rich-messages'
+import { extractPibFences } from '@/lib/chat/pib-fences'
+import { validatePart } from '@/lib/chat/parts'
 import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import {
   CONVERSATION_RUN_LOOKUP_GRACE_MS,
@@ -336,12 +338,17 @@ function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output
   proseContent?: string
 } {
   const mixed = typeof output === 'string' ? extractMixedRichContent(output) : null
+  const fences = typeof output === 'string' ? extractPibFences(mixed?.prose ?? output) : { markdown: '', parts: [] }
   const richParts = dedupeStructured([
     ...richPartsFromPayload(data),
     ...richPartsFromPayload(output),
     ...(mixed?.richParts ?? []),
+    ...fences.parts,
     ...richPartsFromEvents(events),
-  ])
+  ]).map((part) => {
+    const checked = validatePart(part)
+    return checked.ok ? checked.part : { type: 'status', title: 'Unsupported content', content: checked.reason }
+  })
   const uiActions = dedupeStructured([
     ...uiActionsFromPayload(data),
     ...uiActionsFromPayload(output),
@@ -351,7 +358,7 @@ function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output
   return {
     ...(richParts.length > 0 ? { richParts } : {}),
     ...(uiActions.length > 0 ? { uiActions } : {}),
-    ...(mixed?.extracted ? { proseContent: mixed.prose } : {}),
+    ...(mixed?.extracted || fences.parts.length > 0 ? { proseContent: fences.markdown || mixed?.prose } : {}),
   }
 }
 

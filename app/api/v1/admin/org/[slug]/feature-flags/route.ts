@@ -35,6 +35,7 @@ export const KNOWN_FEATURE_FLAGS: Array<{ key: string; label: string; descriptio
   { key: 'agentAccess', label: 'Agent access', description: 'Hermes AI agent access for this workspace.' },
   { key: 'whatsappChannel', label: 'WhatsApp channel', description: 'WhatsApp omnichannel messaging.' },
   { key: 'betaFeatures', label: 'Beta features', description: 'Opt this org into early-access beta surfaces.' },
+  { key: 'orgTeamsEnabled', label: 'Organisation teams', description: 'People teams for machine grants and shared API keys.' },
 ]
 
 function overrideCount(flags: Record<string, boolean>): number {

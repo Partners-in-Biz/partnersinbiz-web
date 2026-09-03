@@ -5,7 +5,7 @@ export type LinkedDeviceCapability = 'workspace.execute' | 'workspace.sync'
 export type LinkedDeviceKind = 'computer' | 'vps'
 export type LinkedDeviceOwnerType = 'user' | 'organization'
 export type DeviceGrantStatus = 'active' | 'paused' | 'revoked'
-export type DeviceGrantAccessMode = 'owner' | 'organization' | 'selected_users'
+export type DeviceGrantAccessMode = 'owner' | 'organization' | 'selected_users' | 'teams'
 export type WorkspaceMappingStatus = 'pending' | 'active' | 'stale' | 'missing' | 'paused' | 'removed'
 
 export interface LinkedDevice {
@@ -30,6 +30,8 @@ export interface LinkedDevice {
   availableAgentIds?: string[]
   /** Custom profiles that are healthy and have at least one synced LLM provider. */
   credentialReadyAgentIds?: string[]
+  /** Managed Hermes profiles reported by runtime v2. Absent on legacy runtimes. */
+  availableAgents?: Array<{ orgId: string; agentId: string; profile: string; healthy: boolean }>
   hermesVersion?: string
   healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
   capabilities: LinkedDeviceCapability[]
@@ -70,6 +72,7 @@ export interface LinkedDeviceGrant {
   /** Missing on legacy rows; allowedUserIds then retains its historical meaning. */
   accessMode?: DeviceGrantAccessMode
   allowedUserIds: string[]
+  allowedTeamIds?: string[]
   capabilities: LinkedDeviceCapability[]
   status: DeviceGrantStatus
   createdAt: unknown
@@ -97,6 +100,7 @@ export type LinkedComputerAuditAction =
   | 'device.paired'
   | 'device.status_changed'
   | 'grant.changed'
+  | 'grant.owner_shared'
   | 'mapping.changed'
   | 'credential.rotated'
   | 'credential.revoked'
@@ -119,4 +123,5 @@ export interface ActiveOrgMembership {
   userId: string
   active: boolean
   role?: string
+  teamIds?: string[]
 }

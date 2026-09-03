@@ -522,5 +522,9 @@ service cloud.firestore {
     match /conversations/{convId}/messages/{msgId} {
       allow read, write: if false;
     }
+
+    // Server-mediated collections: Admin SDK only. Client SDK must never read/write.
+    match /org_teams/{teamId} { allow read, write: if false; }
+    match /llm_credential_audit/{eventId} { allow read, write: if false; }
   }
 }

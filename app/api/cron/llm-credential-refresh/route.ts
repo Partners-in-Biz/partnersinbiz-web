@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import {
+  flagStaleRevokePending,
   refreshDueAnthropicLlmConnections,
   refreshDueXaiLlmConnections,
   type LlmCredentialRefreshSummary,
@@ -20,9 +21,10 @@ export async function GET(req: NextRequest): Promise<Response> {
     const summary = await runWithFirestoreReadAudit(
       'api/cron/llm-credential-refresh',
       async () => {
-        const [xai, anthropic] = await Promise.all([
+        const [xai, anthropic, stale] = await Promise.all([
           refreshDueXaiLlmConnections(),
           refreshDueAnthropicLlmConnections(),
+          flagStaleRevokePending().catch(() => ({ flagged: 0 })),
         ])
         const merged: LlmCredentialRefreshSummary = {
           scanned: xai.scanned + anthropic.scanned,
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           queued: xai.queued + anthropic.queued,
           failed: xai.failed + anthropic.failed,
         }
-        return { ...merged, byProvider: { xai, anthropic } }
+        return { ...merged, staleRevokePending: stale.flagged, byProvider: { xai, anthropic } }
       },
     )
     return apiSuccess(summary)

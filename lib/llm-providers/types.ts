@@ -1,8 +1,32 @@
+import { AGENT_ID_RE } from '@/lib/agents/types'
 import type { LlmProviderAuthKind, LlmProviderKey } from './providers'
 
 export const LLM_PROVIDER_CONNECTIONS_COLLECTION = 'llm_provider_connections'
 export const LLM_OAUTH_SESSIONS_COLLECTION = 'llm_oauth_sessions'
 export const LLM_CREDENTIAL_BINDINGS_COLLECTION = 'llm_credential_bindings'
+export const LLM_CREDENTIAL_AUDIT_COLLECTION = 'llm_credential_audit'
+
+export type LlmShareMode = 'admins' | 'organization' | 'teams' | 'selected_users'
+
+export interface LlmShareTargets {
+  mode: LlmShareMode
+  teamIds: string[]
+  userIds: string[]
+  agentIds: string[]
+  requireActiveDeviceGrant: true
+}
+
+export const DEFAULT_LLM_SHARE_TARGETS: LlmShareTargets = {
+  mode: 'admins', teamIds: [], userIds: [], agentIds: [], requireActiveDeviceGrant: true,
+}
+
+export function normalizeLlmShareTargets(value: unknown): LlmShareTargets {
+  if (!value || typeof value !== 'object') return DEFAULT_LLM_SHARE_TARGETS
+  const row = value as Record<string, unknown>
+  const mode: LlmShareMode = row.mode === 'organization' || row.mode === 'teams' || row.mode === 'selected_users' ? row.mode : 'admins'
+  const strings = (v: unknown) => Array.isArray(v) ? [...new Set(v.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim()))].slice(0, 500) : []
+  return { mode, teamIds: strings(row.teamIds), userIds: strings(row.userIds), agentIds: strings(row.agentIds).filter((id) => AGENT_ID_RE.test(id)), requireActiveDeviceGrant: true }
+}
 
 export type LlmConnectionScope = 'org' | 'user'
 export type LlmConnectionStatus = 'connected' | 'invalid' | 'revoked' | 'reauth_required' | 'pending_oauth'
@@ -36,6 +60,8 @@ export interface LlmProviderConnection {
   lastUsedAt: unknown
   lastSyncedAt: unknown
   lastError: string | null
+  /** Org-scope sharing. Absent on user connections; treat missing as DEFAULT_LLM_SHARE_TARGETS. */
+  shareTargets?: LlmShareTargets
   createdAt: unknown
   updatedAt: unknown
   createdBy: string
@@ -115,6 +141,30 @@ export type LlmCredentialBindingStatus =
   | 'ready'
   | 'failed'
   | 'revoked'
+  | 'revoke_pending'
+
+export type LlmCredentialAuditAction =
+  | 'binding.delivered'
+  | 'binding.ready'
+  | 'binding.failed'
+  | 'binding.revoke_enqueued'
+  | 'binding.revoked'
+  | 'binding.revoke_pending'
+  | 'binding.revoke_stale'
+  | 'share_targets.changed'
+
+export interface LlmCredentialAuditEvent {
+  eventId: string
+  action: LlmCredentialAuditAction
+  connectionId: string
+  bindingId?: string
+  orgId: string
+  actorUserId: string | 'system'
+  deviceId?: string
+  agentId?: string
+  reason?: string
+  createdAt: unknown
+}
 
 /**
  * Machine/profile-specific proof that one connected account can be used by chat.
@@ -141,6 +191,8 @@ export interface LlmCredentialBinding {
   lastVerifiedAt: unknown
   createdAt: unknown
   updatedAt: unknown
+  /** Set once by the stale revoke_pending sweep so it audits only once. */
+  staleFlaggedAt?: unknown
 }
 
 export function publicOauthSession(session: LlmOauthSession): LlmOauthSessionPublic {

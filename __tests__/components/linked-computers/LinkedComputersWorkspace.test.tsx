@@ -31,6 +31,28 @@ describe('LinkedComputersWorkspace', () => {
     else process.env.NEXT_PUBLIC_LINKED_RUNTIME_BOOTSTRAP_PLATFORMS = originalBootstrapPlatforms
   })
 
+  it('renders a grant chip per organisation including teams and selected people', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/v1/linked-computers') return response({
+        data: [{
+          ...device,
+          grants: [
+            { orgId: 'org-a', orgLabel: 'Acme', status: 'active', accessMode: 'organization' },
+            { orgId: 'org-b', orgLabel: 'Beta', status: 'active', accessMode: 'teams' },
+            { orgId: 'org-c', status: 'active', accessMode: 'selected_users' },
+          ],
+        }],
+      })
+      if (String(input) === '/api/v1/workspaces') return response({ data: { workspaces: [] } })
+      return response({ data: [] })
+    })
+    render(<LinkedComputersWorkspace />)
+    const card = await screen.findByRole('article', { name: 'Studio Mac' })
+    expect(card).toHaveTextContent('Acme · Everyone in organisation')
+    expect(card).toHaveTextContent('Beta · Teams')
+    expect(card).toHaveTextContent('org-c · Selected people')
+  })
+
   it('shows safe health, version, grant, and mapping status without internal data', async () => {
     render(<LinkedComputersWorkspace />)
     const card = await screen.findByRole('article', { name: 'Studio Mac' })
@@ -323,7 +345,7 @@ describe('LinkedComputersWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Computer name'), { target: { value: 'Office Mac' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }))
     expect(await screen.findByRole('dialog', { name: 'Rename computer' })).toBeInTheDocument()
-    expect(await screen.findByRole('alert')).toHaveTextContent('saved, but the latest computer status could not be refreshed')
+    expect(await screen.findByRole('alert', { hidden: true })).toHaveTextContent('saved, but the latest computer status could not be refreshed')
   })
 
   it('links a computer to an organisation for only its owner', async () => {

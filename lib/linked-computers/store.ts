@@ -13,6 +13,7 @@ import type {
   LinkedDeviceKind,
   LinkedDeviceOwnerType,
   LinkedDevicePlatform,
+  LinkedComputerAuditEvent,
   LinkedDeviceStatus,
   WorkspaceMappingStatus,
 } from './types'
@@ -204,7 +205,7 @@ function secretsMatch(actualSecret: string, expectedHash: string): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-function auditRef(db: DbLike): RefLike {
+function auditRef(db: { collection(name: string): { doc(id: string): RefLike } }): RefLike {
   return db.collection(AUDIT).doc(randomUUID())
 }
 
@@ -214,7 +215,28 @@ function membershipFrom(row: Record<string, unknown> | undefined, orgId: string,
     userId,
     active: isActiveOrgMembershipRow(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId),
     role: typeof row?.role === 'string' ? row.role : undefined,
+    teamIds: Array.isArray(row?.teamIds) ? row.teamIds.filter((value): value is string => typeof value === 'string') : [],
   }
+}
+
+export function writeLinkedComputerAudit(
+  tx: { create(ref: { id: string; path?: string }, value: Record<string, unknown>): void },
+  db: { collection(name: string): { doc(id: string): { id: string; path?: string } } },
+  event: Omit<LinkedComputerAuditEvent, 'eventId' | 'createdAt'>,
+  at: unknown,
+): void {
+  tx.create(auditRef(db), {
+    eventId: randomUUID(),
+    action: event.action,
+    actorUserId: event.actorUserId,
+    deviceId: event.deviceId,
+    orgId: event.orgId,
+    mappingId: event.mappingId,
+    challengeId: event.challengeId,
+    fromStatus: event.fromStatus ?? null,
+    toStatus: event.toStatus,
+    createdAt: at,
+  })
 }
 
 async function assertStoreDeviceManager(tx: TransactionLike, db: DbLike, device: LinkedDevice, actorUserId: string): Promise<void> {
@@ -596,6 +618,7 @@ export async function putDeviceGrant(input: {
   status: DeviceGrantStatus
   capabilities: LinkedDeviceCapability[]
   allowedUserIds?: string[]
+  allowedTeamIds?: string[]
   accessMode?: DeviceGrantAccessMode
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
@@ -633,19 +656,39 @@ export async function putDeviceGrant(input: {
     const existingGrant = existing.data() as Partial<LinkedDeviceGrant> | undefined
     const accessMode = input.accessMode
       ?? (input.allowedUserIds !== undefined ? 'selected_users' : existingGrant ? effectiveGrantAccessMode({ accessMode: existingGrant.accessMode, allowedUserIds: existingGrant.allowedUserIds ?? [] }) : 'owner')
-    if (!['owner', 'organization', 'selected_users'].includes(accessMode)) throw new Error('linked computers: invalid grant access mode')
+    if (!['owner', 'organization', 'selected_users', 'teams'].includes(accessMode)) throw new Error('linked computers: invalid grant access mode')
     const selectedUserIds = [...new Set((input.allowedUserIds ?? existingGrant?.allowedUserIds ?? []).filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))]
-    const allowedUserIds = accessMode === 'selected_users' ? selectedUserIds : []
+    const selectedTeamIds = [...new Set((input.allowedTeamIds ?? existingGrant?.allowedTeamIds ?? []).filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))]
+    const allowedUserIds = accessMode === 'selected_users' || accessMode === 'teams' ? selectedUserIds : []
+    const allowedTeamIds = accessMode === 'teams' ? selectedTeamIds : []
+    if (accessMode === 'teams') {
+      if (allowedTeamIds.length === 0 && allowedUserIds.length === 0) {
+        throw new Error('linked computers: teams mode needs allowedTeamIds or allowedUserIds')
+      }
+      for (const teamId of allowedTeamIds) {
+        const teamSnap = await tx.get(db.collection('org_teams').doc(teamId))
+        const team = teamSnap.data()
+        if (!teamSnap.exists || team?.orgId !== input.orgId || team?.status !== 'active') {
+          throw new Error('linked computers: unknown or archived team')
+        }
+      }
+    }
     const statusAt = input.status === 'paused' ? { pausedAt: at } : input.status === 'revoked' ? { revokedAt: at } : {}
     tx.set(ref, {
       deviceId: input.deviceId, orgId: input.orgId, grantedByUserId: input.actorUserId,
-      accessMode, allowedUserIds, capabilities: input.capabilities, status: input.status,
+      accessMode, allowedUserIds, allowedTeamIds, capabilities: input.capabilities, status: input.status,
       ...(!existing.exists ? { createdAt: at } : {}), updatedAt: at, ...statusAt,
     }, { merge: true })
-    tx.create(auditRef(db), {
-      eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId,
-      deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? null, toStatus: input.status, createdAt: at,
-    })
+    writeLinkedComputerAudit(tx, db, {
+      action: 'grant.changed', actorUserId: input.actorUserId,
+      deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? undefined, toStatus: input.status,
+    }, at)
+    if (ownerType === 'user' && input.actorUserId === device.ownerUserId && input.status === 'active') {
+      writeLinkedComputerAudit(tx, db, {
+        action: 'grant.owner_shared', actorUserId: input.actorUserId,
+        deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? undefined, toStatus: input.status,
+      }, at)
+    }
   })
 }
 

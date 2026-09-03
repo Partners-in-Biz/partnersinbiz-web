@@ -221,7 +221,11 @@ export async function revokeConnectionLlmCredentialBindings(connectionId: string
     .get()
   if (snapshot.empty) return
   const batch = adminDb.batch()
+  let writes = 0
   for (const doc of snapshot.docs) {
+    const status = (doc.data() as LlmCredentialBinding | undefined)?.status
+    if (status === 'revoke_pending') continue
+    writes += 1
     batch.update(doc.ref, {
       status: 'revoked',
       liveAuthVerified: false,
@@ -230,6 +234,7 @@ export async function revokeConnectionLlmCredentialBindings(connectionId: string
       updatedAt: FieldValue.serverTimestamp(),
     })
   }
+  if (writes === 0) return
   await batch.commit()
 }
 

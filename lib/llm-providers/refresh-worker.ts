@@ -1,8 +1,11 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { getDecryptedLlmCredentials } from './store'
 import { anthropicCredentialsNeedRefresh, xaiCredentialsNeedRefresh } from './refresh'
+import { flagStaleRevokePending } from './share-cascade'
 import { syncLlmConnectionToHermes } from './sync-hermes'
 import { LLM_PROVIDER_CONNECTIONS_COLLECTION, type LlmProviderConnection } from './types'
+
+export { flagStaleRevokePending }
 
 export type LlmCredentialRefreshSummary = {
   scanned: number

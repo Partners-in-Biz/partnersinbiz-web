@@ -146,6 +146,26 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     expect((await handleDeviceGrant(invalid, { uid: 'admin-a' }, 'device-a', put)).status).toBe(400)
   })
 
+  it('PUT grants accepts teams mode with allowedTeamIds', async () => {
+    const put = jest.fn(async () => undefined)
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/grants', {
+      method: 'PUT',
+      body: JSON.stringify({
+        orgId: 'org-a',
+        status: 'active',
+        accessMode: 'teams',
+        allowedTeamIds: ['org-a_sales'],
+        allowedUserIds: ['user-b'],
+      }),
+    })
+    expect((await handleDeviceGrant(req, { uid: 'admin-a' }, 'device-a', put)).status).toBe(200)
+    expect(put).toHaveBeenCalledWith(expect.objectContaining({
+      accessMode: 'teams',
+      allowedTeamIds: ['org-a_sales'],
+      allowedUserIds: ['user-b'],
+    }))
+  })
+
   it.each(['paused', 'active', 'revoked'] as const)('binds the %s device lifecycle transition to its owner', async (status) => {
     const update = jest.fn(async () => undefined)
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a', { method: 'PATCH', body: JSON.stringify({ deviceId: 'device-b', status }) })

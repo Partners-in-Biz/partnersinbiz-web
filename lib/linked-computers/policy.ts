@@ -4,7 +4,7 @@ import { isActiveOrgMembershipRow } from '@/lib/orgMembers/active-membership'
 export { isActiveOrgMembershipRow }
 
 type DeviceAccessView = Pick<LinkedDevice, 'deviceId' | 'ownerType' | 'ownerUserId' | 'ownerOrgId' | 'createdByUserId' | 'status'>
-type GrantAccessView = Pick<LinkedDeviceGrant, 'deviceId' | 'orgId' | 'status' | 'accessMode' | 'allowedUserIds'>
+type GrantAccessView = Pick<LinkedDeviceGrant, 'deviceId' | 'orgId' | 'status' | 'accessMode' | 'allowedUserIds' | 'allowedTeamIds'>
 
 export function linkedDeviceOwnerType(device: Pick<LinkedDevice, 'ownerType' | 'ownerUserId' | 'ownerOrgId'>): 'user' | 'organization' {
   if (device.ownerType === 'organization' && device.ownerOrgId) return 'organization'
@@ -16,8 +16,8 @@ export function linkedDeviceActorUserId(device: Pick<LinkedDevice, 'ownerType' |
   return linkedDeviceOwnerType(device) === 'user' ? String(device.ownerUserId) : String(device.createdByUserId ?? '')
 }
 
-export function effectiveGrantAccessMode(grant: Pick<LinkedDeviceGrant, 'accessMode' | 'allowedUserIds'>): DeviceGrantAccessMode {
-  if (grant.accessMode === 'owner' || grant.accessMode === 'organization' || grant.accessMode === 'selected_users') return grant.accessMode
+export function effectiveGrantAccessMode(grant: Pick<LinkedDeviceGrant, 'accessMode' | 'allowedUserIds' | 'allowedTeamIds'>): DeviceGrantAccessMode {
+  if (grant.accessMode === 'owner' || grant.accessMode === 'organization' || grant.accessMode === 'selected_users' || grant.accessMode === 'teams') return grant.accessMode
   return Array.isArray(grant.allowedUserIds) && grant.allowedUserIds.length > 0 ? 'selected_users' : 'owner'
 }
 
@@ -67,8 +67,15 @@ export function assertDeviceOrgAccess(input: {
     && input.device.ownerOrgId === input.orgId
     && (input.membership.role === 'owner' || input.membership.role === 'admin')
   const accessMode = effectiveGrantAccessMode(input.grant)
+  const teamIds = input.membership.teamIds ?? []
+  const allowedTeamIds = input.grant.allowedTeamIds ?? []
+  const teamMatch = accessMode === 'teams' && (
+    input.grant.allowedUserIds.includes(input.actorUserId)
+    || teamIds.some((id) => allowedTeamIds.includes(id))
+  )
   const permitted = personallyOwned || organizationManager || accessMode === 'organization'
     || (accessMode === 'selected_users' && input.grant.allowedUserIds.includes(input.actorUserId))
+    || teamMatch
   if (!permitted) {
     throw new Error('linked computers: device is not owned or explicitly shared')
   }
