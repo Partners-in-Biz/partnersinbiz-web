@@ -1,10 +1,7 @@
-'use client'
-
-import { NeuralField } from '@/components/ui/atmosphere/NeuralField'
-
-/** Messages-facing NeuralField with legacy test id. */
-export function MessagesNeuralField({ className = '' }: { className?: string }) {
-  return <NeuralField className={className} testId="messages-neural-field" />
+/** @deprecated Atmosphere retired. Kept as a no-op export for callers. */
+export function MessagesNeuralField(_props: { className?: string }) {
+  void _props
+  return null
 }
 
 export default MessagesNeuralField

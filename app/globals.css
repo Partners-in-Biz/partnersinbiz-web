@@ -253,19 +253,10 @@
   /* Section padding */
   .section { @apply py-20 md:py-32; }
 
-  /* retired: remove in Phase 5 purge */
-  .pib-mesh { /* retired: remove in Phase 5 purge */ }
-
-  .pib-grid-bg { /* retired: remove in Phase 5 purge */ }
-
-  .pib-marquee { /* retired: remove in Phase 5 purge */ }
-
   @keyframes slideIn {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
   }
-
-  .pib-fade-up { /* retired: remove in Phase 5 purge */ }
 
   /* Number count-up shimmer */
   @keyframes pib-pulse {
@@ -941,35 +932,6 @@
     -webkit-backdrop-filter: none;
   }
 
-  /* Retired visuals: empty rules until Phase 5 purge */
-  .pib-mesh,
-  .pib-grid-bg,
-  .pib-marquee,
-  .pib-fade-up,
-  .pib-hud-chip,
-  .pib-live-dot,
-  .pib-signal-meter,
-  .pib-glass-bar,
-  .pib-glass,
-  .pib-glass-strong,
-  .pib-shell-glow,
-  .pib-aurora-fallback,
-  .pib-neural-field,
-  .pib-scanlines,
-  .pib-live-surface,
-  .pib-avatar-ring,
-  .pib-enter,
-  .pib-icon-tint,
-  .pib-icon-tint-violet,
-  .pib-icon-tint-green,
-  .pib-icon-tint-blue,
-  .pib-icon-tint-cyan,
-  .pib-icon-tint-rose,
-  .pib-accent-edge,
-  .pib-surface-glass,
-  .monolithic-grid {
-    /* retired: remove in Phase 5 purge */
-  }
   .pib-shell {
     position: relative;
     isolation: isolate;

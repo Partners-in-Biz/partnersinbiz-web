@@ -3,8 +3,6 @@ import { Card, MetricCard } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { HudChip, SignalMeter, GlassBar, LiveDot } from '@/components/ui/HudChip'
 import { ModuleShell } from '@/components/ui/ModuleShell'
-import { CssAurora } from '@/components/ui/atmosphere/CssAurora'
-import { NeuralField } from '@/components/ui/atmosphere/NeuralField'
 
 describe('Card / MetricCard Studio re-skin', () => {
   it('Card emits st-panel', () => {
@@ -73,14 +71,5 @@ describe('ModuleShell Studio re-skin', () => {
     expect(container.querySelector('.pib-aurora-fallback')).toBeNull()
     expect(container.querySelector('.pib-neural-field')).toBeNull()
     expect(container.querySelector('.pib-scanlines')).toBeNull()
-  })
-})
-
-describe('atmosphere stubs', () => {
-  it('CssAurora and NeuralField return null', () => {
-    const { container: a } = render(<CssAurora />)
-    const { container: b } = render(<NeuralField />)
-    expect(a).toBeEmptyDOMElement()
-    expect(b).toBeEmptyDOMElement()
   })
 })
