@@ -125,6 +125,20 @@ export function AgentGroupCard({ agentId, agentName, items, actions, expanded, o
                   <span data-testid="briefing-card-title" className="block truncate text-xs leading-5 text-[var(--color-pib-text)]">{item.title}</span>
                 </button>
                 <Pill tone={stateTone(state)} className="shrink-0 capitalize">{state}</Pill>
+                {actions.canStopRun(item) ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-red-600 disabled:opacity-50"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      actions.stopRun(item)
+                    }}
+                    disabled={actions.busy}
+                    title="Stop this run"
+                  >
+                    Stop run
+                  </button>
+                ) : null}
                 {href ? (
                   <a
                     href={href}

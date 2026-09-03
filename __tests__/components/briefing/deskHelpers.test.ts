@@ -27,7 +27,7 @@ describe('canStopAgentRun', () => {
     expect(canStopAgentRun(runCard(), 'portal')).toBe(false)
     expect(canStopAgentRun(runCard({ metadata: { runStatus: 'completed', hermesRunId: 'run-live-1' } }), 'admin')).toBe(false)
     expect(canStopAgentRun(runCard({ metadata: { runStatus: 'failed', hermesRunId: 'run-live-1' } }), 'admin')).toBe(false)
-    expect(canStopAgentRun(runCard({ source: { type: 'task', id: 't-1', url: '/x' } } as Partial<BriefingCard>), 'admin')).toBe(false)
+    expect(canStopAgentRun(runCard({ source: { type: 'task', id: 't-1', url: '/x' } as BriefingCard['source'] }), 'admin')).toBe(false)
   })
 
   it('needs a run id and an org id to build the stop route', () => {

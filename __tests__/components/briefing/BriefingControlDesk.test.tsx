@@ -1131,6 +1131,32 @@ const agentRunBriefingItem = {
   occurredAt: '2026-05-31T09:48:00.000Z',
 }
 
+const runningAgentRunBriefingItem = {
+  id: 'agent-run:run-doc-2',
+  orgId: 'org-1',
+  priority: 'progress',
+  title: 'Theo is running',
+  summary: 'Theo has active work in progress.',
+  excerpt: 'Refreshing the SEO sprint board.',
+  timeAgo: '2 minutes ago',
+  requiresAction: false,
+  source: { type: 'agent-run', id: 'run-doc-2', url: '/admin/agents/theo?run=run-live-2' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: { orgId: 'org-1', orgName: 'Client One', orgSlug: 'client-one', agentRunId: 'run-live-2', agentProfile: 'theo-main' },
+  metadata: { agentId: 'theo', runStatus: 'running', hermesRunId: 'run-live-2' },
+  workKind: 'agent',
+  occurredAt: '2026-05-31T10:00:00.000Z',
+}
+
+const secondRunningAgentRunBriefingItem = {
+  ...runningAgentRunBriefingItem,
+  id: 'agent-run:run-doc-3',
+  title: 'Theo is running a second job',
+  source: { type: 'agent-run', id: 'run-doc-3', url: '/admin/agents/theo?run=run-live-3' },
+  context: { ...runningAgentRunBriefingItem.context, agentRunId: 'run-live-3' },
+  metadata: { agentId: 'theo', runStatus: 'running', hermesRunId: 'run-live-3' },
+}
+
 const workspaceBrokerBriefingItem = {
   id: 'workspace-broker-job:broker-job-1',
   orgId: 'org-1',
@@ -1261,7 +1287,7 @@ describe('BriefingControlDesk', () => {
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
             ? orgOneItems
-            : [...orgOneItems, enquiryBriefingItem, bookingBriefingItem, secondOrgBriefingItem]
+            : [...orgOneItems, enquiryBriefingItem, secondOrgBriefingItem, runningAgentRunBriefingItem, secondRunningAgentRunBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -3313,5 +3339,63 @@ describe('BriefingControlDesk', () => {
         body: JSON.stringify({ status: 'cancelled' }),
       }))
     })
+  })
+
+  it('groups one agent with several live runs into one card and stops a run from the admin desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /expand agent work lane/i }))
+
+    // Two Theo runs collapse into one agent group; small groups start expanded so both titles are visible.
+    const groupCards = await screen.findAllByTestId('briefing-card')
+    const agentCards = groupCards.filter((card) => card.getAttribute('data-work-kind') === 'agent')
+    expect(agentCards.length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Theo is running a second job/i })).toBeInTheDocument()
+
+    // Open the first running run and stop it from the card.
+    const stopButtons = screen.getAllByRole('button', { name: /stop run/i })
+    expect(stopButtons.length).toBeGreaterThan(0)
+    fireEvent.click(stopButtons[0])
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/api\/v1\/admin\/hermes\/profiles\/org-1\/runs\/run-live-[23]\/stop$/),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+  })
+
+  it('snoozes a card until a chosen time from the snooze menu', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    const title = await screen.findByRole('button', { name: /Social post awaiting client approval/i })
+    const card = title.closest('article') as HTMLElement
+    fireEvent.click(within(card).getByTitle('Snooze'))
+    fireEvent.click(within(card).getByRole('menuitem', { name: /Tomorrow 09:00/i }))
+
+    await waitFor(() => {
+      const call = (global.fetch as jest.Mock).mock.calls.find(([url]) => String(url).endsWith('/state') && String(url).includes('social-post'))
+      expect(call).toBeTruthy()
+      const body = JSON.parse(String(call?.[1]?.body))
+      expect(body.action).toBe('snoozed')
+      const until = new Date(body.snoozedUntil)
+      expect(until.getTime()).toBeGreaterThan(Date.now())
+      expect(until.getHours()).toBe(9)
+      expect(until.getMinutes()).toBe(0)
+    })
+  })
+
+  it('shows kind-specific empty states for quiet lanes', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    // Switch to the second workspace, which only carries one blocked task card.
+    fireEvent.click(await screen.findByRole('button', { name: /filter to client two workspace/i }))
+    expect((await screen.findAllByText('Blocked launch checklist')).length).toBeGreaterThan(0)
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('lane-empty-state').length).toBeGreaterThan(0)
+    })
+    expect(screen.getByText('Inbox is clear')).toBeInTheDocument()
+    expect(screen.getByText('No calls to prepare')).toBeInTheDocument()
   })
 })

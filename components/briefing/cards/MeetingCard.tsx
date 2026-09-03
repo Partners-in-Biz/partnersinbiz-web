@@ -60,7 +60,9 @@ function BookCallForm({
   const busyRequest = useRef(0)
   // Keep the latest loader without re-fetching when the desk re-creates the callback.
   const loadBusyRef = useRef(loadBusy)
-  loadBusyRef.current = loadBusy
+  useEffect(() => {
+    loadBusyRef.current = loadBusy
+  }, [loadBusy])
 
   const dateYmd = start.slice(0, 10)
   useEffect(() => {
