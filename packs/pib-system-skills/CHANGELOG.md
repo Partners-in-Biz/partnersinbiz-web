@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.10 — 2026-09-03
+
+- Add `pib-chat-canvas` (core): teach every managed profile to emit `pib:chart`,
+  `pib:mermaid`, `pib:math`, and `pib:html` fences plus working-directory file
+  references so Messages can parse canvas parts. Limits come from
+  `lib/chat/parts.ts` `PART_LIMITS`. Owner: pip; allowed on every platform agent
+  and marketplace public packs.
+- Bump `catalogVersion` to `2026-09-03.system-skills-v0.1.10` so the pack stays
+  in lockstep with `config/agent-skill-policy.json`.
+
 ## 0.1.9 — 2026-08-26
 
 - Correct `social-media-manager` LinkedIn company-page note: keep the existing

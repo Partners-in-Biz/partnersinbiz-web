@@ -27,6 +27,7 @@ check(manifest.tiers?.core?.skills?.includes('client-documents'), 'core includes
 check(manifest.tiers?.core?.skills?.includes('agent-runtime-ops'), 'core includes agent-runtime-ops')
 check(manifest.tiers?.core?.skills?.includes('reports'), 'core includes reports')
 check(manifest.tiers?.core?.skills?.includes('daily-workflow'), 'core includes daily-workflow')
+check(manifest.tiers?.core?.skills?.includes('pib-chat-canvas'), 'core includes pib-chat-canvas')
 
 const dailySkillPath = join(root, 'skills/daily-workflow/SKILL.md')
 const dailyRepoPath = join(repoRoot, '.claude/skills/daily-workflow/SKILL.md')
@@ -39,6 +40,18 @@ if (existsSync(dailySkillPath) && existsSync(dailyRepoPath)) {
   check(dailyPack === dailyRepo, 'daily-workflow repo and pack copies match')
   check(!dailyPack.includes('rm -rf'), 'daily-workflow forbids destructive cleanup commands')
   check(!dailyPack.includes('git add -A'), 'daily-workflow forbids blind stage-all')
+}
+
+const canvasSkillPath = join(root, 'skills/pib-chat-canvas/SKILL.md')
+const canvasRepoPath = join(repoRoot, '.claude/skills/pib-chat-canvas/SKILL.md')
+check(existsSync(canvasSkillPath), 'pib-chat-canvas pack skill exists')
+check(existsSync(canvasRepoPath), 'pib-chat-canvas repo skill exists')
+if (existsSync(canvasSkillPath) && existsSync(canvasRepoPath)) {
+  const canvasPack = readFileSync(canvasSkillPath, 'utf8')
+  const canvasRepo = readFileSync(canvasRepoPath, 'utf8')
+  check(canvasPack === canvasRepo, 'pib-chat-canvas repo and pack copies match')
+  check(canvasPack.includes('```pib:chart'), 'pib-chat-canvas documents pib:chart')
+  check(canvasPack.includes('Never put secrets or raw HTML from a web page into `pib:html`'), 'pib-chat-canvas forbids secrets and scraped HTML')
 }
 
 const policyPath = join(repoRoot, 'config/agent-skill-policy.json')

@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.9",
-  "catalogVersion": "2026-08-10.system-skills-v0.1.9",
+  "packVersion": "0.1.10",
+  "catalogVersion": "2026-09-03.system-skills-v0.1.10",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -21,6 +21,7 @@
       "skills": [
         "system-auth",
         "daily-workflow",
+        "pib-chat-canvas",
         "client-documents",
         "docs-lead",
         "billing-finance",
@@ -80,6 +81,13 @@
       "risk": "high",
       "requiredScopes": [],
       "summary": "Safe natural-language start-day and end-day workflow with live workspace resolution, verification, durable context, and non-destructive git/process boundaries."
+    },
+    "pib-chat-canvas": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "low",
+      "requiredScopes": [],
+      "summary": "Teach agents to emit pib:chart, pib:mermaid, pib:math, and pib:html fences plus working-directory file references so Messages can render canvas parts."
     },
     "client-documents": {
       "tier": "core",

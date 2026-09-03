@@ -53,6 +53,7 @@ describe('agent skill policy manifest', () => {
       'platform-ops',
       'agent-runtime-ops',
       'pib-agent-org-setup',
+      'pib-chat-canvas',
       'pib-staff-billing-access',
       'platform-admin-users',
       'reports',
@@ -325,6 +326,48 @@ describe('agent skill policy manifest', () => {
     expect(repoSkill).toContain('Only stop development servers started during the current session')
   })
 
+  it('delivers pib-chat-canvas to every managed agent, the core pack, and marketplace public packs', () => {
+    const agentIds = Object.keys(AGENT_SKILL_POLICY.agents).sort()
+    const catalog = AGENT_SKILL_POLICY.skillCatalog['pib-chat-canvas']
+    const repoSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/pib-chat-canvas/SKILL.md',
+    ), 'utf8')
+    const packSkill = readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/skills/pib-chat-canvas/SKILL.md',
+    ), 'utf8')
+    const packManifest = JSON.parse(readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/manifest.json',
+    ), 'utf8'))
+
+    expect(catalog.allowedAgentIds.slice().sort()).toEqual(agentIds)
+    expect(catalog).toEqual(expect.objectContaining({
+      ownerAgentId: 'pip',
+      riskLevel: 'low',
+      syncTarget: 'vps',
+    }))
+    for (const agentId of agentIds) {
+      expect(AGENT_SKILL_POLICY.agents[agentId].pibSkills).toContain('pib-chat-canvas')
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('pib-chat-canvas')
+    }
+
+    expect(packSkill).toBe(repoSkill)
+    expect(packManifest.tiers.core.skills).toContain('pib-chat-canvas')
+    expect(packManifest.skills['pib-chat-canvas']).toEqual(expect.objectContaining({
+      tier: 'core',
+      owner: 'pip',
+      risk: 'low',
+    }))
+    expect(repoSkill).toContain('```pib:chart')
+    expect(repoSkill).toContain('```pib:mermaid')
+    expect(repoSkill).toContain('```pib:math')
+    expect(repoSkill).toContain('```pib:html')
+    expect(repoSkill).toContain('Never put secrets or raw HTML from a web page into `pib:html`')
+    expect(repoSkill).toContain('Write files under the working directory and reference them by absolute path')
+  })
+
   it('builds Firestore policy state and rewrites Hermes external_dirs', () => {
     const state = buildAgentSkillPolicyState('pip')
     expect(state).toEqual(expect.objectContaining({
@@ -382,6 +425,7 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/evidence-ledger',
       'partnersinbiz/project-management',
       'partnersinbiz/daily-workflow',
+      'partnersinbiz/pib-chat-canvas',
       'partnersinbiz/client-documents',
       'partnersinbiz/docs-lead',
       'partnersinbiz/studio-artifact-orchestrate',
