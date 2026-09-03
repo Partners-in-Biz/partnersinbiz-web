@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { buildCampaignAssets } from '@/lib/campaigns/assets'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { AssetGrid } from '@/components/campaign-cockpit/AssetGrid'
+import '@/components/studio/studio-ui.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,20 +37,18 @@ export default async function PublicCampaignSharePage({
   const assets = serializeForClient(await buildCampaignAssets(doc.id))
 
   return (
-    <div className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
-      <div className="max-w-7xl mx-auto px-6 py-10 space-y-10">
-        <header className="space-y-2">
-          <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-            Content campaign · preview
-          </p>
-          <h1 className="text-3xl font-semibold">{campaign.name}</h1>
-          {campaign.research?.taglines?.master && (
-            <p className="text-lg text-[var(--color-pib-text-muted)] max-w-2xl">
-              {campaign.research.taglines.master}
-            </p>
-          )}
-        </header>
+    <main className="mx-auto max-w-7xl px-8 py-16">
+      <header className="pib-page-header">
+        <p className="sc-tiny">Content campaign · preview</p>
+        <h1 className="sc-article__h2 mt-2">{campaign.name}</h1>
+        <p className="sc-body mt-2">
+          {campaign.research?.taglines?.master
+            ? campaign.research.taglines.master
+            : 'Read-only preview of campaign assets.'}
+        </p>
+      </header>
 
+      <div className="mt-8">
         <AssetGrid
           campaignId={doc.id}
           brand={campaign.brandIdentity}
@@ -59,15 +58,17 @@ export default async function PublicCampaignSharePage({
           filter="all"
           readonly
         />
+      </div>
 
-        <footer className="border-t border-[var(--color-pib-line)] pt-6 text-xs text-[var(--color-pib-text-muted)]">
+      <footer className="mt-10 border-t border-[var(--sc-line)] pt-6">
+        <p className="sc-tiny">
           Read-only preview. Sign in at{' '}
           <a href="/portal" className="underline">
             partnersinbiz.online/portal
           </a>{' '}
           to approve, request changes, or schedule.
-        </footer>
-      </div>
-    </div>
+        </p>
+      </footer>
+    </main>
   )
 }

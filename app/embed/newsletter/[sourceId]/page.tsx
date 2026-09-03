@@ -5,9 +5,9 @@
 // transparent body so the host site's background shows through.
 //
 // Display modes inside the iframe:
-//   inline      — render the form normally
-//   multi-step  — render the multi-step form (progressive endpoint)
-//   popup / slide-in / exit-intent — those modes only make sense on the host
+//   inline      - render the form normally
+//   multi-step  - render the multi-step form (progressive endpoint)
+//   popup / slide-in / exit-intent - those modes only make sense on the host
 //     page (they depend on the visitor's viewport, scroll, and mouse). Inside
 //     an iframe they fall back to inline rendering with a small note.
 
@@ -19,6 +19,7 @@ import {
   type WidgetDisplayConfig,
 } from '@/lib/lead-capture/types'
 import { LeadCaptureEmbedForm } from '@/components/lead-capture/LeadCaptureEmbedForm'
+import '@/components/studio/studio-ui.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,8 +44,8 @@ export default async function NewsletterEmbedPage({ params }: Props) {
 
   if (!source.active) {
     return (
-      <div style={{ padding: 24, color: '#475569', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif' }}>
-        This signup form is not active.
+      <div className="p-8">
+        <div className="st-notice sc-body" role="status">This signup form is not active.</div>
       </div>
     )
   }
@@ -55,8 +56,6 @@ export default async function NewsletterEmbedPage({ params }: Props) {
 
   const rawDisplay = source.display
   const isOverlayMode = !!rawDisplay && OVERLAY_MODES.has(rawDisplay.mode)
-  // When loaded inside the iframe and the operator configured an overlay
-  // mode, render inline (since the iframe IS the embed surface).
   const display: WidgetDisplayConfig | undefined = rawDisplay
     ? isOverlayMode
       ? { ...rawDisplay, mode: 'inline' }
@@ -64,20 +63,14 @@ export default async function NewsletterEmbedPage({ params }: Props) {
     : undefined
 
   return (
-    <div style={{ padding: 16, background: 'transparent', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif' }}>
+    <div className="p-4">
       {isOverlayMode ? (
-        <p
-          style={{
-            margin: '0 auto 12px',
-            maxWidth: 460,
-            fontSize: 12,
-            color: '#94a3b8',
-            textAlign: 'center',
-          }}
-        >
-          Showing inline preview — overlay modes (popup, slide-in, exit-intent)
-          render on the host page via the script-tag embed.
-        </p>
+        <div className="mb-4">
+          <div className="st-notice sc-body" role="status">
+            Showing inline preview. Overlay modes (popup, slide-in, exit-intent) render on the host
+            page via the script-tag embed.
+          </div>
+        </div>
       ) : null}
       <LeadCaptureEmbedForm
         sourceId={source.id}
