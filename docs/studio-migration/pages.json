@@ -760,44 +760,44 @@
     "note": ""
   },
   "app/(auth)/auth/magic-link/verify/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/auth/reset/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/layout.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/login/layout.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/login/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/portal/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/register/layout.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(auth)/register/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.1",
-    "note": ""
+    "note": "Studio auth rewrite"
   },
   "app/(portal)/layout.tsx": {
     "status": "todo",

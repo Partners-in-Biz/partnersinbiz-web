@@ -4,7 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { ButtonLink, Notice } from '@/components/studio'
+import { Wordmark } from '@/components/marketing/stage/StageChrome'
 
 const ALLOWED_FIREBASE_HOSTS = [
   'partners-in-biz-85059.firebaseapp.com',
@@ -26,55 +27,47 @@ function ResetContent() {
   const safe = isSafeFirebaseLink(raw)
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center px-6 md:px-10 bg-[var(--color-pib-bg)] overflow-hidden">
-      <div className="absolute inset-0 pib-mesh pointer-events-none" />
-      <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-40" />
+    <main className="st-auth-frame">
+      <Wordmark href="/" />
 
-      <div className="relative w-full max-w-md">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2.5 mb-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-        >
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain" />
-          <span className="font-display text-lg leading-none">Partners in Biz</span>
-        </Link>
-
-        <div className="bento-card !p-8 md:!p-10">
-          {safe ? (
-            <>
-              <p className="eyebrow">Password setup</p>
-              <h1 className="font-display text-3xl md:text-4xl mt-2 mb-3">Set your password</h1>
-              <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">
-                Click the button below to set your password and activate your account. You&rsquo;ll be taken to a secure page to complete setup.
+      <div className="st-auth-form">
+        {safe ? (
+          <>
+            <header className="st-auth-form__head">
+              <h1 className="sc-h1">Set your password.</h1>
+              <p className="sc-dek">
+                Continue to the secure page to set your password and activate your account.
               </p>
-              <a
-                href={raw}
-                className="btn-pib-accent justify-center inline-flex w-full"
-              >
-                Set my password
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </header>
+            <div className="st-auth-form__fields">
+              <a href={raw} className="st-btn st-btn--primary st-btn--block">
+                Set password
               </a>
-              <p className="text-xs text-[var(--color-pib-text-muted)] mt-6 text-center">
-                Already set your password?{' '}
-                <Link href="/login" className="text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] transition-colors">
+            </div>
+            <ul className="st-auth-links sc-tiny">
+              <li>
+                <Link href="/login" prefetch={false} className="sc-link">
                   Sign in
                 </Link>
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="eyebrow">Invalid link</p>
-              <h1 className="font-display text-3xl md:text-4xl mt-2 mb-3">Link not valid</h1>
-              <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">
+              </li>
+            </ul>
+          </>
+        ) : (
+          <>
+            <header className="st-auth-form__head">
+              <h1 className="sc-h1">Link not valid.</h1>
+              <p className="sc-dek">
                 This setup link is missing or invalid. Request a new password reset from the login page.
               </p>
-              <Link href="/login" className="btn-pib-accent justify-center inline-flex w-full">
+            </header>
+            <div className="st-auth-form__fields">
+              <Notice tone="warning">Ask for a fresh reset link from sign in.</Notice>
+              <ButtonLink href="/login" block>
                 Go to sign in
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
-              </Link>
-            </>
-          )}
-        </div>
+              </ButtonLink>
+            </div>
+          </>
+        )}
       </div>
     </main>
   )
@@ -82,7 +75,15 @@ function ResetContent() {
 
 export default function ResetPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <main className="st-auth-frame">
+          <div className="st-auth-form">
+            <p className="sc-body">Loading.</p>
+          </div>
+        </main>
+      }
+    >
       <ResetContent />
     </Suspense>
   )

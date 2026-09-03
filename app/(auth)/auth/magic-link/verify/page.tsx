@@ -17,9 +17,12 @@
 // app/api/v1/auth/magic-link/verify/route.ts.
 
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { signInWithCustomToken } from 'firebase/auth'
 import { auth } from '@/lib/firebase/client'
+import { ButtonLink, Notice } from '@/components/studio'
+import { Wordmark } from '@/components/marketing/stage/StageChrome'
 
 // useSearchParams() must be inside a Suspense boundary in Next.js 15+,
 // otherwise the static prerender pass errors out. This page is fully dynamic
@@ -66,31 +69,55 @@ function VerifyInner() {
 
   if (!customToken) {
     return (
-      <div className="mx-auto mt-32 max-w-sm px-6 text-center text-[var(--doc-text)]">
-        <h1 className="text-2xl font-semibold">No sign-in token</h1>
-        <p className="mt-4 text-sm text-[var(--doc-muted)]">
-          This link is missing a token. Please use the link from your email.
-        </p>
-      </div>
+      <main className="st-auth-frame">
+        <Wordmark href="/" />
+        <div className="st-auth-form">
+          <header className="st-auth-form__head">
+            <h1 className="sc-h1">Check your email.</h1>
+            <p className="sc-dek">This link is missing a token. Use the link from your email.</p>
+          </header>
+          <ul className="st-auth-links sc-tiny">
+            <li>
+              <Link href="/login" prefetch={false} className="sc-link">
+                Sign in
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </main>
     )
   }
 
   if (error) {
     return (
-      <div className="mx-auto mt-32 max-w-sm px-6 text-center text-[var(--doc-text)]">
-        <h1 className="text-2xl font-semibold">Sign-in failed</h1>
-        <p className="mt-4 text-sm text-[var(--doc-muted)]">{error}</p>
-        <p className="mt-2 text-xs text-[var(--doc-muted)]">
-          The link may have expired. Request a new one from the document.
-        </p>
-      </div>
+      <main className="st-auth-frame">
+        <Wordmark href="/" />
+        <div className="st-auth-form">
+          <header className="st-auth-form__head">
+            <h1 className="sc-h1">Sign-in failed.</h1>
+            <p className="sc-dek">The link may have expired. Request a new one from the document.</p>
+          </header>
+          <div className="st-auth-form__fields">
+            <Notice tone="danger">{error}</Notice>
+            <ButtonLink href="/login" block>
+              Go to sign in
+            </ButtonLink>
+          </div>
+        </div>
+      </main>
     )
   }
 
   return (
-    <div className="grid min-h-screen place-items-center text-[var(--doc-muted)]">
-      Signing you in…
-    </div>
+    <main className="st-auth-frame">
+      <Wordmark href="/" />
+      <div className="st-auth-form">
+        <header className="st-auth-form__head">
+          <h1 className="sc-h1">Signing you in.</h1>
+          <p className="sc-dek">One moment while we finish the session.</p>
+        </header>
+      </div>
+    </main>
   )
 }
 
@@ -98,9 +125,14 @@ export default function MagicLinkVerifyLandingPage() {
   return (
     <Suspense
       fallback={
-        <div className="grid min-h-screen place-items-center text-[var(--doc-muted)]">
-          Loading…
-        </div>
+        <main className="st-auth-frame">
+          <div className="st-auth-form">
+            <header className="st-auth-form__head">
+              <h1 className="sc-h1">Signing you in.</h1>
+              <p className="sc-dek">One moment while we finish the session.</p>
+            </header>
+          </div>
+        </main>
       }
     >
       <VerifyInner />

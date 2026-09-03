@@ -1,0 +1,84 @@
+/* Auth Studio chrome (batch 4.1). Grain comes from .sc-stage on the layout. */
+
+.st-auth-frame {
+  min-height: 100svh;
+  padding: calc(var(--sc-u) * 28) var(--sc-pad) var(--sc-section-pad);
+  display: grid;
+  align-content: center;
+}
+
+.st-auth-frame--split {
+  gap: calc(var(--sc-u) * 10);
+}
+
+@media (min-width: 900px) {
+  .st-auth-frame--split {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    align-items: center;
+    gap: calc(var(--sc-u) * 12);
+  }
+}
+
+.st-auth-form {
+  width: 100%;
+  max-width: 26rem;
+  display: grid;
+  gap: calc(var(--sc-u) * 8);
+}
+
+.st-auth-form__head {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+
+.st-auth-form__head .sc-h1 {
+  max-width: 18ch;
+}
+
+.st-auth-form__head .sc-dek {
+  margin-top: 0;
+}
+
+.st-auth-form__fields {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+
+.st-auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-auth-links button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--sc-line-strong);
+  text-underline-offset: 0.16em;
+}
+
+.st-auth-links button:hover,
+.st-auth-links a:hover {
+  text-decoration-color: var(--sc-accent);
+}
+
+.st-auth-art {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .st-auth-art {
+    display: block;
+  }
+}

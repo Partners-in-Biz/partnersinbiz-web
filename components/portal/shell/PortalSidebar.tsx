@@ -130,7 +130,7 @@ export function PortalSidebar({
           drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
-        {/* Brand — wordmark */}
+        {/* Brand wordmark */}
         <Link
           href={dashboardHref}
           className={[
@@ -241,7 +241,7 @@ export function PortalSidebar({
           </div>
         )}
 
-        {/* Nav — settings mode replaces normal nav */}
+        {/* Nav: settings mode replaces normal nav */}
         {pathname.startsWith('/portal/settings') ? (
           <SettingsNav
             name={profileName || name}

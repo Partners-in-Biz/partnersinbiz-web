@@ -74,7 +74,8 @@ function ChangelogLink({
       <Icon name="campaign" />
       {unread > 0 ? (
         <span
-          className="absolute top-2 right-2 h-[6px] w-[6px] rounded-full bg-[var(--st-info)]"
+          className="absolute top-2 right-2 h-[6px] w-[6px] bg-[var(--st-info)]"
+          style={{ borderRadius: '50%' }}
           aria-hidden="true"
         />
       ) : null}
