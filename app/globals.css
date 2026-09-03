@@ -616,6 +616,7 @@
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
     align-items: flex-end;
     gap: calc(var(--sc-u) * 5);
@@ -704,6 +705,7 @@
   .pib-page-header-tabs {
     min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 0;
   }
   .pib-responsive-header-tabs {

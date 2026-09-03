@@ -101,6 +101,7 @@ describe('app-wide UI foundation primitives', () => {
       'min-w-0',
       'max-w-full',
       'overflow-x-auto',
+      'overflow-y-hidden',
     )
   })
 
