@@ -86,6 +86,18 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
     console.error('PIB_REAL_PROFILE_GUARD', text)
     return "This computer's owner has enabled browsing as themselves; your chat cannot run there."
   }
+  if (/\borg_mismatch\b/.test(text)) {
+    return 'This agent profile belongs to a different organisation on that computer. Re-pair the computer.'
+  }
+  if (/\bgrant_not_active\b/.test(text) || /device grant not active/i.test(text)) {
+    return "The organisation's access to this computer is paused."
+  }
+  if (/\b(?:linked_device_)?hermes_update_required\b/.test(text)) {
+    return 'Hermes on this computer is too old. It will update automatically when idle.'
+  }
+  if (/\bhermes_update_failed\b/.test(text)) {
+    return 'Hermes could not update on this computer. It keeps working on the previous version; see the runbook.'
+  }
   if (isConversationBrowserToolFailure(text) || isConversationInfrastructureInterrupt(text)) {
     // Prefer recovery copy when something still surfaces; auto-requeue is the primary path.
     return CONVERSATION_RUN_RECOVERING_USER_ERROR

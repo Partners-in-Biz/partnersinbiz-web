@@ -16,6 +16,14 @@ describe('workspace dispatch safety', () => {
     expect(JSON.stringify(classifyWorkspaceDispatchFailure(unsafe))).not.toMatch(/gateway\.example|super-secret|Users/)
   })
 
+  it('maps a Hermes-too-old linked-computer dispatch code to the runbook sentence', () => {
+    expect(classifyWorkspaceDispatchFailure({ code: 'linked_device_hermes_update_required' })).toEqual({
+      code: 'linked_device_hermes_update_required',
+      message: 'Hermes on this computer is too old. It will update automatically when idle.',
+      retryable: false,
+    })
+  })
+
   it('keeps only logical identifiers and path class in stored metadata', () => {
     const metadata = sanitizeDispatchMetadata({
       conversationId: 'conv-1', messageId: 'msg-1', orgId: 'org-1', workspaceId: 'workspace-1',

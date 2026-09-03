@@ -10,6 +10,7 @@ export type WorkspaceDispatchFailureCode =
   | 'runtime_target_disabled'
   | 'runtime_target_stale'
   | 'runtime_target_invalid_id'
+  | 'linked_device_hermes_update_required'
 
 export type SafeWorkspaceDispatchError = {
   code: WorkspaceDispatchFailureCode
@@ -21,7 +22,7 @@ const KNOWN_CODES = new Set<WorkspaceDispatchFailureCode>([
   'workspace_not_found', 'workspace_manifest_invalid', 'workspace_directory_outside_root',
   'workspace_directory_mismatch', 'runtime_target_not_found', 'runtime_target_disabled',
   'runtime_target_stale', 'runtime_target_invalid_id', 'dispatch_unavailable',
-  'dispatch_rejected', 'dispatch_invalid_response',
+  'dispatch_rejected', 'dispatch_invalid_response', 'linked_device_hermes_update_required',
 ])
 
 const SAFE_MESSAGES: Record<WorkspaceDispatchFailureCode, string> = {
@@ -36,6 +37,7 @@ const SAFE_MESSAGES: Record<WorkspaceDispatchFailureCode, string> = {
   runtime_target_disabled: 'The selected runtime target is unavailable.',
   runtime_target_stale: 'The selected runtime target is unavailable.',
   runtime_target_invalid_id: 'The selected runtime target is invalid.',
+  linked_device_hermes_update_required: 'Hermes on this computer is too old. It will update automatically when idle.',
 }
 
 export function classifyWorkspaceDispatchFailure(
