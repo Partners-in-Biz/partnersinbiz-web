@@ -223,7 +223,7 @@ export default function BulkComposePage() {
           onChange={handleCsvUpload}
           aria-label="Upload CSV"
           className="block text-sm text-[var(--color-pib-text-muted)] file:mr-3 file:px-3 file:py-1.5 file:rounded file:border-0 file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-xs file:font-medium file:cursor-pointer"
-         aria-label="Upload file"/>
+        />
 
         {csvPreview && (
           <div className="space-y-2">
@@ -286,7 +286,7 @@ export default function BulkComposePage() {
               placeholder="Write your post content..."
               aria-label="Post content"
               className="pib-textarea w-full resize-none"
-             aria-label="Write your post content..."/>
+            />
 
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
@@ -312,12 +312,13 @@ export default function BulkComposePage() {
                 min={minDateTime}
                 onChange={(e) => updateRow(i, { scheduledAt: e.target.value })}
                 className="pib-input text-xs"
-               aria-label="Date and time"/>
+              />
               <select
                 value={row.category}
                 onChange={(e) => updateRow(i, { category: e.target.value })}
-                className="pib-select text-xs capitalize" aria-label="Category"
-               aria-label="Input">
+                className="pib-select text-xs capitalize"
+                aria-label="Category"
+              >
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>

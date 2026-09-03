@@ -639,7 +639,7 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
           >
             {r.label}
             {r.hasOutlookIssues && (
-              <Icon name="warning" className="text-[14px] text-[var(--sc-ink-soft)]" title="Rendering issues" />
+              <Icon name="warning" className="text-[14px] text-[var(--sc-ink-soft)]" label="Rendering issues" />
             )}
           </button>
         ))}

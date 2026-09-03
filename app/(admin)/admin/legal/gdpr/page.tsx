@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 import { DialogDrawer, EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 import {
   Button,
@@ -395,7 +394,9 @@ export default function GdprPage() {
             </Button>
           </Toolbar>
         }
-      />
+      >
+        {null}
+      </DialogDrawer>
     </div>
   )
 }

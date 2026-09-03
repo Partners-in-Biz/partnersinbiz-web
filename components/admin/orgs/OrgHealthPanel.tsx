@@ -112,7 +112,10 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
           <div className="space-y-2">
             {data.alerts.map((a, i) => (
               <div key={i} className="flex items-start gap-2 text-sm">
-                <Icon name={a.kind === 'upsell' ? 'trending_up' : 'warning'} className="text-[18px]" style={{ color: a.kind === 'upsell' ? '#4ade80' : '#ef4444' }} />
+                <Icon
+                  name={a.kind === 'upsell' ? 'trending_up' : 'warning'}
+                  className={a.kind === 'upsell' ? 'text-[18px] text-[#4ade80]' : 'text-[18px] text-[#ef4444]'}
+                />
                 <span className="text-[var(--color-pib-text)]">{a.message}</span>
               </div>
             ))}
