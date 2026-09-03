@@ -33,6 +33,8 @@ export interface LinkedDevice {
   /** Managed Hermes profiles reported by runtime v2. Absent on legacy runtimes. */
   availableAgents?: Array<{ orgId: string; agentId: string; profile: string; healthy: boolean }>
   hermesVersion?: string
+  /** Hermes/runtime pin lane. Missing on legacy rows; treated as stable. */
+  releaseChannel?: 'internal' | 'stable'
   healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
   capabilities: LinkedDeviceCapability[]
   status: LinkedDeviceStatus

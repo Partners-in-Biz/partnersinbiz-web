@@ -278,6 +278,7 @@ export async function createDevice(input: {
       platform: input.platform,
       architecture: input.architecture,
       runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+      releaseChannel: 'stable',
       capabilities: input.capabilities,
       status: 'active', credentialVersion: 1,
       createdAt: at, updatedAt: at, lastSeenAt: null,

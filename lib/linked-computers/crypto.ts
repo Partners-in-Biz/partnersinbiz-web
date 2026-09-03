@@ -388,6 +388,11 @@ export interface PairingExchangeInput {
   platform: LinkedDevicePlatform
   architecture: LinkedDeviceArchitecture
   runtimeVersion: string
+  releaseChannel?: 'internal' | 'stable'
+}
+
+function resolvedReleaseChannel(input: PairingExchangeInput): 'internal' | 'stable' {
+  return input.releaseChannel === 'internal' ? 'internal' : 'stable'
 }
 
 function validExchangeProof(input: PairingExchangeInput, challenge: Record<string, unknown>): {
@@ -687,6 +692,7 @@ export async function exchangePairing(
         platform: input.platform,
         architecture: input.architecture,
         runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+        releaseChannel: resolvedReleaseChannel(input),
         capabilities: ['workspace.execute', 'workspace.sync'],
         status: 'active',
         credentialVersion,
@@ -856,7 +862,8 @@ export async function exchangePairing(
       createdByUserId: exchange.ownerUserId, runtimeTargetId: `linked-device:${exchange.deviceId}`,
       publicKey: exchange.publicKey, publicKeyFingerprint: fingerprint,
       label: required(input.label, 'label'), platform: input.platform, architecture: input.architecture,
-      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), capabilities: ['workspace.execute', 'workspace.sync'],
+      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), releaseChannel: resolvedReleaseChannel(input),
+      capabilities: ['workspace.execute', 'workspace.sync'],
       status: 'active', credentialVersion,
       ...(deviceSnap.exists ? { updatedAt: at } : { createdAt: at, updatedAt: at, lastSeenAt: null }),
     }

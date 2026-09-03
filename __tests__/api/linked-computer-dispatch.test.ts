@@ -3,6 +3,7 @@ import {
   authorizeLinkedComputerDispatch,
   authorizeLinkedComputerRecoveryQueue,
   discoverAuthorizedRuntimeTargets,
+  hermesUpdateRequired,
   linkedComputerReceiptPayload,
   requireMatchingExecutionReceipt,
   linkedRuntimeUpdateRequired,
@@ -29,9 +30,9 @@ function fakeDb(seed: Record<string, Record<string, Row>>) {
 const now = Date.parse('2026-07-12T12:00:00.000Z')
 const base = {
   linked_devices: {
-    owned: { deviceId: 'owned', ownerUserId: 'user-a', runtimeTargetId: 'target-owned', label: 'Office Mac', platform: 'macos', runtimeVersion: '2.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 3, lastSeenAt: new Date(now - 30_000).toISOString() },
-    shared: { deviceId: 'shared', ownerUserId: 'user-b', runtimeTargetId: 'target-shared', label: 'Studio PC', platform: 'windows', runtimeVersion: '2.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 7, lastSeenAt: new Date(now - 30_000).toISOString() },
-    stale: { deviceId: 'stale', ownerUserId: 'user-a', runtimeTargetId: 'target-stale', label: 'Old Mac', platform: 'macos', runtimeVersion: '1.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 1, lastSeenAt: new Date(now - 900_000).toISOString() },
+    owned: { deviceId: 'owned', ownerUserId: 'user-a', runtimeTargetId: 'target-owned', label: 'Office Mac', platform: 'macos', runtimeVersion: '2.0.0', hermesVersion: '0.20.6', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 3, lastSeenAt: new Date(now - 30_000).toISOString() },
+    shared: { deviceId: 'shared', ownerUserId: 'user-b', runtimeTargetId: 'target-shared', label: 'Studio PC', platform: 'windows', runtimeVersion: '2.0.0', hermesVersion: '0.20.6', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 7, lastSeenAt: new Date(now - 30_000).toISOString() },
+    stale: { deviceId: 'stale', ownerUserId: 'user-a', runtimeTargetId: 'target-stale', label: 'Old Mac', platform: 'macos', runtimeVersion: '1.0.0', hermesVersion: '0.20.6', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 1, lastSeenAt: new Date(now - 900_000).toISOString() },
   },
   linked_device_grants: {
     'org-a_owned': { deviceId: 'owned', orgId: 'org-a', status: 'active', allowedUserIds: [], capabilities: ['workspace.execute'] },
@@ -60,6 +61,24 @@ describe('linked computer runtime authorization', () => {
     expect(linkedRuntimeUpdateRequired('1.9.9', '2.0.0')).toBe(true)
     expect(linkedRuntimeUpdateRequired('invalid', '2.0.0')).toBe(true)
     expect(linkedRuntimeUpdateRequired('2.0.0', 'invalid')).toBe(true)
+  })
+
+  it('marks a device non-selectable when Hermes is missing or below the channel min', async () => {
+    expect(hermesUpdateRequired({ hermesVersion: undefined }, '0.20.6')).toBe(true)
+    expect(hermesUpdateRequired({ hermesVersion: '0.20.5' }, '0.20.6')).toBe(true)
+    expect(hermesUpdateRequired({ hermesVersion: '0.20.6' }, '0.20.6')).toBe(false)
+    expect(hermesUpdateRequired({ hermesVersion: '0.21.0' }, '0.20.6')).toBe(false)
+
+    const rows = structuredClone(base) as Record<string, Record<string, Row>>
+    rows.linked_devices.owned = { ...rows.linked_devices.owned, hermesVersion: '0.20.3' }
+    const targets = await discoverAuthorizedRuntimeTargets(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )
+    expect(targets.find((target) => target.deviceId === 'owned')).toEqual(expect.objectContaining({
+      selectable: false,
+      unavailableReason: 'hermes_update_required',
+    }))
   })
   it('keeps authorized stale devices visible but unavailable', async () => {
     const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(base), nowMs: () => now })
@@ -181,7 +200,7 @@ describe('linked computer runtime authorization', () => {
 
   it('authorizes every current and future active organisation member without copying user ids into the grant', async () => {
     const rows = structuredClone(base) as any
-    rows.linked_devices.vps = { deviceId: 'vps', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'admin-a', runtimeTargetId: 'target-vps', label: 'Partners VPS', platform: 'linux', runtimeVersion: '2.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 9, lastSeenAt: new Date(now - 30_000).toISOString() }
+    rows.linked_devices.vps = { deviceId: 'vps', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'admin-a', runtimeTargetId: 'target-vps', label: 'Partners VPS', platform: 'linux', runtimeVersion: '2.0.0', hermesVersion: '0.20.6', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 9, lastSeenAt: new Date(now - 30_000).toISOString() }
     rows.linked_device_grants['org-a_vps'] = { deviceId: 'vps', orgId: 'org-a', status: 'active', accessMode: 'organization', allowedUserIds: [], capabilities: ['workspace.execute'] }
     rows.linked_device_workspace_mappings['map-vps'] = { mappingId: 'map-vps', deviceId: 'vps', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' }
     rows.linked_device_credentials.vps = { credentialVersion: 9, revokedAt: null }
