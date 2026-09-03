@@ -333,3 +333,59 @@
     transition: none;
   }
 }
+
+/* ── Table (Phase 1; kit Table wraps these in Phase 2). ─────────────────── */
+.st-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.st-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sc-surface);
+}
+.st-table th {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-soft);
+  font-weight: 400;
+  text-align: left;
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-bottom: 1px solid var(--sc-line-strong);
+}
+.st-table td {
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-bottom: 1px solid var(--sc-line);
+  color: var(--sc-ink);
+  font-size: 0.9375rem;
+}
+.st-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--sc-ink) 4%, transparent);
+}
+.st-table tfoot td {
+  border-bottom: 0;
+  border-top: 1px solid var(--sc-line-strong);
+  color: var(--sc-ink-soft);
+}
+
+/* ── Skeleton: paper pulse, 4px. ────────────────────────────────────────── */
+.st-skeleton {
+  display: block;
+  background: var(--sc-surface);
+  border-radius: var(--st-radius);
+  animation: st-skeleton-pulse 1.2s ease-in-out infinite;
+}
+@keyframes st-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-skeleton {
+    animation-duration: 2.4s;
+  }
+}
