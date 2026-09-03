@@ -301,7 +301,7 @@ function InsightCard({
 }) {
   const toneClass =
     tone === 'good'
-      ? 'border-[var(--color-pib-green)]/40 bg-[var(--color-pib-green-soft)]'
+      ? 'border-[var(--st-success)]/40 bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)]'
       : tone === 'warning'
         ? 'border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]'
         : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]'

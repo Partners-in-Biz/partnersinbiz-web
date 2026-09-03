@@ -79,7 +79,7 @@ function MetricCard({
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
         className="text-2xl font-headline font-medium mt-1"
-        style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
+        style={{ color: accent ? 'var(--sc-ink-soft)' : undefined }}
       >
         {value}
       </p>
@@ -90,7 +90,7 @@ function MetricCard({
 
 function ActivationBar({ score }: { score: number }) {
   const color =
-    score >= 66 ? 'var(--color-pib-cyan)' : score >= 33 ? '#eab308' : '#9ca3af'
+    score >= 66 ? 'var(--sc-ink-soft)' : score >= 33 ? '#eab308' : '#9ca3af'
   return (
     <div className="flex items-center gap-2 min-w-[120px]">
       <div className="flex-1 h-1.5 rounded bg-white/10 overflow-hidden">
@@ -292,7 +292,7 @@ export default function TrialsPage() {
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="started" name="Started" fill="#6b7280" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="converted" name="Converted" fill="var(--color-pib-cyan)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="converted" name="Converted" fill="var(--sc-ink-soft)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

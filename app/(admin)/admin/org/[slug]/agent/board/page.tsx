@@ -50,17 +50,17 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--color-pib-amber)] border border-amber-400/30',
+  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--sc-accent)] border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
-  sage: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  sage: 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
-  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--color-pib-amber)] border border-amber-400/30',
-  'qa-release': 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--sc-accent)] border border-amber-400/30',
+  'qa-release': 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
   support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   data: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)] border border-violet-400/30',
   docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
-  seo: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  seo: 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
 }
 
 const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
@@ -68,7 +68,7 @@ const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
   danger: 'bg-rose-500/15 text-rose-200 border-rose-400/30',
   warning: 'bg-orange-500/15 text-orange-200 border-orange-400/30',
   info: 'bg-sky-500/15 text-sky-200 border-sky-400/30',
-  purple: 'bg-purple-500/15 text-[var(--color-pib-violet)] border-purple-400/30',
+  purple: 'bg-purple-500/15 text-[var(--sc-ink-soft)] border-purple-400/30',
   neutral: 'bg-slate-400/15 text-slate-200 border-slate-300/30',
 }
 
@@ -301,7 +301,7 @@ export default function AgentBoardPage() {
                     )}
 
                     {card.agentOutputSummary && (
-                      <p className="mt-1.5 text-xs text-[var(--color-pib-green)]/80 line-clamp-2">
+                      <p className="mt-1.5 text-xs text-[var(--st-success)]/80 line-clamp-2">
                         <span className="opacity-70">Output: </span>
                         {card.agentOutputSummary}
                       </p>
@@ -319,7 +319,7 @@ export default function AgentBoardPage() {
                         </span>
                       )}
                       {orgName && card.orgId !== currentOrgId && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-[var(--color-pib-violet)]">
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-[var(--sc-ink-soft)]">
                           <span className="opacity-60">org · </span>
                           {orgName}
                         </span>

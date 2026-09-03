@@ -38,7 +38,7 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
       {...listeners}
     >
       <div
-        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-pib-cyan)]/50"
+        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--sc-ink-soft)]/50"
         style={{ padding: '8px 9px', borderLeft: `2px solid ${priorityColor}` }}
         onClick={onClick}
       >

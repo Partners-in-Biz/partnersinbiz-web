@@ -135,7 +135,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function HeatCell({ value, max }: { value: number; max: number }) {
   const intensity = max > 0 ? Math.round((value / max) * 100) : 0
-  const bg = value > 0 ? `color-mix(in srgb, var(--color-pib-rose) ${Math.round(intensity * 0.7)}%, transparent)` : 'transparent'
+  const bg = value > 0 ? `color-mix(in srgb, var(--st-danger) ${Math.round(intensity * 0.7)}%, transparent)` : 'transparent'
   return (
     <div
       className="w-8 h-8 rounded flex items-center justify-center text-[9px] font-medium text-[var(--color-pib-text-muted)]"
@@ -365,10 +365,10 @@ export default function AnalyticsPage() {
                 </p>
                 <HorizontalBarChart
                   data={[
-                    { label: 'Likes', value: stats.totalLikes, color: 'var(--color-pib-green)' },
-                    { label: 'Comments', value: stats.totalComments, color: 'var(--color-pib-blue)' },
-                    { label: 'Shares', value: stats.totalShares, color: 'var(--color-pib-rose)' },
-                    { label: 'Clicks', value: stats.totalClicks, color: 'var(--color-pib-amber)' },
+                    { label: 'Likes', value: stats.totalLikes, color: 'var(--st-success)' },
+                    { label: 'Comments', value: stats.totalComments, color: 'var(--sc-ink-soft)' },
+                    { label: 'Shares', value: stats.totalShares, color: 'var(--st-danger)' },
+                    { label: 'Clicks', value: stats.totalClicks, color: 'var(--sc-accent)' },
                   ]}
                   valueFormatter={fmtNum}
                 />
@@ -507,7 +507,7 @@ export default function AnalyticsPage() {
                           <span className="text-xs text-[var(--color-pib-text)] w-5">{i + 1}.</span>
                           <span className="text-sm text-[var(--color-pib-text)] w-24">{DAY_NAMES[slot.dayOfWeek]} {slot.hour.toString().padStart(2, '0')}:00</span>
                           <div className="flex-1 h-5 rounded border border-[var(--color-pib-line)] overflow-hidden">
-                            <div className="h-full rounded bg-[var(--color-pib-rose)]/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
+                            <div className="h-full rounded bg-[var(--st-danger)]/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
                           </div>
                           <span className="text-xs text-[var(--color-pib-text-muted)] w-20 text-right">Score: {slot.avgScore} ({slot.postCount})</span>
                         </div>

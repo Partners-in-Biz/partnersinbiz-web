@@ -56,7 +56,7 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
           <ul className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
             {usingAdSets.map((s) => (
               <li key={s.id} className="px-4 py-3 text-sm">
-                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[var(--color-pib-rose)]">
+                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[var(--st-danger)]">
                   {s.name}
                 </Link>
               </li>

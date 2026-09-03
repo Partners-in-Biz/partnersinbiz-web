@@ -68,7 +68,7 @@ export function LinkedinAudienceBuilders(props: Props) {
               onClick={() => setSubtype(t.value)}
               className="pib-card pib-card-hover text-left group"
             >
-              <p className="text-sm font-medium text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-rose)] transition-colors">
+              <p className="text-sm font-medium text-[var(--color-pib-text)] group-hover:text-[var(--st-danger)] transition-colors">
                 {t.label}
               </p>
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{t.description}</p>

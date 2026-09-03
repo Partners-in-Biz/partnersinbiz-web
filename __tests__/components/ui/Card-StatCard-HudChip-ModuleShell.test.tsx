@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
-import { HudChip, SignalMeter, GlassBar, LiveDot } from '@/components/ui/HudChip'
+import { HudChip } from '@/components/ui/HudChip'
 import { ModuleShell } from '@/components/ui/ModuleShell'
 
 describe('Card / MetricCard Studio re-skin', () => {
@@ -43,19 +43,6 @@ describe('HudChip Studio re-skin', () => {
   it('maps warning tones', () => {
     render(<HudChip tone="warn">Attention</HudChip>)
     expect(screen.getByText('Attention')).toHaveClass('st-status--warning')
-  })
-
-  it('deprecated SignalMeter and LiveDot render nothing', () => {
-    const { container: a } = render(<SignalMeter />)
-    const { container: b } = render(<LiveDot />)
-    expect(a).toBeEmptyDOMElement()
-    expect(b).toBeEmptyDOMElement()
-  })
-
-  it('deprecated GlassBar renders children without chrome', () => {
-    const { container } = render(<GlassBar><span>Inside</span></GlassBar>)
-    expect(screen.getByText('Inside')).toBeInTheDocument()
-    expect(container.querySelector('.pib-glass-bar')).toBeNull()
   })
 })
 

@@ -1,6 +1,6 @@
 /* ───────────────────────────────────────────────────────────────────────────
    Messages Experience - July 2026 cinematic layer
-   Scoped entirely under [data-messages-experience]. Safe for light + dark.
+   Scoped entirely under [data-messages-experience]. Studio dark surface only.
    Uses: OKLCH accents, scroll-driven timelines, liquid glass, container queries,
    view-timeline message entrance, GPU-composited glows. Reduced-motion safe.
    ─────────────────────────────────────────────────────────────────────────── */
@@ -12,7 +12,7 @@
   --mx-line-hot: color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
   --mx-glow-a: color-mix(in oklab, var(--color-pib-accent) 42%, transparent);
   --mx-glow-v: color-mix(in oklab, var(--sc-ink-soft) 38%, transparent);
-  --mx-glow-c: color-mix(in oklab, var(--color-pib-cyan) 32%, transparent);
+  --mx-glow-c: color-mix(in oklab, var(--sc-ink-soft) 32%, transparent);
   --mx-radius-shell: 0;
   --mx-radius-pane: 0;
   --mx-blur: 22px;
@@ -41,15 +41,6 @@
   box-shadow: none;
 }
 
-[data-theme='light'] [data-messages-experience],
-[data-theme='light'] .pib-shell[data-messages-experience],
-[data-theme='light'] [data-pib-shell][data-messages-experience] {
-  --mx-glass: color-mix(in oklab, white 72%, transparent);
-  --mx-glass-strong: color-mix(in oklab, white 86%, transparent);
-  --mx-line: color-mix(in oklab, black 10%, transparent);
-  box-shadow: none;
-}
-
 /* Neural field canvas sits behind chrome */
 .messages-neural-field {
   position: absolute;
@@ -60,11 +51,6 @@
   pointer-events: none;
   opacity: 0.9;
   mix-blend-mode: screen;
-}
-
-[data-theme='light'] .messages-neural-field {
-  mix-blend-mode: multiply;
-  opacity: 0.55;
 }
 
 /* CSS aurora fallback - only when WebGL is unavailable or reduced-motion */
@@ -78,7 +64,7 @@
     radial-gradient(ellipse 80% 55% at 12% 18%, var(--mx-glow-a), transparent 58%),
     radial-gradient(ellipse 70% 50% at 88% 8%, var(--mx-glow-v), transparent 55%),
     radial-gradient(ellipse 60% 45% at 70% 92%, var(--mx-glow-c), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 20% 85%, color-mix(in oklab, var(--color-pib-rose) 18%, transparent), transparent 55%);
+    radial-gradient(ellipse 50% 40% at 20% 85%, color-mix(in oklab, var(--st-danger) 18%, transparent), transparent 55%);
   transition: opacity 240ms ease;
 }
 
@@ -165,7 +151,7 @@
   inset: 0 auto 0 0;
   width: 42%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-pib-accent), var(--sc-ink-soft), var(--color-pib-cyan));
+  background: linear-gradient(90deg, var(--color-pib-accent), var(--sc-ink-soft), var(--sc-ink-soft));
   background-size: 200% 100%;
   animation: mx-meter-flow 3.6s linear infinite;
 }
@@ -244,7 +230,7 @@
     transparent,
     var(--color-pib-accent) 20%,
     var(--sc-ink-soft) 55%,
-    var(--color-pib-cyan) 80%,
+    var(--sc-ink-soft) 80%,
     transparent
   );
   opacity: 0.55;
@@ -465,7 +451,7 @@
     background: linear-gradient(
       180deg,
       var(--sc-ink-soft),
-      var(--color-pib-cyan)
+      var(--sc-ink-soft)
     );
     opacity: 0.7;
     pointer-events: none;
@@ -482,7 +468,7 @@
   inset: 0 auto 0 0;
   width: 2px;
   border-radius: 999px;
-  background: var(--mx-folder-accent, var(--color-pib-cyan));
+  background: var(--mx-folder-accent, var(--sc-ink-soft));
   opacity: 0.85;
   pointer-events: none;
 }
@@ -598,7 +584,7 @@
       120deg,
       color-mix(in oklab, var(--color-pib-accent) 8%, transparent),
       color-mix(in oklab, var(--sc-ink-soft) 10%, transparent),
-      color-mix(in oklab, var(--color-pib-cyan) 8%, transparent)
+      color-mix(in oklab, var(--sc-ink-soft) 8%, transparent)
     ) !important;
   background-size: 200% 100%;
   animation: mx-activity-shift 4s ease infinite;
@@ -646,7 +632,7 @@
     from 0deg,
     var(--color-pib-accent),
     var(--sc-ink-soft),
-    var(--color-pib-cyan),
+    var(--sc-ink-soft),
     var(--color-pib-accent)
   );
   opacity: 0.55;
@@ -742,18 +728,4 @@
   [data-messages-experience] .messages-scanlines {
     display: none;
   }
-}
-
-/* Light theme readability overrides */
-[data-theme='light'] [data-messages-experience] .mx-bubble-mine {
-  color: #1a1208 !important;
-}
-
-[data-theme='light'] [data-messages-experience] [data-testid^='messages-workspace-pane-'] {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, white 88%, transparent),
-      color-mix(in oklab, var(--color-pib-cream) 70%, transparent)
-    ) !important;
 }

@@ -29,7 +29,7 @@ interface SocialPostReviewQueueCardProps {
 }
 
 const STATUS_TONES: Record<SocialPostReviewQueueTone, string> = {
-  neutral: 'bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]',
+  neutral: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[var(--st-danger)]',
   warning: 'bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]',
   info: 'bg-indigo-500/10 text-indigo-400',
   success: 'bg-green-500/10 text-green-400',

@@ -142,7 +142,7 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
     <Link
       href={href}
       data-module-accent="cyan"
-      className="pib-card pib-enter group/card relative flex min-h-[148px] overflow-hidden !p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-cyan)]/50"
+      className="pib-card pib-enter group/card relative flex min-h-[148px] overflow-hidden !p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--sc-ink-soft)]/50"
     >
       <span className="absolute inset-y-0 left-0 w-1" style={{ background: meta.color }} />
       <div className="flex min-w-0 flex-1 flex-col p-3.5 pl-4">
@@ -152,7 +152,7 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
               <Icon name={meta.icon} />
             </span>
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-sm font-headline font-medium leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-cyan)]">
+              <h3 className="line-clamp-2 text-sm font-headline font-medium leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--sc-ink-soft)]">
                 {project.name}
               </h3>
               <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{updated}</p>
@@ -181,7 +181,7 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
               <Icon name="view_kanban" />
               Board workspace
             </span>
-            <span className="inline-flex items-center gap-0.5 text-[var(--color-pib-cyan)] opacity-0 transition-opacity group-hover/card:opacity-100">
+            <span className="inline-flex items-center gap-0.5 text-[var(--sc-ink-soft)] opacity-0 transition-opacity group-hover/card:opacity-100">
               Open
               <Icon name="arrow_forward" />
             </span>

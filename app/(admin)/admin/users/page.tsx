@@ -37,7 +37,7 @@ function Avatar({ name, email }: { name: string; email: string }) {
   return (
     <div
       className="w-9 h-9 rounded flex items-center justify-center text-xs font-medium flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-cyan-soft)', color: '#5EEAD4' }}
+      style={{ backgroundColor: 'color-mix(in srgb, var(--sc-ink) 6%, transparent)', color: '#5EEAD4' }}
     >
       {initials || '?'}
     </div>

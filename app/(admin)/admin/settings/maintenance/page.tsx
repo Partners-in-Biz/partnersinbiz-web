@@ -126,7 +126,7 @@ export default function MaintenancePage() {
       </header>
 
       {feedback && (
-        <div className="st-panel py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>
+        <div className="st-panel py-2 text-xs text-[var(--st-success)]">{feedback}</div>
       )}
       {error && (
         <div className="st-panel py-2 text-xs text-[var(--color-error)]">{error}</div>
@@ -245,7 +245,7 @@ export default function MaintenancePage() {
             </div>
             {history.map((h) => (
               <div key={h.id} className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] px-3 py-2 text-xs last:border-b-0">
-                <span className={`col-span-2 ${h.enabled ? "text-[var(--color-pib-amber)]" : 'text-[var(--color-pib-text-muted)]'}`}>{h.enabled ? 'ON' : 'OFF'}</span>
+                <span className={`col-span-2 ${h.enabled ? "text-[var(--sc-accent)]" : 'text-[var(--color-pib-text-muted)]'}`}>{h.enabled ? 'ON' : 'OFF'}</span>
                 <span className="col-span-4 text-[var(--color-pib-text-muted)] truncate">
                   {h.window?.start ? new Date(h.window.start).toLocaleString() : '-'}
                   {h.window?.end ? ` → ${new Date(h.window.end).toLocaleString()}` : ''}

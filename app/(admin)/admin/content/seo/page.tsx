@@ -13,8 +13,8 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 const STATUS_STYLES: Record<SeoArticleStatus, string> = {
   draft: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
-  scheduled: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
-  published: 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]',
+  scheduled: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]',
+  published: 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]',
 }
 
 function fmtDate(iso: string | null): string {
@@ -146,7 +146,7 @@ export default function SeoArticlesPage() {
             className={`text-xs font-label px-3 py-1.5 rounded capitalize transition-colors ${
               filter === f ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}
-            style={filter === f ? { background: 'var(--color-pib-green)', color: 'var(--color-pib-ink)' } : undefined}
+            style={filter === f ? { background: 'var(--st-success)', color: 'var(--color-pib-ink)' } : undefined}
           >
             {f}
           </button>

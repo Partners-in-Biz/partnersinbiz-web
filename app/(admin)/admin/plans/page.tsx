@@ -310,7 +310,7 @@ export default function PlansPage() {
       )}
 
       {notice && (
-        <div className="st-panel px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}

@@ -97,7 +97,7 @@ export default async function AdSetDetailPage({
             <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <Link
                 href={`/admin/org/${slug}/ads/ads/${a.id}`}
-                className="font-medium hover:text-[var(--color-pib-rose)]"
+                className="font-medium hover:text-[var(--st-danger)]"
               >
                 {a.name} <span className="text-xs text-[var(--color-pib-text-faint)]">{a.format.toLowerCase()}</span>
               </Link>

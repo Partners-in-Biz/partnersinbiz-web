@@ -284,9 +284,9 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
           <span
             className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${
               article.status === 'published'
-                ? 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]'
+                ? 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]'
                 : article.status === 'scheduled'
-                  ? 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]'
+                  ? 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]'
                   : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
             }`}
           >
@@ -524,7 +524,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             <div className="flex items-baseline gap-2 mt-1">
               <span
                 className="text-3xl font-headline font-medium"
-                style={{ color: score >= 80 ? 'var(--color-pib-green)' : score >= 50 ? 'var(--color-pib-amber)' : 'var(--color-error)' }}
+                style={{ color: score >= 80 ? 'var(--st-success)' : score >= 50 ? 'var(--sc-accent)' : 'var(--color-error)' }}
               >
                 {score}
               </span>
@@ -535,7 +535,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                 <div key={c.id} className="flex items-start gap-2 text-sm">
                   <span
                     className="text-base mt-0.5"
-                    style={{ color: c.pass ? 'var(--color-pib-green)' : 'var(--color-error)' }}
+                    style={{ color: c.pass ? 'var(--st-success)' : 'var(--color-error)' }}
                   >
                     {c.pass ? 'check_circle' : 'cancel'}
                   </span>
@@ -574,7 +574,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               {article.status === 'scheduled' ? 'Reschedule' : 'Schedule publish'}
             </button>
             {article.status === 'scheduled' && article.scheduledFor && (
-              <p className="text-xs text-[var(--color-pib-amber)]">
+              <p className="text-xs text-[var(--sc-accent)]">
                 Scheduled for {new Date(article.scheduledFor).toLocaleString()}
               </p>
             )}

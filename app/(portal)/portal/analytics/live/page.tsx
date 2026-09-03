@@ -20,8 +20,8 @@ interface LiveEvent {
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  '$pageview': 'text-[var(--color-pib-blue)]',
-  '$identify': 'text-[var(--color-pib-violet)]',
+  '$pageview': 'text-[var(--sc-ink-soft)]',
+  '$identify': 'text-[var(--sc-ink-soft)]',
   'signup': 'text-[var(--color-pib-success)]',
   'signup_completed': 'text-[var(--color-pib-success)]',
 }

@@ -141,7 +141,7 @@ export default function PortalMessagesPage() {
           <h1 className="pib-page-title mt-2">Messages</h1>
         </header>
         <div className="bento-card p-10 text-center">
-          <Icon name="forum" className="text-4xl text-[var(--color-pib-blue)]" />
+          <Icon name="forum" className="text-4xl text-[var(--sc-ink-soft)]" />
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {error ?? 'Could not load your workspace. Please try again.'}
           </p>

@@ -129,7 +129,7 @@
   inset: 0 0 0 auto;
   width: 2px;
   border-radius: 999px;
-  background: var(--color-pib-primary);
+  background: var(--sc-ink-soft);
   opacity: 0.8;
   pointer-events: none;
 }

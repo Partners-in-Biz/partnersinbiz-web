@@ -463,7 +463,7 @@ function BroadcastsTab({
               <Link
                 href={broadcastAnalyticsHref(b.id, surface, orgScope)}
                 aria-label={`Open analytics for ${b.name}`}
-                className="text-[var(--color-pib-blue)] hover:underline text-xs"
+                className="text-[var(--sc-ink-soft)] hover:underline text-xs"
               >
                 Details →
               </Link>
@@ -554,7 +554,7 @@ function SequencesTab({
         <h2 className="text-sm font-medium text-[var(--color-pib-text-muted)]">Sequence performance</h2>
         <Link
           href={sequenceManagementHref(surface, orgScope)}
-          className="text-xs font-medium text-[var(--color-pib-blue)] hover:underline"
+          className="text-xs font-medium text-[var(--sc-ink-soft)] hover:underline"
         >
           Manage sequences
         </Link>
@@ -572,7 +572,7 @@ function SequencesTab({
               className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-[var(--color-row-hover)]"
             >
               <span className="font-medium text-[var(--color-pib-text)]">{sequence.name}</span>
-              <span className="text-xs text-[var(--color-pib-blue)]">Open analytics</span>
+              <span className="text-xs text-[var(--sc-ink-soft)]">Open analytics</span>
             </Link>
           ))
         )}
@@ -973,7 +973,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
       {bestCell && bestCell.sent >= 1 ? (
         <div className="pib-card text-sm text-[var(--color-pib-text)]">
           Best send time:{' '}
-          <span className="text-[var(--color-pib-blue)]">
+          <span className="text-[var(--sc-ink-soft)]">
             {DAY_LABELS[data.bestDay]} at {String(data.bestHour).padStart(2, '0')}:00
           </span>{' '}
            -  {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
@@ -1011,11 +1011,11 @@ function bandColor(band: PerformanceBand, direction: 'higher' | 'lower'): string
   if (direction === 'higher') {
     if (band === 'above-p75') return 'text-emerald-400'
     if (band === 'p50-p75') return 'text-[var(--sc-ink-soft)]'
-    if (band === 'p25-p50') return 'text-[var(--color-pib-blue)]'
+    if (band === 'p25-p50') return 'text-[var(--sc-ink-soft)]'
     return 'text-[var(--st-danger)]'
   }
   if (band === 'above-p75') return 'text-[var(--st-danger)]'
-  if (band === 'p50-p75') return 'text-[var(--color-pib-blue)]'
+  if (band === 'p50-p75') return 'text-[var(--sc-ink-soft)]'
   if (band === 'p25-p50') return 'text-[var(--sc-ink-soft)]'
   return 'text-emerald-400'
 }

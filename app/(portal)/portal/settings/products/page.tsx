@@ -524,7 +524,7 @@ export default function ProductsPage() {
                         </div>
                         <div className="h-1.5 overflow-hidden rounded bg-[var(--color-pib-line)]">
                           <div
-                            className="h-full rounded bg-[var(--color-pib-cyan)]"
+                            className="h-full rounded bg-[var(--sc-ink-soft)]"
                             style={{ width: `${health.score}%` }}
                           />
                         </div>

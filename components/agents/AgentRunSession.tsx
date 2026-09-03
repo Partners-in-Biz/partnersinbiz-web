@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
-import { HudChip, SignalMeter } from '@/components/ui/HudChip'
+import { HudChip } from '@/components/ui/HudChip'
 
 import { Icon } from '@/components/studio'
 
@@ -211,7 +211,6 @@ export default function AgentRunSession({
             {loading ? 'loading' : runLoadState === 'missing' ? 'run missing' : status}
           </HudChip>
           {taskId ? <HudChip className="font-mono">task {taskId}</HudChip> : null}
-          <SignalMeter className="ml-auto" title={`Stream ${streamState}`} />
         </div>
       </Surface>
 

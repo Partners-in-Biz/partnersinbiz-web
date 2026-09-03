@@ -1,16 +1,14 @@
 /**
- * Studio style lint baseline regenerator.
- * Scans app and components (excluding components/marketing) for banned
- * patterns. Refuses to write if any file's count rose vs the current baseline.
+ * Studio style lint (absolute). Scans app and components (excluding
+ * components/marketing and non-UI paths) for banned patterns from the
+ * migration plan section 1.4. Any hit fails the gate.
  *
- * Usage: npm run studio:baseline
+ * Usage: npm run studio:style-lint
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
-const outDir = path.join(root, 'docs/studio-migration')
-const outFile = path.join(outDir, 'style-baseline.json')
 
 /** Banned list from plan section 1.4 (regex sources). */
 export const BANNED_PATTERNS: { id: string; re: RegExp }[] = [
@@ -59,15 +57,12 @@ const EXT = new Set(['.ts', '.tsx', '.css', '.js', '.jsx', '.mjs', '.cjs'])
 
 function shouldSkip(rel: string): boolean {
   if (rel.startsWith('components/marketing/')) return true
-  // API routes are not Studio UI surfaces; comment/string false positives dominate.
   if (rel.startsWith('app/api/')) return true
   if (rel.includes('/node_modules/')) return true
   if (rel.includes('/.next/')) return true
-  // Empty retired selectors live here until Phase 5 purge — do not ratchet them.
   if (rel === 'app/globals.css') return true
   if (rel === 'components/studio/studio-ui.css') return true
   if (rel === 'app/studio-tokens.css') return true
-  // Icon renders Material Symbols by design (plan 3.4).
   if (rel === 'components/studio/index.tsx') return true
   return false
 }
@@ -108,43 +103,21 @@ export function scanStyleDebt(): Record<string, number> {
   return map
 }
 
-export function compareToBaseline(
-  current: Record<string, number>,
-  baseline: Record<string, number>,
-): { regressions: string[]; improvements: string[] } {
-  const regressions: string[] = []
-  const improvements: string[] = []
-  const keys = new Set([...Object.keys(current), ...Object.keys(baseline)])
-  for (const key of keys) {
-    const now = current[key] ?? 0
-    const was = baseline[key] ?? 0
-    if (now > was) regressions.push(`${key}: ${was} → ${now}`)
-    else if (now < was) improvements.push(`${key}: ${was} → ${now}`)
-  }
-  return { regressions, improvements }
-}
-
 function main() {
-  mkdirSync(outDir, { recursive: true })
-  const current = scanStyleDebt()
-  let baseline: Record<string, number> = {}
-  if (existsSync(outFile)) {
-    baseline = JSON.parse(readFileSync(outFile, 'utf8')) as Record<string, number>
+  const debt = scanStyleDebt()
+  const files = Object.keys(debt)
+  if (files.length === 0) {
+    console.log('studio:style-lint OK — zero banned-pattern hits')
+    return
   }
-  const { regressions, improvements } = compareToBaseline(current, baseline)
-  if (regressions.length && Object.keys(baseline).length) {
-    console.error('studio:baseline refused — counts rose in:')
-    for (const r of regressions) console.error('  ' + r)
-    process.exit(1)
-  }
-  writeFileSync(outFile, JSON.stringify(current, null, 2) + '\n')
-  console.log(
-    `Wrote ${outFile} (${Object.keys(current).length} files with debt; ${improvements.length} improved vs prior)`,
-  )
+  console.error('studio:style-lint FAILED — banned patterns remain:')
+  for (const f of files.sort()) console.error(`  ${debt[f]}\t${f}`)
+  process.exit(1)
 }
 
-const isDirect = typeof require !== 'undefined' && require.main === module
-  || (typeof process !== 'undefined' && process.argv[1] && process.argv[1].includes('studio-style-baseline'))
+const isDirect =
+  (typeof require !== 'undefined' && require.main === module) ||
+  (typeof process !== 'undefined' && process.argv[1] && process.argv[1].includes('studio-style-baseline'))
 
 if (isDirect) {
   main()

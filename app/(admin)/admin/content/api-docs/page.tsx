@@ -36,10 +36,10 @@ function endpointKey(method: string, path: string): string {
 
 function methodChipStyle(method: string): React.CSSProperties {
   const m = method.toUpperCase()
-  if (m === 'GET') return { background: 'var(--color-pib-green-soft)', color: 'var(--color-pib-green)' }
-  if (m === 'POST') return { background: 'var(--color-pib-blue-soft)', color: 'var(--color-pib-blue)' }
-  if (m === 'PATCH' || m === 'PUT') return { background: 'var(--color-pib-amber-soft)', color: 'var(--color-pib-amber)' }
-  if (m === 'DELETE') return { background: 'var(--color-pib-rose-soft)', color: 'var(--color-pib-rose)' }
+  if (m === 'GET') return { background: 'color-mix(in srgb, var(--st-success) 10%, transparent)', color: 'var(--st-success)' }
+  if (m === 'POST') return { background: 'color-mix(in srgb, var(--sc-ink) 6%, transparent)', color: 'var(--sc-ink-soft)' }
+  if (m === 'PATCH' || m === 'PUT') return { background: 'color-mix(in srgb, var(--sc-accent) 10%, transparent)', color: 'var(--sc-accent)' }
+  if (m === 'DELETE') return { background: 'color-mix(in srgb, var(--st-danger) 10%, transparent)', color: 'var(--st-danger)' }
   return { background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }
 }
 
@@ -270,7 +270,7 @@ export default function ApiDocsPage() {
         <div className="st-panel p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] inline-flex items-center gap-2">
-              <span className="material-icons text-base" style={{ color: "var(--color-pib-cyan)" }}>
+              <span className="material-icons text-base" style={{ color: "var(--sc-ink-soft)" }}>
                 terminal
               </span>
               Try it
@@ -336,7 +336,7 @@ export default function ApiDocsPage() {
                 <span
                   className="text-sm font-mono font-medium"
                   style={{
-                    color: respStatus >= 200 && respStatus < 300 ? "var(--color-pib-green)" : "var(--color-error)",
+                    color: respStatus >= 200 && respStatus < 300 ? "var(--st-success)" : "var(--color-error)",
                   }}
                 >
                   {respStatus}
@@ -412,7 +412,7 @@ export default function ApiDocsPage() {
                               <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{ep.description}</p>
                             )}
                             {wasSaved && (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-pib-green)] mt-1">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--st-success)] mt-1">
                                 <span className="material-icons text-xs">check_circle</span>
                                 Saved
                               </span>

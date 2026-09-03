@@ -370,7 +370,7 @@ export default function RateLimitsClient() {
                   {data.overrides.map((o) => (
                     <div key={o.orgId} className="flex items-center gap-2 text-xs border-b border-[var(--color-pib-line)] pb-2">
                       <span className="font-mono text-[var(--color-pib-text)] flex-1 truncate" title={o.orgId}>{o.orgId}</span>
-                      <span className={o.disabled ? "text-[var(--color-error)]" : "text-[var(--color-pib-green)]"}>{o.disabled ? 'disabled' : `limit ${o.limit}`}</span>
+                      <span className={o.disabled ? "text-[var(--color-error)]" : "text-[var(--st-success)]"}>{o.disabled ? 'disabled' : `limit ${o.limit}`}</span>
                       <span className="text-[var(--color-pib-text-muted)] whitespace-nowrap">{o.active ? `until ${fmtTime(o.expiresAtMs)}` : 'expired'}</span>
                       {isSuperAdmin && (
                         <button onClick={() => clearOverride(o.orgId)} className="st-btn st-btn--ghost text-[11px] font-label text-[var(--color-error)]">Clear</button>

@@ -801,7 +801,7 @@ export default function DesignPage() {
           <div className="p-4 space-y-6">
             {Object.entries(TEMPLATES).map(([category, templates]) => (
               <div key={category}>
-                <h2 className="text-sm font-medium text-[var(--color-pib-rose)] mb-3 uppercase tracking-wider">
+                <h2 className="text-sm font-medium text-[var(--st-danger)] mb-3 uppercase tracking-wider">
                   {category === 'social'
                     ? 'Social Posts'
                     : category === 'story'
@@ -817,7 +817,7 @@ export default function DesignPage() {
                       onClick={() => loadTemplate(category as keyof typeof TEMPLATES, template.name)}
                       className={`w-full text-left text-sm px-3 py-2 rounded border transition-colors ${
                         activeTemplate === template.name
-                          ? 'border-[var(--color-pib-rose)] bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-text)]'
+                          ? 'border-[var(--st-danger)] bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[var(--color-pib-text)]'
                           : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]'
                       }`}
                     >
@@ -906,7 +906,7 @@ export default function DesignPage() {
               </button>
               <button
                 onClick={() => router.push('/portal/social/compose')}
-                className="pib-btn-primary text-sm px-4 py-2 bg-[var(--color-pib-rose)] hover:opacity-90"
+                className="pib-btn-primary text-sm px-4 py-2 bg-[var(--st-danger)] hover:opacity-90"
               >
                 Use in Post
               </button>
@@ -939,7 +939,7 @@ export default function DesignPage() {
           <div className="p-4 space-y-4">
             {/* Canvas properties */}
             <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
-              <h3 className="text-sm font-medium text-[var(--color-pib-rose)] mb-4">Canvas</h3>
+              <h3 className="text-sm font-medium text-[var(--st-danger)] mb-4">Canvas</h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-[var(--color-pib-text-muted)]">Width</label>
@@ -992,7 +992,7 @@ export default function DesignPage() {
               <>
                 <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-[var(--color-pib-rose)]">
+                    <h3 className="text-sm font-medium text-[var(--st-danger)]">
                       {selectedLayer.type === 'text'
                         ? 'Text Layer'
                         : selectedLayer.type === 'image'
@@ -1311,7 +1311,7 @@ export default function DesignPage() {
 
             {/* Export settings */}
             <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
-              <h3 className="text-sm font-medium text-[var(--color-pib-rose)] mb-4">Export</h3>
+              <h3 className="text-sm font-medium text-[var(--st-danger)] mb-4">Export</h3>
               <div>
                 <label className="text-xs text-[var(--color-pib-text-muted)]">File Name</label>
                 <input

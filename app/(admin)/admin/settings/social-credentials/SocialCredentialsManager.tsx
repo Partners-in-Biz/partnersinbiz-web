@@ -275,7 +275,7 @@ export function SocialCredentialsManager() {
                     <button type="button" className="st-btn st-btn--ghost text-xs" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'webhook' }) }}>
                       Rotate webhook
                     </button>
-                    <button type="button" className="st-btn st-btn--ghost text-xs text-[var(--color-pib-amber)]" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
+                    <button type="button" className="st-btn st-btn--ghost text-xs text-[var(--sc-accent)]" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
                       Rotate secret
                     </button>
                   </div>
@@ -380,11 +380,11 @@ export function SocialCredentialsManager() {
               {rotateResult.newWebhookToken && (
                 <div>
                   <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New webhook token (shown once)</p>
-                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-[var(--color-pib-green)]">{rotateResult.newWebhookToken}</code>
+                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-[var(--st-success)]">{rotateResult.newWebhookToken}</code>
                 </div>
               )}
               {rotateResult.instruction && (
-                <p className="text-sm text-[var(--color-pib-amber)]">{rotateResult.instruction}</p>
+                <p className="text-sm text-[var(--sc-accent)]">{rotateResult.instruction}</p>
               )}
               {rotateResult.envName && (
                 <code className="block rounded bg-[var(--color-pib-surface-2)] p-2 text-xs text-[var(--color-pib-text-muted)]">{rotateResult.envName}</code>

@@ -94,7 +94,7 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
     active:      { label: 'Active',      color: 'var(--color-accent-v2)' },
     on_hold:     { label: 'On Hold',     color: 'var(--color-secondary)' },
-    completed:   { label: 'Completed',   color: 'var(--color-pib-green)' },
+    completed:   { label: 'Completed',   color: 'var(--st-success)' },
     archived:    { label: 'Archived',    color: 'var(--color-outline)' },
     in_progress: { label: 'In Progress', color: 'var(--color-accent-v2)' },
   }
@@ -246,9 +246,9 @@ export default function OrgDashboard() {
 
   // Social post status donut data
   const statusDonut = socialStats ? [
-    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--color-pib-green)' },
-    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--color-pib-blue)' },
-    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--color-pib-amber)' },
+    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--st-success)' },
+    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--sc-ink-soft)' },
+    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--sc-accent)' },
     { name: 'Draft', value: socialStats.byStatus.draft, color: 'var(--color-pib-text-muted)' },
   ].filter(d => d.value > 0) : []
 
@@ -257,7 +257,7 @@ export default function OrgDashboard() {
     ? Object.entries(socialStats.byPlatform).map(([platform, count]) => ({
         label: platform.charAt(0).toUpperCase() + platform.slice(1),
         value: count,
-        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--color-pib-amber)',
+        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--sc-accent)',
       }))
     : []
 
@@ -312,7 +312,7 @@ export default function OrgDashboard() {
                 <div key={module.key} className="flex items-center justify-between gap-3 text-xs">
                   <span className="text-[var(--color-pib-text)]">{module.label}</span>
                   <span
-                    className={`rounded-md px-2 py-0.5 font-label uppercase tracking-wide ${ module.enabled ? 'bg-emerald-500/15 text-[var(--color-pib-green)]' : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]' }`}
+                    className={`rounded-md px-2 py-0.5 font-label uppercase tracking-wide ${ module.enabled ? 'bg-emerald-500/15 text-[var(--st-success)]' : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]' }`}
                   >
                     {module.enabled ? 'Enabled' : 'Hidden'}
                   </span>
@@ -591,7 +591,7 @@ export default function OrgDashboard() {
               </span>
             </div>
             {hasLast30DaysData ? (
-              <TrendAreaChart data={last30DaysData} height={140} color="var(--color-pib-green)" />
+              <TrendAreaChart data={last30DaysData} height={140} color="var(--st-success)" />
             ) : (
               <div className="flex h-32 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                 No posts in the last 30 days.

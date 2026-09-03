@@ -36,7 +36,7 @@ const FILTER_TABS: { key: FilterKey; label: string }[] = [
 ]
 
 const STATUS_BADGE: Record<ExperimentStatus, string> = {
-  draft: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF]',
+  draft: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF]',
   running: 'bg-green-500/15 text-green-400',
   paused: 'bg-yellow-500/15 text-yellow-400',
   completed: 'bg-sky-500/15 text-sky-300',
@@ -262,10 +262,10 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/50">
-                      <span className="rounded bg-[var(--color-pib-rose-soft)] px-2 py-0.5 text-[#FDA4AF]">
+                      <span className="rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] px-2 py-0.5 text-[#FDA4AF]">
                         {exp.platform}
                       </span>
-                      <span className="rounded bg-[var(--color-pib-rose-soft)] px-2 py-0.5 text-[#FDA4AF]">
+                      <span className="rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] px-2 py-0.5 text-[#FDA4AF]">
                         {exp.level}
                       </span>
                       <span className="text-white/40">{exp.variantCount} variants</span>

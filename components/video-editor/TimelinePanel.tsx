@@ -205,7 +205,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                 type="button"
                 aria-label={mode.label}
                 aria-pressed={editMode === mode.id}
-                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}
+                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--sc-ink-soft)]/20 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}
                 onClick={() => onEditModeChange?.(mode.id)}
               >
                 <Icon name={mode.icon} />
@@ -266,7 +266,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
               {rulerTicks.map((tick) => (
                 <span key={tick} style={{ left: `${tick * pxPerSecond}px` }} className="absolute top-2">{tick}s</span>
               ))}
-              <span style={{ left: `${playheadSeconds * pxPerSecond}px` }} className="absolute inset-y-0 w-px bg-[var(--color-pib-primary)]" />
+              <span style={{ left: `${playheadSeconds * pxPerSecond}px` }} className="absolute inset-y-0 w-px bg-[var(--sc-ink-soft)]" />
             </div>
           </div>
           {timeline.tracks.map((track) => (
@@ -308,7 +308,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       }}
                       className={[
                         'group absolute top-3 h-12 overflow-hidden rounded-md border px-2 text-left text-xs',
-                        selected ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-[var(--color-pib-text-muted)]',
+                        selected ? 'border-[var(--sc-ink-soft)] bg-[var(--sc-ink-soft)]/20 text-[var(--color-pib-text)]' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-[var(--color-pib-text-muted)]',
                         editMode === 'slip' ? 'cursor-ew-resize' : 'cursor-pointer',
                       ].join(' ')}
                       onClick={(event) => handleClipClick(event, track.id, clip.id)}
@@ -344,7 +344,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       <span className="pointer-events-none relative block truncate">{clipLabel}</span>
                       <span className="pointer-events-none relative block truncate">{clip.duration}s</span>
                       {clip.groupId ? (
-                        <span data-testid={`group-badge-${clip.id}`} className="absolute right-1 top-1 rounded bg-[var(--color-pib-primary)]/40 px-1 text-[10px]" title={`Linked group ${clip.groupId}`}>
+                        <span data-testid={`group-badge-${clip.id}`} className="absolute right-1 top-1 rounded bg-[var(--sc-ink-soft)]/40 px-1 text-[10px]" title={`Linked group ${clip.groupId}`}>
                           <Icon name="link" />
                         </span>
                       ) : null}
@@ -363,7 +363,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                             type="button"
                             data-testid={`trim-handle-start-${clip.id}`}
                             aria-label={`Trim start of clip ${clip.id}`}
-                            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-[var(--sc-ink-soft)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => {
                               event.stopPropagation()
@@ -391,7 +391,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                             type="button"
                             data-testid={`trim-handle-end-${clip.id}`}
                             aria-label={`Trim end of clip ${clip.id}`}
-                            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[var(--sc-ink-soft)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => {
                               event.stopPropagation()

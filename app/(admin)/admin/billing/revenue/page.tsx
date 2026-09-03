@@ -76,7 +76,7 @@ function MetricCard({
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
         className="text-xl font-medium mt-1 tabular-nums"
-        style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
+        style={{ color: accent ? 'var(--sc-ink-soft)' : undefined }}
       >
         {value}
       </p>
@@ -198,8 +198,8 @@ export default function RevenuePage() {
               <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-pib-cyan)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--color-pib-cyan)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--sc-ink-soft)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--sc-ink-soft)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -229,7 +229,7 @@ export default function RevenuePage() {
                 <Area
                   type="monotone"
                   dataKey="collectedZar"
-                  stroke="var(--color-pib-cyan)"
+                  stroke="var(--sc-ink-soft)"
                   strokeWidth={2}
                   fill="url(#revFill)"
                 />
@@ -267,7 +267,7 @@ export default function RevenuePage() {
                       className="h-full rounded"
                       style={{
                         width: `${Math.max(4, (plan.mrrZar / maxPlanMrr) * 100)}%`,
-                        background: 'var(--color-pib-cyan)',
+                        background: 'var(--sc-ink-soft)',
                       }}
                     />
                   </div>
@@ -304,7 +304,7 @@ export default function RevenuePage() {
                       <td className="py-2 pr-2">
                         <Link
                           href={`/admin/org/${org.slug}/dashboard`}
-                          className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-cyan)] transition-colors truncate"
+                          className="text-[var(--color-pib-text)] hover:text-[var(--sc-ink-soft)] transition-colors truncate"
                         >
                           {org.name}
                         </Link>

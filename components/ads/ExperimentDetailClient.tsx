@@ -55,7 +55,7 @@ export interface ExperimentDetailPlain {
 }
 
 const STATUS_BADGE: Record<ExperimentStatus, string> = {
-  draft: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF]',
+  draft: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF]',
   running: 'bg-green-500/15 text-green-400',
   paused: 'bg-yellow-500/15 text-yellow-400',
   completed: 'bg-sky-500/15 text-sky-300',

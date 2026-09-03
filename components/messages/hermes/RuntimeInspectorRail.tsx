@@ -104,7 +104,7 @@ export function RuntimeExecutionSection({
   return (
     <section role="region" aria-label="Execution" data-emphasized={important || undefined} className="rounded-md border border-[var(--color-card-border)] bg-black/10">
       <button type="button" aria-label={expanded ? 'Collapse execution' : 'Expand execution'} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center justify-between gap-2 p-2.5 text-left xl:min-h-0">
-        <span className="flex items-center gap-2 text-xs font-medium text-[var(--color-pib-text)]"><Icon name="developer_board" className="text-[16px] text-[var(--color-pib-blue)]" />Execution</span>
+        <span className="flex items-center gap-2 text-xs font-medium text-[var(--color-pib-text)]"><Icon name="developer_board" className="text-[16px] text-[var(--sc-ink-soft)]" />Execution</span>
         <span className="flex items-center gap-1.5"><span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[15px] text-[var(--color-pib-text-muted)]" /></span>
       </button>
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
@@ -154,7 +154,7 @@ export function RuntimeInspectorRail({
           aria-label="Expand runtime inspector"
           title="Expand runtime inspector"
         >
-          <Icon name="developer_board" className="text-[17px] text-[var(--color-pib-blue)]" />
+          <Icon name="developer_board" className="text-[17px] text-[var(--sc-ink-soft)]" />
         </button>
         <span
           className={[
@@ -190,7 +190,7 @@ export function RuntimeInspectorRail({
       <div className="border-b border-[var(--color-card-border)] px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-pib-text)]">
-            <Icon name="developer_board" className="text-[16px] text-[var(--color-pib-blue)]" />
+            <Icon name="developer_board" className="text-[16px] text-[var(--sc-ink-soft)]" />
             Runtime inspector
           </div>
           {onCollapsedChange && (

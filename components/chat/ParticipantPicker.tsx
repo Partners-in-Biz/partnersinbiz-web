@@ -681,7 +681,7 @@ export default function ParticipantPicker({
                             }}
                             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] bg-[var(--color-pib-blue-soft)] text-xs font-medium text-[#93C5FD]">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-xs font-medium text-[#93C5FD]">
                               {inits || '?'}
                             </div>
                             <div className="flex-1 min-w-0">

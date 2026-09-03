@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useToast } from '@/components/ui/Toast'
 import { PageTabs } from '@/components/ui/AppFoundation'
-import { GlassBar, HudChip } from '@/components/ui/HudChip'
+import { HudChip } from '@/components/ui/HudChip'
 import type { AgentTeamDoc } from './AgentCard'
 import type { HealthStatus } from './AgentCard'
 import { AgentRuntimeModelForm } from './AgentRuntimeModelForm'
@@ -851,7 +851,7 @@ export function AgentDetailPanel({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Panel header */}
       {!hideChrome && (
-        <GlassBar className="shrink-0 gap-3 px-4 py-3" data-module-accent="cyan">
+        <>
           <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
             <Icon name={agent.iconKey} className="text-[18px]" />
           </div>
@@ -872,7 +872,7 @@ export function AgentDetailPanel({
           >
             <Icon name="close" className="text-[18px]" />
           </button>
-        </GlassBar>
+        </>
       )}
 
       <div className="shrink-0 border-b border-white/10 px-4 py-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">

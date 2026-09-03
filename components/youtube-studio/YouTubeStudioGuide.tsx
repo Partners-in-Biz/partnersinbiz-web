@@ -35,7 +35,7 @@ export function YouTubeStudioGuide({ oauthHref }: YouTubeStudioGuideProps) {
       <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {PIPELINE_STEPS.map((step, index) => (
           <li key={step.title} className="rounded-[6px] border border-[var(--color-pib-line)] p-4">
-            <span className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-pib-rose-soft)] text-sm text-[var(--color-pib-rose)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-sm text-[var(--st-danger)]">
               {index + 1}
             </span>
             <h3 className="mt-3 text-[var(--color-pib-text)]">{step.title}</h3>

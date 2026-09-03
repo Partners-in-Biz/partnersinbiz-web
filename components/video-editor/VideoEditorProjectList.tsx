@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
-import { GlassBar } from '@/components/ui/HudChip'
 import type { VideoEditorProject } from '@/lib/video-editor/types'
 
 const EMPTY_CHANNEL_OPTIONS: Array<{ id?: string; title?: string; youtubeHandle?: string }> = []
@@ -100,16 +99,14 @@ export function VideoEditorProjectList({
 
   return (
     <section className={compact ? 'space-y-3' : 'pib-card-section space-y-3 p-4'} data-module-accent="cyan">
-      <GlassBar className="flex-wrap items-center justify-between gap-2 p-2">
-        <div className="min-w-0">
-          <h2 className="text-sm text-[var(--color-pib-text)]">Video Editor projects</h2>
-          <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-            {channelChoices.length > 0
-              ? 'Create channel-linked edits here, render an MP4, then send the output back into YouTube review.'
-              : 'Create the editable cut here, add source media from Marketing Studio or YouTube assets, render an MP4, then send it back into YouTube review or the canvas library.'}
-          </p>
-        </div>
-      </GlassBar>
+      <div className="min-w-0">
+        <h2 className="text-sm text-[var(--color-pib-text)]">Video Editor projects</h2>
+        <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+          {channelChoices.length > 0
+            ? 'Create channel-linked edits here, render an MP4, then send the output back into YouTube review.'
+            : 'Create the editable cut here, add source media from Marketing Studio or YouTube assets, render an MP4, then send it back into YouTube review or the canvas library.'}
+        </p>
+      </div>
       {notice ? <p className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">{notice}</p> : null}
       {channelChoices.length > 0 ? (
         <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
@@ -168,7 +165,7 @@ export function VideoEditorProjectList({
                   <a className="btn-pib-primary btn-pib-sm font-label" href={href}>Open editor</a>
                 )}
               </div>
-              {project.lastRender?.url ? <a className="mt-3 inline-block text-sm text-[var(--color-pib-primary)]" href={project.lastRender.url} target="_blank" rel="noreferrer">Latest render</a> : null}
+              {project.lastRender?.url ? <a className="mt-3 inline-block text-sm text-[var(--sc-ink-soft)]" href={project.lastRender.url} target="_blank" rel="noreferrer">Latest render</a> : null}
             </article>
           )
         })}

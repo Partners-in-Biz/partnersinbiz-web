@@ -1313,8 +1313,8 @@ function PlanningDiscoveryPanel({
     <section
       className={`rounded-[var(--radius-card)] border p-4 ${
         ready
-          ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-green-soft)]'
-          : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-amber-soft)]'
+          ? 'border-[var(--st-success)]/30 bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)]'
+          : 'border-[var(--sc-accent)]/30 bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)]'
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1333,8 +1333,8 @@ function PlanningDiscoveryPanel({
         <span
           className={`rounded border px-3 py-1 text-xs uppercase tracking-wide ${
             ready
-              ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-green)]'
-              : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-amber)]'
+              ? 'border-[var(--st-success)]/30 bg-[var(--color-pib-surface)] text-[var(--st-success)]'
+              : 'border-[var(--sc-accent)]/30 bg-[var(--color-pib-surface)] text-[var(--sc-accent)]'
           }`}
         >
           {state?.status?.replace(/_/g, ' ') || 'not started'}
@@ -1356,7 +1356,7 @@ function PlanningDiscoveryPanel({
               {turn.answer ? (
                 <p className="mt-2 text-[var(--color-pib-text)]">A: {turn.answer}</p>
               ) : turn.id === state?.pendingQuestionId ? (
-                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--color-pib-amber)]">
+                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--sc-accent)]">
                   Awaiting your answer
                 </p>
               ) : null}
@@ -1367,7 +1367,7 @@ function PlanningDiscoveryPanel({
 
       {pendingTurn?.id && !pendingTurn.askedBy && (
         <div
-          className="mt-4 rounded-[6px] border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3"
+          className="mt-4 rounded-[6px] border border-[var(--sc-accent)]/25 bg-[var(--color-pib-surface)] p-3"
           data-testid="planning-answer-form"
         >
           <p className="text-sm text-[var(--color-pib-text)]">Answer the current question</p>
@@ -1497,7 +1497,7 @@ function PlanningDiscoveryPanel({
       </div>
 
       {state && !ready && brief && (
-        <details className="mt-4 rounded-[6px] border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3">
+        <details className="mt-4 rounded-[6px] border border-[var(--sc-accent)]/25 bg-[var(--color-pib-surface)] p-3">
           <summary className="cursor-pointer text-sm text-[var(--color-pib-text)]">Plan with assumptions (YOLO)</summary>
           <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This skips further interview questions only. It never bypasses publishing, spend, finance, destructive-action, client-message, secret, or production approvals.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">

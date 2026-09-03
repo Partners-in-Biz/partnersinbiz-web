@@ -68,7 +68,7 @@ export default async function InsightsRollupPage({ params }: { params: Promise<P
                 <li key={c.id} className="px-4 py-3 text-sm">
                   <a
                     href={`/admin/org/${slug}/ads/campaigns/${c.id}/insights`}
-                    className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-rose)]"
+                    className="text-[var(--color-pib-text)] hover:text-[var(--st-danger)]"
                   >
                     {c.name}
                   </a>

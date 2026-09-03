@@ -121,7 +121,7 @@ function StatusPill({ children, tone = 'default' }: { children: ReactNode; tone?
     ? 'border-primary/25 bg-primary/10 text-primary'
     : tone === 'muted'
       ? 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]'
-      : 'border-[var(--color-pib-blue)]/25 bg-[var(--color-pib-blue-soft)] text-[var(--color-pib-blue)]'
+      : 'border-[var(--sc-ink-soft)]/25 bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)]'
   return <span className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] ${toneClass}`}>{children}</span>
 }
 

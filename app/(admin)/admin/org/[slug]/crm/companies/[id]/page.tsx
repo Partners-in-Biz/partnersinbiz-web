@@ -202,7 +202,7 @@ function AdminRowsEmptyState({
   return (
     <div className="bento-card p-8 text-center">
       <Icon name="hub" className="text-[var(--st-warning)]" />
-      <p className="eyebrow mt-4 !text-[10px] text-[var(--color-pib-amber)]">{label} not linked yet</p>
+      <p className="eyebrow mt-4 !text-[10px] text-[var(--sc-accent)]">{label} not linked yet</p>
       <h2 className="mt-2 font-headline text-xl text-[var(--color-pib-text)]">Review selected-org context from the admin workspace</h2>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
         No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the selected client org dashboard so relationship ownership, email history, and pipeline handoffs stay visible to PiB operators.

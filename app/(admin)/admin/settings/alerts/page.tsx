@@ -121,7 +121,7 @@ export default function AlertsPage() {
         <h1 className="pib-page-title mt-2">Admin Alerts</h1>
       </header>
 
-      {feedback && <div className="st-panel py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>}
+      {feedback && <div className="st-panel py-2 text-xs text-[var(--st-success)]">{feedback}</div>}
       {error && <div className="st-panel py-2 text-xs text-[var(--color-error)]">{error}</div>}
 
       {/* Webhook */}

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import { Icon, Notice } from '@/components/studio'
 import { ModuleShell } from '@/components/ui/ModuleShell'
-import { HudChip, SignalMeter } from '@/components/ui/HudChip'
+import { HudChip } from '@/components/ui/HudChip'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 type BriefingCard = {
@@ -509,7 +509,6 @@ export function PeetMissionControl() {
             <HudChip>Gates <strong>{approvals.length}</strong></HudChip>
             <HudChip>Risks <strong>{risks.length}</strong></HudChip>
             <HudChip>Follow-ups <strong>{followUps.length}</strong></HudChip>
-            <SignalMeter title="Mission Control signal" />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">

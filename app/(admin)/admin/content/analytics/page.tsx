@@ -63,8 +63,8 @@ function shortDate(iso: string): string {
 
 function statusBadgeClass(status: string): string {
   const s = status.toLowerCase()
-  if (s === 'published' || s === 'live') return 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]'
-  if (s === 'draft') return 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]'
+  if (s === 'published' || s === 'live') return 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]'
+  if (s === 'draft') return 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]'
   return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
 }
 
@@ -292,8 +292,8 @@ export default function ContentAnalyticsPage() {
                 <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-pib-violet)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="var(--color-pib-violet)" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor="var(--sc-ink-soft)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--sc-ink-soft)" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-pib-line)" vertical={false} />
@@ -321,7 +321,7 @@ export default function ContentAnalyticsPage() {
                   <Area
                     type="monotone"
                     dataKey="views"
-                    stroke="var(--color-pib-violet)"
+                    stroke="var(--sc-ink-soft)"
                     strokeWidth={2}
                     fill="url(#trafficFill)"
                   />

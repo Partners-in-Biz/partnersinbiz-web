@@ -49,7 +49,7 @@ export default async function KeywordsPage({
             No Google ad groups yet.{' '}
             <Link
               href={`/admin/org/${slug}/ads/campaigns/new`}
-              className="text-[var(--color-pib-rose)] hover:underline"
+              className="text-[var(--st-danger)] hover:underline"
             >
               Create a Google Search campaign
             </Link>{' '}
@@ -75,7 +75,7 @@ export default async function KeywordsPage({
                           className="flex items-center justify-between px-4 py-3 text-sm hover:bg-[var(--color-row-hover)] transition-colors"
                         >
                           <span className="font-medium text-[var(--color-pib-text)]">{adSet.name}</span>
-                          <span className="text-xs text-[var(--color-pib-rose)]">Manage keywords →</span>
+                          <span className="text-xs text-[var(--st-danger)]">Manage keywords →</span>
                         </Link>
                       </li>
                     ))}

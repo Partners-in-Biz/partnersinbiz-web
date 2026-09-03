@@ -57,13 +57,13 @@ function ResultBanner({ summary }: { summary: ApplyResponse['summary'] }) {
       <p className="pib-label mb-0">Migration complete - {total} group{total === 1 ? '' : 's'} processed</p>
       <div className="flex gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded bg-[var(--color-pib-green)]" />
+          <span className="inline-block w-2 h-2 rounded bg-[var(--st-success)]" />
           <span className="text-xs text-[var(--color-pib-text)]">
             {summary.created} company{summary.created === 1 ? '' : 'ies'} created
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded bg-[var(--color-pib-blue)]" />
+          <span className="inline-block w-2 h-2 rounded bg-[var(--sc-ink-soft)]" />
           <span className="text-xs text-[var(--color-pib-text)]">
             {summary.linked} linked to existing
           </span>

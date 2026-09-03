@@ -93,19 +93,19 @@ const PLATFORM_OPTIONS = [
 ]
 
 const STATUS_PILLS: { key: VaultStatus; label: string; cls: string }[] = [
-  { key: 'approved', label: 'Approved', cls: 'border-[var(--color-pib-amber)]/40 text-[var(--color-pib-amber)] bg-[var(--color-pib-amber-soft)]' },
-  { key: 'scheduled', label: 'Scheduled', cls: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)] bg-[var(--color-pib-blue-soft)]' },
-  { key: 'published', label: 'Published', cls: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)] bg-[var(--color-pib-green-soft)]' },
+  { key: 'approved', label: 'Approved', cls: 'border-[var(--sc-accent)]/40 text-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)]' },
+  { key: 'scheduled', label: 'Scheduled', cls: 'border-[var(--sc-ink-soft)]/40 text-[var(--sc-ink-soft)] bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)]' },
+  { key: 'published', label: 'Published', cls: 'border-[var(--st-success)]/40 text-[var(--st-success)] bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)]' },
   { key: 'vaulted', label: 'Vaulted', cls: 'border-[var(--color-pib-line-strong)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface)]' },
 ]
 
 const STATUS_PILL_STYLES: Record<VaultStatus, string> = {
-  approved: 'border-[var(--color-pib-amber)]/40 text-[var(--color-pib-amber)]',
+  approved: 'border-[var(--sc-accent)]/40 text-[var(--sc-accent)]',
   vaulted: 'border-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]',
-  scheduled: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)]',
-  publishing: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)]',
-  published: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)]',
-  partially_published: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)]',
+  scheduled: 'border-[var(--sc-ink-soft)]/40 text-[var(--sc-ink-soft)]',
+  publishing: 'border-[var(--sc-ink-soft)]/40 text-[var(--sc-ink-soft)]',
+  published: 'border-[var(--st-success)]/40 text-[var(--st-success)]',
+  partially_published: 'border-[var(--st-success)]/40 text-[var(--st-success)]',
 }
 
 const STATUS_LABELS: Record<VaultStatus, string> = {
@@ -276,14 +276,14 @@ function useInlineToast() {
           className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] min-w-72 max-w-sm animate-[slideIn_0.2s_ease-out]"
           style={{
             background: 'var(--color-sidebar)',
-            border: `1px solid ${t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)'}`,
+            border: `1px solid ${t.tone === 'success' ? 'var(--st-success)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--sc-ink-soft)'}`,
           }}
         >
           <span
             className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
             style={{
-              background: t.tone === 'success' ? 'var(--color-pib-green-soft)' : t.tone === 'error' ? 'color-mix(in srgb, var(--color-error) 15%, transparent)' : 'var(--color-pib-blue-soft)',
-              color: t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)',
+              background: t.tone === 'success' ? 'color-mix(in srgb, var(--st-success) 10%, transparent)' : t.tone === 'error' ? 'color-mix(in srgb, var(--color-error) 15%, transparent)' : 'color-mix(in srgb, var(--sc-ink) 6%, transparent)',
+              color: t.tone === 'success' ? 'var(--st-success)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--sc-ink-soft)',
             }}
           >
             {t.tone === 'success' ? '✓' : t.tone === 'error' ? '✕' : 'i'}

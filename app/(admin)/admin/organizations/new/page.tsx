@@ -236,9 +236,9 @@ export default function NewOrganizationPage() {
 
         {result.warnings.length > 0 ? (
           <div className="st-panel space-y-1">
-            <p className="sc-tiny text-[var(--color-pib-amber)]">Warnings</p>
+            <p className="sc-tiny text-[var(--sc-accent)]">Warnings</p>
             {result.warnings.map((w, i) => (
-              <p key={i} className="text-sm text-[var(--color-pib-amber)]">• {w}</p>
+              <p key={i} className="text-sm text-[var(--sc-accent)]">• {w}</p>
             ))}
           </div>
         ) : null}

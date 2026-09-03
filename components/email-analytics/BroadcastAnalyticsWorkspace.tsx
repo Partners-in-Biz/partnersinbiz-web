@@ -258,7 +258,7 @@ function BackLink({ href, surface }: { href: string; surface: 'admin' | 'portal'
   return (
     <Link
       href={href}
-      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-[var(--color-pib-blue)] hover:underline'}
+      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-[var(--sc-ink-soft)] hover:underline'}
     >
       Back to email analytics
     </Link>

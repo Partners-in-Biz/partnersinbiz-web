@@ -17,11 +17,11 @@ type OrganizationSummary = { id: string; slug?: string }
 
 const STATUS_PILL: Record<string, string> = {
   internal_draft: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
-  internal_review: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
-  client_review: 'bg-[var(--color-pib-blue-soft)] text-[var(--color-pib-blue)]',
-  changes_requested: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
-  approved: 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]',
-  accepted: 'bg-[var(--color-pib-violet-soft)] text-[var(--color-pib-violet)]',
+  internal_review: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]',
+  client_review: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)]',
+  changes_requested: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]',
+  approved: 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]',
+  accepted: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)]',
   archived: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
 }
 

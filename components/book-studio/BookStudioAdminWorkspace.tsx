@@ -172,7 +172,7 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
               {stages.map((stage, index) => (
                 <li key={stage.id} className="rounded-[var(--radius-lg-card)] bg-[var(--color-pib-surface-muted)] p-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--color-pib-rose-soft)] text-xs text-[var(--color-pib-rose)]">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-xs text-[var(--st-danger)]">
                       {index + 1}
                     </span>
                     <h3 className="text-[var(--color-pib-text)]">{stage.label}</h3>

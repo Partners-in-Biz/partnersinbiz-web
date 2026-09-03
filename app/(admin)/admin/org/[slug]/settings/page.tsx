@@ -776,7 +776,7 @@ export default function OrgSettingsPage() {
             </div>
           ))}
         </div>
-        {folderNotice && <div className="border-t border-[var(--color-pib-line)]/50 p-4 text-sm text-[var(--color-pib-green)]">{folderNotice}</div>}
+        {folderNotice && <div className="border-t border-[var(--color-pib-line)]/50 p-4 text-sm text-[var(--st-success)]">{folderNotice}</div>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
@@ -1157,7 +1157,7 @@ export default function OrgSettingsPage() {
           <button type="submit" disabled={saving} className="btn-pib-primary btn-pib-sm font-label">
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
-          {saved && <span className="text-sm text-[var(--color-pib-green)]">Saved successfully</span>}
+          {saved && <span className="text-sm text-[var(--st-success)]">Saved successfully</span>}
         </div>
       </form>
     </div>

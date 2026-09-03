@@ -83,11 +83,11 @@ export default function ApiKeysPage() {
 
       {/* New key revealed */}
       {createdKey && (
-        <div className="st-panel" style={{ borderColor: 'var(--color-pib-green)' }}>
+        <div className="st-panel" style={{ borderColor: 'var(--st-success)' }}>
           <p className="text-sm font-medium text-[var(--color-pib-text)] mb-2">✓ API key created - copy it now</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">This key will only be shown once. Store it securely.</p>
           <div className="flex gap-2">
-            <code className="flex-1 text-xs bg-[var(--color-pib-ink)] px-3 py-2 rounded font-mono text-[var(--color-pib-green)] break-all">{createdKey}</code>
+            <code className="flex-1 text-xs bg-[var(--color-pib-ink)] px-3 py-2 rounded font-mono text-[var(--st-success)] break-all">{createdKey}</code>
             <button
               onClick={() => { copyToClipboard(createdKey); setCreatedKey(null) }}
               className="st-btn st-btn--primary text-xs font-label shrink-0"

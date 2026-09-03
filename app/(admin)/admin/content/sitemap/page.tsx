@@ -220,13 +220,13 @@ export default function SitemapManagerPage() {
       )}
 
       {notice && (
-        <div className="st-panel px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}
 
       {gscWarning && (
-        <div className="st-panel px-4 py-3 text-sm text-[var(--color-pib-amber)] flex items-start gap-2">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--sc-accent)] flex items-start gap-2">
           <Icon name="warning" className="text-base" />
           <span>{gscWarning}</span>
         </div>
@@ -256,7 +256,7 @@ export default function SitemapManagerPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-sm break-all hover:underline"
-                  style={{ color: "var(--color-pib-green)" }}
+                  style={{ color: "var(--st-success)" }}
                 >
                   {data.sitemapUrl}
                 </a>
@@ -338,7 +338,7 @@ export default function SitemapManagerPage() {
                               style={
                                 page.source === 'static'
                                   ? {
-                                      background: "var(--color-pib-green-soft)", color: "var(--color-pib-green)",
+                                      background: "color-mix(in srgb, var(--st-success) 10%, transparent)", color: "var(--st-success)",
                                     }
                                   : undefined
                               }

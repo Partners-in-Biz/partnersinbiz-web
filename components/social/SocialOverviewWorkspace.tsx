@@ -198,7 +198,7 @@ function statusLabel(status: string): string {
 
 function roleClass(role: string): string {
   if (role === 'admin') return 'bg-[var(--color-pib-accent)] text-black'
-  if (role === 'ai') return 'bg-[var(--color-pib-violet)] text-white'
+  if (role === 'ai') return 'bg-[var(--sc-ink-soft)] text-white'
   return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]'
 }
 
@@ -217,7 +217,7 @@ function OverviewStat({
     tone === 'accent'
       ? 'text-[var(--color-pib-accent)]'
       : tone === 'info'
-      ? 'text-[var(--color-pib-rose)]'
+      ? 'text-[var(--st-danger)]'
       : tone === 'success'
       ? 'text-[var(--color-pib-success)]'
       : tone === 'danger'

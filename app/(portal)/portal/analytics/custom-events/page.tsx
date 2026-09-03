@@ -198,7 +198,7 @@ export default function CustomEventsPage() {
                         <tr
                           key={ev.id}
                           onClick={() => setSelected(ev.name)}
-                          className={`border-b border-[var(--color-pib-line)] last:border-0 cursor-pointer hover:bg-[var(--color-row-hover)] ${selected === ev.name ? 'bg-[var(--color-pib-violet-soft)]' : ''}`}
+                          className={`border-b border-[var(--color-pib-line)] last:border-0 cursor-pointer hover:bg-[var(--color-row-hover)] ${selected === ev.name ? 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)]' : ''}`}
                         >
                           <td className="px-3 py-2 text-[var(--color-pib-text)] font-medium">{ev.name}</td>
                           <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.description || ' - '}</td>
@@ -227,7 +227,7 @@ export default function CustomEventsPage() {
             <div className="st-panel space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="pib-label mb-0">
-                  Breakdown · <span className="text-[var(--color-pib-violet)]">{selected}</span>
+                  Breakdown · <span className="text-[var(--sc-ink-soft)]">{selected}</span>
                 </h2>
                 <DateRangePicker value={range} onChange={setRange} />
               </div>

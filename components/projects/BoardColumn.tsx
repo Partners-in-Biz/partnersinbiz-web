@@ -24,7 +24,7 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
       <div className="mb-2 flex items-center gap-1.5 px-1">
         <div className="h-1.5 w-1.5 shrink-0 rounded-md" style={{ background: column.color }} />
         <span className="pib-label">{column.name}</span>
-        <span className="ml-auto rounded-md bg-[var(--color-pib-cyan-soft)] px-1.5 py-0.5 text-[9px] font-label tabular-nums text-[#5EEAD4]">
+        <span className="ml-auto rounded-md bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-1.5 py-0.5 text-[9px] font-label tabular-nums text-[#5EEAD4]">
           {tasks.length}
         </span>
       </div>

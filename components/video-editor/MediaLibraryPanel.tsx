@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import { GlassBar } from '@/components/ui/HudChip'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
 import type { StockResult } from '@/lib/video-editor/stock'
 import type { EditorClip, EditorMediaKind, MediaRef, VideoEditorMediaPreview } from '@/lib/video-editor/types'
@@ -382,7 +381,7 @@ export function MediaLibraryPanel({
           <button
             key={source.id ?? url ?? title}
             type="button"
-            className="w-full rounded-lg border border-[var(--color-pib-line)] p-3 text-left text-sm hover:border-[var(--color-pib-primary)] disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-lg border border-[var(--color-pib-line)] p-3 text-left text-sm hover:border-[var(--sc-ink-soft)] disabled:cursor-not-allowed disabled:opacity-70"
             disabled={!media}
             title={disabledReason || `Add ${title} to the timeline`}
             onClick={() => media ? onAddClip(clipFromMedia(media)) : undefined}
@@ -423,10 +422,8 @@ export function MediaLibraryPanel({
 
   return (
     <section className="pib-card-section space-y-3 p-3" data-module-accent="cyan">
-      <GlassBar className="items-center justify-between gap-2 p-2">
-        <h2 className="text-sm text-[var(--color-pib-text)]">Media</h2>
-        <button type="button" className="btn-pib-ghost btn-pib-sm font-label" onClick={onRefresh}>Refresh</button>
-      </GlassBar>
+      <h2 className="text-sm text-[var(--color-pib-text)]">Media</h2>
+      <button type="button" className="btn-pib-ghost btn-pib-sm font-label" onClick={onRefresh}>Refresh</button>
       <div role="tablist" aria-label="Media source tabs" className="flex flex-wrap gap-1 rounded-lg border border-[var(--color-pib-line)] p-1">
         {sourceTabLabels.map((tab) => (
           <button

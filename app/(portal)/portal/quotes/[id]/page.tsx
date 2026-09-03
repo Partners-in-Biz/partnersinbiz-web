@@ -195,7 +195,7 @@ export default function QuoteDetailPage() {
 
       {/* Converted banner */}
       {quote.status === 'converted' && quote.convertedInvoiceId && (
-        <div className="pib-card border-[var(--color-pib-violet)]/25 bg-[var(--color-pib-violet-soft)]">
+        <div className="pib-card border-[var(--sc-ink-soft)]/25 bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)]">
           <p className="text-sm text-[var(--color-pib-text)]">
             This quote was converted to an invoice.{' '}
             <Link href={`/portal/invoicing/${quote.convertedInvoiceId}`} style={{ color: 'var(--color-pib-accent)' }}>

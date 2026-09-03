@@ -279,7 +279,7 @@ function RelationshipField({
       {values.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {values.map((id) => (
-            <span key={id} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-pib-cyan-soft)] px-2 py-1 text-xs text-[#5EEAD4]">
+            <span key={id} className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-2 py-1 text-xs text-[#5EEAD4]">
               {labels[id] ?? id}
               <button type="button" aria-label={`Remove ${config.title} ${id}`} onClick={() => remove(id)} className="text-[10px]">×</button>
             </span>

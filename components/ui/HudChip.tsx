@@ -30,21 +30,4 @@ export function HudChip({ tone = 'default', live, children, className, ...props 
   )
 }
 
-/** @deprecated Atmosphere chrome retired. Renders nothing. */
-export function SignalMeter(_props: { className?: string; title?: string }) {
-  void _props
-  return null
-}
-
-/** @deprecated Glass chrome retired. Renders children without chrome. */
-export function GlassBar({ children }: ComponentPropsWithoutRef<'div'>) {
-  return <>{children}</>
-}
-
-/** @deprecated Live-dot chrome retired. Renders nothing. */
-export function LiveDot(_props: { className?: string }) {
-  void _props
-  return null
-}
-
 export default HudChip

@@ -84,7 +84,7 @@ function PageRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={page.imageUrl} alt="" className="h-14 w-14 rounded-lg border border-[var(--color-pib-border)] object-cover" />
           ) : (
-            <Icon name={pageKindIcons[page.kind ?? 'text']} className="flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]" />
+            <Icon name={pageKindIcons[page.kind ?? 'text']} className="flex h-14 w-14 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[var(--st-danger)]" />
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">

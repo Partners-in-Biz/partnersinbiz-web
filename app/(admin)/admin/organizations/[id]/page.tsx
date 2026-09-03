@@ -165,7 +165,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
           <div className="st-panel text-sm text-[var(--color-error)]">{error}</div>
         )}
         {success && (
-          <div className="st-panel !border-green-500/30 !bg-green-500/5 text-sm text-[var(--color-pib-green)]">Changes saved.</div>
+          <div className="st-panel !border-green-500/30 !bg-green-500/5 text-sm text-[var(--st-success)]">Changes saved.</div>
         )}
 
         {/* Details Card */}

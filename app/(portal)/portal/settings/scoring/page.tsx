@@ -393,7 +393,7 @@ export default function ScoringPage() {
                     <span className="font-mono text-[var(--color-pib-text)]">{Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%</span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--color-pib-line)]">
-                    <div className="h-full rounded bg-[var(--color-pib-cyan)]" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
+                    <div className="h-full rounded bg-[var(--sc-ink-soft)]" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
                   </div>
                 </div>
                 <div>

@@ -18,11 +18,11 @@ type AdCampaignsWorkspaceProps = {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  DRAFT: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
+  DRAFT: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
   PENDING_REVIEW: 'bg-sky-700/30 text-sky-200 border border-sky-600/30',
   ACTIVE: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
   PAUSED: 'bg-[color-mix(in_srgb,var(--st-warning)_30%,transparent)] text-[var(--st-warning)] border border-amber-600/30',
-  ARCHIVED: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
+  ARCHIVED: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
   DELETED: 'bg-red-700/30 text-red-200 border border-red-600/30',
 }
 

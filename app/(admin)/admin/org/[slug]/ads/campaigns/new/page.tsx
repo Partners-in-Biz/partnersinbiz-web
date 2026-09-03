@@ -31,7 +31,7 @@ export default async function NewCampaignPage({
       <div className="pib-card">
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           No ad platform connected. Connect Meta or Google Ads first under{' '}
-          <a href={`/admin/org/${slug}/ads/connections`} className="text-[var(--color-pib-rose)] underline">
+          <a href={`/admin/org/${slug}/ads/connections`} className="text-[var(--st-danger)] underline">
             Connections
           </a>
           .

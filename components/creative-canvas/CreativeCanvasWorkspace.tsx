@@ -901,7 +901,7 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
               {collaborators.slice(0, 3).map((collaborator) => (
                 <span
                   key={collaborator.id}
-                  className="rounded border border-[var(--color-pib-primary)] bg-white px-1.5 py-0.5 text-[9px] text-[var(--color-pib-primary)]"
+                  className="rounded border border-[var(--sc-ink-soft)] bg-white px-1.5 py-0.5 text-[9px] text-[var(--sc-ink-soft)]"
                 >
                   {collaborator.displayName ?? collaborator.actorUid}
                 </span>
@@ -5088,7 +5088,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             onClick={() => setMobilePanel(panel)}
             className={`rounded-md px-2 py-2 text-xs  ${
               mobilePanel === panel
-                ? 'bg-[var(--color-pib-primary)] text-white'
+                ? 'bg-[var(--sc-ink-soft)] text-white'
                 : 'text-[var(--color-pib-text-muted)]'
             }`}
           >
@@ -5845,7 +5845,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   >
                     <div
                       aria-label="Mask preview overlay"
-                      className="absolute rounded-md border-2 border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/25 shadow-[0_0_0_999px_rgba(15,23,42,0.18)]"
+                      className="absolute rounded-md border-2 border-[var(--sc-ink-soft)] bg-[var(--sc-ink-soft)]/25 shadow-[0_0_0_999px_rgba(15,23,42,0.18)]"
                       style={{
                         left: `${Math.min(100, maskRegion.x)}%`,
                         top: `${Math.min(100, maskRegion.y)}%`,
@@ -5860,7 +5860,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         className={`absolute rounded border ${
                           stroke.mode === 'erase'
                             ? 'border-red-300 bg-white/80'
-                            : 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/50'
+                            : 'border-[var(--sc-ink-soft)] bg-[var(--sc-ink-soft)]/50'
                         }`}
                         style={{
                           left: `${Math.min(100, point.x)}%`,
@@ -6680,7 +6680,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     onClick={() => selectCanvasAsset(asset.id)}
                     className={`w-full rounded-lg border p-2 text-left text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface)] ${
                       selectedAssetId === asset.id
-                        ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-surface)]'
+                        ? 'border-[var(--sc-ink-soft)] bg-[var(--color-pib-surface)]'
                         : 'border-[var(--color-pib-line)] bg-white'
                     }`}
                   >

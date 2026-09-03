@@ -69,7 +69,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, { label: string; color: string }> = {
     owner: { label: 'Owner', color: 'var(--color-accent-v2)' },
-    admin: { label: 'Admin', color: 'var(--color-pib-blue)' },
+    admin: { label: 'Admin', color: 'var(--sc-ink-soft)' },
     member: { label: 'Member', color: 'var(--color-pib-text-muted)' },
     viewer: { label: 'Viewer', color: 'var(--color-pib-text-muted)' },
   }

@@ -40,7 +40,7 @@ export function ExportDialog({
       {latestJob ? (
         <div className="space-y-2 text-sm text-[var(--color-pib-text-muted)]">
           <p>Status: {latestJob.status}</p>
-          {latestJob.output?.url ? <a className="text-[var(--color-pib-primary)]" href={latestJob.output.url} target="_blank" rel="noreferrer">Download rendered MP4</a> : null}
+          {latestJob.output?.url ? <a className="text-[var(--sc-ink-soft)]" href={latestJob.output.url} target="_blank" rel="noreferrer">Download rendered MP4</a> : null}
         </div>
       ) : null}
     </section>

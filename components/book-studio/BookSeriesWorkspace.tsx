@@ -404,7 +404,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                     return (
                       <li key={project.id} className="flex flex-col gap-2 rounded-[6px] border border-[var(--color-pib-border)] p-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[var(--color-pib-rose-soft)] text-xs text-[var(--color-pib-rose)]">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-xs text-[var(--st-danger)]">
                             {index + 1}
                           </span>
                           <div>

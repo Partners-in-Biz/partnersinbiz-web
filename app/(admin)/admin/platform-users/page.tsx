@@ -38,7 +38,7 @@ function Avatar({ name }: { name: string }) {
   return (
     <div
       className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-medium text-[var(--color-pib-ink)] flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-cyan)' }}
+      style={{ backgroundColor: 'var(--sc-ink-soft)' }}
     >
       {initials || '?'}
     </div>
@@ -329,7 +329,7 @@ export default function PlatformUsersPage() {
       )}
 
       {notice && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}
@@ -426,7 +426,7 @@ export default function PlatformUsersPage() {
 
           {setupLink && (
             <div className="pib-card p-3 text-xs">
-              <p className="pib-label text-[var(--color-pib-green)] mb-1">User created</p>
+              <p className="pib-label text-[var(--st-success)] mb-1">User created</p>
               <p className="text-[var(--color-pib-text-muted)]">A welcome email with a password setup link has been sent. You can also share this link directly:</p>
               <code className="block mt-2 break-all bg-[var(--color-pib-surface-2)] p-2 rounded text-[11px]">{setupLink}</code>
             </div>

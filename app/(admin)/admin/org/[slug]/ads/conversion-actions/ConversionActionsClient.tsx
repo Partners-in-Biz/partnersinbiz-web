@@ -88,7 +88,7 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
           {!showForm && (
             <button
               type="button"
-              className="mt-3 text-sm text-[var(--color-pib-rose)] hover:underline"
+              className="mt-3 text-sm text-[var(--st-danger)] hover:underline"
               onClick={() => setShowForm(true)}
             >
               Create an admin conversion action →

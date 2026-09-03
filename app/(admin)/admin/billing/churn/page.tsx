@@ -356,7 +356,7 @@ export default function ChurnPage() {
                   <Line
                     type="monotone"
                     dataKey="retentionPct"
-                    stroke="var(--color-pib-cyan)"
+                    stroke="var(--sc-ink-soft)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />

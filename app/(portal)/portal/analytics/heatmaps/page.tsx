@@ -105,7 +105,7 @@ export default function HeatmapsPage() {
       {propertyId && !loading && data && (
         <>
           {data.note && (
-            <div className="st-panel border-l-2 border-l-[var(--color-pib-blue)]">
+            <div className="st-panel border-l-2 border-l-[var(--sc-ink-soft)]">
               <p className="text-xs text-[var(--color-pib-text-muted)]">{data.note}</p>
             </div>
           )}

@@ -38,9 +38,9 @@ function ActivityIcon({ type }: { type: string }) {
 
 function ActorBadge({ role }: { role: 'admin' | 'client' | 'ai' }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    admin: { bg: 'var(--color-pib-cyan)', text: 'var(--color-pib-ink)', label: 'Admin' },
+    admin: { bg: 'var(--sc-ink-soft)', text: 'var(--color-pib-ink)', label: 'Admin' },
     client: { bg: 'var(--color-pib-text-muted)', text: 'var(--color-pib-text-muted)', label: 'Client' },
-    ai: { bg: 'var(--color-pib-violet)', text: 'var(--color-pib-ink)', label: 'AI' },
+    ai: { bg: 'var(--sc-ink-soft)', text: 'var(--color-pib-ink)', label: 'AI' },
   }
   const style = styles[role]
   return (

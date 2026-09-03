@@ -349,7 +349,7 @@ export default function MigrationsClient() {
                         type="checkbox"
                         checked={dryRun}
                         onChange={(e) => setDryRun(e.target.checked)}
-                        className="accent-[var(--color-pib-primary,#6366f1)]"
+                        className="accent-[var(--sc-ink-soft,#6366f1)]"
                       />
                       Dry run (preview only - no data changes)
                     </label>
