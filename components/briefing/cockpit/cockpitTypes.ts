@@ -194,6 +194,8 @@ export interface BriefingCard {
     approvalCopy?: string | null
     sideEffectPerformed?: false
   } | null
+  /** Work lane stamped by the feed; the desk falls back to local classification when absent. */
+  workKind?: 'meeting' | 'reply' | 'approval' | 'agent' | 'blocked' | null
   occurredAt: string
 }
 
