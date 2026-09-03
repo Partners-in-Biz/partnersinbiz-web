@@ -1,122 +1,117 @@
 @import "tailwindcss";
+@import "./studio-tokens.css";
 @import "./pib-fx.css";
 /* Messages-local extras kept for parity; core FX lives in pib-fx.css */
 @import "../components/messages/atmosphere/messages-experience.css";
 
 @theme {
-  /* === PiB 2026 marketing palette === */
-  --color-pib-bg: #0A0A0B;
-  --color-pib-surface: #141416;
-  --color-pib-surface-2: #1C1C20;
-  --color-pib-card: #141416;
-  --color-pib-text: #EDEDED;
-  --color-pib-text-muted: #8B8B92;
-  --color-pib-text-faint: #4A4A52;
-  --color-pib-line: rgba(255, 255, 255, 0.08);
-  --color-pib-line-strong: rgba(255, 255, 255, 0.16);
+  /* === Studio aliases (Phase 0). Names kept; values point at --sc-* / --st-*. === */
+  --color-pib-bg: var(--sc-canvas);
+  --color-pib-surface: var(--sc-surface);
+  --color-pib-surface-2: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-pib-card: var(--sc-surface);
+  --color-pib-text: var(--sc-ink);
+  --color-pib-text-muted: var(--sc-ink-soft);
+  --color-pib-text-faint: color-mix(in srgb, var(--sc-ink-soft) 70%, transparent);
+  --color-pib-line: var(--sc-line);
+  --color-pib-line-strong: var(--sc-line-strong);
   --color-pib-border: var(--color-pib-line);
-  --color-pib-surface-muted: rgba(255, 255, 255, 0.035);
-  --color-pib-surface-soft: rgba(255, 255, 255, 0.04);
-  --color-pib-accent: #F5A623;
-  --color-pib-accent-hover: #FFB840;
-  --color-pib-accent-soft: rgba(245, 166, 35, 0.12);
-  --color-pib-violet: #7C5CFF;
-  --color-pib-success: #4ADE80;
-  /* Editor/canvas primary accent (playheads, selection, links). Historically
-     referenced as --color-pib-primary but never defined — aliased to violet. */
-  --color-pib-primary: #7C5CFF;
+  --color-pib-surface-muted: color-mix(in srgb, var(--sc-ink) 4%, transparent);
+  --color-pib-surface-soft: color-mix(in srgb, var(--sc-ink) 4%, transparent);
+  --color-pib-accent: var(--sc-accent);
+  --color-pib-accent-hover: #c94a25;
+  --color-pib-accent-soft: color-mix(in srgb, var(--sc-accent) 10%, transparent);
+  --color-pib-violet: var(--sc-ink-soft);
+  --color-pib-success: var(--st-success);
+  --color-pib-primary: var(--sc-ink-soft);
 
-  /* === Module accent hues — the "pop of colour" layer. One signature hue per
-     product area, always used sparingly: icon tints, status dots, pills, and
-     chart strokes — never large fills. === */
-  --color-pib-amber: #F5A623;
-  --color-pib-amber-soft: rgba(245, 166, 35, 0.12);
-  --color-pib-violet-soft: rgba(124, 92, 255, 0.14);
-  --color-pib-green: #4ADE80;
-  --color-pib-green-soft: rgba(74, 222, 128, 0.12);
-  --color-pib-blue: #60A5FA;
-  --color-pib-blue-soft: rgba(96, 165, 250, 0.13);
-  --color-pib-cyan: #2DD4BF;
-  --color-pib-cyan-soft: rgba(45, 212, 191, 0.12);
-  --color-pib-rose: #FB7185;
-  --color-pib-rose-soft: rgba(251, 113, 133, 0.12);
+  /* Module hues: retired as brand colour; aliased to ink-soft or semantic. */
+  --color-pib-amber: var(--sc-accent);
+  --color-pib-amber-soft: color-mix(in srgb, var(--sc-accent) 10%, transparent);
+  --color-pib-violet-soft: color-mix(in srgb, var(--sc-ink) 6%, transparent);
+  --color-pib-green: var(--st-success);
+  --color-pib-green-soft: color-mix(in srgb, var(--st-success) 10%, transparent);
+  --color-pib-blue: var(--sc-ink-soft);
+  --color-pib-blue-soft: color-mix(in srgb, var(--sc-ink) 6%, transparent);
+  --color-pib-cyan: var(--sc-ink-soft);
+  --color-pib-cyan-soft: color-mix(in srgb, var(--sc-ink) 6%, transparent);
+  --color-pib-rose: var(--st-danger);
+  --color-pib-rose-soft: color-mix(in srgb, var(--st-danger) 10%, transparent);
 
-  /* Editorial alt theme (off-white) — used on selected sections */
-  --color-pib-cream: #F0EEE6;
-  --color-pib-ink: #181818;
+  --color-pib-cream: var(--sc-canvas);
+  --color-pib-ink: var(--sc-ink);
 
-  /* === Admin/Portal tokens — bridged to PiB 2026 palette so admin and portal */
-  /* share the marketing-site aesthetic. Names kept for back-compat with existing markup. */
-  --color-bg: #0A0A0B;                /* alias of --color-pib-bg */
-  --color-background: #0A0A0B;
-  --color-surface: #141416;            /* alias of --color-pib-surface */
-  --color-surface-dim: #0A0A0B;
-  --color-surface-bright: #1C1C20;
-  --color-surface-tint: #F5A623;
-  --color-surface-variant: #1C1C20;
-  --color-surface-container-lowest: #0A0A0B;
-  --color-surface-container-low: #101012;
-  --color-surface-container: #141416;
-  --color-surface-container-high: #1C1C20;
-  --color-surface-container-highest: #232328;
-  --color-inverse-surface: #EDEDED;
-  --color-inverse-on-surface: #181818;
+  /* Admin/Portal tokens — bridged to Studio. Names kept for back-compat. */
+  --color-bg: var(--sc-canvas);
+  --color-background: var(--sc-canvas);
+  --color-surface: var(--sc-surface);
+  --color-surface-dim: var(--sc-canvas);
+  --color-surface-bright: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-surface-tint: var(--sc-accent);
+  --color-surface-variant: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-surface-container-lowest: var(--sc-canvas);
+  --color-surface-container-low: var(--sc-canvas);
+  --color-surface-container: var(--sc-surface);
+  --color-surface-container-high: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-surface-container-highest: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-inverse-surface: var(--sc-ink);
+  --color-inverse-on-surface: var(--sc-canvas);
 
-  --color-on-background: #EDEDED;
-  --color-on-surface: #EDEDED;
-  --color-on-surface-variant: #8B8B92;
+  --color-on-background: var(--sc-ink);
+  --color-on-surface: var(--sc-ink);
+  --color-on-surface-variant: var(--sc-ink-soft);
 
-  --color-outline: #8B8B92;
-  --color-outline-variant: rgba(255, 255, 255, 0.10);
+  --color-outline: var(--sc-ink-soft);
+  --color-outline-variant: var(--sc-line);
 
-  --color-primary: #EDEDED;
-  --color-on-primary: #0A0A0B;
-  --color-primary-container: #232328;
-  --color-on-primary-container: #EDEDED;
-  --color-primary-fixed: #2A2A30;
-  --color-primary-fixed-dim: #3A3A42;
-  --color-on-primary-fixed: #FFFFFF;
-  --color-on-primary-fixed-variant: #EDEDED;
-  --color-inverse-primary: #5d5f5f;
+  --color-primary: var(--sc-ink);
+  --color-on-primary: var(--sc-canvas);
+  --color-primary-container: var(--sc-surface);
+  --color-on-primary-container: var(--sc-ink);
+  --color-primary-fixed: var(--sc-surface);
+  --color-primary-fixed-dim: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-on-primary-fixed: var(--sc-ink);
+  --color-on-primary-fixed-variant: var(--sc-ink);
+  --color-inverse-primary: var(--sc-ink-soft);
 
-  --color-secondary: #8B8B92;
-  --color-on-secondary: #0A0A0B;
-  --color-secondary-container: #1C1C20;
-  --color-on-secondary-container: #EDEDED;
-  --color-secondary-fixed: #C6C6C7;
-  --color-secondary-fixed-dim: #8B8B92;
-  --color-on-secondary-fixed: #0A0A0B;
-  --color-on-secondary-fixed-variant: #4A4A52;
+  --color-secondary: var(--sc-ink-soft);
+  --color-on-secondary: var(--sc-canvas);
+  --color-secondary-container: var(--sc-surface);
+  --color-on-secondary-container: var(--sc-ink);
+  --color-secondary-fixed: var(--sc-ink-soft);
+  --color-secondary-fixed-dim: var(--sc-ink-soft);
+  --color-on-secondary-fixed: var(--sc-canvas);
+  --color-on-secondary-fixed-variant: var(--sc-ink-soft);
 
-  --color-tertiary: #7C5CFF;
-  --color-on-tertiary: #FFFFFF;
-  --color-tertiary-container: #2A2240;
-  --color-on-tertiary-container: #EDEDED;
-  --color-tertiary-fixed: #5d5f5f;
-  --color-tertiary-fixed-dim: #454747;
-  --color-on-tertiary-fixed: #FFFFFF;
-  --color-on-tertiary-fixed-variant: #EDEDED;
+  --color-tertiary: var(--sc-ink-soft);
+  --color-on-tertiary: var(--sc-canvas);
+  --color-tertiary-container: var(--sc-surface);
+  --color-on-tertiary-container: var(--sc-ink);
+  --color-tertiary-fixed: var(--sc-ink-soft);
+  --color-tertiary-fixed-dim: var(--sc-ink-soft);
+  --color-on-tertiary-fixed: var(--sc-canvas);
+  --color-on-tertiary-fixed-variant: var(--sc-ink);
 
-  --color-error: #FCA5A5;
-  --color-on-error: #1A0000;
-  --color-error-container: rgba(252, 165, 165, 0.12);
-  --color-on-error-container: #FECACA;
+  --color-error: var(--st-danger);
+  --color-on-error: var(--sc-canvas);
+  --color-error-container: color-mix(in srgb, var(--st-danger) 12%, transparent);
+  --color-on-error-container: var(--st-danger);
 
-  --color-sidebar: #0E0E10;
-  --color-accent: #F5A623;             /* aligned with marketing accent */
-  --color-accent-v2: #F5A623;
-  --color-accent-hover: #FFB840;
-  --color-accent-subtle: rgba(245, 166, 35, 0.12);
-  --color-accent-text: #FFB840;
+  --color-sidebar: var(--sc-surface);
+  --color-accent: var(--sc-accent);
+  --color-accent-v2: var(--sc-accent);
+  --color-accent-hover: #c94a25;
+  --color-accent-subtle: color-mix(in srgb, var(--sc-accent) 10%, transparent);
+  --color-accent-text: #c94a25;
 
-  --color-card: #141416;
-  --color-card-border: rgba(255, 255, 255, 0.08);
-  --color-card-border-strong: rgba(255, 255, 255, 0.16);
+  --color-card: var(--sc-surface);
+  --color-card-border: var(--sc-line);
+  --color-card-border-strong: var(--sc-line-strong);
   --color-border: var(--color-card-border);
   --color-border-strong: var(--color-card-border-strong);
-  --color-card-hover: #1C1C20;
-  --color-row-hover: rgba(255, 255, 255, 0.04);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.18);
+  --color-card-hover: color-mix(in srgb, var(--sc-surface) 90%, var(--sc-ink));
+  --color-row-hover: color-mix(in srgb, var(--sc-ink) 4%, transparent);
+  --shadow-card: var(--sc-shadow);
 
   /* === Type === */
   --font-sans: var(--font-sans), system-ui, sans-serif;
@@ -126,69 +121,39 @@
   --font-body: var(--font-sans), system-ui, sans-serif;
   --font-label: var(--font-sans), system-ui, sans-serif;
 
-  /* === Radii === */
-  --radius-btn: 0.5rem;
-  --radius-card: 0.75rem;
-  --radius-lg-card: 1rem;
-  --radius: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1.5rem;
-  --radius-full: 9999px;
+  /* === Radii (Studio: 6px on raised paper / xl containers; status dots set 50% locally) === */
+  --radius-btn: 4px;
+  --radius-card: 6px;
+  --radius-lg-card: 6px;
+  --radius: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+  --radius-full: 6px;
 
   /* === App-wide UI foundation tokens === */
   --pib-shell-header-height: 3.5rem;
   --pib-shell-gutter: clamp(1rem, 2vw, 2rem);
-  --pib-surface-radius: 1rem;
+  --pib-surface-radius: 6px;
   --pib-surface-padding: clamp(1rem, 2vw, 1.5rem);
-  --pib-control-height: 2rem;
+  --pib-control-height: 2.75rem;
   --pib-control-height-touch: 2.75rem;
   --pib-dialog-width: min(42rem, calc(100vw - 1rem));
-}
-
-/* ── Light theme overrides ────────────────────────────────────────────────── */
-[data-theme="light"] {
-  color-scheme: light;
-  --color-pib-bg: #F8F7F5;
-  --color-pib-surface: #FFFFFF;
-  --color-pib-surface-2: #F0EEF8;
-  --color-pib-card: #FFFFFF;
-  --color-pib-text: #181818;
-  --color-pib-text-muted: #6B6B76;
-  --color-pib-text-faint: #A0A0A8;
-  --color-pib-line: rgba(0, 0, 0, 0.08);
-  --color-pib-line-strong: rgba(0, 0, 0, 0.16);
-  --color-pib-surface-muted: rgba(0, 0, 0, 0.03);
-  --color-pib-surface-soft: rgba(0, 0, 0, 0.04);
-  --color-sidebar: #FFFFFF;
-  --color-bg: #F8F7F5;
-  --color-background: #F8F7F5;
-  --color-surface: #FFFFFF;
-  --color-on-background: #181818;
-  --color-on-surface: #181818;
-  --color-on-surface-variant: #6B6B76;
-  --color-card: #FFFFFF;
-  --color-card-border: rgba(0, 0, 0, 0.08);
-  --color-card-border-strong: rgba(0, 0, 0, 0.16);
-  --color-surface-variant: #F0EEF8;
-  --color-surface-container: #FFFFFF;
-  --color-surface-container-high: #F0EEF8;
-  --color-surface-container-highest: #E8E6F0;
 }
 
 @layer base {
   html {
     width: 100%;
     max-width: 100%;
-    color-scheme: dark;
+    color-scheme: light;
     scroll-behavior: smooth;
     overflow-x: clip;
   }
   body {
     width: 100%;
     max-width: 100%;
-    background: var(--color-pib-bg);
-    color: var(--color-pib-text);
+    background: var(--sc-canvas);
+    color: var(--sc-ink);
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -196,8 +161,8 @@
     overflow-x: clip;
   }
   ::selection {
-    background: var(--color-pib-accent);
-    color: #000;
+    background: var(--sc-accent);
+    color: var(--sc-ink);
   }
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {

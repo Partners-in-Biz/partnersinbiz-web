@@ -23,8 +23,8 @@ const instrumentSerif = Instrument_Serif({
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0A0A0B' },
-    { media: '(prefers-color-scheme: light)', color: '#0A0A0B' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1714' },
+    { media: '(prefers-color-scheme: light)', color: '#f3efe6' },
   ],
   width: 'device-width',
   initialScale: 1,

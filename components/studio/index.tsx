@@ -10,9 +10,9 @@ import './studio-ui.css'
 
 /**
  * Studio UI primitives for auth, portal and admin screens (brand-system.md
- * section 11). Presentational only; they must render inside `.sc-stage.sc-paper`
- * or `.sc-stage.sc-ink` for the tokens to resolve. Class names are stable and
- * documented in studio-ui.css so server components can use them directly.
+ * section 11). Tokens are global via app/studio-tokens.css (paper default;
+ * ink via data-theme="ink" or .sc-ink). Class names are stable and documented
+ * in studio-ui.css so server components can use them directly.
  *
  * Input/Textarea/Select are label-agnostic on purpose: `Field` supplies the
  * `<label htmlFor>`. The static design-audit gate cannot see that pairing, so

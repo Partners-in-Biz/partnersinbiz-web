@@ -6,25 +6,7 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 .sc-stage {
-  --sc-canvas: #f3efe6;
-  --sc-surface: #e7e1d4;
-  --sc-ink: #1a1714;
-  --sc-ink-soft: #4e4841;
-  --sc-accent: #e4572e;
-  --sc-accent-ink: #1a1714;
-  --sc-line: rgba(26, 23, 20, 0.14);
-  --sc-line-strong: rgba(26, 23, 20, 0.32);
-  --sc-edge-light: rgba(255, 255, 255, 0.55);
-  --sc-shadow: 10px 10px 0 rgba(26, 23, 20, 0.12);
-
-  --sc-u: 4px;
-  --sc-pad: clamp(calc(var(--sc-u) * 5), 4vw, calc(var(--sc-u) * 16));
-  --sc-section-pad: clamp(calc(var(--sc-u) * 14), 10vw, calc(var(--sc-u) * 40));
-
-  --sc-measure: 60ch;
-  --sc-font: var(--font-sans), system-ui, sans-serif;
-  --sc-font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-
+  /* Tokens live on :root in app/studio-tokens.css; stage keeps layout + grain. */
   position: relative;
   min-height: 100svh;
   background: var(--sc-canvas);
@@ -33,16 +15,6 @@
   font-family: var(--sc-font);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-
-/* Paper takes the whole document while a stage is mounted (overscroll, gutters). */
-body:has(.sc-stage) {
-  background: #f3efe6;
-  color: #1a1714;
-}
-body:has(.sc-stage) ::selection {
-  background: #e4572e;
-  color: #1a1714;
 }
 
 /* 4-5% grain over everything on the stage. */
@@ -58,51 +30,8 @@ body:has(.sc-stage) ::selection {
   background-size: 180px 180px;
 }
 
-/* ── Type ───────────────────────────────────────────────────────────────── */
+/* ── Type extras (base type classes live in studio-tokens.css) ───────────── */
 
-.sc-h1 {
-  font-size: clamp(2rem, 1.1rem + 3.4vw, 4.25rem);
-  line-height: 0.98;
-  letter-spacing: -0.035em;
-  font-weight: 500;
-  text-wrap: balance;
-  max-width: 14ch;
-  margin: 0;
-}
-.sc-h1--peak {
-  font-size: clamp(2.25rem, 1rem + 5vw, 6rem);
-  letter-spacing: -0.04em;
-  max-width: 13ch;
-}
-.sc-dek {
-  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
-  line-height: 1.3;
-  letter-spacing: -0.012em;
-  color: var(--sc-ink-soft);
-  max-width: 34ch;
-  text-wrap: pretty;
-  margin: calc(var(--sc-u) * 5) 0 0;
-}
-.sc-body {
-  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
-  line-height: 1.5;
-  color: var(--sc-ink-soft);
-  max-width: var(--sc-measure);
-  text-wrap: pretty;
-}
-.sc-body strong,
-.sc-body b {
-  color: var(--sc-ink);
-  font-weight: 500;
-}
-.sc-tiny {
-  font-family: var(--sc-font-mono);
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sc-ink-soft);
-}
 .sc-price {
   font-size: clamp(2.5rem, 1.2rem + 6vw, 7rem);
   line-height: 0.95;
@@ -1160,15 +1089,6 @@ body:has(.sc-stage) ::selection {
 .sc-article__aside {
   display: grid;
   gap: calc(var(--sc-u) * 4);
-}
-.sc-article__h2 {
-  font-size: clamp(1.625rem, 1rem + 2.2vw, 2.75rem);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  font-weight: 500;
-  margin: 0;
-  max-width: 20ch;
-  text-wrap: balance;
 }
 .sc-article__h3 {
   font-size: 1.25rem;

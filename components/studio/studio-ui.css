@@ -1,43 +1,10 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   Studio UI: the app-side primitives (brand-system.md section 11). Every rule
-   reads the .sc-stage tokens, so a screen must be mounted inside
-   `.sc-stage.sc-paper` (or `.sc-stage.sc-ink`). Radius is 4px on controls,
+   Studio UI: the app-side primitives (brand-system.md section 11). Tokens and
+   type live in app/studio-tokens.css (global). Radius is 4px on controls,
    6px on raised paper, 0 everywhere else. Terracotta is reserved for focus
    rings, the active rule and the running-text CTA underline; it is never a
    fill on a button.
    ───────────────────────────────────────────────────────────────────────────── */
-
-/* ── Ink surface: the same tokens, inverted. ────────────────────────────── */
-.sc-stage.sc-ink {
-  --sc-canvas: #1a1714;
-  --sc-surface: #241f1b;
-  --sc-ink: #f3efe6;
-  --sc-ink-soft: rgba(243, 239, 230, 0.72);
-  --sc-accent-ink: #1a1714;
-  --sc-line: rgba(243, 239, 230, 0.18);
-  --sc-line-strong: rgba(243, 239, 230, 0.36);
-  --sc-edge-light: rgba(255, 255, 255, 0.06);
-  --sc-shadow: 10px 10px 0 rgba(0, 0, 0, 0.35);
-  color-scheme: dark;
-}
-
-/* ── Semantic state colours (section 3.3). Never terracotta. ────────────── */
-.sc-stage {
-  --st-success: #2f6b3a;
-  --st-warning: #a8611b;
-  --st-danger: #b3401d;
-  --st-info: #3a5a7a;
-  --st-control-h: 2.75rem;
-  --st-radius: 4px;
-  --st-radius-raised: 6px;
-  --st-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.sc-stage.sc-ink {
-  --st-success: #7fc48a;
-  --st-warning: #f0a35c;
-  --st-danger: #f07a5c;
-  --st-info: #8fb4d9;
-}
 
 /* ── Panel: raised paper (section 6). ───────────────────────────────────── */
 .st-panel {
