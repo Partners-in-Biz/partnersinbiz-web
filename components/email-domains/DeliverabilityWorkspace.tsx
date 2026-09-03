@@ -1,4 +1,3 @@
-import { Icon } from '@/components/studio'
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -9,6 +8,7 @@ import type {
   AuthStatus,
   DeliverabilityAlert,
 } from '@/lib/email-analytics/deliverability'
+import { Icon } from '@/components/studio'
 
 interface DeliverabilityWorkspaceProps {
   orgId?: string

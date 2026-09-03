@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import {
-import { Icon } from '@/components/studio'
   DndContext,
   closestCenter,
   PointerSensor,
@@ -11,6 +10,7 @@ import { Icon } from '@/components/studio'
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { Icon } from '@/components/studio'
 import {
   SortableContext,
   useSortable,

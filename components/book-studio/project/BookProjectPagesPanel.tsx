@@ -1,10 +1,10 @@
-import { Icon } from '@/components/studio'
 'use client'
 
 import { useState } from 'react'
 import { DialogDrawer, EmptyState, StatusPill, Surface } from '@/components/ui/AppFoundation'
 import type { PuzzleKind } from '@/lib/book-studio/format-registry'
 import { humanizeToken, type BookPage, type BookPageKind } from './types'
+import { Icon } from '@/components/studio'
 
 type BookProjectPagesPanelProps = {
   pages: BookPage[]

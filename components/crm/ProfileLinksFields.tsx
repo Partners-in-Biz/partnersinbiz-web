@@ -1,12 +1,12 @@
 'use client'
 
 import {
-import { Icon } from '@/components/studio'
   PROFILE_LINK_FIELDS,
   type ProfileLink,
   type ProfileLinkFieldKey,
   type ProfileLinkFieldValues,
 } from '@/lib/crm/profileLinks'
+import { Icon } from '@/components/studio'
 
 type ProfileLinksFieldsProps = {
   values: ProfileLinkFieldValues

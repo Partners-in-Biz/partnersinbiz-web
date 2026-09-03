@@ -1,8 +1,8 @@
-import { Icon } from '@/components/studio'
 'use client'
 
 import { useState } from 'react'
 import { DocumentLinkPicker } from '@/components/client-documents/DocumentLinkPicker'
+import { Icon } from '@/components/studio'
 
 export function EmailCampaignDocumentLinker() {
   const [open, setOpen] = useState(false)

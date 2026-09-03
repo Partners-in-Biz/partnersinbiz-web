@@ -9,8 +9,6 @@
 'use client'
 
 import type {
-import { Icon } from '@/components/studio'
-
   SequenceStep,
   SequenceBranch,
   SequenceBranchRule,
@@ -18,6 +16,7 @@ import { Icon } from '@/components/studio'
   WaitUntil,
   WaitCondition,
 } from '@/lib/sequences/types'
+import { Icon } from '@/components/studio'
 
 interface Props {
   steps: SequenceStep[]

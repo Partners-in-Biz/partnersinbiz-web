@@ -3,7 +3,6 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import {
-import { Icon } from '@/components/studio'
   OrganizationModulePolicyRoleGrid,
   OrganizationModulePolicySaveBar,
   OrganizationOwnerControlsGrid,
@@ -12,6 +11,7 @@ import { Icon } from '@/components/studio'
   type OrganizationPolicyActionRow,
 } from '@/components/admin-governance/OrganizationModulePolicyControls'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 const MESSAGE_PERMISSION_ROWS: OrganizationPolicyActionRow[] = [
   { id: 'visibility', title: 'Messages tab visibility', description: 'Choose which organisation roles can see Messages in the client portal.' },

@@ -1,5 +1,6 @@
-import { Icon } from '@/components/studio'
 'use client'
+
+import { Icon } from '@/components/studio'
 
 export const BULK_ACTIONS = ['assign', 'stage', 'type', 'add-tags', 'remove-tags', 'assign-segment'] as const
 export type BulkActionKey = typeof BULK_ACTIONS[number]

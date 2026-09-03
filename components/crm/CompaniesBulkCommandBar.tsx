@@ -1,5 +1,6 @@
-import { Icon } from '@/components/studio'
 'use client'
+
+import { Icon } from '@/components/studio'
 
 export const COMPANY_BULK_ACTIONS = ['lifecycleStage', 'tier', 'size', 'industry', 'tags', 'accountManagerUid'] as const
 export type CompanyBulkActionKey = typeof COMPANY_BULK_ACTIONS[number]

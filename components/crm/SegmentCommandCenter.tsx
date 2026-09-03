@@ -1,5 +1,6 @@
-import { Icon } from '@/components/studio'
 'use client'
+
+import { Icon } from '@/components/studio'
 
 export type SegmentCommandFocus = 'all' | 'needsRefresh' | 'advanced'
 
