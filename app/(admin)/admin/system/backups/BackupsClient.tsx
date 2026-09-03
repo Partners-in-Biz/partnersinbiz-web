@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -36,7 +37,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 function formatBytes(bytes: number | null): string {
-  if (bytes == null) return '—'
+  if (bytes == null) return '-'
   if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
@@ -45,7 +46,7 @@ function formatBytes(bytes: number | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleString()
   } catch {
@@ -60,13 +61,13 @@ function unwrap<T>(body: { data?: T } & Record<string, unknown>): T {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    running: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    running: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     pending: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
-    failed: 'bg-red-500/10 text-red-400 border-red-500/30',
+    failed: 'bg-red-500/10 text-[var(--st-danger)] border-red-500/30',
   }
   const cls = map[status] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/30'
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-label ${cls}`}>
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-label ${cls}`}>
       {status}
     </span>
   )
@@ -227,7 +228,7 @@ export default function BackupsClient() {
           return
         }
       }
-      // Otherwise it's a streamed file download — turn it into a blob.
+      // Otherwise it's a streamed file download - turn it into a blob.
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -279,7 +280,7 @@ export default function BackupsClient() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / System
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Per-Org Backups</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Per-Org Backups</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Create point-in-time JSON snapshots of an organisation&apos;s scoped data, diff a snapshot
             against live Firestore, download it, or restore (upsert) it back into production.
@@ -294,31 +295,32 @@ export default function BackupsClient() {
                 setShowCreate(true)
               }}
               disabled={!selectedOrg}
-              className="pib-btn-primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
+              className="st-btn st-btn--primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
               title={selectedOrg ? 'Create backup' : 'Pick an org first'}
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
+              <Icon name="add" />
               Create backup
             </button>
           )}
           <button
             onClick={() => load()}
-            className="pib-btn-ghost text-sm font-label flex items-center gap-1.5"
+            className="st-btn st-btn--ghost text-sm font-label flex items-center gap-1.5"
             title="Refresh"
           >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            <Icon name="refresh" />
             Refresh
           </button>
         </div>
       </div>
 
       {/* Org picker */}
-      <div className="pib-card p-4 flex flex-wrap items-center gap-3">
+      <div className="st-panel p-4 flex flex-wrap items-center gap-3">
         <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Organisation</span>
         <select
-          className="pib-input text-sm min-w-[260px]"
+          className="st-input text-sm min-w-[260px]"
           value={selectedOrg}
           onChange={(e) => setSelectedOrg(e.target.value)}
+          aria-label="Organisation"
         >
           <option value="">All organisations</option>
           {orgs.map((o) => (
@@ -333,12 +335,12 @@ export default function BackupsClient() {
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
       {rowError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {rowError}
         </div>
       )}
@@ -351,12 +353,12 @@ export default function BackupsClient() {
           ))}
         </div>
       ) : visibleBackups.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No backups yet{selectedOrg ? ' for this organisation' : ''}.
           {isSuperAdmin && selectedOrg && ' Use “Create backup” above to make one.'}
         </div>
       ) : (
-        <div className="pib-card overflow-hidden">
+        <div className="st-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -377,36 +379,36 @@ export default function BackupsClient() {
                       <div className="font-medium text-[var(--color-pib-text)]">{orgNameById.get(b.orgId) ?? b.orgId}</div>
                       <div className="text-xs text-[var(--color-pib-text-muted)] font-mono">{b.orgId}</div>
                       {b.storageFallback && (
-                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-label text-amber-400">
-                          <span className="material-symbols-outlined text-[12px]">database</span>
+                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-label text-[var(--st-warning)]">
+                          <Icon name="database" />
                           Firestore fallback
                         </span>
                       )}
-                      {b.error && <div className="text-xs text-red-400 mt-1">{b.error}</div>}
+                      {b.error && <div className="text-xs text-[var(--st-danger)] mt-1">{b.error}</div>}
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
-                    <td className="px-4 py-3 text-right tabular-nums">{b.docCount ?? '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{b.docCount ?? '-'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{formatBytes(b.sizeBytes)}</td>
                     <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{formatDate(b.createdAt)}</td>
-                    <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{b.createdByName || b.createdBy || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{b.createdByName || b.createdBy || '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => runDiff(b.id)}
-                          className="pib-btn-ghost text-xs font-label flex items-center gap-1"
+                          className="st-btn st-btn--ghost text-xs font-label flex items-center gap-1"
                           title="Diff against live"
                         >
-                          <span className="material-symbols-outlined text-[14px]">difference</span>
+                          <Icon name="difference" />
                           Diff
                         </button>
                         {isSuperAdmin && (
                           <button
                             onClick={() => download(b.id)}
                             disabled={downloadingId === b.id || b.status !== 'completed'}
-                            className="pib-btn-ghost text-xs font-label flex items-center gap-1 disabled:opacity-40"
+                            className="st-btn st-btn--ghost text-xs font-label flex items-center gap-1 disabled:opacity-40"
                             title="Download JSON"
                           >
-                            <span className="material-symbols-outlined text-[14px]">download</span>
+                            <Icon name="download" />
                             {downloadingId === b.id ? '…' : 'Download'}
                           </button>
                         )}
@@ -419,10 +421,10 @@ export default function BackupsClient() {
                               setRestoreFor(b.id)
                             }}
                             disabled={b.status !== 'completed'}
-                            className="pib-btn-ghost text-xs font-label flex items-center gap-1 text-amber-400 disabled:opacity-40"
+                            className="st-btn st-btn--ghost text-xs font-label flex items-center gap-1 text-[var(--st-warning)] disabled:opacity-40"
                             title="Restore into live Firestore"
                           >
-                            <span className="material-symbols-outlined text-[14px]">restore</span>
+                            <Icon name="restore" />
                             Restore
                           </button>
                         )}
@@ -438,22 +440,22 @@ export default function BackupsClient() {
 
       {/* Diff panel */}
       {diffFor && (
-        <div className="pib-card p-4 space-y-3">
+        <div className="st-panel p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] flex items-center gap-2">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
-                <span className="material-symbols-outlined text-[15px]">difference</span>
+            <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)] flex items-center gap-2">
+              <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+                <Icon name="difference" />
               </span>
-              Diff vs live — <span className="font-mono text-xs">{diffFor}</span>
+              Diff vs live - <span className="font-mono text-xs">{diffFor}</span>
             </h2>
-            <button onClick={() => { setDiffFor(null); setDiff(null) }} className="pib-btn-ghost text-xs font-label">
+            <button onClick={() => { setDiffFor(null); setDiff(null) }} className="st-btn st-btn--ghost text-xs font-label">
               Close
             </button>
           </div>
           {diffLoading ? (
             <Skeleton className="h-32 w-full rounded-lg" />
           ) : diffError ? (
-            <div className="text-sm text-red-400">{diffError}</div>
+            <div className="text-sm text-[var(--st-danger)]">{diffError}</div>
           ) : diff ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -471,16 +473,16 @@ export default function BackupsClient() {
                     <tr key={name} className="border-b border-[var(--color-pib-line-strong)]/20 last:border-0">
                       <td className="px-3 py-2 font-mono text-xs">{name}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-400">{c.added}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-red-400">{c.removed}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-amber-400">{c.changed}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--st-danger)]">{c.removed}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--st-warning)]">{c.changed}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-[var(--color-pib-text-muted)]">{c.unchanged}</td>
                     </tr>
                   ))}
                   <tr className="bg-surface-variant/30 font-medium">
                     <td className="px-3 py-2">Totals</td>
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-400">{diff.totals.added}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-red-400">{diff.totals.removed}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-amber-400">{diff.totals.changed}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--st-danger)]">{diff.totals.removed}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--st-warning)]">{diff.totals.changed}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-[var(--color-pib-text-muted)]">{diff.totals.unchanged}</td>
                   </tr>
                 </tbody>
@@ -493,8 +495,8 @@ export default function BackupsClient() {
       {/* Create modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="pib-card w-full max-w-md p-5 space-y-4">
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Create backup</h2>
+          <div className="st-panel w-full max-w-md p-5 space-y-4">
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Create backup</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)]">
               This snapshots the scoped collections for{' '}
               <span className="font-medium text-[var(--color-pib-text)]">{orgNameById.get(selectedOrg) ?? selectedOrg}</span>.
@@ -502,23 +504,24 @@ export default function BackupsClient() {
             </p>
             <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-[var(--color-pib-text)]">{selectedOrg}</code>
             <input
-              className="pib-input w-full text-sm font-mono"
+              className="st-input w-full text-sm font-mono"
               value={confirmCreate}
               onChange={(e) => setConfirmCreate(e.target.value)}
               placeholder="Type the org id to confirm"
               autoFocus
+              aria-label="Confirm org id to create backup"
             />
-            {createError && <div className="text-sm text-red-400">{createError}</div>}
+            {createError && <div className="text-sm text-[var(--st-danger)]">{createError}</div>}
             <div className="flex items-center justify-end gap-2">
-              <button onClick={() => setShowCreate(false)} className="pib-btn-ghost text-sm font-label" disabled={creating}>
+              <button onClick={() => setShowCreate(false)} className="st-btn st-btn--ghost text-sm font-label" disabled={creating}>
                 Cancel
               </button>
               <button
                 onClick={createBackup}
                 disabled={creating || confirmCreate.trim() !== selectedOrg}
-                className="pib-btn-primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
+                className="st-btn st-btn--primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
               >
-                {creating && <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>}
+                {creating && <Icon name="progress_activity" />}
                 {creating ? 'Backing up…' : 'Create backup'}
               </button>
             </div>
@@ -529,30 +532,31 @@ export default function BackupsClient() {
       {/* Restore modal */}
       {restoreFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="pib-card w-full max-w-md p-5 space-y-4">
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-amber-400">restore</span>
+          <div className="st-panel w-full max-w-md p-5 space-y-4">
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] flex items-center gap-2">
+              <Icon name="restore" />
               Restore backup
             </h2>
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-300">
+            <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/5 p-3 text-xs text-[var(--st-warning)]">
               This <strong>upserts</strong> every document from the backup back into live Firestore (merge). It does
               not delete anything, but it will overwrite fields that changed since the snapshot. This cannot be undone.
             </div>
             <p className="text-sm text-[var(--color-pib-text-muted)]">To confirm, type the full restore phrase:</p>
             <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-[var(--color-pib-text)]">{restorePrompt}</code>
             <input
-              className="pib-input w-full text-sm font-mono"
+              className="st-input w-full text-sm font-mono"
               value={confirmRestore}
               onChange={(e) => setConfirmRestore(e.target.value)}
               placeholder="Type the full restore phrase"
               autoFocus
+              aria-label="Confirm restore phrase"
             />
-            {restoreError && <div className="text-sm text-red-400">{restoreError}</div>}
+            {restoreError && <div className="text-sm text-[var(--st-danger)]">{restoreError}</div>}
             {restoreResult && <div className="text-sm text-emerald-400">{restoreResult}</div>}
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => { setRestoreFor(null); setRestoreResult(null) }}
-                className="pib-btn-ghost text-sm font-label"
+                className="st-btn st-btn--ghost text-sm font-label"
                 disabled={restoring}
               >
                 {restoreResult ? 'Close' : 'Cancel'}
@@ -561,9 +565,9 @@ export default function BackupsClient() {
                 <button
                   onClick={runRestore}
                   disabled={restoring || confirmRestore.trim() !== restorePrompt}
-                  className="pib-btn-primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
+                  className="st-btn st-btn--primary text-sm font-label flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {restoring && <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>}
+                  {restoring && <Icon name="progress_activity" />}
                   {restoring ? 'Restoring…' : 'Restore now'}
                 </button>
               )}

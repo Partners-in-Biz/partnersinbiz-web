@@ -115,12 +115,12 @@ export default function EmailDomainRulesPage() {
 
   function RuleList({ rules, kind }: { rules: DomainRule[]; kind: 'allow' | 'block' }) {
     return (
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <div className="flex items-center gap-2 mb-3">
-          <span className={`material-symbols-outlined ${kind === 'allow' ? 'text-green-400' : 'text-red-400'}`}>
+          <span className={` ${kind === 'allow' ? 'text-green-400' : 'text-[var(--st-danger)]'}`}>
             {kind === 'allow' ? 'verified' : 'block'}
           </span>
-          <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
+          <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">
             {kind === 'allow' ? 'Allowed' : 'Blocked'} ({rules.length})
           </h2>
         </div>
@@ -142,7 +142,7 @@ export default function EmailDomainRulesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-sm text-[var(--color-pib-text)]">{r.domain}</span>
                     {r.autoApprove && (
-                      <span className="pib-pill pib-pill-blue">
+                      <span className="st-status st-status st-status--info">
                         Auto-approve
                       </span>
                     )}
@@ -155,7 +155,7 @@ export default function EmailDomainRulesPage() {
                 <button
                   onClick={() => removeRule(r)}
                   disabled={busyId === r.id}
-                  className="pib-btn-ghost text-xs font-label shrink-0"
+                  className="st-btn st-btn--ghost text-xs font-label shrink-0"
                 >
                   {busyId === r.id ? '…' : 'Remove'}
                 </button>
@@ -174,28 +174,28 @@ export default function EmailDomainRulesPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Email Domain Rules</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Email Domain Rules</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Allow / block domains and patterns for sending-domain verification. Patterns support
             wildcards, e.g. <span className="font-mono">*.acme.co.za</span> or{' '}
             <span className="font-mono">*@gmail.com</span>. Domain verification should consult these
-            rules — a block denies, an allow with auto-approve fast-tracks.
+            rules - a block denies, an allow with auto-approve fast-tracks.
           </p>
         </div>
-        <Link href="/admin/email" className="pib-btn-ghost text-sm font-label self-start md:self-auto">
+        <Link href="/admin/email" className="st-btn st-btn--ghost text-sm font-label self-start md:self-auto">
           Back to deliverability
         </Link>
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">{error}</div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
       )}
 
-      <form onSubmit={addRule} className="pib-card p-5 space-y-4">
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Add a rule</h2>
+      <form onSubmit={addRule} className="st-panel p-5 space-y-4">
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Add a rule</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
             <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Domain or pattern</span>
@@ -204,7 +204,7 @@ export default function EmailDomainRulesPage() {
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder="acme.co.za or *.acme.co.za"
-              className="pib-input w-full mt-1 font-mono"
+              className="st-input w-full mt-1 font-mono"
               required
             />
           </label>
@@ -213,7 +213,7 @@ export default function EmailDomainRulesPage() {
             <select
               value={type}
               onChange={(e) => setType(e.target.value as 'allow' | 'block')}
-              className="pib-input w-full mt-1"
+              className="st-input w-full mt-1"
             >
               <option value="allow">Allow</option>
               <option value="block">Block</option>
@@ -226,7 +226,7 @@ export default function EmailDomainRulesPage() {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Why this rule exists"
-              className="pib-input w-full mt-1"
+              className="st-input w-full mt-1"
             />
           </label>
           {type === 'allow' && (
@@ -244,7 +244,7 @@ export default function EmailDomainRulesPage() {
           )}
         </div>
         <div className="flex justify-end">
-          <button type="submit" disabled={saving} className="pib-btn-primary text-sm font-label">
+          <button type="submit" disabled={saving} className="st-btn st-btn--primary text-sm font-label">
             {saving ? 'Saving…' : 'Add rule'}
           </button>
         </div>

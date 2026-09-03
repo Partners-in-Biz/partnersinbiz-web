@@ -136,35 +136,35 @@ export default function EftQueuePage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Payments
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">EFT Verification Queue</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">EFT Verification Queue</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Review client EFT proof-of-payment uploads and confirm or reject each one.
           </p>
         </div>
-        <button onClick={load} disabled={loading} className="btn-pib-ghost btn-pib-sm self-start md:self-auto">
+        <button onClick={load} disabled={loading} className="st-btn st-btn--ghost st-btn--sm self-start md:self-auto">
           Refresh
         </button>
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
+          <Skeleton className="h-40 rounded-[6px]" />
         </div>
       ) : items.length === 0 ? (
-        <div className="pib-card p-8 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-8 text-center text-sm text-[var(--color-pib-text-muted)]">
           No EFT proofs awaiting verification.
         </div>
       ) : (
@@ -175,13 +175,13 @@ export default function EftQueuePage() {
             const isImage = (item.proofContentType ?? '').startsWith('image/')
             const rejectOpen = rejectOpenId === item.invoiceId
             return (
-              <li key={item.invoiceId} className="pib-card p-5">
+              <li key={item.invoiceId} className="st-panel p-5">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
                   {/* Details */}
                   <div className="flex-1 min-w-0 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{item.invoiceNumber}</h2>
-                      <span className="pib-pill pib-pill-cyan">
+                      <h2 className="text-base font-medium text-[var(--color-pib-text)]">{item.invoiceNumber}</h2>
+                      <span className="st-status st-status st-status--info">
                         Pending verification
                       </span>
                     </div>
@@ -189,11 +189,11 @@ export default function EftQueuePage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
                         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Client</p>
-                        <p className="text-[var(--color-pib-text)] truncate">{item.orgName ?? item.orgId ?? '—'}</p>
+                        <p className="text-[var(--color-pib-text)] truncate">{item.orgName ?? item.orgId ?? '-'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Amount</p>
-                        <p className="text-[var(--color-pib-text)] font-semibold">{money(item.total, item.currency)}</p>
+                        <p className="text-[var(--color-pib-text)] font-medium">{money(item.total, item.currency)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Uploaded</p>
@@ -225,7 +225,7 @@ export default function EftQueuePage() {
                           value={refById[item.invoiceId] ?? ''}
                           onChange={(e) => setRefById((p) => ({ ...p, [item.invoiceId]: e.target.value }))}
                           placeholder="Bank reference"
-                          className="pib-input w-full mt-1"
+                          className="st-input w-full mt-1"
                           disabled={busy}
                         />
                       </label>
@@ -239,7 +239,7 @@ export default function EftQueuePage() {
                           value={amountById[item.invoiceId] ?? ''}
                           onChange={(e) => setAmountById((p) => ({ ...p, [item.invoiceId]: e.target.value }))}
                           placeholder={String(item.total)}
-                          className="pib-input w-full mt-1"
+                          className="st-input w-full mt-1"
                           disabled={busy}
                         />
                       </label>
@@ -249,7 +249,7 @@ export default function EftQueuePage() {
                       <button
                         onClick={() => confirm(item)}
                         disabled={busy}
-                        className="pib-btn-primary text-sm font-label"
+                        className="st-btn st-btn--primary text-sm font-label"
                       >
                         {busy ? 'Working...' : 'Confirm payment'}
                       </button>
@@ -258,14 +258,14 @@ export default function EftQueuePage() {
                           setRejectOpenId(rejectOpen ? null : item.invoiceId)
                         }}
                         disabled={busy}
-                        className="pib-btn-ghost text-sm font-label"
+                        className="st-btn st-btn--ghost text-sm font-label"
                       >
                         {rejectOpen ? 'Cancel reject' : 'Reject'}
                       </button>
                       {item.orgId && (
                         <Link
                           href={`/portal/invoicing/${item.invoiceId}`}
-                          className="pib-btn-ghost text-sm font-label"
+                          className="st-btn st-btn--ghost text-sm font-label"
                         >
                           Open invoice
                         </Link>
@@ -283,7 +283,7 @@ export default function EftQueuePage() {
                             value={reasonById[item.invoiceId] ?? ''}
                             onChange={(e) => setReasonById((p) => ({ ...p, [item.invoiceId]: e.target.value }))}
                             placeholder="Why is this proof being rejected?"
-                            className="pib-input w-full mt-1"
+                            className="st-input w-full mt-1"
                             disabled={busy}
                           />
                         </label>

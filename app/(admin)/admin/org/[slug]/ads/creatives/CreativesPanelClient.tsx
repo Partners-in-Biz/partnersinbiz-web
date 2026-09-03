@@ -28,9 +28,9 @@ export function CreativesPanelClient({ orgId, orgSlug, initialCreatives }: Props
     <section className="space-y-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Creative library</h1>
+          <h1 className="text-2xl font-medium">Creative library</h1>
           <p className="text-sm text-white/60 mt-1">
-            {creatives.length} {creatives.length === 1 ? 'creative' : 'creatives'} — used by ad sets when building campaigns.
+            {creatives.length} {creatives.length === 1 ? 'creative' : 'creatives'}  -  used by ad sets when building campaigns.
           </p>
         </div>
         <button

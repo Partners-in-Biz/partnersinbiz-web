@@ -61,13 +61,13 @@ export default function OrgSocialIndexPage() {
   )
 
   return (
-    <OrgThemedFrame orgId={orgId || null} className="-m-6 min-h-screen p-6">
+    <OrgThemedFrame orgId={orgId || null}>
       {!orgId ? (
-        <div className="mx-auto max-w-7xl space-y-6 text-[var(--color-pib-text)]">
+        <div className="space-y-6 text-[var(--sc-ink)]">
           <header>
-            <p className="eyebrow">Workspace / Social</p>
-            <h1 className="pib-page-title mt-2">Loading client social</h1>
-            <p className="pib-page-sub mt-2">
+            <p className="sc-tiny">Workspace / Social</p>
+            <h1 className="sc-article__h2 mt-2">Loading client social.</h1>
+            <p className="sc-body mt-2">
               Resolving the selected organisation before loading social accounts and posts.
             </p>
           </header>
@@ -78,7 +78,7 @@ export default function OrgSocialIndexPage() {
           </section>
         </div>
       ) : (
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="space-y-6">
           <AdminOperatorGate
             title="Social workspace is operator-led"
             body="Use this admin surface to compose, inspect, and queue internal social work. Publishing, scheduling, and client-visible approvals must be released only through approved Projects/Kanban gates."

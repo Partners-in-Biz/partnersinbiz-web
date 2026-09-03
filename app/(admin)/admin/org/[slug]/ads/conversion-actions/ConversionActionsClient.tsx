@@ -1,6 +1,6 @@
 'use client'
 // app/(admin)/admin/org/[slug]/ads/conversion-actions/ConversionActionsClient.tsx
-// Sub-3a Phase 6 Batch 3 F — client component: list + delete + form toggle.
+// Sub-3a Phase 6 Batch 3 F  -  client component: list + delete + form toggle.
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -83,7 +83,7 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
       {/* List */}
       {initialActions.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">flag</span>
+          
           <p className="pib-empty-state-description">No conversion actions yet.</p>
           {!showForm && (
             <button

@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/campaigns/new/page.tsx
-// Sub-3a Phase 2 Batch 4 — platform picker replaces Meta-only gate.
+// Sub-3a Phase 2 Batch 4  -  platform picker replaces Meta-only gate.
 // Meta still needs a connection; Google wizard requires none at this page level
 // (Google connection is validated server-side when the campaign is submitted).
 

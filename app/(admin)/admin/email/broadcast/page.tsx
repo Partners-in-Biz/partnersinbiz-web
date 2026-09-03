@@ -28,14 +28,14 @@ function Skeleton({ className = '' }: { className?: string }) {
 const MERGE_TAGS = ['{{firstName}}', '{{name}}', '{{email}}']
 
 const STATUS_CLS: Record<string, string> = {
-  sent: 'pib-pill-success',
-  sending: 'pib-pill-blue',
-  scheduled: 'pib-pill-warn',
+  sent: 'st-status st-status--success',
+  sending: 'st-status st-status--info',
+  scheduled: 'st-status st-status--warning',
   draft: '',
 }
 
 function fmtTime(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleString()
   } catch {
@@ -185,25 +185,25 @@ export default function EmailBroadcastPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Platform Broadcast</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Platform Broadcast</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Send a one-off email to platform users. Target by audience, preview with merge tags, send
             a test, then dispatch now or schedule.
           </p>
         </div>
-        <Link href="/admin/email" className="pib-btn-ghost text-sm font-label self-start md:self-auto">
+        <Link href="/admin/email" className="st-btn st-btn--ghost text-sm font-label self-start md:self-auto">
           Back to deliverability
         </Link>
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">{error}</div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
       )}
 
-      <div className="pib-card p-5 space-y-4">
+      <div className="st-panel p-5 space-y-4">
         {/* Audience */}
         <div>
           <p className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">Audience</p>
@@ -213,7 +213,7 @@ export default function EmailBroadcastPage() {
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value as RecipientSource)}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               >
                 <option value="all_users">All platform users</option>
                 <option value="by_role">By role</option>
@@ -223,7 +223,7 @@ export default function EmailBroadcastPage() {
             {source === 'by_role' && (
               <label className="block">
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">Role</span>
-                <select value={role} onChange={(e) => setRole(e.target.value)} className="pib-input w-full mt-1">
+                <select value={role} onChange={(e) => setRole(e.target.value)} className="st-input w-full mt-1">
                   <option value="client">client</option>
                   <option value="admin">admin</option>
                   <option value="ai">ai</option>
@@ -239,17 +239,17 @@ export default function EmailBroadcastPage() {
                   value={orgId}
                   onChange={(e) => setOrgId(e.target.value)}
                   placeholder="org_xxx"
-                  className="pib-input w-full mt-1 font-mono"
+                  className="st-input w-full mt-1 font-mono"
                 />
               </label>
             )}
             <div className="flex items-end">
-              <div className="pib-card w-full p-3 bg-[var(--color-pib-surface-2)]">
+              <div className="st-panel w-full p-3 bg-[var(--color-pib-surface-2)]">
                 <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   Live recipients
                 </p>
-                <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
-                  {counting ? '…' : count ?? '—'}
+                <p className="text-xl font-headline font-medium text-[var(--color-pib-text)]">
+                  {counting ? '…' : count ?? '-'}
                 </p>
                 {countDesc && <p className="text-[11px] text-[var(--color-pib-text-muted)]">{countDesc}</p>}
               </div>
@@ -265,7 +265,7 @@ export default function EmailBroadcastPage() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Your subject line"
-            className="pib-input w-full mt-1"
+            className="st-input w-full mt-1"
           />
         </label>
 
@@ -298,8 +298,9 @@ export default function EmailBroadcastPage() {
             <textarea
               value={html}
               onChange={(e) => setHtml(e.target.value)}
-              className="pib-input w-full font-mono text-xs min-h-[260px]"
+              className="st-input w-full font-mono text-xs min-h-[260px]"
               rows={14}
+              aria-label="Broadcast HTML body"
             />
             {showPreview && (
               <iframe
@@ -323,7 +324,7 @@ export default function EmailBroadcastPage() {
               value={testTo}
               onChange={(e) => setTestTo(e.target.value)}
               placeholder="you@example.com"
-              className="pib-input w-full mt-1"
+              className="st-input w-full mt-1"
             />
           </label>
           <button onClick={sendTest} disabled={sendingTest} className="pib-btn-secondary text-sm font-label">
@@ -341,7 +342,7 @@ export default function EmailBroadcastPage() {
               type="datetime-local"
               value={scheduledFor}
               onChange={(e) => setScheduledFor(e.target.value)}
-              className="pib-input w-full mt-1"
+              className="st-input w-full mt-1"
             />
           </label>
           <button
@@ -351,15 +352,15 @@ export default function EmailBroadcastPage() {
           >
             Schedule
           </button>
-          <button onClick={() => submit('send')} disabled={submitting} className="pib-btn-primary text-sm font-label">
+          <button onClick={() => submit('send')} disabled={submitting} className="st-btn st-btn--primary text-sm font-label">
             {submitting ? 'Working…' : 'Send now'}
           </button>
         </div>
       </div>
 
       {/* History */}
-      <div className="pib-card p-5">
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-3">History</h2>
+      <div className="st-panel p-5">
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-3">History</h2>
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 rounded-lg" />
@@ -385,7 +386,7 @@ export default function EmailBroadcastPage() {
                   <tr key={b.id} className="border-b border-[var(--color-pib-line)]/50">
                     <td className="py-2 pr-3 text-[var(--color-pib-text)] max-w-[220px] truncate">{b.subject}</td>
                     <td className="py-2 pr-3">
-                      <span className={`pib-pill ${STATUS_CLS[b.status] ?? ''}`}>
+                      <span className={`st-status ${STATUS_CLS[b.status] ?? ''}`}>
                         {b.status}
                       </span>
                     </td>

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { SupportMessage, SupportPriority, SupportStatus, SupportTicket } from '@/lib/support/types'
 import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Icon, Button, Notice, Choice, Status, Title, Toolbar } from '@/components/studio'
 
 const STATUS_LABEL: Record<SupportStatus, string> = {
   new: 'New',
@@ -118,35 +120,23 @@ export function AdminSupportInbox() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Support Operations</p>
-          <h1 className="pib-page-title mt-2">Support Inbox</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Administer scoped support tickets with audit-safe status, priority, operator reply, and Hermes-assisted triage controls.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(['open', ...STATUS_OPTIONS] as const).map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setFilter(status)}
-              className={[
-                'rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                filter === status
-                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
-              ].join(' ')}
-            >
-              {status === 'open' ? 'Open' : STATUS_LABEL[status]}
-            </button>
-          ))}
-        </div>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Support Operations"
+        title="Support inbox."
+        description="Administer scoped support tickets with audit-safe status, priority, operator reply, and Hermes-assisted triage controls."
+        actions={
+          <Toolbar>
+            {(['open', ...STATUS_OPTIONS] as const).map((status) => (
+              <Choice key={status} selected={filter === status} onClick={() => setFilter(status)}>
+                {status === 'open' ? 'Open' : STATUS_LABEL[status]}
+              </Choice>
+            ))}
+          </Toolbar>
+        }
+      />
 
-      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
       <SharedWithUsSection module="support" interactive={false} />
 
@@ -172,9 +162,9 @@ export function AdminSupportInbox() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">{ticket.orgName ?? ticket.orgId}</p>
-                    <h2 className="mt-1 line-clamp-2 text-sm font-semibold">{ticket.subject}</h2>
+                    <h2 className="mt-1 line-clamp-2 sc-body text-[var(--sc-ink)]">{ticket.subject}</h2>
                   </div>
-                  <span className="pib-pill shrink-0 !text-[10px]">{ticket.priority}</span>
+                  <Status tone="info">{ticket.priority}</Status>
                 </div>
                 <p className="mt-2 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{ticket.lastMessagePreview || ticket.description}</p>
                 <div className="mt-3 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
@@ -195,7 +185,7 @@ export function AdminSupportInbox() {
                     <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                       {selectedTicket.requesterName} · {selectedTicket.requesterEmail || selectedTicket.orgName}
                     </p>
-                    <h2 className="mt-2 font-display text-2xl leading-tight">{selectedTicket.subject}</h2>
+                    <Title as="h2">{selectedTicket.subject}</Title>
                     {selectedTicket.sourcePath && (
                       <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Reported from {selectedTicket.sourcePath}</p>
                     )}
@@ -238,7 +228,7 @@ export function AdminSupportInbox() {
                         <div key={message.id} className={`flex ${client ? 'justify-start' : 'justify-end'}`}>
                           <div
                             className={[
-                              'max-w-[86%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+                              'max-w-[86%] rounded-[6px] border border-[var(--sc-line)] px-4 py-2.5 text-sm leading-relaxed',
                               client
                                 ? 'rounded-bl-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
                                 : 'rounded-br-md bg-[var(--color-pib-accent)] text-black',
@@ -260,21 +250,20 @@ export function AdminSupportInbox() {
                       aria-label="Operator reply"
                     />
                     <div className="mt-3 flex justify-end">
-                      <button
+                      <Button
                         type="button"
                         onClick={sendReply}
                         disabled={saving || !reply.trim()}
-                        className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        <span className="material-symbols-outlined text-[18px]">send</span>
+                        <Icon name="send" />
                         Send operator reply
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
 
                 <aside className="border-t border-[var(--color-pib-line)] p-4 lg:border-l lg:border-t-0">
-                  <h3 className="text-sm font-semibold">Hermes triage</h3>
+                  <Title as="h3">Hermes triage.</Title>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                     Internal operator notes only. Add a summary or suggested response before any client-visible automation is separately approved.
                   </p>

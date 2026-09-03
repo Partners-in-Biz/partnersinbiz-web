@@ -303,11 +303,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
   )
 
   if (surface === 'admin') {
-    return (
-      <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
-        {content}
-      </OrgThemedFrame>
-    )
+    return <OrgThemedFrame orgId={orgId}>{content}</OrgThemedFrame>
   }
 
   return content

@@ -247,12 +247,12 @@ export default function ApiDocsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
           {payload && (
-            <span className="pib-pill pib-pill-cyan font-mono">
+            <span className="st-status st-status st-status--info font-mono">
               API {payload.apiVersion} · build {payload.version}
             </span>
           )}
           {payload && (
-            <span className="pib-pill">
+            <span className="st-status">
               {payload.totalEndpoints} endpoints
             </span>
           )}
@@ -260,22 +260,22 @@ export default function ApiDocsPage() {
       </header>
 
       {topError && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {/* Try-it console */}
       {tryEndpoint && (
-        <div className="pib-card p-5 space-y-4">
+        <div className="st-panel p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] inline-flex items-center gap-2">
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] inline-flex items-center gap-2">
               <span className="material-icons text-base" style={{ color: "var(--color-pib-cyan)" }}>
                 terminal
               </span>
               Try it
             </h2>
-            <button type="button" onClick={closeTry} className="btn-pib-ghost text-xs font-label">
+            <button type="button" onClick={closeTry} className="st-btn st-btn--ghost text-xs font-label">
               Close
             </button>
           </div>
@@ -292,21 +292,22 @@ export default function ApiDocsPage() {
               value={tryPath}
               onChange={(e) => setTryPath(e.target.value)}
               placeholder="/api/v1/..."
-              className="pib-input w-full font-mono text-sm"
+              className="st-input w-full font-mono text-sm"
               spellCheck={false}
+              aria-label="Request path"
             />
           </div>
 
           {tryHasBody && (
             <label className="block">
-              <span className="pib-label">
+              <span className="sc-tiny">
                 Request body (JSON)
               </span>
               <textarea
                 value={tryBody}
                 onChange={(e) => setTryBody(e.target.value)}
                 placeholder='{ "key": "value" }'
-                className="pib-input w-full mt-1 min-h-[96px] font-mono text-sm"
+                className="st-input w-full mt-1 min-h-[96px] font-mono text-sm"
                 rows={4}
                 spellCheck={false}
               />
@@ -318,7 +319,7 @@ export default function ApiDocsPage() {
               type="button"
               onClick={sendTry}
               disabled={sending}
-              className="btn-pib-primary text-sm font-label"
+              className="st-btn st-btn--primary text-sm font-label"
             >
               {sending ? 'Sending…' : 'Send'}
             </button>
@@ -333,7 +334,7 @@ export default function ApiDocsPage() {
                   Status
                 </span>
                 <span
-                  className="text-sm font-mono font-semibold"
+                  className="text-sm font-mono font-medium"
                   style={{
                     color: respStatus >= 200 && respStatus < 300 ? "var(--color-pib-green)" : "var(--color-error)",
                   }}
@@ -361,29 +362,30 @@ export default function ApiDocsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter endpoints by path or method…"
-          className="pib-input w-full pl-10"
+          className="st-input w-full pl-10"
           spellCheck={false}
+          aria-label="Filter endpoints"
         />
       </div>
 
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
+          <Skeleton className="h-40 rounded-[6px]" />
         </div>
       ) : !payload ? (
-        <div className="pib-card p-8 text-center">
+        <div className="st-panel p-8 text-center">
           <p className="text-sm text-[var(--color-pib-text-muted)]">No API documentation available.</p>
         </div>
       ) : filteredGroups.length === 0 ? (
-        <div className="pib-card p-8 text-center">
+        <div className="st-panel p-8 text-center">
           <p className="text-sm text-[var(--color-pib-text-muted)]">No endpoints match “{search}”.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredGroups.map((group) => (
-            <section key={group.group} className="pib-card p-5">
-              <h2 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-3">
+            <section key={group.group} className="st-panel p-5">
+              <h2 className="text-base font-headline font-medium text-[var(--color-pib-text)] mb-3">
                 {group.group}
                 <span className="ml-2 text-xs font-normal text-[var(--color-pib-text-muted)]">
                   {group.endpoints.length}
@@ -421,14 +423,14 @@ export default function ApiDocsPage() {
                           <button
                             type="button"
                             onClick={() => openEdit(ep)}
-                            className="btn-pib-secondary text-xs font-label"
+                            className="st-btn st-btn--secondary text-xs font-label"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => openTry(ep)}
-                            className="btn-pib-ghost text-xs font-label"
+                            className="st-btn st-btn--ghost text-xs font-label"
                           >
                             Try
                           </button>
@@ -438,25 +440,25 @@ export default function ApiDocsPage() {
                       {isEditing && (
                         <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 space-y-3">
                           <label className="block">
-                            <span className="pib-label">
+                            <span className="sc-tiny">
                               Description
                             </span>
                             <input
                               type="text"
                               value={editDescription}
                               onChange={(e) => setEditDescription(e.target.value)}
-                              className="pib-input w-full mt-1"
+                              className="st-input w-full mt-1"
                               placeholder="Short summary of what this endpoint does."
                             />
                           </label>
                           <label className="block">
-                            <span className="pib-label">
+                            <span className="sc-tiny">
                               Notes
                             </span>
                             <textarea
                               value={editNotes}
                               onChange={(e) => setEditNotes(e.target.value)}
-                              className="pib-input w-full mt-1 min-h-[80px]"
+                              className="st-input w-full mt-1 min-h-[80px]"
                               rows={3}
                               placeholder="Implementation notes, gotchas, required scopes…"
                             />
@@ -466,7 +468,7 @@ export default function ApiDocsPage() {
                             <button
                               type="button"
                               onClick={cancelEdit}
-                              className="btn-pib-ghost text-xs font-label"
+                              className="st-btn st-btn--ghost text-xs font-label"
                             >
                               Cancel
                             </button>
@@ -474,7 +476,7 @@ export default function ApiDocsPage() {
                               type="button"
                               onClick={() => saveEdit(ep)}
                               disabled={saving}
-                              className="btn-pib-primary text-xs font-label"
+                              className="st-btn st-btn--primary text-xs font-label"
                             >
                               {saving ? 'Saving…' : 'Save'}
                             </button>

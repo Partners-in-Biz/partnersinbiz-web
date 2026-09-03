@@ -327,7 +327,7 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="h-40 rounded-xl bg-[var(--color-pib-surface-2)] animate-pulse" />
+        <div className="h-40 rounded-md bg-[var(--color-pib-surface-2)] animate-pulse" />
       </div>
     )
   }
@@ -388,7 +388,7 @@ export default function CampaignDetailPage() {
         <div
           role="alertdialog"
           aria-label="Confirm campaign launch"
-          className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-3 text-xs text-[var(--color-pib-amber)] space-y-3"
+          className="rounded-lg border border-amber-300/30 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]/10 p-3 text-xs text-[var(--color-pib-amber)] space-y-3"
         >
           <p>
             Enroll {audienceSize} contact{audienceSize === 1 ? '' : 's'} and start sending?
@@ -448,10 +448,10 @@ export default function CampaignDetailPage() {
       </div>
       <div className="pib-card space-y-6">
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
+          <label htmlFor="fld-campaign-name" className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
             Campaign name
           </label>
-          <input
+          <input id="fld-campaign-name" aria-label="Campaign name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!editable}
@@ -460,10 +460,10 @@ export default function CampaignDetailPage() {
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
+          <label htmlFor="fld-description" className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
             Description
           </label>
-          <textarea
+          <textarea id="fld-description" aria-label="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={!editable}
@@ -476,15 +476,15 @@ export default function CampaignDetailPage() {
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Sender
           </h3>
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+              <label htmlFor="fld-sending-domain" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                 Sending domain
               </label>
-              <select
+              <select id="fld-sending-domain" aria-label="Sending domain"
                 value={fromDomainId}
                 onChange={(e) => setFromDomainId(e.target.value)}
                 disabled={!editable}
@@ -509,10 +509,10 @@ export default function CampaignDetailPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+                <label htmlFor="fld-sender-name" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   From name
                 </label>
-                <input
+                <input id="fld-sender-name" aria-label="From name"
                   value={fromName}
                   onChange={(e) => setFromName(e.target.value)}
                   disabled={!editable}
@@ -521,10 +521,10 @@ export default function CampaignDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+                <label htmlFor="fld-sender-local-part" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   From local part
                 </label>
-                <input
+                <input id="fld-sender-local-part" aria-label="From local part"
                   value={fromLocal}
                   onChange={(e) => setFromLocal(e.target.value)}
                   disabled={!editable}
@@ -534,10 +534,10 @@ export default function CampaignDetailPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+              <label htmlFor="fld-reply-optional" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                 Reply-to (optional)
               </label>
-              <input
+              <input id="fld-reply-optional" aria-label="Reply-to (optional)"
                 value={replyTo}
                 onChange={(e) => setReplyTo(e.target.value)}
                 disabled={!editable}
@@ -554,7 +554,7 @@ export default function CampaignDetailPage() {
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Audience
           </h3>
           <div className="flex flex-wrap gap-4">
@@ -587,6 +587,7 @@ export default function CampaignDetailPage() {
                 value={segmentId}
                 onChange={(e) => setSegmentId(e.target.value)}
                 disabled={!editable}
+                aria-label="Audience segment"
                 className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
               >
                 <option value="">Select a segment...</option>
@@ -613,6 +614,7 @@ export default function CampaignDetailPage() {
                 onChange={(e) => setContactIdsRaw(e.target.value)}
                 disabled={!editable}
                 rows={4}
+                aria-label="Manual contact IDs"
                 placeholder="Paste contact IDs (comma- or newline-separated)"
                 className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm font-mono disabled:opacity-70"
               />
@@ -626,14 +628,14 @@ export default function CampaignDetailPage() {
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Content
           </h3>
           <div>
-            <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+            <label htmlFor="fld-sequence" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
               Sequence
             </label>
-            <select
+            <select id="fld-sequence" aria-label="Sequence"
               value={sequenceId}
               onChange={(e) => setSequenceId(e.target.value)}
               disabled={!editable}
@@ -655,20 +657,18 @@ export default function CampaignDetailPage() {
           <button
             type="button"
             onClick={() => setTriggersOpen((v) => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide hover:text-[var(--color-pib-text)]"
+            className="flex items-center gap-2 text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[18px]">
-              {triggersOpen ? 'expand_more' : 'chevron_right'}
-            </span>
+            <Icon name={triggersOpen ? 'expand_more' : 'chevron_right'} className="text-[18px]" />
             Auto-enrollment triggers
           </button>
           {triggersOpen && (
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+                <label htmlFor="fld-capture-source-ids" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Capture source IDs
                 </label>
-                <input
+                <input id="fld-capture-source-ids" aria-label="Capture source IDs"
                   value={captureSourceIdsRaw}
                   onChange={(e) => setCaptureSourceIdsRaw(e.target.value)}
                   disabled={!editable}
@@ -677,10 +677,10 @@ export default function CampaignDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
+                <label htmlFor="fld-tag-triggers" className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Tag triggers
                 </label>
-                <input
+                <input id="fld-tag-triggers" aria-label="Tag triggers"
                   value={tagsRaw}
                   onChange={(e) => setTagsRaw(e.target.value)}
                   disabled={!editable}

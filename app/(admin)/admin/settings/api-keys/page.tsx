@@ -71,7 +71,7 @@ export default function ApiKeysPage() {
     setKeys(prev => prev.filter(k => k.id !== keyId))
   }
 
-  const inputClass = "pib-input"
+  const inputClass = "st-input"
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -83,14 +83,14 @@ export default function ApiKeysPage() {
 
       {/* New key revealed */}
       {createdKey && (
-        <div className="pib-card" style={{ borderColor: 'var(--color-pib-green)' }}>
-          <p className="text-sm font-bold text-[var(--color-pib-text)] mb-2">✓ API key created — copy it now</p>
+        <div className="st-panel" style={{ borderColor: 'var(--color-pib-green)' }}>
+          <p className="text-sm font-medium text-[var(--color-pib-text)] mb-2">✓ API key created - copy it now</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">This key will only be shown once. Store it securely.</p>
           <div className="flex gap-2">
             <code className="flex-1 text-xs bg-[var(--color-pib-ink)] px-3 py-2 rounded font-mono text-[var(--color-pib-green)] break-all">{createdKey}</code>
             <button
               onClick={() => { copyToClipboard(createdKey); setCreatedKey(null) }}
-              className="btn-pib-primary text-xs font-label shrink-0"
+              className="st-btn st-btn--primary text-xs font-label shrink-0"
             >
               Copy & Dismiss
             </button>
@@ -99,37 +99,37 @@ export default function ApiKeysPage() {
       )}
 
       {/* Create new key */}
-      <div className="pib-card space-y-4">
-        <p className="pib-label">Create New Key</p>
+      <div className="st-panel space-y-4">
+        <p className="sc-tiny">Create New Key</p>
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Key Name *</label>
-              <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className={inputClass} placeholder='e.g. "Social Agent"' />
+              <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className={inputClass} placeholder='e.g. "Social Agent"' aria-label="Key name" />
             </div>
             <div>
               <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Role</label>
-              <select value={newKeyRole} onChange={e => setNewKeyRole(e.target.value as 'ai' | 'admin')} className={inputClass}>
+              <select value={newKeyRole} onChange={e => setNewKeyRole(e.target.value as 'ai' | 'admin')} className={inputClass} aria-label="Key role">
                 <option value="ai">AI Agent</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
             <div className="col-span-2">
               <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Org ID (leave empty for platform-level access)</label>
-              <input value={newOrgId} onChange={e => setNewOrgId(e.target.value)} className={inputClass} placeholder="org-id or leave blank for global" />
+              <input value={newOrgId} onChange={e => setNewOrgId(e.target.value)} className={inputClass} placeholder="org-id or leave blank for global" aria-label="Organisation ID" />
             </div>
           </div>
           {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
-          <button type="submit" disabled={creating || !newKeyName.trim()} className="btn-pib-primary">
+          <button type="submit" disabled={creating || !newKeyName.trim()} className="st-btn st-btn--primary">
             {creating ? 'Creating…' : 'Generate Key'}
           </button>
         </form>
       </div>
 
       {/* Existing keys */}
-      <div className="pib-card overflow-hidden !p-0">
+      <div className="st-panel overflow-hidden !p-0">
         <div className="px-5 py-3 border-b border-[var(--color-pib-line)]">
-          <p className="pib-label">Active Keys</p>
+          <p className="sc-tiny">Active Keys</p>
         </div>
         {loading ? (
           <div className="divide-y divide-[var(--color-pib-line)]">
@@ -147,14 +147,14 @@ export default function ApiKeysPage() {
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{key.name}</p>
                   <div className="flex items-center gap-3 mt-0.5">
                     <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]">{key.keyPrefix}••••••••</code>
-                    <span className="pib-pill pib-pill-cyan text-[9px]">{key.role}</span>
+                    <span className="st-status st-status st-status--info text-[9px]">{key.role}</span>
                     {key.orgId && <span className="text-[9px] text-[var(--color-pib-text-muted)]">org: {key.orgId}</span>}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] text-[var(--color-pib-text-muted)]">Last used: {formatDate(key.lastUsedAt)}</p>
                 </div>
-                <button onClick={() => handleRevoke(key.id)} className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors font-label shrink-0">
+                <button onClick={() => handleRevoke(key.id)} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors font-label shrink-0">
                   Revoke
                 </button>
               </div>

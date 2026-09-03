@@ -24,7 +24,7 @@ interface MaintenanceState {
   history: HistoryEntry[]
 }
 
-// Convert ISO -> value for <input type="datetime-local"> (local time, no tz).
+// Convert ISO -> value for datetime-local inputs (local time, no tz).
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -126,14 +126,14 @@ export default function MaintenancePage() {
       </header>
 
       {feedback && (
-        <div className="pib-card py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>
+        <div className="st-panel py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>
       )}
       {error && (
-        <div className="pib-card py-2 text-xs text-[var(--color-error)]">{error}</div>
+        <div className="st-panel py-2 text-xs text-[var(--color-error)]">{error}</div>
       )}
 
       {/* Master toggle */}
-      <div className="pib-card">
+      <div className="st-panel">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--color-pib-text)]">Maintenance mode</p>
@@ -151,8 +151,8 @@ export default function MaintenancePage() {
       </div>
 
       {/* Schedule + message */}
-      <div className="pib-card space-y-4">
-        <p className="pib-label">Scheduled window</p>
+      <div className="st-panel space-y-4">
+        <p className="sc-tiny">Scheduled window</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-xs text-[var(--color-pib-text-muted)]">Start</span>
@@ -160,7 +160,7 @@ export default function MaintenancePage() {
               type="datetime-local"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="pib-input mt-1"
+              className="st-input mt-1"
             />
           </label>
           <label className="block">
@@ -169,7 +169,7 @@ export default function MaintenancePage() {
               type="datetime-local"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              className="pib-input mt-1"
+              className="st-input mt-1"
             />
           </label>
         </div>
@@ -179,27 +179,28 @@ export default function MaintenancePage() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={3}
-            placeholder="We'll be back shortly — performing scheduled maintenance."
-            className="pib-input mt-1"
+            placeholder="We'll be back shortly - performing scheduled maintenance."
+            className="st-input mt-1"
           />
         </label>
       </div>
 
       {/* IP allowlist */}
-      <div className="pib-card space-y-3">
-        <p className="pib-label">IP allowlist (bypass maintenance)</p>
+      <div className="st-panel space-y-3">
+        <p className="sc-tiny">IP allowlist (bypass maintenance)</p>
         <div className="flex gap-2">
           <input
             value={newIp}
             onChange={(e) => setNewIp(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addIp() } }}
             placeholder="e.g. 203.0.113.5"
-            className="pib-input flex-1"
+            className="st-input flex-1"
+            aria-label="IP address to allowlist"
           />
           <button
             type="button"
             onClick={addIp}
-            className="btn-pib-secondary"
+            className="st-btn st-btn--secondary"
           >
             Add
           </button>
@@ -223,20 +224,20 @@ export default function MaintenancePage() {
           type="button"
           onClick={() => save()}
           disabled={saving || loading}
-          className="btn-pib-primary disabled:opacity-60"
+          className="st-btn st-btn--primary disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save settings'}
         </button>
       </div>
 
       {/* History */}
-      <div className="pib-card">
-        <p className="pib-label mb-3">Change history (50 most recent)</p>
+      <div className="st-panel">
+        <p className="sc-tiny mb-3">Change history (50 most recent)</p>
         {history.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">No changes recorded yet.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
-            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 pib-label">
+          <div className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 sc-tiny">
               <span className="col-span-2">State</span>
               <span className="col-span-4">Window</span>
               <span className="col-span-4">Actor</span>
@@ -246,11 +247,11 @@ export default function MaintenancePage() {
               <div key={h.id} className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] px-3 py-2 text-xs last:border-b-0">
                 <span className={`col-span-2 ${h.enabled ? "text-[var(--color-pib-amber)]" : 'text-[var(--color-pib-text-muted)]'}`}>{h.enabled ? 'ON' : 'OFF'}</span>
                 <span className="col-span-4 text-[var(--color-pib-text-muted)] truncate">
-                  {h.window?.start ? new Date(h.window.start).toLocaleString() : '—'}
+                  {h.window?.start ? new Date(h.window.start).toLocaleString() : '-'}
                   {h.window?.end ? ` → ${new Date(h.window.end).toLocaleString()}` : ''}
                 </span>
-                <span className="col-span-4 text-[var(--color-pib-text-muted)] truncate">{h.actor?.uid || '—'}</span>
-                <span className="col-span-2 text-right text-[var(--color-pib-text-muted)]">{h.at ? new Date(h.at).toLocaleString() : '—'}</span>
+                <span className="col-span-4 text-[var(--color-pib-text-muted)] truncate">{h.actor?.uid || '-'}</span>
+                <span className="col-span-2 text-right text-[var(--color-pib-text-muted)]">{h.at ? new Date(h.at).toLocaleString() : '-'}</span>
               </div>
             ))}
           </div>

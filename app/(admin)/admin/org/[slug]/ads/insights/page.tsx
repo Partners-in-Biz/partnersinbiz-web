@@ -58,7 +58,7 @@ export default async function InsightsRollupPage({ params }: { params: Promise<P
         </h2>
         {campaigns.length === 0 ? (
           <div className="pib-empty-state">
-            <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">insights</span>
+            
             <p className="pib-empty-state-description">No active campaigns. Client-approved campaigns can be launched from the admin Campaigns tab after spend gates pass.</p>
           </div>
         ) : (

@@ -75,10 +75,10 @@ function MetricCard({
   accent?: boolean
 }) {
   return (
-    <div className="pib-card p-4">
+    <div className="st-panel p-4">
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
-        className="text-2xl font-headline font-bold mt-1"
+        className="text-2xl font-headline font-medium mt-1"
         style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
       >
         {value}
@@ -93,8 +93,8 @@ function ActivationBar({ score }: { score: number }) {
     score >= 66 ? 'var(--color-pib-cyan)' : score >= 33 ? '#eab308' : '#9ca3af'
   return (
     <div className="flex items-center gap-2 min-w-[120px]">
-      <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full rounded-full" style={{ width: `${score}%`, background: color }} />
+      <div className="flex-1 h-1.5 rounded bg-white/10 overflow-hidden">
+        <div className="h-full rounded" style={{ width: `${score}%`, background: color }} />
       </div>
       <span className="text-xs font-mono text-[var(--color-pib-text-muted)] w-7 text-right">{score}</span>
     </div>
@@ -107,10 +107,10 @@ function DaysBadge({ days }: { days: number | null }) {
   }
   const expired = days < 0
   const urgent = days <= 3
-  const tone = expired || urgent ? 'pib-pill-danger' : days <= 7 ? 'pib-pill-warn' : ''
+  const tone = expired || urgent ? 'st-status st-status--danger' : days <= 7 ? 'st-status st-status--warning' : ''
   const label = expired ? `${Math.abs(days)}d overdue` : `${days}d left`
   return (
-    <span className={`pib-pill whitespace-nowrap ${tone}`}>
+    <span className={`st-status whitespace-nowrap ${tone}`}>
       {label}
     </span>
   )
@@ -217,7 +217,7 @@ export default function TrialsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Trials
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Trial conversion</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Trial conversion</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Trialing accounts ranked by days remaining and activation. Extend, force-convert, or nudge by email.
           </p>
@@ -228,12 +228,12 @@ export default function TrialsPage() {
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
@@ -242,7 +242,7 @@ export default function TrialsPage() {
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-[6px]" />
           ))}
         </div>
       ) : data ? (
@@ -263,13 +263,13 @@ export default function TrialsPage() {
       ) : null}
 
       {/* Conversion trend */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <div className="mb-4">
-          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Trials started vs converted</h2>
+          <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">Trials started vs converted</h2>
           <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">Monthly, last 12 months</p>
         </div>
         {loading ? (
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-[6px]" />
         ) : !hasTrend ? (
           <div className="h-64 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
             No subscription history yet.
@@ -300,9 +300,9 @@ export default function TrialsPage() {
       </div>
 
       {/* Trials table */}
-      <div className="pib-card p-0 overflow-hidden">
+      <div className="st-panel p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Trialing accounts</h2>
+          <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">Trialing accounts</h2>
           <div className="flex gap-2">
             <button
               onClick={() => toggleSort('days')}
@@ -370,7 +370,7 @@ export default function TrialsPage() {
                               runAction(t.orgId, { action: 'convert' }, `${t.orgName} converted to active.`)
                             }
                           }}
-                          className="pib-btn-primary text-[11px] font-label px-2 py-1"
+                          className="st-btn st-btn--primary text-[11px] font-label px-2 py-1"
                         >
                           Convert
                         </button>
@@ -398,6 +398,7 @@ export default function TrialsPage() {
                         value={extendDays}
                         onChange={(e) => setExtendDays(e.target.value)}
                         className="w-16 rounded bg-black/30 px-2 py-1 text-sm text-[var(--color-pib-text)] border border-white/10"
+                        aria-label="Extend trial by days"
                       />
                       <span className="text-[11px] text-[var(--color-pib-text-muted)]">days</span>
                       <button
@@ -409,7 +410,7 @@ export default function TrialsPage() {
                             `Trial extended for ${t.orgName}.`,
                           )
                         }
-                        className="pib-btn-primary text-[11px] font-label px-2 py-1 ml-auto"
+                        className="st-btn st-btn--primary text-[11px] font-label px-2 py-1 ml-auto"
                       >
                         {busy ? 'Saving…' : 'Apply'}
                       </button>
@@ -423,6 +424,7 @@ export default function TrialsPage() {
                         value={emailSubject}
                         onChange={(e) => setEmailSubject(e.target.value)}
                         className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-[var(--color-pib-text)] border border-white/10"
+                        aria-label="Email subject"
                       />
                       <textarea
                         placeholder="Message…"
@@ -430,6 +432,7 @@ export default function TrialsPage() {
                         value={emailBody}
                         onChange={(e) => setEmailBody(e.target.value)}
                         className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-[var(--color-pib-text)] border border-white/10"
+                        aria-label="Email message"
                       />
                       <div className="flex justify-end">
                         <button
@@ -441,7 +444,7 @@ export default function TrialsPage() {
                               `Email sent to ${t.orgName}.`,
                             )
                           }
-                          className="pib-btn-primary text-[11px] font-label px-3 py-1 disabled:opacity-50"
+                          className="st-btn st-btn--primary text-[11px] font-label px-3 py-1 disabled:opacity-50"
                         >
                           {busy ? 'Sending…' : 'Send email'}
                         </button>

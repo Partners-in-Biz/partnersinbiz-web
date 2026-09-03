@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { useParams } from 'next/navigation'
 import { ContactFactProposalsPanel } from '@/components/crm/ContactFactProposalsPanel'
 import { ContactResearchTasksPanel } from '@/components/crm/ContactResearchTasksPanel'
@@ -107,7 +108,7 @@ export default function AdminCrmContactDetailPage() {
   if (error || !contact) {
     return (
       <div className="bento-card p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-error)]">error_outline</span>
+        <Icon name="error_outline" className="text-[var(--st-danger)]" />
         <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{error ?? 'Contact not found.'}</p>
         <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5">
           Back to org dashboard
@@ -124,7 +125,7 @@ export default function AdminCrmContactDetailPage() {
         <div>
           <p className="eyebrow !text-[10px]">Admin CRM · selected org</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-3xl text-[var(--color-pib-text)]">{contactName}</h1>
+            <h1 className="font-headline text-3xl text-[var(--color-pib-text)]">{contactName}</h1>
             {contact.linkedUserId ? <SystemLinkBadge kind="user" size="md" /> : null}
           </div>
           <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
@@ -133,9 +134,7 @@ export default function AdminCrmContactDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={portalHref} className="btn-pib-secondary inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-              open_in_new
-            </span>
+            <Icon name="open_in_new" className="text-[16px]" />
             Open full portal contact
           </Link>
           <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary inline-flex items-center gap-1.5">
@@ -145,17 +144,17 @@ export default function AdminCrmContactDetailPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
           <p className="eyebrow !text-[9px]">Type</p>
-          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.type || '—'}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.type || ' - '}</p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
           <p className="eyebrow !text-[9px]">Stage</p>
-          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.stage || '—'}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.stage || ' - '}</p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
           <p className="eyebrow !text-[9px]">Phone</p>
-          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.phone || '—'}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{contact.phone || ' - '}</p>
         </div>
       </div>
 

@@ -1,6 +1,23 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { DialogDrawer, EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  DataItem,
+  DataList,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Status,
+  Textarea,
+  Toolbar,
+} from '@/components/studio'
 
 interface LogEntry {
   at?: string
@@ -25,18 +42,11 @@ interface DSR {
 const TYPES = ['access', 'erasure', 'portability', 'rectification'] as const
 const STATUSES = ['open', 'in_progress', 'completed', 'rejected'] as const
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    open: 'pib-pill-blue',
-    in_progress: 'pib-pill-warn',
-    completed: 'pib-pill-success',
-    rejected: 'pib-pill-danger',
-  }
-  return (
-    <span className={`pib-pill ${map[status] ?? map.open}`}>
-      {status.replace('_', ' ')}
-    </span>
-  )
+function statusTone(status: string): 'info' | 'warning' | 'success' | 'danger' {
+  if (status === 'open') return 'info'
+  if (status === 'in_progress') return 'warning'
+  if (status === 'completed') return 'success'
+  return 'danger'
 }
 
 export default function GdprPage() {
@@ -77,23 +87,39 @@ export default function GdprPage() {
     }
   }, [filterStatus, filterType])
 
-  useEffect(() => { load() }, [load])
-  useEffect(() => { if (selected) setEditNotes(selected.notes ?? '') }, [selected])
+  useEffect(() => {
+    load()
+  }, [load])
+  useEffect(() => {
+    if (selected) setEditNotes(selected.notes ?? '')
+  }, [selected])
 
   async function createDSR() {
-    if (!newEmail.trim()) { setError('Subject email is required'); return }
-    setBusy(true); setError(null); setFeedback(null)
+    if (!newEmail.trim()) {
+      setError('Subject email is required')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
       const res = await fetch('/api/v1/admin/legal/gdpr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: newType, subjectEmail: newEmail.trim(), orgId: newOrgId.trim() || undefined, notes: newNotes.trim() }),
+        body: JSON.stringify({
+          type: newType,
+          subjectEmail: newEmail.trim(),
+          orgId: newOrgId.trim() || undefined,
+          notes: newNotes.trim(),
+        }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body?.error || 'Create failed')
       const data = body.data ?? body
       setFeedback('DSR created')
-      setNewEmail(''); setNewOrgId(''); setNewNotes('')
+      setNewEmail('')
+      setNewOrgId('')
+      setNewNotes('')
       await load()
       setSelectedId(data.request?.id ?? null)
     } catch (e) {
@@ -103,16 +129,16 @@ export default function GdprPage() {
     }
   }
 
-  async function updateStatus(status: string, withNotes = false) {
+  async function updateStatus(status: string) {
     if (!selected) return
-    setBusy(true); setError(null); setFeedback(null)
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
-      const payload: Record<string, unknown> = { status }
-      if (withNotes) payload.notes = editNotes
       const res = await fetch(`/api/v1/admin/legal/gdpr/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ status }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body?.error || 'Update failed')
@@ -127,7 +153,9 @@ export default function GdprPage() {
 
   async function saveNotes() {
     if (!selected) return
-    setBusy(true); setError(null); setFeedback(null)
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
       const res = await fetch(`/api/v1/admin/legal/gdpr/${selected.id}`, {
         method: 'PATCH',
@@ -147,7 +175,9 @@ export default function GdprPage() {
 
   async function confirmErase() {
     if (!selected) return
-    setBusy(true); setError(null); setFeedback(null)
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
       const res = await fetch(`/api/v1/admin/legal/gdpr/${selected.id}/erase`, {
         method: 'POST',
@@ -157,7 +187,9 @@ export default function GdprPage() {
       const body = await res.json()
       if (!res.ok) throw new Error(body?.error || 'Erase failed')
       const data = body.data ?? body
-      setFeedback(`Erased ${data.erased?.users ?? 0} user record(s); ${data.erased?.skippedAdmins ?? 0} admin record(s) preserved`)
+      setFeedback(
+        `Erased ${data.erased?.users ?? 0} user record(s); ${data.erased?.skippedAdmins ?? 0} admin record(s) preserved`,
+      )
       setShowErase(false)
       await load()
     } catch (e) {
@@ -168,152 +200,172 @@ export default function GdprPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Legal</p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">GDPR Data-Subject Requests</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Manage access, erasure, portability and rectification requests. Audit logs are retained for 3 years.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="Legal"
+        title="GDPR data-subject requests."
+        description="Manage access, erasure, portability and rectification requests. Audit logs are retained for 3 years."
+      />
 
-      {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>}
-      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+      {feedback ? <Notice tone="success">{feedback}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      {/* Create form */}
-      <div className="pib-card space-y-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New request</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="block">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Type</span>
-            <select value={newType} onChange={(e) => setNewType(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]">
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Subject email</span>
-            <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="person@example.com"
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
-          </label>
-          <label className="block">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Org ID (optional)</span>
-            <input type="text" value={newOrgId} onChange={(e) => setNewOrgId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Notes</span>
-            <input type="text" value={newNotes} onChange={(e) => setNewNotes(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
-          </label>
+      <Panel className="space-y-4">
+        <p className="sc-tiny">New request</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Field id="dsr-type" label="Type">
+            <Select aria-label="Type" id="dsr-type" value={newType} onChange={(e) => setNewType(e.target.value)}>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="md:col-span-2">
+            <Field id="dsr-email" label="Subject email">
+              <Input aria-label="Subject email" id="dsr-email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="person@example.com"
+              />
+            </Field>
+          </div>
+          <Field id="dsr-org" label="Org ID (optional)">
+            <Input aria-label="Org ID (optional)" id="dsr-org" value={newOrgId} onChange={(e) => setNewOrgId(e.target.value)} className="font-mono" />
+          </Field>
+          <div className="md:col-span-2">
+            <Field id="dsr-notes" label="Notes">
+              <Input aria-label="Notes" id="dsr-notes" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} />
+            </Field>
+          </div>
         </div>
-        <button type="button" disabled={busy} onClick={createDSR}
-          className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: 'var(--color-pib-accent)' }}>
+        <Button type="button" disabled={busy} onClick={createDSR}>
           Create request
-        </button>
-      </div>
+        </Button>
+      </Panel>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-1.5 text-sm text-[var(--color-pib-text)]">
+      <Toolbar>
+        <Select
+          aria-label="Filter by status"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
           <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-        </select>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-1.5 text-sm text-[var(--color-pib-text)]">
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s.replace('_', ' ')}
+            </option>
+          ))}
+        </Select>
+        <Select aria-label="Filter by type" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
           <option value="">All types</option>
-          {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </div>
+          {TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </Select>
+      </Toolbar>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Queue */}
-        <div className="lg:col-span-2 pib-card space-y-2">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Request queue</p>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+        <Panel className="space-y-4 lg:col-span-2">
+          <p className="sc-tiny">Request queue</p>
           {loading ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+            <Skeleton height="6rem" />
           ) : requests.length === 0 ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">No requests.</p>
+            <EmptyState title="No requests." description="Create a data-subject request to begin." />
           ) : (
             requests.map((r) => (
-              <button key={r.id} type="button" onClick={() => setSelectedId(r.id)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  selectedId === r.id ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-surface-2)]' : 'border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]'
-                }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{r.type}</span>
-                  <StatusBadge status={r.status} />
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSelectedId(r.id)}
+                className={`w-full rounded-[6px] border p-4 text-left transition-colors ${
+                  selectedId === r.id
+                    ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]'
+                    : 'border-[var(--sc-line)] hover:border-[var(--sc-line-strong)]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="sc-body text-[var(--sc-ink)]">{r.type}</span>
+                  <Status tone={statusTone(r.status)}>{r.status.replace('_', ' ')}</Status>
                 </div>
-                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 truncate">{r.subjectEmail}</p>
+                <p className="sc-tiny mt-1 truncate">{r.subjectEmail}</p>
               </button>
             ))
           )}
-        </div>
+        </Panel>
 
-        {/* Detail */}
-        <div className="lg:col-span-3 pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Request detail</p>
+        <Panel className="space-y-4 lg:col-span-3">
+          <p className="sc-tiny">Request detail</p>
           {!selected ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Select a request to view detail.</p>
+            <EmptyState title="Select a request." description="Pick a request to view detail." />
           ) : (
             <>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{selected.subjectEmail}</span>
-                  <StatusBadge status={selected.status} />
-                </div>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Type: {selected.type}{selected.orgId ? ` · Org: ${selected.orgId}` : ''}</p>
-                {selected.requestedAt && <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">Requested {String(selected.requestedAt).slice(0, 19).replace('T', ' ')}</p>}
+              <div className="flex items-center justify-between gap-2">
+                <span className="sc-body text-[var(--sc-ink)]">{selected.subjectEmail}</span>
+                <Status tone={statusTone(selected.status)}>{selected.status.replace('_', ' ')}</Status>
               </div>
+              <DataList>
+                <DataItem label="Type">{selected.type}</DataItem>
+                {selected.orgId ? <DataItem label="Org"><span className="font-mono text-xs">{selected.orgId}</span></DataItem> : null}
+                {selected.requestedAt ? (
+                  <DataItem label="Requested">
+                    <span className="st-num">{String(selected.requestedAt).slice(0, 19).replace('T', ' ')}</span>
+                  </DataItem>
+                ) : null}
+              </DataList>
 
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Notes</span>
-                <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
-                <button type="button" disabled={busy} onClick={saveNotes}
-                  className="mt-2 text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50">
-                  Save notes
-                </button>
-              </label>
+              <Field id="dsr-edit-notes" label="Notes">
+                <Textarea aria-label="Notes" id="dsr-edit-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} />
+              </Field>
+              <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={saveNotes}>
+                Save notes
+              </Button>
 
-              {/* Status workflow */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button type="button" disabled={busy} onClick={() => updateStatus('in_progress')}
-                  className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50">Mark in progress</button>
-                <button type="button" disabled={busy} onClick={() => updateStatus('completed')}
-                  className="text-sm font-medium px-3 py-1.5 rounded-lg border border-green-500/30 text-green-300 hover:bg-green-500/10 disabled:opacity-50">Mark completed</button>
-                <button type="button" disabled={busy} onClick={() => updateStatus('rejected')}
-                  className="text-sm font-medium px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 disabled:opacity-50">Reject</button>
-              </div>
+              <Toolbar>
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => updateStatus('in_progress')}>
+                  Mark in progress
+                </Button>
+                <Button type="button" disabled={busy} onClick={() => updateStatus('completed')}>
+                  Mark completed
+                </Button>
+                <Button type="button" variant="danger" disabled={busy} onClick={() => updateStatus('rejected')}>
+                  Reject
+                </Button>
+              </Toolbar>
 
-              {/* Export + Erase */}
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--color-pib-line)]">
-                <a href={`/api/v1/admin/legal/gdpr/${selected.id}/export?format=json`}
-                  className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]">
+              <Toolbar>
+                <ButtonLink href={`/api/v1/admin/legal/gdpr/${selected.id}/export?format=json`} variant="ghost" size="sm">
                   Export data (JSON)
-                </a>
-                <button type="button" disabled={busy} onClick={() => setShowErase(true)}
-                  className="text-sm font-medium px-3 py-1.5 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50">
+                </ButtonLink>
+                <Button type="button" variant="danger" size="sm" disabled={busy} onClick={() => setShowErase(true)}>
                   Erase subject data
-                </button>
-              </div>
+                </Button>
+              </Toolbar>
 
-              {/* Audit log */}
-              <div className="pt-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Audit log (3-year retention)</p>
+              <div className="space-y-2 border-t border-[var(--sc-line)] pt-4">
+                <p className="sc-tiny">Audit log (3-year retention)</p>
                 {!selected.log || selected.log.length === 0 ? (
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">No log entries.</p>
+                  <p className="sc-body text-[var(--sc-ink-soft)]">No log entries.</p>
                 ) : (
                   <ul className="space-y-2">
                     {[...selected.log].reverse().map((entry, i) => (
-                      <li key={i} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-[var(--color-pib-text)]">{entry.action}</span>
-                          <span className="text-[10px] text-[var(--color-pib-text-muted)]/70">{entry.at ? String(entry.at).slice(0, 19).replace('T', ' ') : ''}</span>
+                      <li key={i} className="rounded-[6px] border border-[var(--sc-line)] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="sc-body text-[var(--sc-ink)]">{entry.action}</span>
+                          <span className="st-num sc-tiny">
+                            {entry.at ? String(entry.at).slice(0, 19).replace('T', ' ') : ''}
+                          </span>
                         </div>
-                        <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{entry.detail}</p>
-                        {entry.actor?.uid && <p className="text-[10px] text-[var(--color-pib-text-muted)]/60 mt-0.5">by {entry.actor.uid} ({entry.actor.role})</p>}
+                        <p className="sc-tiny mt-1">{entry.detail}</p>
+                        {entry.actor?.uid ? (
+                          <p className="sc-tiny mt-1 font-mono">
+                            by {entry.actor.uid} ({entry.actor.role})
+                          </p>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -321,27 +373,29 @@ export default function GdprPage() {
               </div>
             </>
           )}
-        </div>
+        </Panel>
       </div>
 
-      {/* Erase confirm modal */}
-      {showErase && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowErase(false)}>
-          <div className="pib-card max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Confirm erasure</h2>
-            <p className="text-sm text-[var(--color-pib-text-muted)]">
-              This permanently scrubs PII (email, name) from all non-admin <code className="font-mono text-xs">users</code> records matching{' '}
-              <span className="text-[var(--color-pib-text)] font-medium">{selected.subjectEmail}</span>, marks the request completed, and writes an immutable audit log entry. Admin accounts are preserved. This cannot be undone.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button type="button" disabled={busy} onClick={() => setShowErase(false)}
-                className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={busy} onClick={confirmErase}
-                className="text-sm font-medium px-3 py-1.5 rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">Erase now</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DialogDrawer
+        open={showErase && Boolean(selected)}
+        title="Confirm erasure."
+        description={
+          selected
+            ? `This permanently scrubs PII from non-admin users matching ${selected.subjectEmail}, marks the request completed, and writes an immutable audit log entry. Admin accounts are preserved. This cannot be undone.`
+            : ''
+        }
+        onClose={() => setShowErase(false)}
+        footer={
+          <Toolbar>
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => setShowErase(false)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="danger" disabled={busy} onClick={confirmErase}>
+              Erase now
+            </Button>
+          </Toolbar>
+        }
+      />
     </div>
   )
 }

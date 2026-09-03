@@ -3,13 +3,13 @@
 export const dynamic = 'force-dynamic'
 
 /**
- * US-306 (ADAPTED) — Partner payout settings.
+ * US-306 (ADAPTED) - Partner payout settings.
  *
  * The original story shipped a "Stripe Connect" partner-payout onboarding flow.
  * Partners in Biz does NOT use Stripe (EFT-first / PayPal-second), so there is
  * no Stripe Connect onboarding. The route is kept (/admin/billing/stripe-connect)
  * but the content is fully adapted: partner commissions are paid via EFT or
- * PayPal transfer — manual, tracked here — and this page configures the payout
+ * PayPal transfer - manual, tracked here - and this page configures the payout
  * policy and shows who is owed.
  */
 
@@ -44,21 +44,21 @@ function Skeleton({ className = '' }: { className?: string }) {
 function methodLabel(method: 'eft' | 'paypal' | null): string {
   if (method === 'eft') return 'EFT'
   if (method === 'paypal') return 'PayPal'
-  return '—'
+  return '-'
 }
 
 function MethodBadge({ method }: { method: 'eft' | 'paypal' | null }) {
-  if (!method) return <span className="text-[var(--color-pib-text-muted)]">—</span>
+  if (!method) return <span className="text-[var(--color-pib-text-muted)]">-</span>
   return (
-    <span className={`pib-pill ${method === 'eft' ? 'pib-pill-blue' : 'pib-pill-cyan'}`}>
+    <span className={`st-status ${method === 'eft' ? 'st-status st-status--info' : 'st-status st-status--info'}`}>
       {methodLabel(method)}
     </span>
   )
 }
 
 function payoutDetailText(method: 'eft' | 'paypal' | null, details: PayoutDetails | null): string {
-  if (!details) return '—'
-  if (method === 'paypal') return details.paypalEmail || '—'
+  if (!details) return '-'
+  if (method === 'paypal') return details.paypalEmail || '-'
   if (method === 'eft') {
     const parts = [
       details.bankName,
@@ -66,9 +66,9 @@ function payoutDetailText(method: 'eft' | 'paypal' | null, details: PayoutDetail
       details.accountNumber ? `acct ${details.accountNumber}` : null,
       details.branchCode ? `branch ${details.branchCode}` : null,
     ].filter(Boolean)
-    return parts.length ? parts.join(' · ') : '—'
+    return parts.length ? parts.join(' · ') : '-'
   }
-  return '—'
+  return '-'
 }
 
 export default function PartnerPayoutSettingsPage() {
@@ -157,13 +157,13 @@ export default function PartnerPayoutSettingsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Partner payouts
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Partner Payouts</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Partner Payouts</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Configure how partner commissions are paid out and review who is owed.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/settings" className="st-btn st-btn--ghost text-sm font-label">
             Back to settings
           </Link>
         </div>
@@ -171,44 +171,44 @@ export default function PartnerPayoutSettingsPage() {
 
       {/* EFT/PayPal adaptation banner (replaces Stripe Connect onboarding) */}
       <div
-        className="pib-card p-5 border"
+        className="st-panel p-5 border"
         style={{ borderColor: 'var(--color-pib-accent)', background: 'rgba(255,255,255,0.02)' }}
       >
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           No Stripe Connect
         </p>
-        <h2 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-1">
+        <h2 className="text-base font-headline font-medium text-[var(--color-pib-text)] mb-1">
           Commissions are paid by EFT or PayPal transfer
         </h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Partners in Biz does not use Stripe Connect. Partner commissions are settled
           manually via EFT (South African bank transfer) or PayPal, using each partner&apos;s
           chosen payout method and details captured on their application. Every payout is
-          tracked in-platform — there is no third-party onboarding to complete. Set your
+          tracked in-platform - there is no third-party onboarding to complete. Set your
           payout policy below, then settle the partners listed as owed once each transfer
           is done.
         </p>
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {/* Payout settings form */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Payout policy
         </p>
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-4">Payout Settings</h2>
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-4">Payout Settings</h2>
         {loading || !form ? (
-          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-[6px]" />
         ) : (
           <form onSubmit={saveSettings} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -223,7 +223,7 @@ export default function PartnerPayoutSettingsPage() {
                   step="0.1"
                   value={form.defaultCommissionPercent}
                   onChange={(e) => patch({ defaultCommissionPercent: Number(e.target.value) })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
                 <span className="text-[11px] text-[var(--color-pib-text-muted)] mt-1 block">
                   Applied to new partner approvals.
@@ -239,7 +239,7 @@ export default function PartnerPayoutSettingsPage() {
                   step="0.01"
                   value={form.minPayoutZar}
                   onChange={(e) => patch({ minPayoutZar: Number(e.target.value) })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
                 <span className="text-[11px] text-[var(--color-pib-text-muted)] mt-1 block">
                   Partners below this aren&apos;t paid out this cycle.
@@ -254,7 +254,7 @@ export default function PartnerPayoutSettingsPage() {
                   onChange={(e) =>
                     patch({ payoutSchedule: e.target.value as PayoutSettings['payoutSchedule'] })
                   }
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 >
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
@@ -270,19 +270,19 @@ export default function PartnerPayoutSettingsPage() {
                 value={form.payoutFromNote ?? ''}
                 onChange={(e) => patch({ payoutFromNote: e.target.value })}
                 placeholder="e.g. Pay from PiB FNB Business account · ref: PARTNER-COMMISSION"
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 rows={2}
               />
               <span className="text-[11px] text-[var(--color-pib-text-muted)] mt-1 block">
                 The platform owner&apos;s banking note your team uses when sending transfers.
               </span>
             </label>
-            {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+            {saveError && <p className="text-xs text-[var(--st-danger)]">{saveError}</p>}
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={saving}
-                className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                className="st-btn st-btn--primary text-sm font-label disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save settings'}
               </button>
@@ -292,13 +292,13 @@ export default function PartnerPayoutSettingsPage() {
       </div>
 
       {/* Payouts owed */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <div className="flex items-end justify-between gap-4 mb-4">
           <div>
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
               Eligible this cycle
             </p>
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Payouts Owed</h2>
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Payouts Owed</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
               Approved partners with lifetime commission at or above the minimum payout
               {settings ? ` (${formatZar(settings.minPayoutZar)})` : ''}.
@@ -309,7 +309,7 @@ export default function PartnerPayoutSettingsPage() {
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Total owed
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">
                 {formatZar(totalOwed)}
               </p>
             </div>
@@ -317,8 +317,8 @@ export default function PartnerPayoutSettingsPage() {
         </div>
         {loading ? (
           <div className="space-y-2">
-            <Skeleton className="h-12 rounded-xl" />
-            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-12 rounded-[6px]" />
+            <Skeleton className="h-12 rounded-[6px]" />
           </div>
         ) : owed.length === 0 ? (
           <div className="text-center text-sm text-[var(--color-pib-text-muted)] py-6">
@@ -358,16 +358,16 @@ export default function PartnerPayoutSettingsPage() {
       </div>
 
       {/* All approved partners */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Partner programme
         </p>
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-4">All Approved Partners</h2>
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-4">All Approved Partners</h2>
         {loading ? (
           <div className="space-y-2">
-            <Skeleton className="h-12 rounded-xl" />
-            <Skeleton className="h-12 rounded-xl" />
-            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-12 rounded-[6px]" />
+            <Skeleton className="h-12 rounded-[6px]" />
+            <Skeleton className="h-12 rounded-[6px]" />
           </div>
         ) : partners.length === 0 ? (
           <div className="text-center text-sm text-[var(--color-pib-text-muted)] py-6">
@@ -392,11 +392,11 @@ export default function PartnerPayoutSettingsPage() {
                   <tr key={p.partnerId} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
                     <td className="px-4 py-3 text-[var(--color-pib-text)]">{p.companyName}</td>
                     <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
-                      {p.contactName || p.email || '—'}
+                      {p.contactName || p.email || '-'}
                     </td>
                     <td className="px-4 py-3"><MethodBadge method={p.payoutMethod} /></td>
                     <td className="px-4 py-3 text-[var(--color-pib-text-muted)] text-right">
-                      {p.commissionPercent != null ? `${p.commissionPercent}%` : '—'}
+                      {p.commissionPercent != null ? `${p.commissionPercent}%` : '-'}
                     </td>
                     <td className="px-4 py-3 text-[var(--color-pib-text-muted)] text-right">{p.referralsCount}</td>
                     <td className="px-4 py-3 text-[var(--color-pib-text)] text-right font-medium">

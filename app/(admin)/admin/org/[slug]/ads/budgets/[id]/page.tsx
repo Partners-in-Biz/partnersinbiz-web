@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/budgets/[id]/page.tsx
-// Sub-4 Batch 2B — Budget detail page
+// Sub-4 Batch 2B  -  Budget detail page
 import Link from 'next/link'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { getBudget, listEvents } from '@/lib/ads/budgets/store'

@@ -76,7 +76,7 @@ function RoleBadge({ role }: { role: string }) {
   const r = map[role] ?? { label: role, color: 'var(--color-outline)' }
   return (
     <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-md"
       style={{ background: `${r.color}20`, color: r.color }}
     >
       {r.label}
@@ -91,7 +91,7 @@ function Avatar({ name, photoURL }: { name?: string; photoURL?: string }) {
       <img
         src={photoURL}
         alt={name}
-        className="w-8 h-8 rounded-full object-cover"
+        className="w-8 h-8 rounded-md object-cover"
       />
     )
   }
@@ -105,7 +105,7 @@ function Avatar({ name, photoURL }: { name?: string; photoURL?: string }) {
 
   return (
     <div
-      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)]"
+      className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-medium text-[var(--color-pib-text)]"
       style={{ backgroundColor: 'var(--color-accent-v2)' }}
     >
       {initials}
@@ -135,7 +135,7 @@ function InviteCard({
           {icon}
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">{title}</h2>
+          <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">{title}</h2>
           <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{description}</p>
         </div>
       </div>
@@ -691,7 +691,7 @@ export default function TeamPage() {
             <p className="pib-label">
               Invites & Access
             </p>
-            <h2 className="mt-1 text-lg font-headline font-semibold text-[var(--color-pib-text)]">Add people to this selected org</h2>
+            <h2 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">Add people to this selected org</h2>
             <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
               Create a new client login, attach an existing client account, or grant a PiB staff member explicit access to this selected org.
             </p>
@@ -820,7 +820,7 @@ export default function TeamPage() {
                       </p>
                     )}
                     {clientDropdownOpen && clientSearch.trim().length >= 2 && !clientUid && (
-                      <div className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-lg">
+                      <div className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-sm">
                         {clientSearchLoading ? (
                           <div className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                             Searching clients...
@@ -934,7 +934,7 @@ export default function TeamPage() {
                           (u.email.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)),
                       )
                       return matches.length > 0 ? (
-                        <ul className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-lg">
+                        <ul className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-sm">
                           {matches.map((u) => (
                             <li
                               key={u.uid}
@@ -946,7 +946,7 @@ export default function TeamPage() {
                                 setShowDropdown(false)
                               }}
                             >
-                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-v2)] text-xs font-bold text-black">
+                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-v2)] text-xs font-medium text-black">
                                 {(u.displayName || u.email)[0].toUpperCase()}
                               </div>
                               <div className="min-w-0">
@@ -957,7 +957,7 @@ export default function TeamPage() {
                           ))}
                         </ul>
                       ) : (
-                        <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] shadow-lg">
+                        <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] shadow-sm">
                           No matching staff accounts found
                         </div>
                       )
@@ -1049,11 +1049,11 @@ export default function TeamPage() {
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <span className="text-[var(--color-pib-text-muted)] text-sm">{member.email || '—'}</span>
+                      <span className="text-[var(--color-pib-text-muted)] text-sm">{member.email || ' - '}</span>
                     </td>
                     <td className="py-3 px-3">
                       <div className="max-w-[180px] text-sm">
-                        <p className="truncate text-[var(--color-pib-text)]">{member.jobTitle || '—'}</p>
+                        <p className="truncate text-[var(--color-pib-text)]">{member.jobTitle || ' - '}</p>
                         {member.department && (
                           <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{member.department}</p>
                         )}

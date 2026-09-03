@@ -56,7 +56,7 @@ export function NewAudienceClient({ orgId, orgSlug }: Props) {
     )
   }
 
-  // LinkedIn — full builder dispatched from LinkedinAudienceBuilders
+  // LinkedIn  -  full builder dispatched from LinkedinAudienceBuilders
   if (platform === 'linkedin') {
     return (
       <section className="space-y-6">
@@ -79,7 +79,7 @@ export function NewAudienceClient({ orgId, orgSlug }: Props) {
     )
   }
 
-  // Meta — Step 2: Pick audience type
+  // Meta  -  Step 2: Pick audience type
   if (!type) {
     return (
       <section className="space-y-6">

@@ -150,7 +150,7 @@ export default function OrgDocumentDetailPage() {
   }
 
   return (
-    <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen">
+    <OrgThemedFrame orgId={orgId}>
       {loading ? (
         <Skeleton />
       ) : error ? (
@@ -163,7 +163,7 @@ export default function OrgDocumentDetailPage() {
       ) : !document || !version ? (
         <p className="p-6 text-sm text-[var(--color-pib-text-muted)]">Document not found.</p>
       ) : (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col">
           <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-[var(--color-outline)] bg-[var(--color-surface)] px-4 py-3">
             <Link
               href={`/admin/org/${slug}/documents`}
@@ -173,7 +173,7 @@ export default function OrgDocumentDetailPage() {
             </Link>
 
             <input
-              className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none focus:ring-0"
+              className="min-w-0 flex-1 bg-transparent text-base font-medium outline-none focus:ring-0"
               value={titleValue}
               onChange={(e) => setTitleValue(e.target.value)}
               onBlur={handleTitleBlur}
@@ -183,9 +183,7 @@ export default function OrgDocumentDetailPage() {
             <DocumentRelationshipChips document={document} />
 
             <span
-              className={`shrink-0 rounded px-2 py-1 text-[10px] uppercase tracking-wide ${
-                STATUS_PILL[document.status] ?? 'bg-gray-800 text-gray-300'
-              }`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] uppercase tracking-wide ${ STATUS_PILL[document.status] ?? 'bg-gray-800 text-gray-300' }`}
             >
               {readable(document.status)}
             </span>
@@ -196,7 +194,7 @@ export default function OrgDocumentDetailPage() {
 
             <Link
               href={`/admin/org/${slug}/documents/${id}/preview`}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]"
             >
               Preview
             </Link>
@@ -222,13 +220,13 @@ export default function OrgDocumentDetailPage() {
           </div>
 
           {getClientVisibleOrgIds(document).length > 1 && (
-            <div className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-[var(--color-pib-amber)]" role="alert">
+            <div className="border-b border-[var(--sc-line)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]" role="alert">
               Client-visible warning: publishing this document would expose it to {getClientVisibleOrgIds(document).length} linked client organisations.
             </div>
           )}
 
           <details className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
               Document relationships
             </summary>
             <div className="mt-3">
@@ -236,9 +234,9 @@ export default function OrgDocumentDetailPage() {
             </div>
           </details>
 
-          {/* Share settings — collapsible under the top bar so it sits near the existing Share button */}
+          {/* Share settings  -  collapsible under the top bar so it sits near the existing Share button */}
           <details className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
               Share settings
             </summary>
             <div className="mt-3">

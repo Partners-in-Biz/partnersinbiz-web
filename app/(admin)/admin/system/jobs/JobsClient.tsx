@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 import { useCallback, useEffect, useState } from 'react'
 
@@ -47,19 +48,19 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 function fmtTime(ms: number | null): string {
-  if (ms === null) return '—'
+  if (ms === null) return '-'
   return new Date(ms).toLocaleString()
 }
 
 const STATUS_TINT: Record<string, string> = {
-  pending: 'text-amber-400',
-  scheduled: 'text-amber-400',
+  pending: 'text-[var(--st-warning)]',
+  scheduled: 'text-[var(--st-warning)]',
   delivering: 'text-blue-400',
   processing: 'text-blue-400',
   delivered: 'text-emerald-400',
   completed: 'text-emerald-400',
   sent: 'text-emerald-400',
-  failed: 'text-red-400',
+  failed: 'text-[var(--st-danger)]',
   cancelled: 'text-[var(--color-pib-text-muted)]',
 }
 
@@ -126,36 +127,34 @@ export default function JobsClient() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">System / Ops</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Jobs &amp; Queues</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Jobs &amp; Queues</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Live queue depths across the platform&apos;s real Firestore-backed queues, hourly throughput, recent
             jobs, and the dead-letter list. Retry or cancel individual items.
           </p>
         </div>
-        <button onClick={load} className="pib-btn-ghost text-sm font-label flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
+        <button onClick={load} className="st-btn st-btn--ghost text-sm font-label flex items-center gap-1.5">
+          <Icon name="refresh" />
           Refresh
         </button>
       </div>
 
-      {toast && <div className="pib-card border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-sm text-emerald-300">{toast}</div>}
-      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>}
+      {toast && <div className="st-panel border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-sm text-emerald-300">{toast}</div>}
+      {error && <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">{error}</div>}
 
       {/* Queue-depth cards */}
       {loading && !data ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-[6px]" />)}
         </div>
       ) : data ? (
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {data.queues.map((q) => (
-            <div key={q.collection + q.name} className={`pib-card p-4 ${q.instrumented ? '' : 'opacity-70'}`}>
+            <div key={q.collection + q.name} className={`st-panel p-4 ${q.instrumented ? '' : 'opacity-70'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-label text-[var(--color-pib-text)]">{q.name}</span>
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
-                  <span className="material-symbols-outlined text-[14px]">
-                    {q.instrumented ? 'queue' : 'do_not_disturb_on'}
-                  </span>
+                <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+                  <Icon name={q.instrumented ? 'queue' : 'do_not_disturb_on'} />
                 </span>
               </div>
               <p className="text-[10px] font-mono text-[var(--color-pib-text-muted)] mt-0.5">{q.collection}</p>
@@ -163,15 +162,15 @@ export default function JobsClient() {
                 <>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <div className="text-lg font-semibold text-amber-400">{q.pending}</div>
+                      <div className="text-lg font-medium text-[var(--st-warning)]">{q.pending}</div>
                       <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Pending</div>
                     </div>
                     <div>
-                      <div className="text-lg font-semibold text-blue-400">{q.processing}</div>
+                      <div className="text-lg font-medium text-blue-400">{q.processing}</div>
                       <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Active</div>
                     </div>
                     <div>
-                      <div className="text-lg font-semibold text-red-400">{q.failed}</div>
+                      <div className="text-lg font-medium text-[var(--st-danger)]">{q.failed}</div>
                       <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Failed</div>
                     </div>
                   </div>
@@ -187,7 +186,7 @@ export default function JobsClient() {
       ) : null}
 
       {/* Throughput chart */}
-      <section className="pib-card p-4">
+      <section className="st-panel p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Webhook throughput (last 24h)</h2>
           <span className="text-xs text-[var(--color-pib-text-muted)]">source: webhook_queue.deliveredAt</span>
@@ -218,12 +217,12 @@ export default function JobsClient() {
         )}
         <div className="mt-2 flex gap-4 text-[11px]">
           <span className="text-emerald-400">● delivered</span>
-          <span className="text-red-400">● failed</span>
+          <span className="text-[var(--st-danger)]">● failed</span>
         </div>
       </section>
 
       {/* Recent jobs table */}
-      <section className="pib-card overflow-hidden">
+      <section className="st-panel overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10">
           <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Recent jobs</h2>
         </div>
@@ -251,19 +250,19 @@ export default function JobsClient() {
                     <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)]">{j.queue}</td>
                     <td className="px-3 py-2 text-[var(--color-pib-text)] truncate max-w-[160px]" title={j.label}>{j.label}</td>
                     <td className={`px-3 py-2 font-mono ${STATUS_TINT[j.status] ?? 'text-[var(--color-pib-text)]'}`}>{j.status}</td>
-                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{j.attempts ?? '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{j.attempts ?? '-'}</td>
                     <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.createdAtMs)}</td>
                     <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.nextAttemptMs)}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {isSuperAdmin && j.status !== 'cancelled' && (
                         <div className="flex gap-1 justify-end">
                           {j.isFailed && (
-                            <button onClick={() => act(j, 'retry')} disabled={busy === `retry:${j.id}`} className="pib-btn-ghost text-[11px] font-label disabled:opacity-50">
+                            <button onClick={() => act(j, 'retry')} disabled={busy === `retry:${j.id}`} className="st-btn st-btn--ghost text-[11px] font-label disabled:opacity-50">
                               {busy === `retry:${j.id}` ? '...' : 'Retry'}
                             </button>
                           )}
                           {(j.status === 'pending' || j.status === 'scheduled') && (
-                            <button onClick={() => act(j, 'cancel')} disabled={busy === `cancel:${j.id}`} className="pib-btn-ghost text-[11px] font-label text-red-400 disabled:opacity-50">
+                            <button onClick={() => act(j, 'cancel')} disabled={busy === `cancel:${j.id}`} className="st-btn st-btn--ghost text-[11px] font-label text-[var(--st-danger)] disabled:opacity-50">
                               {busy === `cancel:${j.id}` ? '...' : 'Cancel'}
                             </button>
                           )}
@@ -279,10 +278,10 @@ export default function JobsClient() {
       </section>
 
       {/* Dead-letter list */}
-      <section className="pib-card overflow-hidden">
+      <section className="st-panel overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Dead-letter (failed items)</h2>
-          {data && <span className="text-xs text-red-400">{data.deadLetter.length}</span>}
+          {data && <span className="text-xs text-[var(--st-danger)]">{data.deadLetter.length}</span>}
         </div>
         {!data || data.deadLetter.length === 0 ? (
           <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No failed jobs. Clean queues.</div>
@@ -294,7 +293,7 @@ export default function JobsClient() {
                 <span className="text-[var(--color-pib-text)] flex-1 truncate" title={j.label}>{j.label}</span>
                 <span className="text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.createdAtMs)}</span>
                 {isSuperAdmin && (
-                  <button onClick={() => act(j, 'retry')} disabled={busy === `retry:${j.id}`} className="pib-btn-ghost text-[11px] font-label disabled:opacity-50">
+                  <button onClick={() => act(j, 'retry')} disabled={busy === `retry:${j.id}`} className="st-btn st-btn--ghost text-[11px] font-label disabled:opacity-50">
                     {busy === `retry:${j.id}` ? '...' : 'Retry'}
                   </button>
                 )}

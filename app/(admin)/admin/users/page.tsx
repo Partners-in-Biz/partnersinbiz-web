@@ -1,11 +1,12 @@
 'use client'
+import { Status } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import { DialogDrawer, StatusPill } from '@/components/ui/AppFoundation'
+import { DialogDrawer } from '@/components/ui/AppFoundation'
 
 interface AdminUserView {
   uid: string
@@ -35,7 +36,7 @@ function Avatar({ name, email }: { name: string; email: string }) {
     .join('')
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      className="w-9 h-9 rounded flex items-center justify-center text-xs font-medium flex-shrink-0"
       style={{ backgroundColor: 'var(--color-pib-cyan-soft)', color: '#5EEAD4' }}
     >
       {initials || '?'}
@@ -45,28 +46,28 @@ function Avatar({ name, email }: { name: string; email: string }) {
 
 function RoleBadge({ role }: { role: string }) {
   const tones: Record<string, string> = {
-    admin: 'pib-pill-cyan',
-    client: 'pib-pill-accent',
+    admin: 'st-status st-status--info',
+    client: 'st-status-accent',
     unknown: '',
   }
-  return <span className={`pib-pill ${tones[role] ?? ''}`}>{role}</span>
+  return <span className={`st-status ${tones[role] ?? ''}`}>{role}</span>
 }
 
-function userStatus(u: AdminUserView): { label: string; tone: 'success' | 'danger' | 'warn' } {
+function userStatus(u: AdminUserView): { label: string; tone: 'success' | 'danger' | 'warning' } {
   if (u.disabled) return { label: 'Disabled', tone: 'danger' }
-  if (!u.emailVerified) return { label: 'Unverified', tone: 'warn' }
+  if (!u.emailVerified) return { label: 'Unverified', tone: 'warning' }
   return { label: 'Active', tone: 'success' }
 }
 
 function StatusBadge({ u }: { u: AdminUserView }) {
   const s = userStatus(u)
-  return <StatusPill tone={s.tone} dot>{s.label}</StatusPill>
+  return <Status tone={s.tone}>{s.label}</Status>
 }
 
 function relativeTime(iso: string | null): string {
   if (!iso) return 'Never'
   const t = new Date(iso).getTime()
-  if (Number.isNaN(t)) return '—'
+  if (Number.isNaN(t)) return '-'
   const diff = Date.now() - t
   const sec = Math.round(diff / 1000)
   if (sec < 60) return 'Just now'
@@ -234,7 +235,7 @@ export default function AdminUsersPage() {
       ok: true,
       message: emailed
         ? `Reset email sent to ${body.data?.email}`
-        : `Reset link generated for ${body.data?.email} (email not sent — copy from audit/log)`,
+        : `Reset link generated for ${body.data?.email} (email not sent - copy from audit/log)`,
     }
   }
 
@@ -346,54 +347,54 @@ export default function AdminUsersPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Admin / Users
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">All Users</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">All Users</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Browse every Firebase Auth user, manage their access, and impersonate them for debugging.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <Link href="/admin/platform-members" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/platform-members" className="st-btn st-btn--ghost text-sm font-label">
             Client portal logins
           </Link>
-          <Link href="/admin/platform-users" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/platform-users" className="st-btn st-btn--ghost text-sm font-label">
             Admin users
           </Link>
         </div>
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="pib-card p-4">
+        <div className="st-panel p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Total users</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{users.length}</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{users.length}</p>
         </div>
-        <div className="pib-card p-4">
+        <div className="st-panel p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Admins</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.role === 'admin').length}
           </p>
         </div>
-        <div className="pib-card p-4">
+        <div className="st-panel p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Clients</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.role === 'client').length}
           </p>
         </div>
-        <div className="pib-card p-4">
+        <div className="st-panel p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Disabled</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.disabled).length}
           </p>
         </div>
@@ -406,13 +407,14 @@ export default function AdminUsersPage() {
           placeholder="Search by name, email, uid, role, or org id..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pib-input w-full md:flex-1"
+          className="st-input w-full md:flex-1"
+          aria-label="Search users"
         />
         <div className="flex gap-3">
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-            className="pib-input"
+            className="st-input"
             aria-label="Filter by role"
           >
             <option value="all">All roles</option>
@@ -423,7 +425,7 @@ export default function AdminUsersPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="pib-input"
+            className="st-input"
             aria-label="Filter by status"
           >
             <option value="all">All statuses</option>
@@ -436,7 +438,7 @@ export default function AdminUsersPage() {
 
       {/* Bulk action bar */}
       {selectedVisible.length > 0 && (
-        <div className="pib-card flex flex-wrap items-center gap-3 px-4 py-3">
+        <div className="st-panel flex flex-wrap items-center gap-3 px-4 py-3">
           <span className="text-sm font-medium text-[var(--color-pib-text)]">
             {selectedVisible.length} selected
           </span>
@@ -444,21 +446,21 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setConfirm({ kind: 'bulk-suspend', uids: selectedVisible.map((u) => u.uid) })}
-              className="pib-btn-ghost text-xs font-label"
+              className="st-btn st-btn--ghost text-xs font-label"
             >
               Suspend
             </button>
             <button
               type="button"
               onClick={() => setConfirm({ kind: 'bulk-unsuspend', uids: selectedVisible.map((u) => u.uid) })}
-              className="pib-btn-ghost text-xs font-label"
+              className="st-btn st-btn--ghost text-xs font-label"
             >
               Unsuspend
             </button>
             <button
               type="button"
               onClick={() => setConfirm({ kind: 'bulk-delete', uids: selectedVisible.map((u) => u.uid) })}
-              className="pib-btn-ghost text-xs font-label"
+              className="st-btn st-btn--ghost text-xs font-label"
               style={{ color: '#dc2626' }}
             >
               Delete
@@ -466,7 +468,7 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setSelected(new Set())}
-              className="pib-btn-ghost text-xs font-label"
+              className="st-btn st-btn--ghost text-xs font-label"
             >
               Clear
             </button>
@@ -477,15 +479,15 @@ export default function AdminUsersPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <Skeleton key={i} className="h-16 rounded-[6px]" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {users.length === 0 ? 'No users found.' : 'No matches.'}
         </div>
       ) : (
-        <div className="pib-card overflow-hidden">
+        <div className="st-panel overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-pib-text)]/10">
@@ -500,16 +502,16 @@ export default function AdminUsersPage() {
                 <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   User
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden sm:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden sm:table-cell" data-impeccable-disable="content-invisible-at-rest">
                   Status
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden md:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden md:table-cell" data-impeccable-disable="content-invisible-at-rest">
                   Role
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell" data-impeccable-disable="content-invisible-at-rest">
                   Last login
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell" data-impeccable-disable="content-invisible-at-rest">
                   Organisation
                 </th>
                 <th className="text-right px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
@@ -565,24 +567,24 @@ export default function AdminUsersPage() {
                     </td>
 
                     {/* Status */}
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3 hidden sm:table-cell" data-impeccable-disable="content-invisible-at-rest">
                       <StatusBadge u={u} />
                     </td>
 
                     {/* Role */}
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3 hidden md:table-cell" data-impeccable-disable="content-invisible-at-rest">
                       <RoleBadge role={u.role} />
                     </td>
 
                     {/* Last login */}
-                    <td className="px-4 py-3 hidden lg:table-cell">
+                    <td className="px-4 py-3 hidden lg:table-cell" data-impeccable-disable="content-invisible-at-rest">
                       <span className="text-xs text-[var(--color-pib-text-muted)]" title={u.lastSignInTime ?? undefined}>
                         {relativeTime(u.lastSignInTime)}
                       </span>
                     </td>
 
                     {/* Org */}
-                    <td className="px-4 py-3 hidden lg:table-cell">
+                    <td className="px-4 py-3 hidden lg:table-cell" data-impeccable-disable="content-invisible-at-rest">
                       {u.orgId ? (
                         <Link
                           href={`/admin/organizations/${u.orgId}`}
@@ -591,7 +593,7 @@ export default function AdminUsersPage() {
                           {u.orgId}
                         </Link>
                       ) : (
-                        <span className="text-xs text-[var(--color-pib-text-muted)]/40">—</span>
+                        <span className="text-xs text-[var(--color-pib-text-muted)]/40">-</span>
                       )}
                     </td>
 
@@ -601,7 +603,7 @@ export default function AdminUsersPage() {
                         <button
                           type="button"
                           onClick={() => setDetailUser(u)}
-                          className="pib-btn-ghost text-xs font-label"
+                          className="st-btn st-btn--ghost text-xs font-label"
                         >
                           Details
                         </button>
@@ -609,7 +611,7 @@ export default function AdminUsersPage() {
                           type="button"
                           onClick={() => impersonate(u)}
                           disabled={busy}
-                          className="pib-btn-ghost text-xs font-label"
+                          className="st-btn st-btn--ghost text-xs font-label"
                         >
                           {busy ? 'Working...' : 'Impersonate'}
                         </button>
@@ -639,14 +641,14 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => impersonate(detailUser)}
-                className="pib-btn-ghost text-xs font-label"
+                className="st-btn st-btn--ghost text-xs font-label"
               >
                 Impersonate
               </button>
               <button
                 type="button"
                 onClick={() => setConfirm({ kind: 'reset', user: detailUser })}
-                className="pib-btn-ghost text-xs font-label"
+                className="st-btn st-btn--ghost text-xs font-label"
               >
                 Reset password
               </button>
@@ -654,7 +656,7 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setConfirm({ kind: 'unsuspend', user: detailUser })}
-                  className="pib-btn-ghost text-xs font-label"
+                  className="st-btn st-btn--ghost text-xs font-label"
                 >
                   Unsuspend
                 </button>
@@ -662,7 +664,7 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setConfirm({ kind: 'suspend', user: detailUser })}
-                  className="pib-btn-ghost text-xs font-label"
+                  className="st-btn st-btn--ghost text-xs font-label"
                 >
                   Suspend
                 </button>
@@ -670,7 +672,7 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => setConfirm({ kind: 'delete', user: detailUser })}
-                className="pib-btn-ghost text-xs font-label"
+                className="st-btn st-btn--ghost text-xs font-label"
                 style={{ color: '#dc2626' }}
               >
                 Delete
@@ -687,9 +689,9 @@ export default function AdminUsersPage() {
                 <StatusBadge u={detailUser} />
                 <RoleBadge role={detailUser.role} />
                 {detailUser.emailVerified ? (
-                  <StatusPill tone="info">Email verified</StatusPill>
+                  <Status tone="info">Email verified</Status>
                 ) : (
-                  <StatusPill tone="warn">Email unverified</StatusPill>
+                  <Status tone="warning">Email unverified</Status>
                 )}
               </div>
             </div>
@@ -722,13 +724,13 @@ export default function AdminUsersPage() {
                       {detailUser.orgId}
                     </Link>
                   ) : (
-                    '—'
+                    '-'
                   )
                 }
               />
               <DetailRow
                 label="Created"
-                value={detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleString() : '—'}
+                value={detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleString() : '-'}
               />
               <DetailRow
                 label="Last login"
@@ -755,7 +757,7 @@ export default function AdminUsersPage() {
               type="button"
               onClick={() => setConfirm(null)}
               disabled={confirmBusy}
-              className="pib-btn-ghost text-sm font-label"
+              className="st-btn st-btn--ghost text-sm font-label"
             >
               Cancel
             </button>
@@ -763,7 +765,7 @@ export default function AdminUsersPage() {
               type="button"
               onClick={runConfirm}
               disabled={confirmBusy}
-              className={confirmCopy?.danger ? 'pib-btn-ghost text-sm font-label' : 'pib-btn-primary text-sm font-label'}
+              className={confirmCopy?.danger ? 'st-btn st-btn--ghost text-sm font-label' : 'st-btn st-btn--primary text-sm font-label'}
               style={confirmCopy?.danger ? { color: '#fff', background: '#dc2626' } : undefined}
             >
               {confirmBusy ? 'Working...' : confirmCopy?.cta}

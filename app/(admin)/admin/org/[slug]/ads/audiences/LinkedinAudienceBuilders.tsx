@@ -42,7 +42,7 @@ const SUBTYPES: SubtypeTile[] = [
   {
     value: 'APP',
     label: 'App',
-    description: 'LinkedIn does not support native app audiences — see workaround.',
+    description: 'LinkedIn does not support native app audiences  -  see workaround.',
   },
 ]
 

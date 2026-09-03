@@ -129,20 +129,20 @@ export default function ChurnPage() {
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Billing / Retention
         </p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Churn &amp; Win-back</h1>
+        <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Churn &amp; Win-back</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Track churned revenue, why customers leave, who is at risk, and cohort retention over time.
         </p>
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
@@ -150,33 +150,33 @@ export default function ChurnPage() {
       {/* Summary cards */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-[6px]" />
+          <Skeleton className="h-24 rounded-[6px]" />
+          <Skeleton className="h-24 rounded-[6px]" />
         </div>
       ) : data ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Churned customers
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {data.summary.churnedCount}
             </p>
           </div>
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               MRR lost
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {formatZar(data.summary.mrrLostZar)}
             </p>
           </div>
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Churn rate
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {formatPct(data.summary.churnRate)}
             </p>
           </div>
@@ -184,12 +184,12 @@ export default function ChurnPage() {
       ) : null}
 
       {/* Churn reasons */}
-      <section className="pib-card p-5">
+      <section className="st-panel p-5">
         <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           Why customers churn
         </h2>
         {loading ? (
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-[6px]" />
         ) : !data || data.reasons.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
             No churn events recorded yet.
@@ -237,7 +237,7 @@ export default function ChurnPage() {
                 <li key={r.reason} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-[var(--color-pib-text-muted)]">
                     <span
-                      className="inline-block w-2.5 h-2.5 rounded-full"
+                      className="inline-block w-2.5 h-2.5 rounded"
                       style={{ background: REASON_COLORS[i % REASON_COLORS.length] }}
                     />
                     {r.label}
@@ -253,7 +253,7 @@ export default function ChurnPage() {
       </section>
 
       {/* At-risk list */}
-      <section className="pib-card p-5">
+      <section className="st-panel p-5">
         <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           At-risk accounts
         </h2>
@@ -286,7 +286,7 @@ export default function ChurnPage() {
                     <tr key={row.orgId} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
                       <td className="py-3 pr-4 text-[var(--color-pib-text)] font-medium">{row.name}</td>
                       <td className="py-3 pr-4">
-                        <span className={`pib-pill ${row.reason === 'past_due' ? 'pib-pill-danger' : 'pib-pill-warn'}`}>
+                        <span className={`st-status ${row.reason === 'past_due' ? 'st-status st-status--danger' : 'st-status st-status--warning'}`}>
                           {reasonBadge(row.reason)}
                         </span>
                       </td>
@@ -316,12 +316,12 @@ export default function ChurnPage() {
       </section>
 
       {/* Cohort retention */}
-      <section className="pib-card p-5">
+      <section className="st-panel p-5">
         <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           Cohort retention
         </h2>
         {loading ? (
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-[6px]" />
         ) : !data || data.cohorts.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
             No cohorts to display yet.

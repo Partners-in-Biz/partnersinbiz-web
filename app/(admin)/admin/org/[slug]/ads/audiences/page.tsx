@@ -32,7 +32,7 @@ export default async function AudiencesPage({ params }: { params: Promise<Params
 
       {cas.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">groups</span>
+          
           <p className="pib-empty-state-description">No custom audiences yet.</p>
           <Link href={`/admin/org/${slug}/ads/audiences/new`} className="mt-3 inline-block text-sm text-[var(--color-pib-rose)] hover:underline">
             Create an admin audience draft →

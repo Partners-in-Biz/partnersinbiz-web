@@ -255,32 +255,32 @@ export default function EmailTemplatesPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Email Templates</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Email Templates</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Manage platform email templates with HTML / MJML content, live preview, version history,
             test sends and per-locale clones.
           </p>
         </div>
         <div className="flex gap-2 self-start md:self-auto">
-          <button onClick={startCreate} className="pib-btn-primary text-sm font-label">
+          <button onClick={startCreate} className="st-btn st-btn--primary text-sm font-label">
             + New template
           </button>
-          <Link href="/admin/email" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/email" className="st-btn st-btn--ghost text-sm font-label">
             Back
           </Link>
         </div>
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">{error}</div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">{notice}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
         {/* List */}
-        <div className="pib-card p-4 h-fit">
+        <div className="st-panel p-4 h-fit">
           <p className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">Templates</p>
           {loading ? (
             <div className="space-y-2">
@@ -315,24 +315,24 @@ export default function EmailTemplatesPage() {
         {/* Editor */}
         <div className="space-y-4">
           {!editing ? (
-            <div className="pib-card p-6 text-center">
+            <div className="st-panel p-6 text-center">
               <p className="text-sm text-[var(--color-pib-text-muted)]">Select a template or create a new one.</p>
             </div>
           ) : loadingDetail ? (
-            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-64 rounded-[6px]" />
           ) : (
             <>
-              <div className="pib-card p-5 space-y-4">
+              <div className="st-panel p-5 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
+                  <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">
                     {creating ? 'New template' : `Edit: ${selected?.name}`}
                   </h2>
                   {selected && !creating && (
                     <div className="flex gap-2">
-                      <button onClick={cloneToLocale} disabled={saving} className="pib-btn-ghost text-xs font-label">
+                      <button onClick={cloneToLocale} disabled={saving} className="st-btn st-btn--ghost text-xs font-label">
                         Clone to locale
                       </button>
-                      <button onClick={deleteTemplate} disabled={saving} className="pib-btn-ghost text-xs font-label">
+                      <button onClick={deleteTemplate} disabled={saving} className="st-btn st-btn--ghost text-xs font-label">
                         Delete
                       </button>
                     </div>
@@ -346,7 +346,7 @@ export default function EmailTemplatesPage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="pib-input w-full mt-1"
+                      className="st-input w-full mt-1"
                     />
                   </label>
                   <label className="block">
@@ -356,7 +356,7 @@ export default function EmailTemplatesPage() {
                       value={locale}
                       onChange={(e) => setLocale(e.target.value)}
                       placeholder="en"
-                      className="pib-input w-full mt-1"
+                      className="st-input w-full mt-1"
                     />
                   </label>
                   <label className="block md:col-span-2">
@@ -365,7 +365,7 @@ export default function EmailTemplatesPage() {
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      className="pib-input w-full mt-1"
+                      className="st-input w-full mt-1"
                     />
                   </label>
                 </div>
@@ -389,7 +389,8 @@ export default function EmailTemplatesPage() {
                       <select
                         value={contentType}
                         onChange={(e) => setContentType(e.target.value as ContentType)}
-                        className="pib-input text-xs py-1"
+                        className="st-input text-xs py-1"
+                        aria-label="Content type"
                       >
                         <option value="html">HTML</option>
                         <option value="mjml">MJML</option>
@@ -397,17 +398,18 @@ export default function EmailTemplatesPage() {
                     </div>
                   </div>
                   {contentType === 'mjml' && (
-                    <p className="text-[11px] text-amber-400 mb-1">
+                    <p className="text-[11px] text-[var(--st-warning)] mb-1">
                       MJML is stored as-is. No MJML compiler is installed, so the preview renders the
-                      raw markup — compile MJML in your send pipeline before dispatch.
+                      raw markup - compile MJML in your send pipeline before dispatch.
                     </p>
                   )}
                   <div className="grid gap-3 md:grid-cols-2">
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      className="pib-input w-full font-mono text-xs min-h-[280px]"
+                      className="st-input w-full font-mono text-xs min-h-[280px]"
                       rows={15}
+                      aria-label="Template content"
                     />
                     <iframe
                       title="template-preview"
@@ -428,13 +430,13 @@ export default function EmailTemplatesPage() {
                       value={testTo}
                       onChange={(e) => setTestTo(e.target.value)}
                       placeholder="you@example.com"
-                      className="pib-input w-full mt-1"
+                      className="st-input w-full mt-1"
                     />
                   </label>
                   <button onClick={sendTest} disabled={sendingTest} className="pib-btn-secondary text-sm font-label">
                     {sendingTest ? 'Sending…' : 'Send test'}
                   </button>
-                  <button onClick={save} disabled={saving} className="pib-btn-primary text-sm font-label">
+                  <button onClick={save} disabled={saving} className="st-btn st-btn--primary text-sm font-label">
                     {saving ? 'Saving…' : creating ? 'Create' : 'Save changes'}
                   </button>
                 </div>
@@ -442,8 +444,8 @@ export default function EmailTemplatesPage() {
 
               {/* Version history */}
               {selected && selected.versions.length > 0 && (
-                <div className="pib-card p-5">
-                  <h3 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-3">
+                <div className="st-panel p-5">
+                  <h3 className="text-base font-headline font-medium text-[var(--color-pib-text)] mb-3">
                     Version history ({selected.versions.length})
                   </h3>
                   <ul className="space-y-2">
@@ -464,7 +466,7 @@ export default function EmailTemplatesPage() {
                         <button
                           onClick={() => restoreVersion(v.version)}
                           disabled={saving}
-                          className="pib-btn-ghost text-xs font-label shrink-0"
+                          className="st-btn st-btn--ghost text-xs font-label shrink-0"
                         >
                           Restore
                         </button>

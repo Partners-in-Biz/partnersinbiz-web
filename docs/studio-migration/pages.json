@@ -1,598 +1,598 @@
 {
   "app/(admin)/admin/2fa/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/ab-tests/[testId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/ab-tests/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/agents/[agentId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/agents/org-chart/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/agents/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/analytics/ingestion/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/analytics/scrolledbrain/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/announcements/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/churn/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/coupons/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/dunning/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/eft-queue/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/referrals/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/revenue/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/stripe-connect/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/billing/trials/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/briefings/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/changelog/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/content/analytics/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/content/api-docs/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/content/seo/[articleId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/content/seo/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/content/sitemap/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/creative-canvas/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/dashboard/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/demo-orgs/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/domains/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/domains/ssl/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/email/broadcast/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/email/domains/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/email/mailbox/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/email/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/email/templates/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/hermes/metrics/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/hermes/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/impersonate/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/knowledge/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/legal/compliance/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/legal/gdpr/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/legal/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/loop-engine/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/mission-control/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/moderation/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/onboarding/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/org/[slug]/activity/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/ad-sets/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/ads/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/audiences/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/audiences/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/audiences/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/budgets/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/budgets/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/budgets/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/campaigns/[id]/insights/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/campaigns/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/campaigns/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/campaigns/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/connections/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/conversion-actions/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/conversions/offline/[id]/page.tsx": {
-    "status": "todo",
-    "batch": "4.2",
-    "note": ""
+    "status": "done",
+    "batch": "4.12",
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/conversions/offline/page.tsx": {
-    "status": "todo",
-    "batch": "4.2",
-    "note": ""
+    "status": "done",
+    "batch": "4.12",
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/creatives/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/creatives/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/experiments/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/experiments/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/experiments/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/insights/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/keywords/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/layout.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/merchant-center/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/pixel-config/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/saved-audiences/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/ads/saved-audiences/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/agent/board/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/agent/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/billing/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/book-studio/[bookId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/book-studio/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/book-studio/series/[seriesId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/brand/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/campaigns/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/campaigns/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/capture-sources/import/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/capture-sources/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/crm/companies/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/crm/contacts/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/dashboard/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/documents/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/documents/[id]/preview/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/documents/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/documents/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/email-domains/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/geo-seo/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/geo-seo/workspaces/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/integrations/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/intelligence/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/layout.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/marketing/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/messages/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/mobile-apps/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/projects/[projectId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/projects/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/research/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/research/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/seo/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/settings/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/social/[id]/blog/[blogId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/social/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/social/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/social/standalone/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/team/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/wiki/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/youtube-studio/editor/[projectId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/org/[slug]/youtube-studio/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.12",
-    "note": ""
+    "note": "Studio batch 4.12"
   },
   "app/(admin)/admin/organizations/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/organizations/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/organizations/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/page.tsx": {
     "status": "na",
@@ -600,164 +600,164 @@
     "note": "redirect or og"
   },
   "app/(admin)/admin/partners/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/plans/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/platform-members/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/platform-users/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/products/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/properties/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/reports/templates/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.11",
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/admins/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/alerts/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/api-keys/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/maintenance/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/settings/social-credentials/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/skill-lab/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/support/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.13",
-    "note": ""
+    "note": "Studio batch 4.13"
   },
   "app/(admin)/admin/system/audit-log/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/backups/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/database/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/health/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/infrastructure/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/jobs/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/logs/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/migrations/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/rate-limits/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/social-apis/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/storage/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/webhooks/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/system/wiki-sync/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/tools/import/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/updates/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/admin/users/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.11",
-    "note": ""
+    "note": "Studio batch 4.11"
   },
   "app/(admin)/layout.tsx": {
-    "status": "todo",
-    "batch": "4.11",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/(auth)/auth/magic-link/verify/page.tsx": {
     "status": "done",
@@ -800,9 +800,9 @@
     "note": "Studio auth rewrite"
   },
   "app/(portal)/layout.tsx": {
-    "status": "todo",
-    "batch": "4.10",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/(portal)/portal/ads/activity/page.tsx": {
     "status": "done",
@@ -820,9 +820,9 @@
     "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/ads/layout.tsx": {
-    "status": "todo",
-    "batch": "4.9",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/(portal)/portal/ads/page.tsx": {
     "status": "done",
@@ -1655,9 +1655,9 @@
     "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/layout.tsx": {
-    "status": "todo",
-    "batch": "4.9",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/(portal)/portal/seo/sprints/[id]/optimizations/page.tsx": {
     "status": "done",
@@ -1795,9 +1795,9 @@
     "note": "Studio batch 4.5"
   },
   "app/(portal)/portal/settings/layout.tsx": {
-    "status": "todo",
-    "batch": "4.5",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/(portal)/portal/settings/linked-computers/page.tsx": {
     "status": "done",
@@ -2195,9 +2195,9 @@
     "note": "Studio batch 4.3"
   },
   "app/embed/layout.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/embed/newsletter/[sourceId]/page.tsx": {
     "status": "done",
@@ -2215,9 +2215,9 @@
     "note": "Studio batch 4.3"
   },
   "app/layout.tsx": {
-    "status": "todo",
-    "batch": "",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/lead/confirm/[token]/page.tsx": {
     "status": "done",
@@ -2225,9 +2225,9 @@
     "note": "Studio batch 4.3"
   },
   "app/lead/layout.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "3",
+    "note": "Shell/layout already Studio"
   },
   "app/not-found.tsx": {
     "status": "done",

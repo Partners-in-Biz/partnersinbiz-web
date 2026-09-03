@@ -1,6 +1,24 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Status,
+  Table,
+  TD,
+  TH,
+  THead,
+  TR,
+  Toolbar,
+} from '@/components/studio'
 
 type Severity = 'info' | 'warning' | 'error' | 'critical'
 
@@ -17,19 +35,15 @@ interface ErrorEvent {
   createdAt: number | null
 }
 
-const SEVERITY_META: Record<Severity, string> = {
-  info: 'bg-sky-500/15 text-sky-400',
-  warning: 'bg-amber-500/15 text-amber-400',
-  error: 'bg-red-500/15 text-red-400',
-  critical: 'bg-fuchsia-500/15 text-fuchsia-400',
-}
-
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
+const SEVERITY_TONE: Record<Severity, 'info' | 'warning' | 'danger'> = {
+  info: 'info',
+  warning: 'warning',
+  error: 'danger',
+  critical: 'danger',
 }
 
 function fmtTime(ms: number | null): string {
-  if (!ms) return '—'
+  if (!ms) return '-'
   return new Date(ms).toLocaleString()
 }
 
@@ -42,7 +56,6 @@ export default function LogsClient() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  // filters
   const [severity, setSeverity] = useState('')
   const [orgId, setOrgId] = useState('')
   const [resolved, setResolved] = useState('')
@@ -94,171 +107,161 @@ export default function LogsClient() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">System</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Error Logs</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-            Captured error events from the <code className="font-mono text-xs">error_events</code> collection.
-            Resolve and assign to track follow-up.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {sentryUrl && (
-            <a
-              href={sentryUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="pib-btn-ghost text-sm font-label flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-              View in Sentry
-            </a>
-          )}
-          <button onClick={load} className="pib-btn-ghost text-sm font-label flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
-            Refresh
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="System"
+        title="Error logs."
+        description="Captured error events from the error_events collection. Resolve and assign to track follow-up."
+        actions={(
+          <Toolbar>
+            {sentryUrl ? (
+              <a
+                href={sentryUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="st-btn st-btn--ghost st-btn--sm"
+              >
+                <Icon name="open_in_new" />
+                View in Sentry
+              </a>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={load} aria-label="Refresh logs">
+              <Icon name="refresh" />
+              Refresh
+            </Button>
+          </Toolbar>
+        )}
+      />
 
-      {/* Filters */}
-      <div className="pib-card p-3 flex flex-wrap items-end gap-3">
-        <label className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">Severity</span>
-          <select className="pib-input text-sm" value={severity} onChange={(e) => setSeverity(e.target.value)}>
-            <option value="">All</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-            <option value="critical">Critical</option>
-          </select>
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">Status</span>
-          <select className="pib-input text-sm" value={resolved} onChange={(e) => setResolved(e.target.value)}>
-            <option value="">All</option>
-            <option value="false">Unresolved</option>
-            <option value="true">Resolved</option>
-          </select>
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">Org ID</span>
-          <input className="pib-input text-sm font-mono w-40" value={orgId} onChange={(e) => setOrgId(e.target.value)} placeholder="any" />
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">From</span>
-          <input type="date" className="pib-input text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">To</span>
-          <input type="date" className="pib-input text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
-        </label>
-        <button onClick={load} className="pib-btn-primary text-sm font-label">Apply</button>
-      </div>
+      <Panel flat className="!p-4">
+        <Toolbar className="flex-wrap items-end">
+          <Field id="logs-severity" label="Severity">
+            <Select id="logs-severity" aria-label="Severity" value={severity} onChange={(e) => setSeverity(e.target.value)}>
+              <option value="">All</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+              <option value="critical">Critical</option>
+            </Select>
+          </Field>
+          <Field id="logs-resolved" label="Status">
+            <Select id="logs-resolved" aria-label="Resolution status" value={resolved} onChange={(e) => setResolved(e.target.value)}>
+              <option value="">All</option>
+              <option value="false">Unresolved</option>
+              <option value="true">Resolved</option>
+            </Select>
+          </Field>
+          <Field id="logs-org" label="Org ID">
+            <Input
+              id="logs-org"
+              aria-label="Organisation ID"
+              className="w-40 font-mono"
+              value={orgId}
+              onChange={(e) => setOrgId(e.target.value)}
+              placeholder="any"
+            />
+          </Field>
+          <Field id="logs-from" label="From">
+            <Input id="logs-from" aria-label="From date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </Field>
+          <Field id="logs-to" label="To">
+            <Input id="logs-to" aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </Field>
+          <Button size="sm" onClick={load}>Apply</Button>
+        </Toolbar>
+      </Panel>
 
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
-      )}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      {/* Table */}
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height="3rem" />)}
         </div>
       ) : events.length === 0 ? (
-        <div className="pib-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">check_circle</span>
-          <p className="mt-2 text-sm font-label text-[var(--color-pib-text)]">
-            {empty ? 'No error events recorded yet.' : 'No events match these filters.'}
-          </p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-            Events appear here as <code className="font-mono">logErrorEvent()</code> writes them.
-          </p>
-        </div>
+        <EmptyState
+          title={empty ? 'No error events recorded yet.' : 'No events match these filters.'}
+          description="Events appear here as logErrorEvent() writes them."
+        />
       ) : (
-        <div className="pib-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-pib-line-strong)]/40 text-left text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                <th className="p-3 font-label">Severity</th>
-                <th className="p-3 font-label">Message</th>
-                <th className="p-3 font-label">Source / Route</th>
-                <th className="p-3 font-label">Org</th>
-                <th className="p-3 font-label">When</th>
-                <th className="p-3 font-label text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((ev) => (
-                <Fragment key={ev.id}>
-                  <tr
-                    className="border-b border-[var(--color-pib-line-strong)]/20 hover:bg-white/[0.02] cursor-pointer align-top"
-                    onClick={() => setExpanded(expanded === ev.id ? null : ev.id)}
-                  >
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-label ${SEVERITY_META[ev.severity]}`}>
-                        {ev.severity}
-                      </span>
-                      {ev.resolvedAt && (
-                        <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-label bg-emerald-500/15 text-emerald-400">
-                          resolved
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-[var(--color-pib-text)] max-w-xs truncate">{ev.message}</td>
-                    <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">
-                      <div className="font-mono">{ev.source}</div>
-                      {ev.route && <div className="font-mono opacity-70">{ev.route}</div>}
-                    </td>
-                    <td className="p-3 text-[var(--color-pib-text-muted)] font-mono text-xs">{ev.orgId ?? '—'}</td>
-                    <td className="p-3 text-[var(--color-pib-text-muted)] text-xs whitespace-nowrap">{fmtTime(ev.createdAt)}</td>
-                    <td className="p-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      {isSuperAdmin ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => patch(ev.id, { action: ev.resolvedAt ? 'unresolve' : 'resolve' })}
-                            className="pib-btn-ghost text-xs font-label"
-                          >
-                            {ev.resolvedAt ? 'Reopen' : 'Resolve'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              const uid = window.prompt('Assign to uid (blank to unassign):', ev.assignedTo ?? '')
-                              if (uid !== null) patch(ev.id, { action: 'assign', assignedTo: uid || null })
-                            }}
-                            className="pib-btn-ghost text-xs font-label"
-                          >
-                            {ev.assignedTo ? 'Reassign' : 'Assign'}
-                          </button>
-                        </div>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Severity</TH>
+              <TH>Message</TH>
+              <TH className="hidden md:table-cell" data-impeccable-disable="content-invisible-at-rest">Source / Route</TH>
+              <TH className="hidden lg:table-cell" data-impeccable-disable="content-invisible-at-rest">Org</TH>
+              <TH>When</TH>
+              <TH className="text-right">Actions</TH>
+            </TR>
+          </THead>
+          <tbody>
+            {events.map((ev) => (
+              <Fragment key={ev.id}>
+                <tr
+                  className="cursor-pointer"
+                  onClick={() => setExpanded(expanded === ev.id ? null : ev.id)}
+                >
+                  <TD>
+                    <div className="flex flex-wrap gap-2">
+                      <Status tone={SEVERITY_TONE[ev.severity]}>{ev.severity}</Status>
+                      {ev.resolvedAt ? <Status tone="success">resolved</Status> : null}
+                    </div>
+                  </TD>
+                  <TD className="max-w-xs truncate text-[var(--sc-ink)]">{ev.message}</TD>
+                  <TD className="hidden md:table-cell text-[var(--sc-ink-soft)] text-xs" data-impeccable-disable="content-invisible-at-rest">
+                    <div className="font-mono">{ev.source}</div>
+                    {ev.route ? <div className="font-mono opacity-70">{ev.route}</div> : null}
+                  </TD>
+                  <TD className="hidden lg:table-cell font-mono text-xs text-[var(--sc-ink-soft)]" data-impeccable-disable="content-invisible-at-rest">
+                    {ev.orgId ?? '-'}
+                  </TD>
+                  <TD className="st-num text-xs whitespace-nowrap text-[var(--sc-ink-soft)]">{fmtTime(ev.createdAt)}</TD>
+                  <TD className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {isSuperAdmin ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => patch(ev.id, { action: ev.resolvedAt ? 'unresolve' : 'resolve' })}
+                        >
+                          {ev.resolvedAt ? 'Reopen' : 'Resolve'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const uid = window.prompt('Assign to uid (blank to unassign):', ev.assignedTo ?? '')
+                            if (uid !== null) patch(ev.id, { action: 'assign', assignedTo: uid || null })
+                          }}
+                        >
+                          {ev.assignedTo ? 'Reassign' : 'Assign'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="sc-tiny font-mono">{ev.assignedTo ? ev.assignedTo : '-'}</span>
+                    )}
+                  </TD>
+                </tr>
+                {expanded === ev.id ? (
+                  <TR>
+                    <TD colSpan={6}>
+                      {ev.assignedTo ? (
+                        <p className="sc-tiny mb-2">Assigned to: <span className="font-mono">{ev.assignedTo}</span></p>
+                      ) : null}
+                      {ev.stack ? (
+                        <pre className="text-xs font-mono text-[var(--sc-ink-soft)] whitespace-pre-wrap overflow-x-auto max-h-64">
+                          {ev.stack}
+                        </pre>
                       ) : (
-                        <span className="text-xs text-[var(--color-pib-text-muted)]">{ev.assignedTo ? `→ ${ev.assignedTo}` : '—'}</span>
+                        <p className="sc-body text-[0.875rem]">No stack trace captured for this event.</p>
                       )}
-                    </td>
-                  </tr>
-                  {expanded === ev.id && (
-                    <tr className="border-b border-[var(--color-pib-line-strong)]/20 bg-black/20">
-                      <td colSpan={6} className="p-3">
-                        {ev.assignedTo && (
-                          <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Assigned to: <span className="font-mono">{ev.assignedTo}</span></p>
-                        )}
-                        {ev.stack ? (
-                          <pre className="text-xs font-mono text-[var(--color-pib-text-muted)] whitespace-pre-wrap overflow-x-auto max-h-64">
-                            {ev.stack}
-                          </pre>
-                        ) : (
-                          <p className="text-xs text-[var(--color-pib-text-muted)]">No stack trace captured for this event.</p>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </TD>
+                  </TR>
+                ) : null}
+              </Fragment>
+            ))}
+          </tbody>
+        </Table>
       )}
     </div>
   )

@@ -1,6 +1,25 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  Choice,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+  Textarea,
+  Toolbar,
+} from '@/components/studio'
 
 interface LegalVersion {
   id: string
@@ -31,17 +50,15 @@ const DOC_TABS: { key: string; label: string }[] = [
   { key: 'privacy', label: 'Privacy Policy' },
 ]
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    published: 'pib-pill-success',
-    draft: 'pib-pill-warn',
-    archived: '',
-  }
-  return (
-    <span className={`pib-pill ${map[status] ?? ''}`}>
-      {status}
-    </span>
-  )
+function statusTone(status: string): 'success' | 'warning' | 'info' | undefined {
+  if (status === 'published') return 'success'
+  if (status === 'draft') return 'warning'
+  return 'info'
+}
+
+function dash(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '-'
+  return String(value)
 }
 
 export default function LegalPage() {
@@ -193,210 +210,163 @@ export default function LegalPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Legal</p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Legal Documents</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Manage versioned Terms of Service and Privacy Policy documents, publish them, and audit user acceptances.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="Legal"
+        title="Legal documents."
+        description="Manage versioned Terms of Service and Privacy Policy documents, publish them, and audit user acceptances."
+      />
 
-      {/* Doc-type tabs */}
-      <div className="flex gap-2">
+      <Toolbar>
         {DOC_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setDocType(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
-              docType === t.key
-                ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
-                : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-            }`}
-          >
+          <Choice key={t.key} selected={docType === t.key} onClick={() => setDocType(t.key)}>
             {t.label}
-          </button>
+          </Choice>
         ))}
-      </div>
+      </Toolbar>
 
-      {feedback && (
-        <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>
-      )}
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
-      )}
+      {feedback ? <Notice tone="success">{feedback}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Version list */}
-        <div className="lg:col-span-2 pib-card space-y-2">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Versions</p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={createDraft}
-              className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
-            >
-              + New draft
-            </button>
-          </div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+        <Panel className="space-y-4 lg:col-span-2">
+          <Toolbar>
+            <p className="sc-tiny">Versions</p>
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={createDraft}>
+              New draft
+            </Button>
+          </Toolbar>
           {loading ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+            <Skeleton height="6rem" />
           ) : versions.length === 0 ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">No versions yet. Create a draft to begin.</p>
+            <EmptyState title="No versions yet." description="Create a draft to begin." />
           ) : (
             versions.map((v) => (
               <button
                 key={v.id}
                 type="button"
                 onClick={() => setSelectedId(v.id)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                className={`w-full rounded-[6px] border p-4 text-left transition-colors ${
                   selectedId === v.id
-                    ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-surface-2)]'
-                    : 'border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]'
+                    ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]'
+                    : 'border-[var(--sc-line)] hover:border-[var(--sc-line-strong)]'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[var(--color-pib-text)]">v{v.version}</span>
-                  <StatusBadge status={v.status} />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="sc-body text-[var(--sc-ink)]">v{v.version}</span>
+                  <Status tone={statusTone(v.status)}>{v.status}</Status>
                 </div>
-                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 truncate">{v.title}</p>
-                {v.effectiveDate && (
-                  <p className="text-[11px] text-[var(--color-pib-text-muted)]/70 mt-0.5">
-                    Effective {String(v.effectiveDate).slice(0, 10)}
-                  </p>
-                )}
+                <p className="sc-tiny mt-1 truncate">{v.title}</p>
+                {v.effectiveDate ? (
+                  <p className="sc-tiny mt-1">Effective {String(v.effectiveDate).slice(0, 10)}</p>
+                ) : null}
               </button>
             ))
           )}
-        </div>
+        </Panel>
 
-        {/* Editor */}
-        <div className="lg:col-span-3 pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Editor</p>
+        <Panel className="space-y-4 lg:col-span-3">
+          <p className="sc-tiny">Editor</p>
           {!selected ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Select a version, or create a new draft.</p>
+            <EmptyState title="Select a version." description="Pick a version, or create a new draft." />
           ) : (
             <>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-[var(--color-pib-text)]">
-                  v{selected.version} <StatusBadge status={selected.status} />
-                </span>
+              <div className="flex items-center gap-2">
+                <span className="sc-body text-[var(--sc-ink)]">v{selected.version}</span>
+                <Status tone={statusTone(selected.status)}>{selected.status}</Status>
               </div>
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Title</span>
-                <input
-                  type="text"
+              <Field id="legal-title" label="Title">
+                <Input aria-label="Title" id="legal-title"
                   value={editTitle}
                   disabled={selected.status !== 'draft' || busy}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] disabled:opacity-60"
                 />
-              </label>
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Body (markdown / HTML)</span>
-                <textarea
+              </Field>
+              <Field id="legal-body" label="Body (markdown / HTML)">
+                <Textarea aria-label="Body (markdown / HTML)" id="legal-body"
                   value={editBody}
                   disabled={selected.status !== 'draft' || busy}
                   onChange={(e) => setEditBody(e.target.value)}
                   rows={14}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] font-mono disabled:opacity-60"
+                  className="font-mono"
                 />
-              </label>
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Effective date</span>
-                <input
+              </Field>
+              <Field id="legal-effective" label="Effective date">
+                <Input aria-label="Effective date" id="legal-effective"
                   type="date"
                   value={editEffective}
                   disabled={busy}
                   onChange={(e) => setEditEffective(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
                 />
-              </label>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {selected.status === 'draft' && (
+              </Field>
+              <Toolbar>
+                {selected.status === 'draft' ? (
                   <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={saveDraft}
-                      className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
-                    >
+                    <Button type="button" variant="secondary" disabled={busy} onClick={saveDraft}>
                       Save draft
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={publish}
-                      className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
-                      style={{ background: 'var(--color-pib-accent)' }}
-                    >
+                    </Button>
+                    <Button type="button" disabled={busy} onClick={publish}>
                       Publish
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={deleteDraft}
-                      className="text-sm font-medium px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 disabled:opacity-50"
-                    >
+                    </Button>
+                    <Button type="button" variant="danger" disabled={busy} onClick={deleteDraft}>
                       Delete
-                    </button>
+                    </Button>
                   </>
-                )}
-                {selected.status !== 'draft' && (
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">
+                ) : (
+                  <p className="sc-body text-[var(--sc-ink-soft)]">
                     {selected.status === 'published'
                       ? 'Published versions are read-only. Create a new draft to make changes.'
                       : 'Archived version (read-only).'}
                   </p>
                 )}
-              </div>
+              </Toolbar>
             </>
           )}
-        </div>
+        </Panel>
       </div>
 
-      {/* Acceptance log */}
-      <div className="pib-card space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Acceptance log</p>
-          <a
+      <Panel className="space-y-4">
+        <Toolbar>
+          <p className="sc-tiny">Acceptance log</p>
+          <ButtonLink
             href={`/api/v1/admin/legal/acceptances?docType=${encodeURIComponent(docType)}&format=csv`}
-            className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]"
+            variant="ghost"
+            size="sm"
           >
             Download CSV
-          </a>
-        </div>
+          </ButtonLink>
+        </Toolbar>
         {acceptLoading ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading acceptances…</p>
+          <Skeleton height="8rem" />
         ) : acceptances.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No acceptance records for this document type yet.</p>
+          <EmptyState title="No acceptances yet." description="No acceptance records for this document type." />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[var(--color-pib-surface-2)] text-left">
-                  {['User', 'Org', 'Version', 'Accepted', 'IP'].map((h) => (
-                    <th key={h} className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {acceptances.map((a) => (
-                  <tr key={a.id} className="border-t border-[var(--color-pib-line)]">
-                    <td className="px-3 py-2 text-[var(--color-pib-text)]">{a.userEmail || a.userId || '—'}</td>
-                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{a.orgId || '—'}</td>
-                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">v{a.version ?? '—'}</td>
-                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{a.acceptedAt ? String(a.acceptedAt).slice(0, 19).replace('T', ' ') : '—'}</td>
-                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono text-xs">{a.ip || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>
+              <TR>
+                <TH>User</TH>
+                <TH>Org</TH>
+                <TH>Version</TH>
+                <TH>Accepted</TH>
+                <TH>IP</TH>
+              </TR>
+            </THead>
+            <tbody>
+              {acceptances.map((a) => (
+                <TR key={a.id}>
+                  <TD>{a.userEmail || a.userId || '-'}</TD>
+                  <TD className="font-mono text-xs">{dash(a.orgId)}</TD>
+                  <TD className="st-num">v{dash(a.version)}</TD>
+                  <TD className="st-num">
+                    {a.acceptedAt ? String(a.acceptedAt).slice(0, 19).replace('T', ' ') : '-'}
+                  </TD>
+                  <TD className="font-mono text-xs">{dash(a.ip)}</TD>
+                </TR>
+              ))}
+            </tbody>
+          </Table>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }

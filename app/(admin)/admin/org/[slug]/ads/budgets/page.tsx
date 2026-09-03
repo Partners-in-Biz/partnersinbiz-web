@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/budgets/page.tsx
-// Sub-4 Batch 2B — Budget management list page
+// Sub-4 Batch 2B  -  Budget management list page
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { listBudgets } from '@/lib/ads/budgets/store'
 import { BudgetsListClient } from '@/components/ads/BudgetsListClient'

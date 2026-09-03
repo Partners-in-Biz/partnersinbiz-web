@@ -74,17 +74,17 @@ export default function AgentDeepLinkPage() {
     <div className="max-w-xl mx-auto">
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-32 rounded-[6px]" />
+          <Skeleton className="h-64 rounded-[6px]" />
         </div>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       ) : (
         <div
-          className="pib-card overflow-hidden"
+          className="st-panel overflow-hidden"
           style={{ minHeight: '600px', display: 'flex', flexDirection: 'column' }}
         >
           <AgentDetailPanel

@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/experiments/[id]/page.tsx
-// Sub-5 Batch 2B — Experiment detail page
+// Sub-5 Batch 2B  -  Experiment detail page
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { getExperiment, listResults } from '@/lib/ads/experiments/store'
 import { ExperimentDetailClient } from '@/components/ads/ExperimentDetailClient'

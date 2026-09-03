@@ -1,10 +1,12 @@
 'use client'
+
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import OrgsTable, { type AdminOrgRow } from '@/components/admin/orgs/OrgsTable'
-import { PageHeader, StatusPill } from '@/components/ui/AppFoundation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Notice, Skeleton, Status } from '@/components/studio'
 
 export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<AdminOrgRow[]>([])
@@ -38,40 +40,37 @@ export default function OrganizationsPage() {
   const totalMrr = orgs.reduce((sum, o) => sum + (o.mrr || 0), 0)
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6" data-module-accent="cyan">
+    <div className="mx-auto max-w-[1400px] space-y-8">
       <PageHeader
-        accent="cyan"
         eyebrow="Admin · Clients"
-        title="Client Workspaces"
-        description="Platform-admin operations for client organisations — billing, contacts, email activity, and provisioning."
+        title="Client workspaces."
+        description="Platform-admin operations for client organisations: billing, contacts, email activity, and provisioning."
         meta={
           loading ? (
-            <span>—</span>
+            <span>-</span>
           ) : (
             <>
-              <StatusPill tone="cyan" dot>{activeCount} active</StatusPill>
+              <Status tone="success">{activeCount} active</Status>
               <span>{orgs.length} workspaces</span>
-              <span className="font-mono">R{Math.round(totalMrr).toLocaleString('en-ZA')} MRR</span>
+              <span className="st-num font-mono">R{Math.round(totalMrr).toLocaleString('en-ZA')} MRR</span>
             </>
           )
         }
         actions={(
-          <Link href="/admin/organizations/new" className="btn-pib-primary btn-pib-sm shrink-0">
-            + Provision client workspace
+          <Link href="/admin/organizations/new" className="st-btn st-btn--primary st-btn--sm shrink-0">
+            Provision client workspace
           </Link>
         )}
       />
 
-      {error ? (
-        <div className="pib-card text-sm text-[var(--color-error)]">{error}</div>
-      ) : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
       {loading ? (
-        <div className="pib-card overflow-hidden !p-0">
-          <div className="divide-y divide-[var(--color-pib-line)]">
+        <div className="st-panel overflow-hidden !p-0">
+          <div className="divide-y divide-[var(--sc-line)]">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="px-5 py-4">
-                <div className="pib-skeleton h-5 w-48" />
+                <Skeleton height="1.25rem" width="12rem" />
               </div>
             ))}
           </div>

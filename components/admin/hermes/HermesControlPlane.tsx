@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { Notice, Button, Checkbox, Field, Input, Select, Textarea, DataList, DataItem } from '@/components/studio'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 interface ProfileLink {
@@ -294,8 +295,8 @@ export function HermesControlPlane() {
         )}
       />
 
-      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>}
-      {actionError && <div className="pib-card border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-300">{actionError}</div>}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {actionError ? <Notice tone="warning">{actionError}</Notice> : null}
 
       {loading ? (
         <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading control plane…</div>
@@ -312,7 +313,7 @@ export function HermesControlPlane() {
               ].map((m) => (
                 <div key={m.label} className="pib-card p-5">
                   <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+                  <p className="st-num mt-3 text-2xl text-[var(--color-pib-text)]">{m.value}</p>
                 </div>
               ))}
             </section>
@@ -341,14 +342,14 @@ export function HermesControlPlane() {
                 >
                   <dl className="space-y-1.5 text-sm">
                     <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">VPS host</dt><dd className="text-[var(--color-pib-text)]"><code>{link.host}</code></dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Port</dt><dd className="text-[var(--color-pib-text)]"><code>{link.port ?? '—'}</code></dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Port</dt><dd className="text-[var(--color-pib-text)]"><code>{link.port ?? '-'}</code></dd></div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-[var(--color-pib-text-muted)]">Last heartbeat</dt>
                       <dd><StatusPill tone={heartbeatTone(link.lastHeartbeat)}>{link.lastHeartbeat ? formatDateTime(link.lastHeartbeat) : 'No activity'}</StatusPill></dd>
                     </div>
                     <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Requests today</dt><dd className="text-[var(--color-pib-text)]">{link.requestsToday}</dd></div>
                     <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">API key</dt><dd className="text-[var(--color-pib-text)]">{link.hasApiKey ? 'Set' : 'Missing'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Dashboard token</dt><dd className="text-[var(--color-pib-text)]">{link.hasDashboardSessionToken ? 'Set' : '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Dashboard token</dt><dd className="text-[var(--color-pib-text)]">{link.hasDashboardSessionToken ? 'Set' : '-'}</dd></div>
                   </dl>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -391,12 +392,12 @@ export function HermesControlPlane() {
       {/* Logs drawer */}
       <DialogDrawer
         open={logsFor !== null}
-        title={logsFor ? `${logsFor.orgName} — recent runs` : ''}
+        title={logsFor ? `${logsFor.orgName} - recent runs` : ''}
         description="Hermes run ledger for this org's profile."
         onClose={() => setLogsFor(null)}
         footer={<div className="flex justify-end"><button type="button" className="pib-btn-secondary" onClick={() => setLogsFor(null)}>Close</button></div>}
       >
-        {logsError && <p className="text-sm text-red-400">{logsError}</p>}
+        {logsError && <Notice tone="danger">{logsError}</Notice>}
         {logs === null && !logsError ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading runs…</p>
         ) : logs && logs.length === 0 ? (
@@ -411,7 +412,7 @@ export function HermesControlPlane() {
                 </div>
                 {run.prompt && <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{run.prompt}</p>}
                 <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)] opacity-70">
-                  {run.profile ?? '—'}{run.model ? ` · ${run.model}` : ''}{run.requestedBy ? ` · ${run.requestedBy}` : ''}
+                  {run.profile ?? '-'}{run.model ? ` · ${run.model}` : ''}{run.requestedBy ? ` · ${run.requestedBy}` : ''}
                 </p>
               </li>
             ))}
@@ -422,7 +423,7 @@ export function HermesControlPlane() {
       {/* SOUL drawer */}
       <DialogDrawer
         open={soulFor !== null}
-        title={soulFor ? `${soulFor.orgName} — SOUL` : ''}
+        title={soulFor ? `${soulFor.orgName} - SOUL` : ''}
         description="Edit the agent's SOUL/persona. Changes push to the live Hermes profile."
         onClose={() => setSoulFor(null)}
         footer={
@@ -435,13 +436,14 @@ export function HermesControlPlane() {
         }
       >
         <div className="space-y-2">
-          {soulError && <p className="text-sm text-red-400">{soulError}</p>}
+          {soulError && <Notice tone="danger">{soulError}</Notice>}
           {soulLoading ? (
             <p className="text-sm text-[var(--color-pib-text-muted)]">Loading SOUL…</p>
           ) : (
             <textarea
               className="pib-input w-full font-mono text-xs"
               rows={18}
+              aria-label="SOUL content"
               value={soulText}
               onChange={(e) => setSoulText(e.target.value)}
               placeholder="SOUL.md content…"
@@ -466,7 +468,7 @@ export function HermesControlPlane() {
         }
       >
         <div className="space-y-4">
-          {routeError && <p className="text-sm text-red-400">{routeError}</p>}
+          {routeError && <Notice tone="danger">{routeError}</Notice>}
           <label className="block">
             <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Organisation</span>
             <select className="pib-input mt-1 w-full" value={routeOrg} onChange={(e) => setRouteOrg(e.target.value)}>

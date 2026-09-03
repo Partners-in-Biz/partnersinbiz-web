@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Button, Icon, Notice, Skeleton } from '@/components/studio'
 
 interface CollectionRow {
   name: string
@@ -19,13 +21,9 @@ interface MigrationRow {
   [key: string]: unknown
 }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
-}
-
 function JsonBox({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-80 overflow-auto rounded-lg bg-slate-900 p-3 text-xs leading-relaxed text-slate-100 font-mono whitespace-pre">
+    <pre className="max-h-80 overflow-auto rounded-[6px] bg-[var(--sc-ink)] p-3 text-xs leading-relaxed text-[var(--sc-canvas)] font-mono whitespace-pre">
       {JSON.stringify(value, null, 2)}
     </pre>
   )
@@ -269,24 +267,24 @@ export default function DatabaseClient() {
   }, [deleteTarget, deleteEnabled, lookupResult, loadCollections])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
-          <span className="material-symbols-outlined text-[20px]">database</span>
-        </span>
-        <div>
-          <h1 className="text-2xl font-semibold">Database</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Browse Firestore collections and documents. Destructive actions are super-admin only.
-          </p>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="System"
+        title="Database."
+        description="Browse Firestore collections and documents. Destructive actions are super-admin only."
+        actions={(
+          <Button variant="ghost" size="sm" onClick={loadCollections} aria-label="Refresh collections">
+            <Icon name="database" />
+            Refresh
+          </Button>
+        )}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
         {/* Left: collection list */}
-        <div className="pib-card p-4">
+        <div className="st-panel p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Collections
             </h2>
             <button
@@ -294,7 +292,7 @@ export default function DatabaseClient() {
               className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
               title="Refresh"
             >
-              <span className="material-symbols-outlined text-lg">refresh</span>
+              <Icon name="refresh" />
             </button>
           </div>
 
@@ -320,11 +318,11 @@ export default function DatabaseClient() {
                   >
                     <span className="truncate font-mono">{c.name}</span>
                     <span
-                      className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                      className={`ml-2 shrink-0 rounded px-2 py-0.5 text-xs ${
                         selected === c.name ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                       }`}
                     >
-                      {c.count < 0 ? '—' : c.count}
+                      {c.count < 0 ? '-' : c.count}
                     </span>
                   </button>
                 </li>
@@ -336,7 +334,7 @@ export default function DatabaseClient() {
         {/* Right: documents */}
         <div className="space-y-4">
           {!selected ? (
-            <div className="pib-card flex min-h-[200px] items-center justify-center p-8 text-center">
+            <div className="st-panel flex min-h-[200px] items-center justify-center p-8 text-center">
               <p className="text-sm text-[var(--color-pib-text-muted)]">
                 Select a collection on the left to browse its documents.
               </p>
@@ -344,9 +342,9 @@ export default function DatabaseClient() {
           ) : (
             <>
               {/* Toolbar */}
-              <div className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="st-panel flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
-                  <h2 className="font-mono text-lg font-semibold">{selected}</h2>
+                  <h2 className="font-mono text-lg font-medium">{selected}</h2>
                   <p className="text-xs text-[var(--color-pib-text-muted)]">{docs.length} loaded</p>
                 </div>
                 {isSuperAdmin && (
@@ -355,7 +353,7 @@ export default function DatabaseClient() {
                     disabled={exporting}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-base">download</span>
+                    <Icon name="download" />
                     {exporting ? 'Exporting…' : 'Export JSON'}
                   </button>
                 )}
@@ -363,7 +361,7 @@ export default function DatabaseClient() {
               {exportError && <p className="text-sm text-red-600">{exportError}</p>}
 
               {/* Lookup by ID */}
-              <div className="pib-card p-4">
+              <div className="st-panel p-4">
                 <label className="mb-2 block text-sm font-medium">Look up document by ID</label>
                 <div className="flex gap-2">
                   <input
@@ -371,6 +369,7 @@ export default function DatabaseClient() {
                     onChange={(e) => setLookupId(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && lookupDoc()}
                     placeholder="document id"
+                    aria-label="Document ID"
                     className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono"
                   />
                   <button
@@ -391,7 +390,7 @@ export default function DatabaseClient() {
                           onClick={() => openDelete(selected, lookupResult.id)}
                           className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800"
                         >
-                          <span className="material-symbols-outlined text-sm">delete</span>
+                          <Icon name="delete" />
                           Delete
                         </button>
                       )}
@@ -402,8 +401,8 @@ export default function DatabaseClient() {
               </div>
 
               {/* Document list */}
-              <div className="pib-card p-4">
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+              <div className="st-panel p-4">
+                <h3 className="mb-3 text-sm font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Documents
                 </h3>
                 {docsLoading ? (
@@ -427,9 +426,7 @@ export default function DatabaseClient() {
                               onClick={() => setExpanded((p) => ({ ...p, [doc.id]: !isOpen }))}
                               className="flex min-w-0 flex-1 items-center gap-2 text-left"
                             >
-                              <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">
-                                {isOpen ? 'expand_less' : 'expand_more'}
-                              </span>
+                              <Icon name={isOpen ? 'expand_less' : 'expand_more'} />
                               <span className="truncate font-mono text-sm">{doc.id}</span>
                             </button>
                             {isSuperAdmin && (
@@ -438,7 +435,7 @@ export default function DatabaseClient() {
                                 className="shrink-0 text-[var(--color-pib-text-muted)] hover:text-red-600"
                                 title="Delete document"
                               >
-                                <span className="material-symbols-outlined text-base">delete</span>
+                                <Icon name="delete" />
                               </button>
                             )}
                           </div>
@@ -471,9 +468,9 @@ export default function DatabaseClient() {
       </div>
 
       {/* Maintenance scripts */}
-      <div className="pib-card p-4">
+      <div className="st-panel p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
             Maintenance scripts
           </h2>
           <Link
@@ -496,9 +493,7 @@ export default function DatabaseClient() {
                   href="/admin/system/migrations"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
                 >
-                  <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">
-                    terminal
-                  </span>
+                  <Icon name="terminal" />
                   <span className="font-mono">{m.name ?? m.id ?? `migration ${i + 1}`}</span>
                 </Link>
               </li>
@@ -518,10 +513,10 @@ export default function DatabaseClient() {
       {/* Delete confirm modal */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-[6px] bg-white p-6">
             <div className="mb-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-red-600">warning</span>
-              <h3 className="text-lg font-semibold">Delete document</h3>
+              <Icon name="warning" />
+              <h3 className="text-lg font-medium">Delete document</h3>
             </div>
             <p className="mb-3 text-sm text-[var(--color-pib-text-muted)]">
               This permanently deletes the document. To confirm, type{' '}
@@ -534,6 +529,7 @@ export default function DatabaseClient() {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={confirmTokenExpected}
+              aria-label="Type delete confirmation phrase"
               className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono"
               autoFocus
             />

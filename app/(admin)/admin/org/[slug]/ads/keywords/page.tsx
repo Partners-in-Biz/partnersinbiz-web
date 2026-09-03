@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/keywords/page.tsx
-// Keywords directory page — MVP landing.
+// Keywords directory page  -  MVP landing.
 // Keyword management is scoped to an ad group (Google Ad Group), so we direct
 // admins to the ad group detail page which mounts KeywordEditor directly.
 // A full cross-org keyword listing would require an index scan with no adSetId
@@ -44,7 +44,7 @@ export default async function KeywordsPage({
 
       {googleAdSets.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">key</span>
+          
           <p className="pib-empty-state-description">
             No Google ad groups yet.{' '}
             <Link

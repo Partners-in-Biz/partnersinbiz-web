@@ -23,7 +23,7 @@ export default async function ConnectionsPage({
   const connections = await listConnections({ orgId })
   // Strip secrets AND serialize Firestore Timestamps to plain values before
   // passing to the client components. Server Components can only hand plain
-  // objects to Client Components — a raw Firestore Timestamp (a class instance)
+  // objects to Client Components  -  a raw Firestore Timestamp (a class instance)
   // throws "Only plain objects can be passed…" at render time, which is why
   // this page crashed once a connection (with createdAt/updatedAt/expiresAt
   // timestamps) existed. The connection panels don't read these fields.

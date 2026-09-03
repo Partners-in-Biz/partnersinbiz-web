@@ -66,7 +66,7 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
       </section>
 
       {ca.lastError && (
-        <section className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4 text-sm">
+        <section className="rounded-md border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4 text-sm">
           <div className="font-medium text-[var(--color-error)]">Last error</div>
           <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{ca.lastError}</div>
         </section>

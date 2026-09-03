@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -195,7 +196,7 @@ export default function ContentAnalyticsPage() {
         </div>
         <div className="flex flex-wrap items-end gap-2 self-start md:self-auto">
           <label className="block">
-            <span className="pib-label">
+            <span className="sc-tiny">
               Property ID
             </span>
             <input
@@ -207,35 +208,35 @@ export default function ContentAnalyticsPage() {
               }}
               onBlur={() => load(propertyId)}
               placeholder="optional"
-              className="pib-input mt-1 w-40 font-mono text-sm"
+              className="st-input mt-1 w-40 font-mono text-sm"
             />
           </label>
           <button
             onClick={exportCsv}
             disabled={articles.length === 0}
-            className="btn-pib-secondary"
+            className="st-btn st-btn--secondary"
           >
             Export CSV
           </button>
-          <Link href="/admin/content/seo" className="btn-pib-ghost">
+          <Link href="/admin/content/seo" className="st-btn st-btn--ghost">
             Articles
           </Link>
         </div>
       </header>
 
       {error && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">
           {error}
         </div>
       )}
 
       {!loading && data && !data.hasProperty && (
-        <div className="pib-card flex items-center gap-2 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7 !rounded-md">
-            <span className="material-symbols-outlined text-[15px]">info</span>
+        <div className="st-panel flex items-center gap-2 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+          <span aria-hidden="true" className="!h-7 !w-7 !rounded-md">
+            <Icon name="info" className="text-[15px]" />
           </span>
           <span>
-            No analytics property connected — metrics show zero. Enter a propertyId to join live traffic.
+            No analytics property connected - metrics show zero. Enter a propertyId to join live traffic.
           </span>
         </div>
       )}
@@ -243,49 +244,49 @@ export default function ContentAnalyticsPage() {
       {loading ? (
         <div className="space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
           </div>
-          <Skeleton className="h-72 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-72 rounded-[6px]" />
+          <Skeleton className="h-64 rounded-[6px]" />
         </div>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="pib-stat-card">
-              <p className="pib-label">
+              <p className="sc-tiny">
                 Total views
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
                 {(data?.totals.views ?? 0).toLocaleString()}
               </p>
             </div>
             <div className="pib-stat-card">
-              <p className="pib-label">
+              <p className="sc-tiny">
                 Total sessions
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
                 {(data?.totals.sessions ?? 0).toLocaleString()}
               </p>
             </div>
             <div className="pib-stat-card">
-              <p className="pib-label">
+              <p className="sc-tiny">
                 Tracked articles
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{articles.length}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{articles.length}</p>
             </div>
             <div className="pib-stat-card">
-              <p className="pib-label">
+              <p className="sc-tiny">
                 Avg bounce rate
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{avgBounce}%</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{avgBounce}%</p>
             </div>
           </div>
 
-          <div className="pib-card p-5">
-            <p className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-3">Traffic — last 30 days</p>
+          <div className="st-panel p-5">
+            <p className="text-sm font-headline font-medium text-[var(--color-pib-text)] mb-3">Traffic - last 30 days</p>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -330,14 +331,14 @@ export default function ContentAnalyticsPage() {
           </div>
 
           {articles.length === 0 ? (
-            <div className="pib-card p-8 text-center">
+            <div className="st-panel p-8 text-center">
               <p className="text-sm text-[var(--color-pib-text-muted)]">No article analytics yet.</p>
               <p className="text-xs text-[var(--color-pib-text-faint)] mt-1">
                 Publish articles and connect an analytics property to start tracking traffic and engagement.
               </p>
             </div>
           ) : (
-            <div className="pib-card overflow-x-auto">
+            <div className="st-panel overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-pib-line)] text-left">
@@ -394,7 +395,7 @@ export default function ContentAnalyticsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${statusBadgeClass(
+                          className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${statusBadgeClass(
                             a.status,
                           )}`}
                         >
@@ -413,7 +414,7 @@ export default function ContentAnalyticsPage() {
                             )}
                           </span>
                         ) : (
-                          '—'
+                          '-'
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">
@@ -429,7 +430,7 @@ export default function ContentAnalyticsPage() {
                         {a.socialShares.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
-                        {a.topReferrers[0]?.label ?? '—'}
+                        {a.topReferrers[0]?.label ?? '-'}
                       </td>
                     </tr>
                   ))}

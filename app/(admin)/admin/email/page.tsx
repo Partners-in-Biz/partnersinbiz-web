@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,16 +58,16 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const AUTH_BADGE: Record<AuthState, { label: string; cls: string }> = {
-  verified: { label: 'Pass', cls: 'pib-pill-success' },
-  pending: { label: 'Pending', cls: 'pib-pill-warn' },
-  failed: { label: 'Fail', cls: 'pib-pill-danger' },
+  verified: { label: 'Pass', cls: 'st-status st-status--success' },
+  pending: { label: 'Pending', cls: 'st-status st-status--warning' },
+  failed: { label: 'Fail', cls: 'st-status st-status--danger' },
   missing: { label: 'Missing', cls: '' },
 }
 
 function AuthBadge({ state }: { state: AuthState }) {
   const b = AUTH_BADGE[state]
   return (
-    <span className={`pib-pill ${b.cls}`}>
+    <span className={`st-status ${b.cls}`}>
       {b.label}
     </span>
   )
@@ -75,14 +76,14 @@ function AuthBadge({ state }: { state: AuthState }) {
 const EVENT_CLS: Record<string, string> = {
   delivered: 'text-green-400',
   opened: 'text-sky-400',
-  clicked: 'text-violet-400',
-  bounced: 'text-red-400',
-  failed: 'text-red-400',
+  clicked: 'text-[var(--sc-ink-soft)]',
+  bounced: 'text-[var(--st-danger)]',
+  failed: 'text-[var(--st-danger)]',
   complained: 'text-orange-400',
 }
 
 function fmtTime(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleString()
   } catch {
@@ -182,20 +183,20 @@ export default function EmailDeliverabilityPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Email Deliverability</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Email Deliverability</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Live SPF / DKIM / DMARC status per sending domain, bounce &amp; complaint rates from the
             real send log, the recent event stream, and a platform-wide pause switch.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <Link href="/admin/email/domains" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/email/domains" className="st-btn st-btn--ghost text-sm font-label">
             Domain rules
           </Link>
-          <Link href="/admin/email/broadcast" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/email/broadcast" className="st-btn st-btn--ghost text-sm font-label">
             Broadcast
           </Link>
-          <Link href="/admin/email/templates" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/email/templates" className="st-btn st-btn--ghost text-sm font-label">
             Templates
           </Link>
           <button onClick={load} disabled={loading} className="pib-btn-secondary text-sm font-label">
@@ -205,36 +206,34 @@ export default function EmailDeliverabilityPage() {
       </div>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {/* Pause switch */}
       <div
-        className={`pib-card p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+        className={`st-panel p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
           data?.controls.pauseOutbound ? 'border border-red-500/40 bg-red-500/5' : ''
         }`}
       >
         <div>
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue">
-              <span className="material-symbols-outlined text-[18px]">
-                {data?.controls.pauseOutbound ? 'pause_circle' : 'play_circle'}
-              </span>
+            <span aria-hidden="true" className="">
+              <Icon name={data?.controls.pauseOutbound ? 'pause_circle' : 'play_circle'} className="text-[18px]" />
             </span>
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Outbound email</h2>
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Outbound email</h2>
             {data?.controls.pauseOutbound ? (
-              <span className="pib-pill pib-pill-danger">
+              <span className="st-status st-status st-status--danger">
                 Paused
               </span>
             ) : (
-              <span className="pib-pill pib-pill-blue">
+              <span className="st-status st-status st-status--info">
                 Sending
               </span>
             )}
@@ -247,7 +246,7 @@ export default function EmailDeliverabilityPage() {
         <button
           onClick={togglePause}
           disabled={savingPause || loading}
-          className={data?.controls.pauseOutbound ? 'pib-btn-primary text-sm font-label' : 'pib-btn-secondary text-sm font-label'}
+          className={data?.controls.pauseOutbound ? 'st-btn st-btn--primary text-sm font-label' : 'pib-btn-secondary text-sm font-label'}
         >
           {savingPause ? 'Working…' : data?.controls.pauseOutbound ? 'Resume sending' : 'Pause outbound'}
         </button>
@@ -257,39 +256,39 @@ export default function EmailDeliverabilityPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {loading ? (
           <>
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
+            <Skeleton className="h-24 rounded-[6px]" />
           </>
         ) : (
           <>
-            <div className="pib-card p-4">
+            <div className="st-panel p-4">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Sent ({data?.windowDays}d)
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m?.sent ?? 0}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{m?.sent ?? 0}</p>
             </div>
-            <div className="pib-card p-4">
+            <div className="st-panel p-4">
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Delivered
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m?.delivered ?? 0}</p>
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{m?.delivered ?? 0}</p>
             </div>
-            <div className={`pib-card p-4 ${bounceWarn ? 'border border-red-500/30' : ''}`}>
+            <div className={`st-panel p-4 ${bounceWarn ? 'border border-red-500/30' : ''}`}>
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Bounce rate
               </p>
-              <p className={`text-2xl font-headline font-bold mt-1 ${bounceWarn ? 'text-red-400' : 'text-[var(--color-pib-text)]'}`}>
+              <p className={`text-2xl font-headline font-medium mt-1 ${bounceWarn ? 'text-[var(--st-danger)]' : 'text-[var(--color-pib-text)]'}`}>
                 {m?.bounceRatePct ?? 0}%
               </p>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">{m?.bounced ?? 0} bounced · keep &lt; 4%</p>
             </div>
-            <div className={`pib-card p-4 ${complaintWarn ? 'border border-red-500/30' : ''}`}>
+            <div className={`st-panel p-4 ${complaintWarn ? 'border border-red-500/30' : ''}`}>
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Complaint rate
               </p>
-              <p className={`text-2xl font-headline font-bold mt-1 ${complaintWarn ? 'text-red-400' : 'text-[var(--color-pib-text)]'}`}>
+              <p className={`text-2xl font-headline font-medium mt-1 ${complaintWarn ? 'text-[var(--st-danger)]' : 'text-[var(--color-pib-text)]'}`}>
                 {m?.complaintRatePct ?? 0}%
               </p>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">{m?.complained ?? 0} complaints · keep &lt; 0.3%</p>
@@ -299,8 +298,8 @@ export default function EmailDeliverabilityPage() {
       </div>
 
       {/* Domain auth status */}
-      <div className="pib-card p-5">
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-3">Sending domains</h2>
+      <div className="st-panel p-5">
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-3">Sending domains</h2>
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 rounded-lg" />
@@ -326,7 +325,7 @@ export default function EmailDeliverabilityPage() {
                 {data.domains.map((d) => (
                   <tr key={d.id} className="border-b border-[var(--color-pib-line)]/50">
                     <td className="py-2 pr-3 font-mono text-[var(--color-pib-text)]">{d.name}</td>
-                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{d.orgId || '—'}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{d.orgId || '-'}</td>
                     <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{d.status}</td>
                     <td className="py-2 pr-3"><AuthBadge state={d.spf} /></td>
                     <td className="py-2 pr-3"><AuthBadge state={d.dkim} /></td>
@@ -341,8 +340,8 @@ export default function EmailDeliverabilityPage() {
       </div>
 
       {/* Recent events */}
-      <div className="pib-card p-5">
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-3">Recent email events</h2>
+      <div className="st-panel p-5">
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-3">Recent email events</h2>
         {loading ? (
           <Skeleton className="h-32 rounded-lg" />
         ) : !data || data.events.length === 0 ? (
@@ -366,9 +365,9 @@ export default function EmailDeliverabilityPage() {
                     <td className={`py-2 pr-3 font-label text-xs ${EVENT_CLS[ev.event] ?? 'text-[var(--color-pib-text)]'}`}>
                       {ev.event}
                     </td>
-                    <td className="py-2 pr-3 text-[var(--color-pib-text)] text-xs">{ev.to || '—'}</td>
-                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs max-w-[240px] truncate">{ev.subject || '—'}</td>
-                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{ev.orgId || '—'}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text)] text-xs">{ev.to || '-'}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs max-w-[240px] truncate">{ev.subject || '-'}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{ev.orgId || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -378,8 +377,8 @@ export default function EmailDeliverabilityPage() {
       </div>
 
       {/* Suppression removal */}
-      <div className="pib-card p-5">
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Remove a suppression</h2>
+      <div className="st-panel p-5">
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Remove a suppression</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 mb-3 max-w-2xl">
           Clear an address from an org&apos;s suppression list (e.g. a recovered hard bounce). This also
           resets the soft-bounce counter.
@@ -392,7 +391,7 @@ export default function EmailDeliverabilityPage() {
               value={supOrg}
               onChange={(e) => setSupOrg(e.target.value)}
               placeholder="org_xxx"
-              className="pib-input w-full mt-1 font-mono"
+              className="st-input w-full mt-1 font-mono"
               required
             />
           </label>
@@ -403,7 +402,7 @@ export default function EmailDeliverabilityPage() {
               value={supEmail}
               onChange={(e) => setSupEmail(e.target.value)}
               placeholder="person@example.com"
-              className="pib-input w-full mt-1"
+              className="st-input w-full mt-1"
               required
             />
           </label>
