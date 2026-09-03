@@ -4,7 +4,7 @@ type Input = Parameters<typeof workKindForItem>[0]
 
 function item(type: string, overrides: Partial<Input> = {}): Input {
   return {
-    source: { type: type as Input['source']['type'], id: `${type}-1`, collectionPath: type },
+    source: { type },
     priority: 'review',
     title: overrides.title ?? `${type} card`,
     summary: overrides.summary ?? 'Summary',

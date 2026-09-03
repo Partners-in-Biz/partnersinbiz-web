@@ -10,7 +10,7 @@
  * as a client fallback, so Pip, Hermes, and the desk agree on the lanes.
  */
 
-import type { BriefingCard, BriefingSourceItem } from './types'
+import type { BriefingCard, BriefingPriority } from './types'
 
 export type BriefingWorkKind = 'meeting' | 'reply' | 'approval' | 'agent' | 'blocked'
 
@@ -35,7 +35,12 @@ export function briefingWorkLane(kind: BriefingWorkKind): BriefingWorkLane {
   return BRIEFING_WORK_LANES.find((lane) => lane.id === kind) ?? BRIEFING_WORK_LANES[1]
 }
 
-type WorkKindInput = Pick<BriefingSourceItem, 'source' | 'priority' | 'title' | 'summary'> & {
+/** Structural input so both the server BriefingCard and the lighter desk card shape qualify. */
+export type WorkKindInput = {
+  source: { type: string }
+  priority: BriefingPriority
+  title: string
+  summary: string
   excerpt?: string | null
   metadata?: Record<string, unknown> | null
   actor?: { id?: string | null; type?: string | null } | null
@@ -114,7 +119,7 @@ export function workKindForItem(item: WorkKindInput): BriefingWorkKind {
   }
   if (type === 'agent-output' && (BLOCKED_STATUS.test(status) || /\bblocked\b/.test(copy))) return 'blocked'
   if (type === 'agent-run' && /\b(failed|error|cancelled|canceled)\b/.test(status)) return 'blocked'
-  if ((type === 'order' || type === 'shipment' || type === 'report' || type === 'inventory-item' || type === 'workspace-broker-job' || type === 'broadcast') && BLOCKED_STATUS.test(status)) {
+  if ((type === 'order' || type === 'shipment' || type === 'report' || type === 'inventory-item' || type === 'workspace-broker-job' || type === 'broadcast' || type === 'seo-task') && BLOCKED_STATUS.test(status)) {
     return 'blocked'
   }
   if (type === 'invoice' && /\boverdue\b/.test(`${status} ${copy}`)) return 'blocked'

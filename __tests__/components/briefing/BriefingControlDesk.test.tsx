@@ -1229,6 +1229,7 @@ describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
     jest.setSystemTime(new Date('2026-05-31T10:05:00.000Z'))
+    window.localStorage.clear()
     writeText.mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -1608,11 +1609,13 @@ describe('BriefingControlDesk', () => {
     const columns = screen.getByLabelText('Daily briefings desk')
     expect(columns).toHaveClass('min-w-0')
     expect(columns).toHaveClass('min-h-0')
-    expect(columns).toHaveClass('lg:grid-cols-3')
+    expect(columns).toHaveClass('overflow-x-auto')
 
-    const laneFilter = screen.getByLabelText('Briefings workflow lanes')
+    const laneFilter = screen.getByLabelText('Briefings work lanes')
     expect(laneFilter).toHaveClass('lg:hidden')
-    expect(laneFilter).toHaveClass('grid-cols-3')
+    expect(laneFilter).toHaveClass('grid-cols-5')
+
+    expect(screen.getByTestId('briefings-today-rail')).toBeInTheDocument()
 
     const shell = screen.getByTestId('briefings-room-shell')
     expect(shell).toHaveClass('h-full', 'rounded-none', 'border-0', 'shadow-none')
@@ -1625,9 +1628,10 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByTestId('selected-briefing-title')).toHaveClass('break-words')
     expect(screen.getAllByTestId('briefing-card-title')[0]).toHaveClass('break-words')
 
+    const detailPanel = screen.getByLabelText('Selected briefing detail panel')
     const sourceActionControls = [
-      screen.getAllByRole('button', { name: /^approve$/i })[0],
-      screen.getByRole('button', { name: /send back to agent/i }),
+      within(detailPanel).getAllByRole('button', { name: /^approve$/i }).at(-1)!,
+      within(detailPanel).getByRole('button', { name: /send back to agent/i }),
     ]
 
     sourceActionControls.forEach((control) => {
@@ -1642,10 +1646,10 @@ describe('BriefingControlDesk', () => {
 
     expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
 
-    const laneFilter = screen.getByLabelText('Briefings workflow lanes')
-    const callTab = within(laneFilter).getByRole('button', { name: /call/i })
-    const followUpTab = within(laneFilter).getByRole('button', { name: /follow up/i })
-    const blockedTab = within(laneFilter).getByRole('button', { name: /blocked/i })
+    const laneFilter = screen.getByLabelText('Briefings work lanes')
+    const callTab = within(laneFilter).getByRole('button', { name: /meetings/i })
+    const followUpTab = within(laneFilter).getByRole('button', { name: /replies/i })
+    const blockedTab = within(laneFilter).getByRole('button', { name: /approvals/i })
 
     expect(callTab).toHaveAttribute('aria-pressed', 'true')
     expect(followUpTab).toHaveAttribute('aria-pressed', 'false')
@@ -1672,9 +1676,9 @@ describe('BriefingControlDesk', () => {
     expect(laneColumns[2]).toHaveClass('flex')
     expect(laneColumns[2]).not.toHaveClass('hidden')
 
-    const liveButton = screen.getByRole('button', { name: /live off|live on/i })
-    expect(liveButton.parentElement).toHaveClass('hidden', 'lg:flex')
-    expect(screen.getByRole('button', { name: /^snapshot$/i }).parentElement).toHaveClass('hidden', 'lg:flex')
+    // Live and Snapshot live in the Today rail and stay desktop-only.
+    expect(screen.getByRole('button', { name: /live off|live on/i })).toHaveClass('hidden', 'lg:flex')
+    expect(screen.getByRole('button', { name: /^snapshot$/i })).toHaveClass('hidden', 'lg:flex')
   })
 
   it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {
@@ -1871,7 +1875,7 @@ describe('BriefingControlDesk', () => {
     })
     expect((await screen.findAllByText('Blocked launch checklist')).length).toBeGreaterThan(0)
     expect(screen.queryByText('Theo completed work - review required')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^unblock$/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^unblock$/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /all workspaces/i })).toBeInTheDocument()
   })
 
@@ -1880,9 +1884,11 @@ describe('BriefingControlDesk', () => {
 
     expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
     expect(screen.getByLabelText('Daily briefings desk')).toBeInTheDocument()
-    expect(screen.getAllByText('Call').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Follow up').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Meetings').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Replies').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Approvals').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /expand agent work lane/i })).toBeInTheDocument()
 
     expect((await screen.findAllByText('Document pending approval: Growth plan')).length).toBeGreaterThan(0)
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
@@ -1893,6 +1899,7 @@ describe('BriefingControlDesk', () => {
   it('submits generic inline SEO keyword/theme decisions through the auditable inputTarget contract', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
+    fireEvent.click(await screen.findByRole('button', { name: /expand agent work lane/i }))
     fireEvent.click(await screen.findByText('Queued SEO task: Choose keyword theme'))
 
     expect(screen.getByLabelText('Inline decision submission')).toBeInTheDocument()
@@ -1968,7 +1975,7 @@ describe('BriefingControlDesk', () => {
 
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/documents/doc-1')
     expect(screen.getByRole('button', { name: /approve document/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /request changes/i })).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Selected briefing detail panel')).getByRole('button', { name: /request changes/i })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Inline document reply'), { target: { value: 'Please update the scope before approval.' } })
     fireEvent.click(screen.getByRole('button', { name: /post reply to document/i }))
@@ -2475,7 +2482,7 @@ describe('BriefingControlDesk', () => {
     render(<BriefingControlDesk mode="portal" />)
 
     const titleButton = await screen.findByRole('button', { name: title })
-    expect(titleButton.closest('div')).toHaveTextContent(facts[0])
+    expect(titleButton.closest('article')).toHaveTextContent(facts[0])
 
     fireEvent.click(titleButton)
 
@@ -2628,6 +2635,7 @@ describe('BriefingControlDesk', () => {
   it('marks active shipment cards delivered or failed from the control desk', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
+    fireEvent.click(await screen.findByRole('button', { name: /expand agent work lane/i }))
     fireEvent.click(await screen.findByRole('button', { name: /Shipment in transit: DHL-123/i }))
 
     expect(screen.getByLabelText('Card details')).toHaveTextContent('Tracking: DHL-123')
@@ -3004,6 +3012,7 @@ describe('BriefingControlDesk', () => {
       expect(screen.getByRole('button', { name: /^launch campaign$/i })).not.toBeDisabled()
     })
 
+    fireEvent.click(screen.getByRole('button', { name: /expand agent work lane/i }))
     fireEvent.click(screen.getByRole('button', { name: /Campaign active: Retention nurture/i }))
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/campaigns/campaign-2')
