@@ -1,5 +1,11 @@
 # Partners in Biz — Brand Guidelines (2026)
 
+> **SUPERSEDED 2026-09-03.** The dark canvas, amber `#F5A623`, violet, mesh
+> and grid backdrops, serif display type and 1rem radii described below are
+> retired. The canonical system is now the Studio: `docs/brand-system.md`
+> (symlink to `~/Cowork/Cowork/agents/partners/wiki/brand-system-2026-09-03.md`).
+> This file is kept for the verbal identity history only. Do not build from it.
+
 > Canonical brand reference. The agent's master copy lives at
 > `~/Cowork/Cowork/agents/partners/wiki/brand-guidelines.md` — both files are
 > kept in sync. When the brand evolves, update both.
