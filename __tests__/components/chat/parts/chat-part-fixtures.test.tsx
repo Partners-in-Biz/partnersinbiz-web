@@ -57,19 +57,65 @@ function assistantMessage(part: RichMessagePart) {
   }
 }
 
+function portalBubbleProps(part: RichMessagePart) {
+  return { currentUserUid: 'user-1', message: assistantMessage(part) }
+}
+
+function adminBubbleProps(part: RichMessagePart) {
+  return {
+    ...portalBubbleProps(part),
+    onOpenArtifact: jest.fn(),
+    onUiAction: jest.fn(),
+    onStopRun: jest.fn(),
+  }
+}
+
+function assertHostileIframe(container: HTMLElement) {
+  const iframe = container.querySelector('iframe')
+  expect(iframe).toHaveAttribute('sandbox', '')
+  expect(iframe).toHaveAttribute('referrerpolicy', 'no-referrer')
+  const srcDoc = iframe?.getAttribute('srcdoc') ?? ''
+  expect(srcDoc).toContain("default-src 'none'")
+  expect(srcDoc).toContain('Visible')
+}
+
 describe('chat part golden fixtures', () => {
   it.each(fixtures.map((part) => [part.type, part] as const))('validates the %s fixture', (_type, part) => {
     expect(validatePart(part).ok).toBe(true)
   })
 
-  it('renders each fixture through MessageBubble', () => {
+  it('renders each fixture through MessageBubble (portal prop set)', () => {
     for (const part of fixtures) {
-      const { unmount } = render(
-        <MessageBubble currentUserUid="user-1" message={assistantMessage(part)} />,
-      )
+      const { unmount } = render(<MessageBubble {...portalBubbleProps(part)} />)
       expect(screen.queryByText('Unsupported content')).not.toBeInTheDocument()
       unmount()
     }
+  })
+
+  it('renders each fixture through MessageBubble (admin prop set)', () => {
+    for (const part of fixtures) {
+      const { unmount } = render(<MessageBubble {...adminBubbleProps(part)} />)
+      expect(screen.queryByText('Unsupported content')).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('keeps hostile html_artifact sandboxed through MessageBubble (portal)', () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => new Response('no', { status: 500 }))
+    fetchSpy.mockClear()
+    const { container } = render(<MessageBubble {...portalBubbleProps(htmlArtifact as RichMessagePart)} />)
+    assertHostileIframe(container)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it('keeps hostile html_artifact sandboxed through MessageBubble (admin)', () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => new Response('no', { status: 500 }))
+    fetchSpy.mockClear()
+    const { container } = render(<MessageBubble {...adminBubbleProps(htmlArtifact as RichMessagePart)} />)
+    assertHostileIframe(container)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
   })
 
   it('keeps hostile html_artifact sandboxed and does not fetch', () => {
@@ -84,12 +130,7 @@ describe('chat part golden fixtures', () => {
       }}
       />,
     )
-    const iframe = container.querySelector('iframe')
-    expect(iframe).toHaveAttribute('sandbox', '')
-    expect(iframe).toHaveAttribute('referrerpolicy', 'no-referrer')
-    const srcDoc = iframe?.getAttribute('srcdoc') ?? ''
-    expect(srcDoc).toContain("default-src 'none'")
-    expect(srcDoc).toContain('Visible')
+    assertHostileIframe(container)
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
   })

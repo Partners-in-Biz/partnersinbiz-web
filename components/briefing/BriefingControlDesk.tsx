@@ -721,6 +721,16 @@ function bookingActionable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'booking' && Boolean(item.source.id) && item.metadata?.bookingStatus !== 'completed' && item.metadata?.bookingStatus !== 'cancelled'
 }
 
+/** Meet-link repair is allowed whenever the card is a live booking — Briefings live UI is portal mode. */
+function canRepairBookingMeetLink(item: BriefingCard) {
+  if (item.source.type !== 'booking' || !item.source.id) return false
+  const status = typeof item.metadata?.bookingStatus === 'string'
+    ? item.metadata.bookingStatus
+    : typeof item.metadata?.status === 'string' ? item.metadata.status : ''
+  if (status === 'completed' || status === 'cancelled') return false
+  return status === 'confirmed' || /needs meet link/i.test(item.title)
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -1830,9 +1840,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   }
 
   function canAddMeetLink(item: BriefingCard) {
-    if (item.source.type !== 'booking' || !bookingActionable(item, mode)) return false
-    const status = typeof item.metadata?.bookingStatus === 'string' ? item.metadata.bookingStatus : typeof item.metadata?.status === 'string' ? item.metadata.status : ''
-    return status === 'confirmed' || /needs meet link/i.test(item.title)
+    return canRepairBookingMeetLink(item)
   }
 
   async function addMeetLink(item: BriefingCard) {

@@ -1256,7 +1256,7 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
-        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, dealMovedBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, seoKeywordDecisionBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
+        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, dealMovedBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, seoKeywordDecisionBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, bookingBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
@@ -3262,6 +3262,20 @@ describe('BriefingControlDesk', () => {
         body: JSON.stringify({ email: 'ava@example.test', status: 'declined' }),
       }))
     })
+  })
+
+  it('shows Add Meet link on booking cards in portal mode', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    const addMeet = await screen.findByRole('button', { name: /Add Meet link/i })
+    fireEvent.click(addMeet)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/bookings/booking-1/repair', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    expect(screen.queryByRole('button', { name: /mark booking completed/i })).not.toBeInTheDocument()
   })
 
   it('completes and cancels booking cards from the admin control desk', async () => {

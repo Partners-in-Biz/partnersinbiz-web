@@ -33,9 +33,17 @@
     "botMode.uiMeta": "tui_gateway/methods_profiles.py:780",
     "botMode.uiMetaPath": "hermes_cli/profiles.py:920",
     "botMode.relayHost": "tui_gateway/methods_bot_relay.py:5",
+    "botMode.relayProcess": "hermes_cli/web_server.py:17618",
+    "botMode.serveArgv": "hermes_cli/subcommands/dashboard.py:136",
     "botMode.relayRpcs": "tui_gateway/methods_bot_relay.py:33",
+    "botMode.envelope": "tools/bot_relay.py:334",
+    "botMode.failureReasons": "tools/bot_failure_reasons.py:28",
     "botMode.roomPersist": "apps/desktop/src/plugins/hermes-bots/group-chat.ts:47",
     "botMode.hostedRoomRpcs": "tui_gateway/methods_groups.py:264",
+    "botMode.messageAgentTool": "tools/bot_mode_dm.py:241",
+    "botMode.peer": "hermes_cli/subcommands/peer.py:443",
+    "botMode.rounds": "apps/desktop/src/plugins/hermes-bots/group-chat.ts:1208",
+    "botMode.wsAuth": "hermes_cli/web_server.py:16396",
     "controlSocket.path": "gateway/control_socket.py:65",
     "controlSocket.identify": "gateway/control_socket.py:178",
     "controlSocket.status": "gateway/control_socket.py:210",
@@ -86,9 +94,65 @@
     "protocolFlag": "agent.bot_mode_protocol",
     "uiMeta": {
       "path": "{profileDir}/profile.yaml#ui_meta",
-      "dashboardRoute": "WS profiles.configure"
+      "dashboardRoute": "WS profiles.configure",
+      "fields": {
+        "title": "ui_meta['hermes-bots'].title",
+        "description": "ui_meta['hermes-bots'].description (also top-level configure description → profile.yaml)",
+        "groups": "ui_meta['hermes-bots'].groups string[]",
+        "avatar": "NOT ui_meta — profiles.set_asset {name, asset:'avatar'}",
+        "section": "UNVERIFIED as persistable metadata; roster sections are UI grouping"
+      }
     },
     "relayHost": "desktop",
+    "relayProcess": "hermes serve / hermes dashboard tui_gateway /api/ws (not api_server)",
+    "headlessServeCommand": ["hermes", "serve", "--host", "127.0.0.1", "--port", "N"],
+    "headlessServeNotes": "No --no-browser/--headless flag. serve is always headless (no_open=True). Default port 9119. One instance per HERMES_HOME unless --isolated.",
+    "wsAuth": {
+      "loopback": "?token=HERMES_DASHBOARD_SESSION_TOKEN or process token_urlsafe(32)",
+      "gated": "?ticket= from POST /api/auth/ws-ticket (legacy ?token= rejected)",
+      "apiServerKeyAuthenticates": "api_server HTTP / hermes peer only, not /api/ws"
+    },
+    "envelope": {
+      "fields": ["id", "created_at", "from_profile", "from_handle", "target_connection", "target_profile", "target_handle", "message"],
+      "ttlSecondsDefault": 900,
+      "expiredReason": "queued_expired"
+    },
+    "failureReasons": [
+      "runtime_offline",
+      "queued_expired",
+      "delivery_timeout",
+      "agent_blocked",
+      "cancelled",
+      "provider_auth_or_access",
+      "provider_quota_limit",
+      "provider_rate_limit",
+      "provider_server_error",
+      "context_overflow",
+      "missing_config",
+      "model_unavailable",
+      "unknown"
+    ],
+    "failureReasonsUsedButNotInEnum": ["target_busy"],
+    "desktopCourierIntervals": { "rosterSeconds": 60, "drainBackstopSeconds": 30, "outboxPushDebounceMs": 250 },
+    "messageAgentTool": {
+      "sessionTitleGate": "Bot Chat",
+      "peerPath": "hermes peer dm (api_server + API_SERVER_KEY, no outbox)",
+      "localTeammate": "hermes -p <name> chat --in ~ -c 'Bot Chat' --create-if-missing -Q",
+      "crossConnection": "{HERMES_HOME}/bot_relay/outbox/{id}.json → drain → deliver → reply wakes waiter on replies/{id}.json"
+    },
+    "peer": {
+      "addArgv": ["hermes", "peer", "add", "<name>", "--url", "http(s)://host:port", "--key", "<API_SERVER_KEY>"],
+      "dmArgv": ["hermes", "peer", "dm", "<peer>[/<agent>]", "[message]"],
+      "runArgv": ["hermes", "peer", "run", "<peer>[/<agent>]", "[message]"],
+      "keyEnv": "HERMES_PEER_<NAME>_KEY"
+    },
+    "rounds": {
+      "maxRounds": 3,
+      "maxMessages": 10,
+      "maxMembers": 6,
+      "userEscalation": "NOT a WS event. /@user\\b/i sets Desktop $groupNeedsYou[group]=true"
+    },
+    "liveWsFixture": "UNVERIFIED — source spike only; no roster.sync→deliver round-trip run",
     "relayRpcs": {
       "roster.sync": {
         "rpc": "bot_relay.roster.sync",
