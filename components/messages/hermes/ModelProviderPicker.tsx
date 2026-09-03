@@ -202,7 +202,7 @@ export function ModelProviderPicker({
         title={catalog?.canSelect === false ? 'Model selection is visible but locked for this role' : 'Select model/provider'}
         aria-label={`Select model and provider: ${activeLabel}`}
         className={[
-          'inline-flex min-w-0 items-center gap-1.5 rounded-md border border-white/20 bg-white/[0.08] text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.12] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
+          'inline-flex min-w-0 items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-row-hover)] text-[var(--color-pib-text)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
           compact ? 'h-8 max-w-[min(100%,18rem)] px-2.5 text-[12px]' : 'h-8 px-2.5 text-xs',
         ].join(' ')}
       >
@@ -218,7 +218,7 @@ export function ModelProviderPicker({
             <button
               type="button"
               aria-label="Dismiss model picker"
-              className="fixed inset-0 z-[90] bg-black/60"
+              className="fixed inset-0 z-[90] bg-[var(--color-pib-surface)]"
               onClick={() => setOpen(false)}
             />
           ) : null}
@@ -228,9 +228,9 @@ export function ModelProviderPicker({
             data-presentation={sheet ? 'sheet' : 'popover'}
             className={
               sheet
-                ? 'fixed inset-x-0 bottom-0 z-[91] flex max-h-[min(34rem,80dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-white/15 bg-[#161616] pb-[env(safe-area-inset-bottom)] '
+                ? 'fixed inset-x-0 bottom-0 z-[91] flex max-h-[min(34rem,80dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] pb-[env(safe-area-inset-bottom)] '
                 : [
-                    'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-white/15 bg-[#161616] ',
+                    'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] ',
                     placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
                   ].join(' ')
             }
@@ -247,7 +247,7 @@ export function ModelProviderPicker({
                 <button
                   type="button"
                   onClick={onRefresh}
-                  className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                  className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                   aria-label="Refresh models"
                 >
                   <Icon name="refresh" className="text-[16px]" />
@@ -256,7 +256,7 @@ export function ModelProviderPicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                 aria-label="Close model picker"
               >
                 <Icon name="close" className="text-[16px]" />
@@ -300,7 +300,7 @@ export function ModelProviderPicker({
                 onSelect(null)
                 setOpen(false)
               }}
-              className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon name="auto_awesome" className="text-[15px]" />
               <span className="min-w-0 flex-1">
@@ -329,11 +329,11 @@ export function ModelProviderPicker({
                     const selected = activeModel?.id === model.id && activeModel?.provider === model.provider
                     const isPinned = pinned.includes(key)
                     return (
-                      <div key={key} className="group/model flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-white/[0.05]">
+                      <div key={key} className="group/model flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-[var(--color-pib-surface-muted)]">
                         <button
                           type="button"
                           onClick={() => togglePin(model)}
-                          className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                          className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                           aria-label={isPinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
                         >
                           <Icon name={isPinned ? 'star' : 'star_outline'} className="text-[15px]" />
@@ -388,14 +388,14 @@ export function ModelProviderPicker({
               type="button"
               onClick={onRefresh}
               disabled={!onRefresh}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-40"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:opacity-40"
             >
               <Icon name="refresh" className="text-[14px]" />
               Refresh Models
             </button>
             <a
               href={catalog?.connectProvidersUrl || '/portal/settings/llm-providers'}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
             >
               <Icon name="tune" className="text-[14px]" />
               Connect providers…

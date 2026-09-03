@@ -38,7 +38,7 @@ export function BotComputerStrip({
     <section
       data-testid="bot-computer-strip"
       aria-label={BOT_MODE_COPY.computersLabel}
-      className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-black/[0.12] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}
+      className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}
     >
       <span className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
         <Icon name="computer" className="text-[14px]" />
@@ -55,7 +55,7 @@ export function BotComputerStrip({
             className={`inline-flex h-11 max-w-[220px] items-center gap-1.5 rounded-lg border px-2.5 text-[11px] xl:h-8 ${
               active
                 ? 'border-primary/40 bg-primary/12 text-[var(--color-pib-text)]'
-                : 'border-white/[0.08] bg-white/[0.04] text-[var(--color-pib-text-muted)]'
+                : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
             }`}
           >
             <span
@@ -70,7 +70,7 @@ export function BotComputerStrip({
         )
       })}
       {isolatedFolder && (
-        <span data-testid="bot-isolated-folder" className="inline-flex h-11 max-w-[260px] items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] xl:h-8">
+        <span data-testid="bot-isolated-folder" className="inline-flex h-11 max-w-[260px] items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] xl:h-8">
           <Icon name="folder_managed" className="text-[14px]" />
           <span className="min-w-0 truncate">{isolatedFolder}</span>
           {browserProfileId ? <span className="hidden truncate sm:inline">· {browserProfileId}</span> : null}
@@ -83,7 +83,7 @@ export function BotComputerStrip({
             type="button"
             aria-label={`Open ${tab.label} on the computer`}
             onClick={() => onOpenWorkbench(tab.id)}
-            className="grid h-11 w-11 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-8 xl:w-8"
+            className="grid h-11 w-11 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] xl:h-8 xl:w-8"
           >
             <Icon name={tab.icon} className="text-[16px]" />
           </button>
@@ -94,7 +94,7 @@ export function BotComputerStrip({
             aria-label={workbenchOpen ? 'Hide computer workbench' : 'Show computer workbench'}
             aria-pressed={workbenchOpen}
             onClick={onToggleWorkbench}
-            className="inline-flex h-11 items-center gap-1 rounded-md border border-white/[0.1] px-2 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.06] xl:h-8"
+            className="inline-flex h-11 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 text-[11px] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)] xl:h-8"
           >
             <Icon name="dock_to_left" className="text-[15px]" />
             Workbench

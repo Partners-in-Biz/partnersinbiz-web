@@ -52,7 +52,7 @@ export function BotModeLanding({
               type="button"
               data-testid={`bot-landing-card-${bot.id}`}
               onClick={() => onStartChannel?.(bot.id)}
-              className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-left hover:border-primary/30 hover:bg-primary/[0.06]"
+              className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3 text-left hover:border-primary/30 hover:bg-primary/[0.06]"
             >
               <span className="block text-sm font-medium text-[var(--color-pib-text)]">{bot.name}</span>
               <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">{bot.role}</span>
@@ -61,7 +61,7 @@ export function BotModeLanding({
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <article className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
+        <article className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
           <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Computers</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text)]">
             {onlineComputers.length} online · {computers.length} paired
@@ -71,13 +71,13 @@ export function BotModeLanding({
             <button
               type="button"
               onClick={onOpenWorkbench}
-              className="mt-3 inline-flex h-11 items-center rounded-md border border-white/[0.1] px-3 text-xs text-[var(--color-pib-text)] hover:bg-white/[0.06] xl:h-8"
+              className="mt-3 inline-flex h-11 items-center rounded-md border border-[var(--color-pib-line)] px-3 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)] xl:h-8"
             >
               Show computers
             </button>
           )}
         </article>
-        <article className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
+        <article className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
           <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Intelligent canvas</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text)]">Review work as a surface, not a dump.</p>
           <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">

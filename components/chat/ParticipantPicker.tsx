@@ -485,7 +485,7 @@ export default function ParticipantPicker({
                 <p className="text-xs font-medium text-[var(--color-pib-text)]">
                   Recommended for {workforce.blueprint.label}
                 </p>
-                <span className="rounded-[4px] bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                <span className="rounded-[4px] bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                   {recommendedAvailableCount}/{workforce.blueprint.recommendedAgentIds.length} available here
                 </span>
               </div>
@@ -551,9 +551,9 @@ export default function ParticipantPicker({
                     onClick={() => {
                       if (!disabled) toggleAgent(agent)
                     }}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-[var(--color-pib-surface-muted)] border border-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)] border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <div className="w-7 h-7 rounded-[4px] bg-white/8 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-[4px] bg-[var(--color-pib-surface-muted)] flex items-center justify-center shrink-0">
                       <Icon name={agent.iconKey ?? 'smart_toy'} className={`text-[15px] ${c.icon}`} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -578,7 +578,7 @@ export default function ParticipantPicker({
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
                         {policy && policy.policyDefined && coverage.length > 0 && (
-                          <span className="rounded-[4px] bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-[4px] bg-[var(--color-row-hover)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                             Covers {coverage.length} required skill{coverage.length === 1 ? '' : 's'}
                           </span>
                         )}
@@ -615,12 +615,12 @@ export default function ParticipantPicker({
               const groupDisabled = selected.length >= MAX_SELECTIONS && !allSelected
               const isExpanded = expandedDepartments.has(department)
               return (
-                <div key={department} className="space-y-1.5 rounded-[6px] border border-white/[0.08] px-2 py-2">
+                <div key={department} className="space-y-1.5 rounded-[6px] border border-[var(--color-pib-line)] px-2 py-2">
                   <label
                     onMouseDown={(event) => {
                       if (!groupDisabled) event.preventDefault()
                     }}
-                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${groupDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-[var(--color-pib-surface-muted)] border border-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)] border border-transparent' } ${groupDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <input
                       type="checkbox"
@@ -679,7 +679,7 @@ export default function ParticipantPicker({
                             onClick={() => {
                               if (!disabled) toggleContact(contact)
                             }}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-[var(--color-pib-surface-muted)] border border-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)] border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-xs font-medium text-[#93C5FD]">
                               {inits || '?'}

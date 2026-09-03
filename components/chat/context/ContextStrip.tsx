@@ -38,13 +38,13 @@ function contextPickerDisclosureProps({ pickerExpanded = false, pickerControls }
 
 export function EmptyContextStrip({ onAdd, pickerExpanded, pickerControls, className }: { onAdd: () => void; className?: string } & ContextPickerDisclosureProps) {
   return (
-    <div data-testid="conversation-context-strip" role="toolbar" aria-label="Pinned conversation context" className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}>
+    <div data-testid="conversation-context-strip" role="toolbar" aria-label="Pinned conversation context" className={['flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}>
       <button
         type="button"
         aria-label="Add conversation context"
         {...contextPickerDisclosureProps({ pickerExpanded, pickerControls })}
         onClick={onAdd}
-        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9"
+        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9"
       >
         <Icon name="add" className="text-[16px]" />
         Add context
@@ -64,11 +64,11 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
   className?: string
 } & ContextPickerDisclosureProps) {
   return (
-    <div data-testid={model ? 'context-pulse' : 'conversation-context-strip'} role="toolbar" aria-label="Pinned conversation context" className={['flex min-h-11 shrink-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}>
+    <div data-testid={model ? 'context-pulse' : 'conversation-context-strip'} role="toolbar" aria-label="Pinned conversation context" className={['flex min-h-11 shrink-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-1.5 [scrollbar-width:thin]', className].filter(Boolean).join(' ')}>
       {options.map((option) => {
         const active = chatContextReferenceKey(option) === chatContextReferenceKey(value)
         return (
-          <span key={chatContextReferenceKey(option)} className={`group/context inline-flex h-11 shrink-0 items-center overflow-hidden rounded-lg border transition-colors xl:h-9 ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+          <span key={chatContextReferenceKey(option)} className={`group/context inline-flex h-11 shrink-0 items-center overflow-hidden rounded-lg border transition-colors xl:h-9 ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]'}`}>
             <button
               type="button"
               aria-label={`Open ${option.label} context`}
@@ -84,7 +84,7 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
               {active && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-[4px] bg-emerald-400" />}
             </button>
             {onRemove && (
-              <button type="button" aria-label={`Remove ${option.label} context`} onClick={() => onRemove(option)} className="grid h-11 w-11 shrink-0 place-items-center border-l border-white/[0.06] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] xl:h-9 xl:w-8">
+              <button type="button" aria-label={`Remove ${option.label} context`} onClick={() => onRemove(option)} className="grid h-11 w-11 shrink-0 place-items-center border-l border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] xl:h-9 xl:w-8">
                 <Icon name="close" className="text-[14px]" />
               </button>
             )}
@@ -102,10 +102,10 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
         </span>
       )}
       {model?.pulse.progress && <span className="inline-flex h-8 shrink-0 items-center rounded-[4px] border border-emerald-400/20 bg-emerald-500/5 px-2.5 text-[10px] font-medium text-emerald-200">{model.pulse.progress.complete}/{model.pulse.progress.total} complete</span>}
-      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9 xl:w-9">
+      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] outline-none hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9 xl:w-9">
         <Icon name="view_sidebar" className="text-[16px]" />
       </button>
-      <button type="button" aria-label="Add conversation context" {...contextPickerDisclosureProps({ pickerExpanded, pickerControls })} onClick={onAdd} disabled={!onAdd} className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-50 xl:h-9">
+      <button type="button" aria-label="Add conversation context" {...contextPickerDisclosureProps({ pickerExpanded, pickerControls })} onClick={onAdd} disabled={!onAdd} className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-50 xl:h-9">
         <Icon name="add" className="text-[16px]" />
         Add context
       </button>

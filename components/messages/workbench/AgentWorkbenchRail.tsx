@@ -296,7 +296,7 @@ export function AgentWorkbenchRail({
               'relative grid h-9 w-9 shrink-0 place-items-center rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60',
               isActive
                 ? 'bg-primary/15 text-primary'
-                : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]',
+                : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]',
             ].join(' ')}
           >
             <Icon name={tab.icon} className="text-[19px]" />
@@ -375,7 +375,7 @@ export function AgentWorkbenchRail({
                 aria-label="Refresh files"
                 onClick={onRefreshFiles}
                 disabled={filesLoading}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
                 <Icon name="refresh" className={`text-[15px] ${filesLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -386,7 +386,7 @@ export function AgentWorkbenchRail({
                 aria-label="Refresh changes"
                 onClick={onRefreshChanges}
                 disabled={changesLoading}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
                 <Icon name="refresh" className={`text-[15px] ${changesLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -395,7 +395,7 @@ export function AgentWorkbenchRail({
               type="button"
               aria-label="Close workbench"
               onClick={close}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
             >
               <Icon name="close" className="text-[16px]" />
             </button>
@@ -480,7 +480,7 @@ export function AgentWorkbenchRail({
         data-presentation="sheet"
         className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-[var(--color-surface,#151515)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
       >
-        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 py-2">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id
             const count = badgeCount(counts[tab.id])
@@ -498,7 +498,7 @@ export function AgentWorkbenchRail({
               >
                 <Icon name={tab.icon} className="text-[16px]" />
                 {tab.label}
-                {count && <span className="rounded-md bg-white/10 px-1.5 text-[10px]">{count}</span>}
+                {count && <span className="rounded-md bg-[var(--color-pib-surface-muted)] px-1.5 text-[10px]">{count}</span>}
               </button>
             )
           })}
@@ -506,7 +506,7 @@ export function AgentWorkbenchRail({
             type="button"
             aria-label="Close workbench"
             onClick={close}
-            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
           >
             <Icon name="close" className="text-[17px]" />
           </button>

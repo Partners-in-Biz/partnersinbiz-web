@@ -22,7 +22,7 @@ export function MessagesExperienceSwitch({
       role="tablist"
       aria-label="Chat experience"
       data-testid="messages-experience-switch"
-      className="inline-flex h-8 shrink-0 items-center rounded-md border border-white/[0.1] bg-black/20 p-0.5"
+      className="inline-flex h-8 shrink-0 items-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-0.5"
     >
       {OPTIONS.map((option) => {
         const selected = option.mode === value
@@ -37,8 +37,8 @@ export function MessagesExperienceSwitch({
             onClick={() => onChange(option.mode)}
             className={`inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] font-medium ${
               selected
-                ? 'bg-white/[0.1] text-[var(--color-pib-text)]'
-                : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
+                ? 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text)]'
+                : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'
             }`}
           >
             <Icon name={option.icon} className="text-[14px]" />

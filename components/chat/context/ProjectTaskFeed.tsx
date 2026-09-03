@@ -37,7 +37,7 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
   return (
     <div
       data-testid={`project-task-feed-${item.id}`}
-      className="space-y-2 border-t border-white/[0.08] bg-black/20 px-3 py-2.5"
+      className="space-y-2 border-t border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-3 py-2.5"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[10px] font-medium ${style.badgeClassName}`}>
@@ -116,7 +116,7 @@ export function ProjectTaskFeed({ item }: { item: ContextItemSummary }) {
       {item.href && (
         <a
           href={item.href}
-          className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.05]"
+          className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)]"
         >
           Open in project
           <Icon name="open_in_new" className="text-[14px]" />

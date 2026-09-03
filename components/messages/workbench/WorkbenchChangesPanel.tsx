@@ -9,7 +9,7 @@ const STATUS_META: Record<WorkbenchChangeStatus, { label: string; className: str
   modified: { label: 'M', className: 'text-[var(--st-warning)] border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' },
   deleted: { label: 'D', className: 'text-red-300 border-red-400/30 bg-red-500/10' },
   renamed: { label: 'R', className: 'text-sky-300 border-sky-400/30 bg-sky-500/10' },
-  unknown: { label: '?', className: 'text-[var(--color-pib-text-muted)] border-[var(--color-card-border)] bg-white/[0.04]' },
+  unknown: { label: '?', className: 'text-[var(--color-pib-text-muted)] border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)]' },
 }
 
 export interface WorkbenchChangesPanelProps {
@@ -41,7 +41,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
   )
 
   const statusNote = message && (
-    <p className="shrink-0 border-b border-[var(--color-card-border)] bg-white/[0.03] px-2.5 py-1.5 text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]">
+    <p className="shrink-0 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2.5 py-1.5 text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]">
       {message}
     </p>
   )
@@ -79,7 +79,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
               aria-pressed={active}
               onClick={() => setSelectedPath(change.path)}
               className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] ${
-                active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'
+                active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'
               }`}
             >
               <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[9px] font-medium ${meta.className}`}>
@@ -96,7 +96,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source 
           <button
             type="button"
             onClick={() => onOpenInFiles(selected.path)}
-            className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+            className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
           >
             Open in Files
           </button>

@@ -218,7 +218,7 @@ export default function VoiceInputButton({
         'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-[4px] text-[var(--color-pib-text-muted)] transition-colors',
         listening
           ? 'bg-primary text-on-primary shadow-[0_0_0_4px_rgba(245,158,11,0.16)]'
-          : 'hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]',
+          : 'hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
         isDisabled ? 'cursor-not-allowed opacity-40' : '',
         className,
       ].join(' ')}

@@ -26,7 +26,7 @@ export default function PinnedModelStrip({
   if (models.length === 0) return null
 
   return (
-    <div className="mb-3 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-2" data-testid="pinned-model-strip">
+    <div className="mb-3 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2" data-testid="pinned-model-strip">
       <div className="pib-label mb-2 flex items-center gap-1.5 px-1">
         <Icon name="star" className="text-[13px]" />
         Pinned models
@@ -38,14 +38,14 @@ export default function PinnedModelStrip({
             && (!selected.llmConnectionId || selected.llmConnectionId === model.connectionId)
           const pinned = pinnedKeys.includes(keyFor(model))
           return (
-            <span key={keyFor(model)} className="inline-flex max-w-full items-center overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
+            <span key={keyFor(model)} className="inline-flex max-w-full items-center overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)]">
               <button
                 type="button"
                 onClick={() => onSelect(model)}
                 disabled={!model.available}
                 className={[
                   'max-w-[180px] truncate px-2.5 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  active ? 'bg-primary/20 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]',
+                  active ? 'bg-primary/20 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
                 ].join(' ')}
                 title={model.model}
               >
@@ -54,7 +54,7 @@ export default function PinnedModelStrip({
               <button
                 type="button"
                 onClick={() => onTogglePin(model)}
-                className="grid h-6 w-6 place-items-center text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                className="grid h-6 w-6 place-items-center text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                 aria-label={pinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
               >
                 <Icon name={pinned ? 'close' : 'star'} className="text-[13px]" />

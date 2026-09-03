@@ -32,7 +32,7 @@ export function BotInboxRail({
             data-testid={`bot-inbox-thread-${thread.id}`}
             onClick={() => onOpenThread(thread.id)}
             className={`flex min-h-9 flex-col justify-center rounded-md px-2 py-1.5 text-left ${
-              selected ? 'bg-white/[0.08] ring-1 ring-white/[0.06]' : 'hover:bg-white/[0.045]'
+              selected ? 'bg-[var(--color-row-hover)] ring-1 ring-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)]'
             }`}
           >
             <span className="block truncate text-[12px] font-medium leading-4 text-[var(--color-pib-text)]">{thread.title}</span>
@@ -47,14 +47,14 @@ export function BotInboxRail({
         <button
           type="button"
           onClick={() => setComposing(true)}
-          className="mt-1 inline-flex h-8 items-center justify-center rounded-md border border-white/[0.08] px-2 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+          className="mt-1 inline-flex h-8 items-center justify-center rounded-md border border-[var(--color-pib-line)] px-2 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
         >
           New inbox thread
         </button>
       )}
       {onCreateThread && bots.length >= 2 && composing && (
         <form
-          className="mt-1 flex flex-col gap-1 rounded-md border border-white/[0.08] bg-black/10 p-1.5"
+          className="mt-1 flex flex-col gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-1.5"
           onSubmit={(event) => {
             event.preventDefault()
             const form = event.currentTarget
@@ -68,21 +68,21 @@ export function BotInboxRail({
         >
           <label className="text-[10px] text-[var(--color-pib-text-muted)]">
             From
-            <select name="fromAgentId" className="mt-0.5 h-8 w-full rounded border border-white/[0.08] bg-black/30 px-1 text-[11px] text-[var(--color-pib-text)]">
+            <select name="fromAgentId" className="mt-0.5 h-8 w-full rounded border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)] px-1 text-[11px] text-[var(--color-pib-text)]">
               {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
             </select>
           </label>
           <label className="text-[10px] text-[var(--color-pib-text-muted)]">
             To
-            <select name="toAgentId" defaultValue={bots[1]?.id} className="mt-0.5 h-8 w-full rounded border border-white/[0.08] bg-black/30 px-1 text-[11px] text-[var(--color-pib-text)]">
+            <select name="toAgentId" defaultValue={bots[1]?.id} className="mt-0.5 h-8 w-full rounded border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)] px-1 text-[11px] text-[var(--color-pib-text)]">
               {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
             </select>
           </label>
           <div className="flex gap-1">
-            <button type="button" onClick={() => setComposing(false)} className="inline-flex h-8 flex-1 items-center justify-center rounded-md text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]">
+            <button type="button" onClick={() => setComposing(false)} className="inline-flex h-8 flex-1 items-center justify-center rounded-md text-[11px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]">
               Cancel
             </button>
-            <button type="submit" className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-white/[0.1] text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.06]">
+            <button type="submit" className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-[11px] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)]">
               Send to inbox
             </button>
           </div>

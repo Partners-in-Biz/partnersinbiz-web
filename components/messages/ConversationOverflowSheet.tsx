@@ -23,7 +23,7 @@ export type OverflowDesignCommand = {
 }
 
 const ACTION_BUTTON_CLASS =
-  'inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]'
+  'inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]'
 
 export function ConversationOverflowSheet({
   open,
@@ -93,7 +93,7 @@ export function ConversationOverflowSheet({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/55 md:hidden" data-testid="conversation-overflow-backdrop">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-[var(--color-pib-surface-muted)]5 md:hidden" data-testid="conversation-overflow-backdrop">
       <button
         type="button"
         aria-label="Close conversation options"
@@ -116,7 +116,7 @@ export function ConversationOverflowSheet({
             type="button"
             aria-label="Close conversation options"
             onClick={onClose}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]"
           >
             <Icon name="close" className="text-[20px]" />
           </button>
@@ -183,7 +183,7 @@ export function ConversationOverflowSheet({
                   data-testid="overflow-bind-command-session"
                   disabled={commandSessionBusy}
                   onClick={() => { onBindCommandSession(); onClose() }}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-white/15 bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
                 >
                   <Icon name="link" className="text-[15px]" />
                   {commandSessionBusy ? 'Linking…' : 'Use as command session'}
@@ -192,7 +192,7 @@ export function ConversationOverflowSheet({
               {connectionWhere && (
                 <p data-testid="overflow-connection-where" className="flex items-center gap-1.5 text-[12px] text-[var(--color-pib-text-muted)]">
                   <span
-                    className={`h-1.5 w-1.5 ${ connectionWhere.online === true ? 'bg-emerald-400' : connectionWhere.online === false ? 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]' : 'bg-white/30' }`} style={{ borderRadius: '50%' }}
+                    className={`h-1.5 w-1.5 ${ connectionWhere.online === true ? 'bg-emerald-400' : connectionWhere.online === false ? 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]' : 'bg-[color-mix(in_srgb,var(--color-pib-text)_30%,transparent)]' }`} style={{ borderRadius: '50%' }}
                   />
                   {connectionWhere.display}
                 </p>
@@ -224,7 +224,7 @@ export function ConversationOverflowSheet({
                     type="button"
                     data-testid="overflow-workbench"
                     onClick={() => { onToggleWorkbench?.(); onClose() }}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
                   >
                     <Icon name="dock_to_left" className="text-[16px]" />
                     Workbench
@@ -235,7 +235,7 @@ export function ConversationOverflowSheet({
                     type="button"
                     data-testid="overflow-inspect"
                     onClick={() => { onOpenInspect?.(); onClose() }}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
                   >
                     <Icon name="developer_board" className="text-[16px]" />
                     Inspect
@@ -247,7 +247,7 @@ export function ConversationOverflowSheet({
                     type="button"
                     data-testid={`overflow-workbench-${action.id}`}
                     onClick={() => { onOpenWorkbench?.(action.id); onClose() }}
-                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 text-[12px] font-medium text-[var(--color-pib-text)]"
                   >
                     <Icon name={action.icon} className="text-[16px]" />
                     {action.label}
@@ -263,10 +263,10 @@ export function ConversationOverflowSheet({
               {(runtimeStatus || typeof queuedCount === 'number') && (
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
                   {runtimeStatus && (
-                    <span className="inline-flex h-7 items-center rounded-md border border-white/10 px-2">{runtimeStatus}</span>
+                    <span className="inline-flex h-7 items-center rounded-md border border-[var(--color-pib-line)] px-2">{runtimeStatus}</span>
                   )}
                   {typeof queuedCount === 'number' && (
-                    <span className="inline-flex h-7 items-center rounded-md border border-white/10 px-2">{queuedCount} queued</span>
+                    <span className="inline-flex h-7 items-center rounded-md border border-[var(--color-pib-line)] px-2">{queuedCount} queued</span>
                   )}
                 </div>
               )}

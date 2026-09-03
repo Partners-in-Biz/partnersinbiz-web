@@ -95,7 +95,7 @@ export function DesignAuditContextPreview({ auditId, refreshRevision = 0 }: { au
       {metrics.length > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {metrics.map((metric) => (
-            <div key={metric.id ?? metric.label ?? metric.value ?? 'metric'} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] px-2 py-1.5 text-center">
+            <div key={metric.id ?? metric.label ?? metric.value ?? 'metric'} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5 text-center">
               <p className="text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</p>
               <p className="mt-0.5 text-sm font-medium tabular-nums text-[var(--color-pib-text)]">{String(metric.value ?? '')}</p>
             </div>
@@ -119,7 +119,7 @@ export function DesignAuditContextPreview({ auditId, refreshRevision = 0 }: { au
           <h4 className="mb-1.5 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h4>
           <ul className="space-y-1.5">
             {(group.items ?? []).slice(0, 12).map((item) => (
-              <li key={item.id ?? `${group.id}-${item.label}`} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] px-2.5 py-1.5 text-[11px]">
+              <li key={item.id ?? `${group.id}-${item.label}`} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2.5 py-1.5 text-[11px]">
                 <p className="font-medium text-[var(--color-pib-text)]">{item.label}</p>
                 {item.detail && <p className="mt-0.5 text-[var(--color-pib-text-muted)] line-clamp-3 [overflow-wrap:anywhere]">{item.detail}</p>}
               </li>

@@ -95,7 +95,7 @@ export function DocumentContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
           <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading document preview…
@@ -114,11 +114,11 @@ export function DocumentContextPreview({
   return (
     <div
       data-testid="context-document-renderer"
-      className="relative max-h-[58dvh] overflow-auto rounded-[6px] border border-[var(--color-card-border)] bg-black/15 [&_article]:!min-h-0 [&_article]:!rounded-none [&_article]:!px-4 [&_article]:!py-5 [&_h1]:!text-2xl [&_h2]:!text-xl"
+      className="relative max-h-[58dvh] overflow-auto rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] [&_article]:!min-h-0 [&_article]:!rounded-none [&_article]:!px-4 [&_article]:!py-5 [&_h1]:!text-2xl [&_h2]:!text-xl"
     >
       {reload.softRefreshing && (
         <div className="sticky top-0 z-10 flex justify-end p-1" aria-live="polite">
-          <span className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--color-card-border)] bg-black/60 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+          <span className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
             <Icon name="progress_activity" className="animate-spin text-[12px]" />
             Updating…
           </span>

@@ -89,7 +89,7 @@ export function MessageDrawer({
           'relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40',
           open
             ? 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[#93C5FD]'
-            : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]',
+            : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]',
         ].join(' ')}
       >
         <Icon name="forum" className="text-[20px]" />
@@ -109,7 +109,7 @@ export function MessageDrawer({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close messages"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
               >
                 <Icon name="close" className="text-[20px]" />
               </button>
