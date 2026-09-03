@@ -200,14 +200,14 @@ export default function FinanceAssetsPage() {
             ].map(([label, n]) => (
               <div key={String(label)} className="pib-stat-card">
                 <p className="pib-label">{label}</p>
-                <p className="mt-3 text-2xl font-semibold">{n}</p>
+                <p className="mt-3 text-2xl">{n}</p>
               </div>
             ))}
           </section>
 
           <section className="grid gap-4 xl:grid-cols-3">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Asset class</h2>
+              <h2 className="text-base">Asset class</h2>
               <label className="block text-sm">Code
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={classCode} onChange={(e) => setClassCode(e.target.value)} />
               </label>
@@ -221,7 +221,7 @@ export default function FinanceAssetsPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Register asset</h2>
+              <h2 className="text-base">Register asset</h2>
               <label className="block text-sm">Number
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={assetNumber} onChange={(e) => setAssetNumber(e.target.value)} />
               </label>
@@ -238,14 +238,14 @@ export default function FinanceAssetsPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Monthly depreciation</h2>
+              <h2 className="text-base">Monthly depreciation</h2>
               <label className="block text-sm">Period (YYYY-MM)
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)} />
               </label>
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void runDepreciation()}>Create, calculate, post</button>
               <p className="text-xs text-[var(--color-pib-text-muted)]">Straight-line only. Posts book journal evidence; no bank payout.</p>
 
-              <h2 className="pt-2 text-base font-semibold">Dispose asset</h2>
+              <h2 className="pt-2 text-base">Dispose asset</h2>
               <label className="block text-sm">Asset id
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedAssetId} onChange={(e) => setSelectedAssetId(e.target.value)} />
               </label>
@@ -258,22 +258,22 @@ export default function FinanceAssetsPage() {
 
           <section className="pib-card space-y-3 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">Register report</h2>
+              <h2 className="text-base">Register report</h2>
               <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
             </div>
             {register ? (
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="pib-stat-card">
                   <p className="pib-label">Total cost</p>
-                  <p className="mt-2 text-xl font-semibold">{formatMinor(register.totalCostMinor || 0, currency)}</p>
+                  <p className="mt-2 text-xl">{formatMinor(register.totalCostMinor || 0, currency)}</p>
                 </div>
                 <div className="pib-stat-card">
                   <p className="pib-label">Accumulated dep</p>
-                  <p className="mt-2 text-xl font-semibold">{formatMinor(register.totalAccumulatedMinor || 0, currency)}</p>
+                  <p className="mt-2 text-xl">{formatMinor(register.totalAccumulatedMinor || 0, currency)}</p>
                 </div>
                 <div className="pib-stat-card">
                   <p className="pib-label">Net book value</p>
-                  <p className="mt-2 text-xl font-semibold">{formatMinor(register.totalNbvMinor || 0, currency)}</p>
+                  <p className="mt-2 text-xl">{formatMinor(register.totalNbvMinor || 0, currency)}</p>
                 </div>
               </div>
             ) : null}

@@ -2,6 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  Panel,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+  Toolbar,
+} from '@/components/studio'
 import { INTERVAL_LABELS, RecurrenceInterval } from '@/lib/invoices/recurring'
 
 interface Schedule {
@@ -9,28 +23,31 @@ interface Schedule {
   invoiceId: string
   orgId: string
   interval: RecurrenceInterval
-  startDate: any
-  endDate: any
-  nextDueAt: any
+  startDate: unknown
+  endDate: unknown
+  nextDueAt: unknown
   status: 'active' | 'paused' | 'cancelled' | 'completed'
   invoiceNumber?: string
 }
 
-function formatDate(ts: any) {
-  if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+type StatusTone = 'success' | 'warning' | 'danger' | 'info' | undefined
+
+function formatDate(ts: unknown) {
+  if (!ts) return '-'
+  const candidate = ts as { _seconds?: number; seconds?: number }
+  const d = candidate._seconds
+    ? new Date(candidate._seconds * 1000)
+    : candidate.seconds
+      ? new Date(candidate.seconds * 1000)
+      : new Date(ts as string)
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  active: 'pib-pill pib-pill-success',
-  paused: 'pib-pill pib-pill-warn',
-  cancelled: 'pib-pill',
-  completed: 'pib-pill pib-pill-blue',
+const STATUS_TONE: Record<string, StatusTone> = {
+  active: 'success',
+  paused: 'warning',
+  cancelled: undefined,
+  completed: 'info',
 }
 
 export default function RecurringSchedulesPage() {
@@ -61,91 +78,144 @@ export default function RecurringSchedulesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/portal/invoicing" className="text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">← Invoicing</Link>
-          <p className="eyebrow mt-3">Invoicing · Recurring</p>
-          <h1 className="pib-page-title mt-2">Recurring Schedules</h1>
-        </div>
-        <div role="tablist" aria-label="Schedule filter" className="pib-tabs pib-tabs-segmented">
-          {(['active', 'all'] as const).map(f => (
-            <button
-              key={f}
-              type="button"
-              role="tab"
-              aria-selected={filter === f}
-              onClick={() => setFilter(f)}
-              className={`pib-tab capitalize ${filter === f ? 'pib-tab-active' : ''}`}
-            >
-              {f === 'all' ? 'All' : 'Active'}
-            </button>
-          ))}
-        </div>
-      </header>
+    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+      <PageHeader
+        eyebrow="Invoicing"
+        title="Recurring schedules."
+        description="Manage repeating invoice schedules and next-due dates."
+        actions={
+          <ButtonLink href="/portal/invoicing" variant="ghost" size="sm">
+            Back to invoicing
+          </ButtonLink>
+        }
+      />
+
+      <Toolbar>
+        <PageTabs
+          ariaLabel="Schedule filter"
+          tabs={[
+            { value: 'active', label: 'Active' },
+            { value: 'all', label: 'All' },
+          ]}
+          value={filter}
+          onValueChange={(id) => setFilter(id as 'active' | 'all')}
+        />
+      </Toolbar>
 
       {loading ? (
-        <div className="space-y-2">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14" />)}
-        </div>
+        <Panel flat className="space-y-4 p-5">
+          <Skeleton height={20} width="12rem" />
+          <Skeleton height={20} width="100%" />
+          <Skeleton height={20} width="80%" />
+        </Panel>
       ) : schedules.length === 0 ? (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">event_repeat</span>
-          <h2 className="pib-empty-state-title">No recurring schedules found.</h2>
-        </div>
+        <EmptyState
+          title="No recurring schedules found."
+          description="Set up recurring billing from an invoice detail page."
+          action={<ButtonLink href="/portal/invoicing" variant="secondary" size="sm">Open invoicing</ButtonLink>}
+        />
       ) : (
-        <div className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
-          {schedules.map(s => {
-            const pill = STATUS_COLORS[s.status] ?? 'pib-pill'
-            return (
-              <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
-                <div className="flex items-center gap-4">
-                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                    <span className="material-symbols-outlined text-[18px]">event_repeat</span>
-                  </span>
-                  <span className={pill}>
-                    {s.status}
-                  </span>
+        <>
+          <div className="hidden md:block">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Invoice</TH>
+                  <TH>Status</TH>
+                  <TH>Interval</TH>
+                  <TH>Next due</TH>
+                  <TH><span className="sr-only">Actions</span></TH>
+                </TR>
+              </THead>
+              <tbody>
+                {schedules.map((s) => (
+                  <TR key={s.id}>
+                    <TD>
+                      <Link href={`/portal/invoicing/${s.invoiceId}`} className="sc-tiny">
+                        {s.invoiceNumber ?? 'View invoice'}
+                      </Link>
+                    </TD>
+                    <TD>
+                      <Status tone={STATUS_TONE[s.status]}>{s.status}</Status>
+                    </TD>
+                    <TD>{INTERVAL_LABELS[s.interval] ?? s.interval}</TD>
+                    <TD>{formatDate(s.nextDueAt)}</TD>
+                    <TD>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {s.status === 'active' ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => updateScheduleStatus(s.id, 'paused')}
+                            disabled={updating === s.id}
+                          >
+                            Pause
+                          </Button>
+                        ) : null}
+                        {s.status === 'paused' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => updateScheduleStatus(s.id, 'active')}
+                            disabled={updating === s.id}
+                          >
+                            Resume
+                          </Button>
+                        ) : null}
+                        {(s.status === 'active' || s.status === 'paused') ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => updateScheduleStatus(s.id, 'cancelled')}
+                            disabled={updating === s.id}
+                          >
+                            Cancel
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+
+          <div className="flex flex-col gap-4 md:hidden">
+            {schedules.map((s) => (
+              <Panel flat key={s.id} className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <Link href={`/portal/invoicing/${s.invoiceId}`} className="text-sm font-medium hover:underline">
-                      Invoice ↗
+                    <Link href={`/portal/invoicing/${s.invoiceId}`} className="sc-tiny">
+                      {s.invoiceNumber ?? 'View invoice'}
                     </Link>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">{INTERVAL_LABELS[s.interval] ?? s.interval} · Next: {formatDate(s.nextDueAt)}</p>
+                    <p className="sc-body mt-1">{INTERVAL_LABELS[s.interval] ?? s.interval}</p>
                   </div>
+                  <Status tone={STATUS_TONE[s.status]}>{s.status}</Status>
                 </div>
-                <div className="flex gap-2">
-                  {s.status === 'active' && (
-                    <button
-                      onClick={() => updateScheduleStatus(s.id, 'paused')}
-                      disabled={updating === s.id}
-                      className="btn-pib-secondary"
-                    >
+                <p className="sc-tiny">Next due {formatDate(s.nextDueAt)}</p>
+                <div className="flex flex-wrap gap-2">
+                  {s.status === 'active' ? (
+                    <Button type="button" variant="secondary" size="sm" onClick={() => updateScheduleStatus(s.id, 'paused')} disabled={updating === s.id}>
                       Pause
-                    </button>
-                  )}
-                  {s.status === 'paused' && (
-                    <button
-                      onClick={() => updateScheduleStatus(s.id, 'active')}
-                      disabled={updating === s.id}
-                      className="btn-pib-primary"
-                    >
+                    </Button>
+                  ) : null}
+                  {s.status === 'paused' ? (
+                    <Button type="button" size="sm" onClick={() => updateScheduleStatus(s.id, 'active')} disabled={updating === s.id}>
                       Resume
-                    </button>
-                  )}
-                  {(s.status === 'active' || s.status === 'paused') && (
-                    <button
-                      onClick={() => updateScheduleStatus(s.id, 'cancelled')}
-                      disabled={updating === s.id}
-                      className="btn-pib-ghost"
-                    >
+                    </Button>
+                  ) : null}
+                  {(s.status === 'active' || s.status === 'paused') ? (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => updateScheduleStatus(s.id, 'cancelled')} disabled={updating === s.id}>
                       Cancel
-                    </button>
-                  )}
+                    </Button>
+                  ) : null}
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              </Panel>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

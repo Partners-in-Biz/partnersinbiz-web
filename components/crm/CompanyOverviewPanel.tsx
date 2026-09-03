@@ -5,6 +5,7 @@ import { DonutChart, HorizontalBarChart, RevenueBarChart, StatCardWithChart } fr
 import { companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 import { hrefForProfileUrl } from '@/lib/crm/profileLinks'
+import { Icon } from '@/components/studio'
 
 type OverviewRow = { id?: string; [key: string]: unknown }
 
@@ -335,7 +336,7 @@ function latestMovement(center: CompanyOverviewCenter | undefined): Array<{
 
 function SectionCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <section className="overflow-hidden rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <p className="eyebrow !text-[10px]">{title}</p>
         {action}
@@ -384,7 +385,7 @@ function Field({
           className="inline-flex min-w-0 items-center gap-1.5 text-left hover:underline"
         >
           {displayValue}
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-accent-v2)]">edit</span>
+          <Icon name="edit" className="text-[var(--color-accent-v2)]" />
         </button>
       ) : (
         displayValue
@@ -409,9 +410,9 @@ function ProfileCaptureAction({
   return (
     <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-3">
       <div className="flex items-start gap-2.5">
-        <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-v2)]">{icon}</span>
+        <Icon name={icon} className="mt-0.5 text-[var(--color-accent-v2)]" />
         <div className="min-w-0">
-          <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{title}</h3>
+          <h3 className="text-xs text-[var(--color-pib-text)]">{title}</h3>
           <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
           {onEditCompany ? (
             <button
@@ -420,7 +421,7 @@ function ProfileCaptureAction({
               aria-label={actionLabel}
               className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+              <Icon name="edit" />
               Open profile editor
             </button>
           ) : (
@@ -453,11 +454,9 @@ function WidgetCard({
     <>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{label}</p>
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px]" style={{ color }}>
-          {icon}
-        </span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
       {hint ? <p className="mt-1 truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{hint}</p> : null}
     </>
   )
@@ -487,16 +486,16 @@ function MiniStatus({
   const toneClasses = {
     neutral: 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]',
     good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
-    warn: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+    warn: 'border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]',
     danger: 'border-red-400/30 bg-red-400/10 text-red-200',
   }
   return (
     <div className={`rounded-md border px-2 py-2 ${toneClasses[tone]}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-label uppercase tracking-wide">{label}</span>
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-1 text-lg font-semibold leading-none">{value}</p>
+      <p className="mt-1 text-lg leading-none">{value}</p>
     </div>
   )
 }
@@ -526,21 +525,21 @@ function AccountRiskBrief({
 
   const toneClasses = {
     danger: 'border-red-400/30 bg-red-500/10 text-red-100',
-    warn: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
+    warn: 'border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]',
   }
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" role="region" aria-label="Account risk brief">
+    <section className="rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" role="region" aria-label="Account risk brief">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <p className="eyebrow !text-[10px]">Leadership brief</p>
-          <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Account risk brief</h2>
+          <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">Account risk brief</h2>
           <p className="mt-0.5 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {items.length} account {items.length === 1 ? 'risk needs' : 'risks need'} leadership attention before {companyName} is board-ready.
           </p>
         </div>
-        <span className="inline-flex h-7 w-fit shrink-0 items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-100">
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">crisis_alert</span>
+        <span className="inline-flex h-7 w-fit shrink-0 items-center gap-1.5 rounded border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-100">
+          <Icon name="crisis_alert" />
           {items.length} active
         </span>
       </div>
@@ -549,8 +548,8 @@ function AccountRiskBrief({
           <div key={item.key} className={`flex flex-col justify-between rounded-md border p-3 ${toneClasses[item.tone]}`}>
             <div>
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-xs font-semibold">{item.label}</h3>
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{item.icon}</span>
+                <h3 className="text-xs">{item.label}</h3>
+                <Icon name={item.icon} />
               </div>
               <p className="mt-1.5 text-[11px] leading-4 opacity-85">{item.detail}</p>
             </div>
@@ -559,9 +558,9 @@ function AccountRiskBrief({
                 type="button"
                 onClick={item.onAction}
                 aria-label={item.actionLabel}
-                className="mt-2 inline-flex h-7 w-fit items-center gap-1.5 rounded-md border border-current/20 bg-black/10 px-2 text-[11px] font-semibold transition-colors hover:bg-black/20"
+                className="mt-2 inline-flex h-7 w-fit items-center gap-1.5 rounded-md border border-current/20 bg-black/10 px-2 text-[11px] transition-colors hover:bg-black/20"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                <Icon name="arrow_forward" />
                 Fix now
               </button>
             ) : null}
@@ -679,7 +678,7 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
               aria-label={`Open ${parentCompanyLabel}`}
               title={`Open ${parentCompanyLabel}`}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">domain</span>
+              <Icon name="domain" />
               <span className="truncate">Open {parentCompanyLabel}</span>
             </Link>
           )}
@@ -695,7 +694,7 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
 function SocialLink({ label, href }: { label: string; href: string }) {
   return (
     <a href={hrefForProfileUrl(href)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 text-sm text-[var(--color-accent-v2)] hover:underline">
-      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">link</span>
+      <Icon name="link" />
       {label}
     </a>
   )
@@ -853,13 +852,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
 
   return (
     <div className="space-y-3">
-      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-hidden p-0">
+      <section className="rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-hidden p-0">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
           <div className="space-y-3 p-3 md:p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="eyebrow !text-[10px]">Business pulse</p>
-                <h2 className="mt-1 text-base font-semibold tracking-tight text-[var(--color-pib-text)]">
+                <h2 className="mt-1 text-base tracking-tight text-[var(--color-pib-text)]">
                   {company.name}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
@@ -868,7 +867,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               </div>
               <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 text-right">
                 <p className="eyebrow !text-[10px]">Profile strength</p>
-                <p className="mt-1 text-lg font-semibold text-[var(--color-accent-v2)]">{profileScore}%</p>
+                <p className="mt-1 text-lg text-[var(--color-accent-v2)]">{profileScore}%</p>
               </div>
             </div>
 
@@ -920,7 +919,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             ) : (
               <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3">
                 <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
-                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep pulse risk reviewable</h3>
+                <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Keep pulse risk reviewable</h3>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.
                 </p>
@@ -931,7 +930,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Review operational risk for ${company.name}`}
                     className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    <Icon name="receipt_long" />
                     Review invoices
                   </button>
                 ) : (
@@ -973,8 +972,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           ) : (
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
-                <p className="eyebrow !text-[10px] text-amber-200">Revenue model missing</p>
-                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Build the first commercial signal</h3>
+                <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Revenue model missing</p>
+                <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Build the first commercial signal</h3>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.
                 </p>
@@ -985,7 +984,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Review commercial records for ${company.name}`}
                     className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">monetization_on</span>
+                    <Icon name="monetization_on" />
                     Review deals
                   </button>
                 ) : (
@@ -1002,8 +1001,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           ) : (
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
-                <p className="eyebrow !text-[10px] text-amber-200">Operating footprint missing</p>
-                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Link the first account record</h3>
+                <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Operating footprint missing</p>
+                <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Link the first account record</h3>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.
                 </p>
@@ -1014,7 +1013,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Review linked contacts for ${company.name}`}
                     className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+                    <Icon name="groups" />
                     Review contacts
                   </button>
                 ) : (
@@ -1034,7 +1033,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-emerald-200">Risk coverage clear</p>
-                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep account risk monitored</h3>
+                <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Keep account risk monitored</h3>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.
                 </p>
@@ -1045,7 +1044,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Review risk records for ${company.name}`}
                     className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    <Icon name="receipt_long" />
                     Review invoices
                   </button>
                 ) : (
@@ -1064,9 +1063,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                 return (
                   <div key={item.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-text-muted)]">
-                        {item.icon}
-                      </span>
+                      <Icon name={item.icon} className="mt-0.5 text-[var(--color-pib-text-muted)]" />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.meta} · {formatDate(item.dateValue)}</p>
@@ -1082,8 +1079,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           ) : (
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
-                <p className="eyebrow !text-[10px] text-amber-200">Account history quiet</p>
-                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Start the next account signal</h3>
+                <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Account history quiet</p>
+                <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Start the next account signal</h3>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.
                 </p>
@@ -1094,7 +1091,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Review activity for ${company.name}`}
                     className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">history</span>
+                    <Icon name="history" />
                     Review activity
                   </button>
                 ) : (
@@ -1117,7 +1114,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               <div key={item.label} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">add_circle</span>
+                  <Icon name="add_circle" className="text-[var(--color-pib-text-muted)]" />
                 </div>
                 {onEditCompany ? (
                   <button
@@ -1126,7 +1123,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     aria-label={`Edit company profile to capture ${item.label}`}
                     className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+                    <Icon name="edit" />
                     Capture now
                   </button>
                 ) : (

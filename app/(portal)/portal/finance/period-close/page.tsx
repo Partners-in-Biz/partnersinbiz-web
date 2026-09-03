@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
@@ -132,7 +133,7 @@ export default function FinancePeriodClosePage() {
       setCentre(result as PeriodCloseCommandCentre)
       scope.setMessage(
         (result as PeriodCloseCommandCentre)?.readyToClose
-          ? 'No close blockers — ready for period.close approval flow on Ledger'
+          ? 'No close blockers - ready for period.close approval flow on Ledger'
           : `Close centre found ${(result as PeriodCloseCommandCentre).blockerCount} blocker(s)`,
       )
     } catch (err) {
@@ -154,7 +155,7 @@ export default function FinancePeriodClosePage() {
       error={scope.error}
       message={scope.message}
       title="Period close"
-      description="Command centre for close-week blockers: unreconciled banks, unapproved journals, open pay runs, missing FX reval, incomplete cutover. Deep links only — no payment initiate, no SARS submit."
+      description="Command centre for close-week blockers: unreconciled banks, unapproved journals, open pay runs, missing FX reval, incomplete cutover. Deep links only - no payment initiate, no SARS submit."
     >
       <div className="space-y-4">
         <FinanceScopeBar scope={scope} />
@@ -206,9 +207,7 @@ export default function FinancePeriodClosePage() {
 
         {!centre && !loading ? (
           <div className="pib-empty-state">
-            <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden>
-              rule
-            </span>
+            <Icon name="rule" />
             <h3 className="pib-empty-state-title">No evaluation yet</h3>
             <p className="pib-empty-state-description">Refresh sources, then evaluate blockers for this book.</p>
           </div>
@@ -240,12 +239,12 @@ export default function FinancePeriodClosePage() {
                 {centre.blockers.map((blocker) => (
                   <div
                     key={blocker.code}
-                    className="rounded-xl border border-[var(--color-pib-line)] p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                    className="border border-[var(--color-pib-line)] p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
                     data-testid={`period-close-blocker-${blocker.code}`}
                   >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-[var(--color-pib-text)]">{blocker.title}</span>
+                        <span className="text-[var(--color-pib-text)]">{blocker.title}</span>
                         <HudChip tone={blocker.severity === 'blocker' ? 'warning' : 'neutral'}>{blocker.severity}</HudChip>
                         <HudChip tone="neutral">×{blocker.count}</HudChip>
                       </div>
@@ -270,7 +269,7 @@ export default function FinancePeriodClosePage() {
         ) : null}
 
         <Card className="p-4">
-          <h2 className="text-sm font-semibold">Related operator density</h2>
+          <h2 className="text-sm">Related operator density</h2>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             AR/AP advanced filters, saved views, select-all-filtered bulk plans, and multi-invoice/overpay allocation planning live on Documents.
             Amounts stay in minor units ({formatMinor(0, scope.selectedBook?.functionalCurrency || 'ZAR')} scale).

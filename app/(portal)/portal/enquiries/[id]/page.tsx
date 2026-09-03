@@ -8,6 +8,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '@/lib/firebase/config'
 import MessageThread from '@/components/portal/MessageThread'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Under Review',
@@ -96,7 +97,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
         href={projectsHref}
         className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
       >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+        <Icon name="arrow_back" />
         Back to projects
       </Link>
 
@@ -124,15 +125,13 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             'groups',
           ],
         ].map(([label, value, sub, icon]) => (
-          <div key={label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] p-4">
+          <div key={label} className="rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-surface)] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-                <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
+                <p className="mt-2 text-lg text-[var(--color-pib-text)]">{value}</p>
               </div>
-              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                <span className="material-symbols-outlined text-lg">{icon}</span>
-              </span>
+              <Icon name={icon} />
             </div>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
           </div>
@@ -142,7 +141,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="bento-card !p-7 space-y-3">
           <p className="eyebrow">Brief</p>
-          <h2 className="text-xl font-semibold capitalize text-[var(--color-pib-text)]">{projectTypeLabel}</h2>
+          <h2 className="text-xl capitalize text-[var(--color-pib-text)]">{projectTypeLabel}</h2>
           <p className="text-[var(--color-pib-text)] leading-relaxed text-pretty">{enquiry.details}</p>
           {enquiry.company && (
             <p className="text-xs text-[var(--color-pib-text-muted)] font-mono pt-3 border-t border-[var(--color-pib-line)]">

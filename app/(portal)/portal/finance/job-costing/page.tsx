@@ -188,8 +188,8 @@ export default function FinanceJobCostingPage() {
       setLastApplication(result ?? null)
       scope.setMessage(
         purpose === 'wip_cost'
-          ? 'WIP time cost applied (journal proposal only — no payment / no SARS)'
-          : 'Draft invoice lines proposed (not auto-issued — finish on Documents)',
+          ? 'WIP time cost applied (journal proposal only - no payment / no SARS)'
+          : 'Draft invoice lines proposed (not auto-issued - finish on Documents)',
       )
       await loadBundle()
       await runClosedLoop()
@@ -313,7 +313,7 @@ export default function FinanceJobCostingPage() {
 
           <section className="pib-card space-y-3 p-4" data-testid="job-costing-closed-loop">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">Traceability · quote → cash</h2>
+              <h2 className="text-base">Traceability · quote → cash</h2>
               <HudChip>Observe cash on Documents</HudChip>
             </div>
             <ol className="grid gap-2 md:grid-cols-5">
@@ -382,7 +382,7 @@ export default function FinanceJobCostingPage() {
           )}
 
           <section className="pib-card grid gap-3 p-4 md:grid-cols-3" data-testid="job-costing-apply">
-            <h2 className="md:col-span-3 text-base font-semibold">Time cost application</h2>
+            <h2 className="md:col-span-3 text-base">Time cost application</h2>
             <label className="text-sm">
               Purpose
               <select
@@ -468,14 +468,14 @@ export default function FinanceJobCostingPage() {
             <p className="md:col-span-3 text-xs text-[var(--color-pib-muted)]">
               Same time entry cannot be applied twice for the same purpose. Draft invoice refuses already-invoiced
               source entries. Draft invoice on a time entry releases matching open WIP (no double-cost). Cash
-              application stays on Documents payment allocate — job costing never initiates bank payout or SARS
+              application stays on Documents payment allocate - job costing never initiates bank payout or SARS
               submit.
             </p>
           </section>
 
           {lastApplication ? (
             <section className="pib-card p-4" data-testid="job-costing-last-application">
-              <h2 className="text-base font-semibold">Last application</h2>
+              <h2 className="text-base">Last application</h2>
               <div className="mt-2 flex flex-wrap gap-2">
                 <HudChip tone="accent">{lastApplication.purpose}</HudChip>
                 <HudChip>{lastApplication.status}</HudChip>
@@ -492,7 +492,7 @@ export default function FinanceJobCostingPage() {
 
           {pnl ? (
             <section className="pib-card p-4" data-testid="job-costing-pnl">
-              <h2 className="text-base font-semibold">Job P&amp;L — {pnl.projectId}</h2>
+              <h2 className="text-base">Job P&amp;L - {pnl.projectId}</h2>
               <div className="mt-3 grid gap-4 md:grid-cols-2">
                 <div>
                   <h3 className="text-sm font-medium">Revenue lines</h3>
@@ -548,7 +548,7 @@ export default function FinanceJobCostingPage() {
           {wip ? (
             <section className="pib-card p-4" data-testid="job-costing-wip">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">WIP aging — {wip.projectId}</h2>
+                <h2 className="text-base">WIP aging - {wip.projectId}</h2>
                 <HudChip>
                   Released {formatMinor(wip.releasedLaborCostMinor || 0, currency)}
                 </HudChip>
@@ -565,13 +565,13 @@ export default function FinanceJobCostingPage() {
                     data-testid={`job-cost-wip-bucket-${bucket.key}`}
                   >
                     <div className="text-xs uppercase tracking-wide text-[var(--color-pib-muted)]">{bucket.label}</div>
-                    <div className="text-lg font-semibold">{formatMinor(bucket.amountMinor || 0, currency)}</div>
+                    <div className="text-lg">{formatMinor(bucket.amountMinor || 0, currency)}</div>
                     <div className="text-xs text-[var(--color-pib-muted)]">{bucket.count || 0} app(s)</div>
                   </div>
                 ))}
                 {aging.length === 0 ? (
                   <p className="text-sm text-[var(--color-pib-muted)] sm:col-span-2 lg:col-span-5">
-                    No aging buckets yet — load WIP or closed loop.
+                    No aging buckets yet - load WIP or closed loop.
                   </p>
                 ) : null}
               </div>
@@ -579,7 +579,7 @@ export default function FinanceJobCostingPage() {
           ) : null}
 
           <section className="pib-card p-4" data-testid="job-costing-applications">
-            <h2 className="text-base font-semibold">Time cost applications ({applications.length})</h2>
+            <h2 className="text-base">Time cost applications ({applications.length})</h2>
             <ul className="mt-2 space-y-2 text-sm">
               {applications.map((app) => (
                 <li key={app.id} className="rounded-lg border border-[var(--color-pib-line)] p-3">

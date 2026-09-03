@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { Card } from '@/components/ui/Card'
-import { HudChip } from '@/components/ui/HudChip'
+import { Status, Steps, Title } from '@/components/studio'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import {
   buildGuidedWorkflowView,
@@ -29,23 +28,20 @@ export function FinanceGuidedWorkflowStepper({
     : workflows[0]?.id ?? 'first_month_close'
   const [workflowId, setWorkflowId] = useState<FinanceGuidedWorkflowId>(defaultId)
   const [activeStep, setActiveStep] = useState(0)
-
   const view = useMemo(() => buildGuidedWorkflowView(workflowId, ctx), [workflowId, ctx])
-
-  // Reset step index when workflow changes
   const safeStep = Math.min(activeStep, Math.max(view.steps.length - 1, 0))
   const step = view.steps[safeStep]
 
   return (
-    <Card className="space-y-3 p-4" data-testid="finance-guided-workflow-stepper">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="st-panel space-y-4 p-4" data-testid="finance-guided-workflow-stepper">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Guided workflows</h2>
-            <HudChip>Day-one density</HudChip>
+            <Title as="h2">Guided workflows</Title>
+            <Status>Day-one density</Status>
           </div>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-            First month close, first pay run, and first bank recon — role-gated steps on the live design system.
+          <p className="sc-body mt-1 text-xs text-[var(--sc-ink-soft)]">
+            First month close, first pay run, and first bank recon. Role-gated steps on the live design system.
           </p>
         </div>
         <div className="w-full max-w-xs">
@@ -63,84 +59,60 @@ export function FinanceGuidedWorkflowStepper({
         </div>
       </div>
 
-      <p className="text-xs text-[var(--color-pib-text-muted)]">{view.workflow.description}</p>
+      <p className="sc-body text-xs text-[var(--sc-ink-soft)]">{view.workflow.description}</p>
+      <Steps steps={view.steps.map((s) => s.title)} current={safeStep} />
 
       <ol className="flex flex-wrap gap-2" data-testid="finance-workflow-step-list">
-        {view.steps.map((s, index) => {
-          const tone =
-            index === safeStep ? 'accent' : s.canComplete ? undefined : undefined
-          return (
-            <li key={s.id}>
-              <button
-                type="button"
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  index === safeStep
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-text)]'
-                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
-                }`}
-                onClick={() => setActiveStep(index)}
-                data-testid={`finance-workflow-step-tab-${s.id}`}
-                data-status={s.status}
-              >
-                {index + 1}. {s.title}
-                {!s.canComplete ? ' · locked' : s.approvalGated ? ' · SOD' : ''}
-              </button>
-              {tone ? null : null}
-            </li>
-          )
-        })}
+        {view.steps.map((s, index) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              className={`border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                index === safeStep
+                  ? 'border-[var(--sc-accent)] text-[var(--sc-ink)]'
+                  : 'border-[var(--sc-line)] text-[var(--sc-ink-soft)] hover:bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]'
+              }`}
+              onClick={() => setActiveStep(index)}
+              data-testid={`finance-workflow-step-tab-${s.id}`}
+              data-status={s.status}
+            >
+              {index + 1}. {s.title}
+              {!s.canComplete ? ' · locked' : s.approvalGated ? ' · SOD' : ''}
+            </button>
+          </li>
+        ))}
       </ol>
 
       {step ? (
-        <div
-          className="rounded-lg border border-[var(--color-pib-line)] p-3"
-          data-testid={`finance-workflow-step-panel-${step.id}`}
-          data-can-complete={step.canComplete ? 'true' : 'false'}
-        >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">
+        <div className="st-panel st-panel--flat p-3" data-testid={`finance-workflow-step-panel-${step.id}`} data-can-complete={step.canComplete ? 'true' : 'false'}>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="st-title text-sm">
               Step {safeStep + 1}: {step.title}
             </p>
-            {step.canComplete ? <HudChip tone="accent">Your role</HudChip> : <HudChip>Role blocked</HudChip>}
-            {step.approvalGated ? <HudChip>Approval gated</HudChip> : null}
+            {step.canComplete ? <Status tone="info">Your role</Status> : <Status>Role blocked</Status>}
+            {step.approvalGated ? <Status tone="warning">Approval gated</Status> : null}
           </div>
-          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{step.detail}</p>
-          {step.hardGateNote ? (
-            <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">Hard gate: {step.hardGateNote}</p>
-          ) : null}
+          <p className="sc-body mt-1 text-xs leading-5 text-[var(--sc-ink-soft)]">{step.detail}</p>
+          {step.hardGateNote ? <p className="mt-1 text-[11px] text-[var(--sc-ink-soft)]">Hard gate: {step.hardGateNote}</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {step.canComplete ? (
-              <Link
-                href={scopedPortalPath(step.href, orgScope)}
-                className="pib-btn-primary btn-pib-sm"
-                data-testid="finance-workflow-step-cta"
-              >
+              <Link href={scopedPortalPath(step.href, orgScope)} className="st-btn st-btn--primary st-btn--sm" data-testid="finance-workflow-step-cta">
                 Open step
               </Link>
             ) : (
-              <span className="text-xs text-[var(--color-pib-text-muted)]" data-testid="finance-workflow-step-blocked">
-                Visible for orientation only — your assignment cannot complete this step.
+              <span className="text-xs text-[var(--sc-ink-soft)]" data-testid="finance-workflow-step-blocked">
+                Visible for orientation only. Your assignment cannot complete this step.
               </span>
             )}
-            <button
-              type="button"
-              className="pib-btn-secondary btn-pib-sm"
-              disabled={safeStep <= 0}
-              onClick={() => setActiveStep((n) => Math.max(0, n - 1))}
-            >
+            <button type="button" className="st-btn st-btn--secondary st-btn--sm" disabled={safeStep <= 0} onClick={() => setActiveStep((n) => Math.max(0, n - 1))}>
               Back
             </button>
-            <button
-              type="button"
-              className="pib-btn-secondary btn-pib-sm"
-              disabled={safeStep >= view.steps.length - 1}
-              onClick={() => setActiveStep((n) => Math.min(view.steps.length - 1, n + 1))}
-            >
+            <button type="button" className="st-btn st-btn--secondary st-btn--sm" disabled={safeStep >= view.steps.length - 1} onClick={() => setActiveStep((n) => Math.min(view.steps.length - 1, n + 1))}>
               Next
             </button>
           </div>
         </div>
       ) : null}
-    </Card>
+    </div>
   )
 }

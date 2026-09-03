@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { companyAccountOwnerRef } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
+import { Icon } from '@/components/studio'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   // Neither set
   if (!companyId && !companyName) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--color-pib-line)] p-3">
+      <div className="rounded-[var(--st-radius-raised)] border border-dashed border-[var(--color-pib-line)] p-3">
         <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
         {emptyAction && (
           <button
@@ -100,7 +101,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
             className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
           >
             {emptyAction.icon && (
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+              <Icon name={emptyAction.icon} />
             )}
             {emptyAction.label}
           </button>
@@ -112,9 +113,9 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   // companyName only (hybrid fallback)
   if (!companyId && companyName) {
     return (
-      <div className="rounded-2xl border border-[var(--color-pib-line)] p-3">
+      <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] p-3">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
+          <Icon name="domain" className="text-[var(--color-pib-text-muted)]" />
           <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
         </div>
         {emptyAction && (
@@ -125,7 +126,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
             className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
           >
             {emptyAction.icon && (
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+              <Icon name={emptyAction.icon} />
             )}
             {emptyAction.label}
           </button>
@@ -134,12 +135,12 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
     )
   }
 
-  // companyId set — loading state
+  // companyId set - loading state
   if (loading) {
     const displayName = companyName?.trim() || 'Resolving company identity...'
     return (
       <div className="pib-card flex items-start gap-3 p-3">
-        <div className="pib-icon-tint w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-label">
+        <div className="w-10 h-10 shrink-0 rounded flex items-center justify-center text-xs font-label">
           {initials(displayName)}
         </div>
         <div className="flex-1 min-w-0 space-y-1">
@@ -153,7 +154,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
             className="text-xs text-[var(--color-pib-accent)] hover:underline shrink-0 flex items-center gap-0.5"
           >
             Open
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+            <Icon name="arrow_forward" />
           </Link>
         )}
       </div>
@@ -177,10 +178,10 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
           alt={displayName}
           width={40}
           height={40}
-          className="w-10 h-10 rounded-full object-cover shrink-0"
+          className="w-10 h-10 rounded object-cover shrink-0"
         />
       ) : (
-        <div className="pib-icon-tint w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-label">
+        <div className="w-10 h-10 shrink-0 rounded flex items-center justify-center text-xs font-label">
           {initials(displayName)}
         </div>
       )}
@@ -211,7 +212,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
           className="text-xs text-[var(--color-pib-accent)] hover:underline shrink-0 flex items-center gap-0.5"
         >
           Open
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+          <Icon name="arrow_forward" />
         </Link>
       )}
     </div>

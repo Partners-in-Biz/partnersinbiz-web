@@ -108,8 +108,8 @@ export function SharedWithUsSection({
   if (loading || records.length === 0) return null
 
   return (
-    <section className="mb-6 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-      <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+    <section className="mb-6 rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
+      <h2 className="mb-3 text-sm text-[var(--color-pib-text)]">{title}</h2>
       <ul className="space-y-2">
         {records.map((record) => {
           const key = `${record.servingOrgId}:${record.id}`
@@ -120,7 +120,7 @@ export function SharedWithUsSection({
           const inner = (
             <>
               <span className="font-medium text-[var(--color-pib-text)]">{recordName(record)}</span>
-              <span className="ml-2 rounded-full bg-[var(--color-accent-v2)]/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+              <span className="ml-2 rounded bg-[var(--color-accent-v2)]/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 by {by}
               </span>
               {record.fields.status ? (
@@ -128,10 +128,10 @@ export function SharedWithUsSection({
               ) : null}
               {approval ? (
                 <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                  className={`ml-2 rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
                     approval.state === 'approved'
                       ? 'bg-emerald-500/15 text-emerald-300'
-                      : 'bg-amber-500/15 text-amber-300'
+                      : 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                   }`}
                 >
                   {approval.state === 'approved' ? 'Approved' : 'Changes requested'}
@@ -150,7 +150,7 @@ export function SharedWithUsSection({
                   <button
                     type="button"
                     onClick={() => setOpenId(openId === key ? null : key)}
-                    className="rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]"
+                    className="rounded border border-[var(--color-pib-line)] px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]"
                   >
                     {openId === key ? 'Close' : 'Comment / approve'}
                   </button>
@@ -278,7 +278,7 @@ function SharedRecordActions({
               type="button"
               disabled={busy || !draft.trim()}
               onClick={() => void submitComment()}
-              className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:opacity-50"
+              className="rounded border border-[var(--color-pib-line)] px-3 py-1 text-[11px] text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:opacity-50"
             >
               Comment
             </button>
@@ -286,7 +286,7 @@ function SharedRecordActions({
               type="button"
               disabled={busy}
               onClick={() => void submitApproval('approved')}
-              className="rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+              className="rounded bg-emerald-500/20 px-3 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
             >
               Approve
             </button>
@@ -294,7 +294,7 @@ function SharedRecordActions({
               type="button"
               disabled={busy}
               onClick={() => void submitApproval('changes_requested')}
-              className="rounded-full bg-amber-500/20 px-3 py-1 text-[11px] text-amber-200 hover:bg-amber-500/30 disabled:opacity-50"
+              className="rounded bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-1 text-[11px] text-[var(--st-warning)] hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] disabled:opacity-50"
             >
               Request changes
             </button>

@@ -1,6 +1,6 @@
 'use client'
 
-// US-076 — Suppression list UI. Consumes the existing /api/v1/suppressions API:
+// US-076 - Suppression list UI. Consumes the existing /api/v1/suppressions API:
 //   GET    list (paginated; meta.total) → { success, data: rows[], meta }
 //   POST   add one { email, reason, notes? }
 //   DELETE /[id] remove one
@@ -8,6 +8,7 @@
 // reason column), per-entry remove, and a total count.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 const REASONS = [
   'manual-unsub',
@@ -33,7 +34,7 @@ interface SuppressionRow {
 }
 
 interface SuppressionListProps {
-  /** Builds an org-scoped API path (scopedApiPath — appends ?orgId=). */
+  /** Builds an org-scoped API path (scopedApiPath - appends ?orgId=). */
   apiPath: (path: string) => string
 }
 
@@ -41,9 +42,9 @@ const PAGE_SIZE = 50
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function formatDate(iso?: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
@@ -210,10 +211,12 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
           <p className="pib-label">Add email</p>
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <label className="pib-label">
+              <label htmlFor="suppression-email" className="pib-label">
                 Email address
               </label>
               <input
+                id="suppression-email"
+                aria-label="Email address"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -222,10 +225,12 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="pib-label">
+              <label htmlFor="suppression-reason" className="pib-label">
                 Reason
               </label>
               <select
+                id="suppression-reason"
+                aria-label="Suppression reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value as Reason)}
                 className="pib-select h-8 w-full text-xs"
@@ -238,7 +243,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
               </select>
             </div>
             <button type="submit" disabled={adding} className="btn-pib-primary h-8 gap-1.5 self-start px-3 text-xs">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">block</span>
+              <Icon name="block" />
               {adding ? 'Adding…' : 'Suppress email'}
             </button>
           </div>
@@ -257,11 +262,12 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
           </p>
           <input
             ref={fileRef}
+            aria-label="Import suppression CSV"
             type="file"
             accept=".csv,text/csv,text/plain"
             onChange={handleImportFile}
             disabled={importing}
-            className="block w-full text-xs text-[var(--color-pib-text-muted)] file:mr-3 file:rounded-full file:border file:border-[var(--color-pib-line)] file:bg-transparent file:px-2.5 file:py-1.5 file:text-xs file:text-[var(--color-pib-text)] hover:file:bg-[var(--color-row-hover)]"
+            className="block w-full text-xs text-[var(--color-pib-text-muted)] file:mr-3 file:rounded file:border file:border-[var(--color-pib-line)] file:bg-transparent file:px-2.5 file:py-1.5 file:text-xs file:text-[var(--color-pib-text)] hover:file:bg-[var(--color-row-hover)]"
           />
           {importing && <p className="text-[11px] text-[var(--color-pib-text-muted)]">Importing…</p>}
           {importResult && (
@@ -273,7 +279,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
       {/* Count + errors */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-[var(--color-pib-text-muted)]">
-          <span className="text-lg font-semibold text-[var(--color-pib-text)]">{total}</span>{' '}
+          <span className="text-lg text-[var(--color-pib-text)]">{total}</span>{' '}
           suppressed address{total === 1 ? '' : 'es'}
         </p>
         {rowError && (
@@ -294,21 +300,21 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
         <section className="pib-card border-[var(--color-pib-accent)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--color-pib-accent)]" />
               <div>
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Suppressions could not load</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">Suppressions could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
             <button type="button" onClick={() => fetchRows(1)} className="btn-pib-secondary h-8 shrink-0 gap-1.5 px-3 text-xs">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
         </section>
       ) : rows.length === 0 ? (
         <div className="pib-empty-state">
-          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">do_not_disturb_on</span>
+          <Icon name="do_not_disturb_on" />
           <h2 className="pib-empty-state-title">No suppressed addresses.</h2>
           <p className="pib-empty-state-description">
             Bounces, complaints and manual unsubscribes will appear here.
@@ -346,7 +352,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
                         className="btn-pib-ghost ml-auto h-8 gap-1 px-2 text-xs hover:text-[var(--color-error)]"
                         aria-label={`Remove ${row.email} from suppression list`}
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
+                        <Icon name="delete" />
                         {removingId === row.id ? 'Removing…' : 'Remove'}
                       </button>
                     </td>

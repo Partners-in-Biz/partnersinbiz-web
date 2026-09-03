@@ -21,6 +21,7 @@ import { ClickToCallButton } from '@/components/twilio/ClickToCallButton'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 type SearchParamReader = {
   get(name: string): string | null
@@ -80,7 +81,7 @@ interface SegmentOption {
   id: string
   name: string
   /** The tag(s) this segment's filter matches on (array-contains-any). Only
-   *  tag-based segments have these — they are what a contact must be tagged with
+   *  tag-based segments have these - they are what a contact must be tagged with
    *  to genuinely join the segment's dynamic audience. */
   tags: string[]
 }
@@ -135,7 +136,7 @@ function useInlineToast() {
           }`}
         >
           <span
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs  ${
               t.tone === 'success'
                 ? 'bg-emerald-400/10 text-emerald-100'
                 : t.tone === 'error'
@@ -321,7 +322,7 @@ export function ContactsWorkspace({
     return scopedPortalPath(`/portal/contacts/${encodedId}${suffix}`, routeScope)
   }, [isAdmin, routeScope])
 
-  // Shared list-filter query string — reused by the list fetch and the
+  // Shared list-filter query string - reused by the list fetch and the
   // filtered/selection CSV export so the export always matches the view.
   const buildFilterParams = useCallback(() => {
     const params = new URLSearchParams()
@@ -497,7 +498,7 @@ export function ContactsWorkspace({
     setBulkAction('add-tags')
     setBulkDeleteConfirmOpen(true)
     pushToast(
-      `${ids.length} setup contact${ids.length === 1 ? '' : 's'} selected for cleanup — confirm delete below.`,
+      `${ids.length} setup contact${ids.length === 1 ? '' : 's'} selected for cleanup - confirm delete below.`,
       'info',
     )
   }
@@ -528,7 +529,7 @@ export function ContactsWorkspace({
       setBulkDeleteConfirmOpen(false)
       pushToast(`${count} contact${count === 1 ? '' : 's'} deleted`, 'success')
     } catch {
-      pushToast('Network error — delete failed', 'error')
+      pushToast('Network error - delete failed', 'error')
     } finally {
       setBulkPending(false)
     }
@@ -562,14 +563,14 @@ export function ContactsWorkspace({
     } else if (bulkAction === 'assign-segment') {
       const segment = segments.find((s) => s.id === bulkSegmentId)
       if (!segment) { pushToast('Select a segment', 'error'); return }
-      // Segments are DYNAMIC (filter/rule based) — there is no static membership
+      // Segments are DYNAMIC (filter/rule based) - there is no static membership
       // store. A contact "joins" a tag-based segment by carrying a tag the
       // segment's array-contains-any filter matches. So we add the segment's
       // own defining tags. Behavioral/rule-only segments (no defining tags)
-      // cannot be joined by tagging — defer with a clear reason.
+      // cannot be joined by tagging - defer with a clear reason.
       if (segment.tags.length === 0) {
         pushToast(
-          `"${segment.name}" is a dynamic segment with no tag rule — contacts join it automatically when they match its conditions, so there's nothing to assign manually.`,
+          `"${segment.name}" is a dynamic segment with no tag rule - contacts join it automatically when they match its conditions, so there's nothing to assign manually.`,
           'info',
         )
         return
@@ -600,7 +601,7 @@ export function ContactsWorkspace({
         pushToast(body.error ?? 'Bulk update failed', 'error')
       }
     } catch {
-      pushToast('Network error — bulk update failed', 'error')
+      pushToast('Network error - bulk update failed', 'error')
     } finally {
       setBulkPending(false)
     }
@@ -650,7 +651,7 @@ export function ContactsWorkspace({
       downloadBlob(blob, exportFilename())
       pushToast(`Exported ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}`, 'success')
     } catch {
-      pushToast('Network error — export failed', 'error')
+      pushToast('Network error - export failed', 'error')
     } finally {
       setBulkPending(false)
     }
@@ -765,7 +766,7 @@ export function ContactsWorkspace({
               disabled={duplicatesLoading || !canLoadContacts}
               className="btn-pib-secondary btn-pib-sm disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+              <Icon name="merge" />
               {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
             </button>
             <button
@@ -775,7 +776,7 @@ export function ContactsWorkspace({
               aria-label="Export contacts as CSV"
               className="btn-pib-secondary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
+              <Icon name="file_download" />
               Export CSV
             </button>
             <button
@@ -785,7 +786,7 @@ export function ContactsWorkspace({
               aria-label="New contact"
               className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              <Icon name="add" />
               New contact
             </button>
           </>
@@ -824,7 +825,7 @@ export function ContactsWorkspace({
         <Surface variant="glass" className="flex min-w-0 flex-wrap items-center gap-1.5 !px-2 !py-1.5">
           <div className="min-w-0 px-1">
             <p className="pib-label mb-0">Executive lens</p>
-            <h2 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">Today&apos;s contact cockpit</h2>
+            <h2 className="truncate text-xs text-[var(--color-pib-text)]">Today&apos;s contact cockpit</h2>
           </div>
           <p className="min-w-[16rem] flex-1 px-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Follow-up pressure, owner gaps, customer volume, and the current working lens in one board-ready view.
@@ -837,14 +838,14 @@ export function ContactsWorkspace({
                 setFollowUpLens('stale')
               }}
               className={[
-                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                'flex h-7 shrink-0 items-center gap-1.5 rounded border px-2.5 text-[11px] transition',
                 followUpLens === 'stale'
                   ? 'border-primary/30 bg-primary/10 text-primary'
                   : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
               ].join(' ')}
               aria-label="Show contacts needing follow-up"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+              <Icon name="edit_note" />
               Follow-ups
             </button>
             <button
@@ -854,14 +855,14 @@ export function ContactsWorkspace({
                 setFollowUpLens('all')
               }}
               className={[
-                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                'flex h-7 shrink-0 items-center gap-1.5 rounded border px-2.5 text-[11px] transition',
                 ownerLens === 'unowned'
                   ? 'border-primary/30 bg-primary/10 text-primary'
                   : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
               ].join(' ')}
               aria-label="Show owner gaps"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">manage_accounts</span>
+              <Icon name="manage_accounts" />
               Owner gaps
             </button>
             <button
@@ -870,10 +871,10 @@ export function ContactsWorkspace({
                 setOwnerLens('all')
                 setFollowUpLens('all')
               }}
-              className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
               aria-label="Show full contact audience"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">groups</span>
+              <Icon name="groups" />
               Full audience
             </button>
           </div>
@@ -910,10 +911,10 @@ export function ContactsWorkspace({
       <section className="grid shrink-0 gap-2 md:grid-cols-3">
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
+            <p className="text-lg leading-6 text-[var(--color-pib-text)]">
               {Math.round(ownerCoverage * 100)}%
             </p>
-            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">supervisor_account</span>
+            <Icon name="supervisor_account" className="text-[var(--color-pib-text-muted)]" />
           </div>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Owner coverage</p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -932,10 +933,10 @@ export function ContactsWorkspace({
           aria-label={ownerLens === 'unowned' ? 'Show all contacts' : 'Show unowned contacts needing an owner'}
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-semibold text-[var(--color-pib-text)]">
+            <p className="text-xs text-[var(--color-pib-text)]">
               {ownerLens === 'unowned' ? 'Showing owner gaps' : 'Review owner gaps'}
             </p>
-            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_accounts</span>
+            <Icon name="manage_accounts" className="text-[var(--color-pib-text-muted)]" />
           </div>
           <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             {unownedContacts.length > 0
@@ -945,8 +946,8 @@ export function ContactsWorkspace({
         </button>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-semibold text-[var(--color-pib-text)]">Team workload</p>
-            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">groups</span>
+            <p className="text-xs text-[var(--color-pib-text)]">Team workload</p>
+            <Icon name="groups" className="text-[var(--color-pib-text-muted)]" />
           </div>
           <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Select unowned contacts, assign a team member, and keep the customer base accountable from this workspace.
@@ -962,7 +963,7 @@ export function ContactsWorkspace({
                 : `Select ${unownedContacts.length} unowned contacts for owner assignment`
             }
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+            <Icon name="playlist_add_check" />
             {unownedContacts.length > 0
               ? `Select ${unownedContacts.length} owner gap${unownedContacts.length === 1 ? '' : 's'}`
               : 'No owner gaps'}
@@ -974,19 +975,14 @@ export function ContactsWorkspace({
         <section
           role="region"
           aria-label="Contact setup review for visible contacts"
-          className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
+          className="shrink-0 rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 gap-2">
-              <span
-                className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100"
-                aria-hidden="true"
-              >
-                rule_settings
-              </span>
+              <Icon name="rule_settings" className="mt-0.5 text-[var(--st-warning)]" />
               <div className="min-w-0">
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Audience hygiene</p>
-                <h2 className="text-xs font-semibold text-[var(--color-pib-text)]">Contact setup needs review</h2>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--st-warning)]">Audience hygiene</p>
+                <h2 className="text-xs text-[var(--color-pib-text)]">Contact setup needs review</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   {setupArtifactContacts.length} visible contact{setupArtifactContacts.length === 1 ? ' looks' : 's look'} like smoke-test setup data.
                 </p>
@@ -997,13 +993,13 @@ export function ContactsWorkspace({
                   {setupArtifactContacts.slice(0, 3).map((contact) => (
                     <span
                       key={contact.id}
-                      className="flex h-6 shrink-0 items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] text-amber-100"
+                      className="flex h-6 shrink-0 items-center rounded border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2.5 text-[11px] text-[var(--st-warning)]"
                     >
                       {contact.name || contact.email || 'Unnamed setup contact'}
                     </span>
                   ))}
                   {setupArtifactContacts.length > 3 && (
-                    <span className="flex h-6 shrink-0 items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] text-amber-100">
+                    <span className="flex h-6 shrink-0 items-center rounded border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2.5 text-[11px] text-[var(--st-warning)]">
                       +{setupArtifactContacts.length - 3} more
                     </span>
                   )}
@@ -1013,14 +1009,14 @@ export function ContactsWorkspace({
             <button
               type="button"
               onClick={selectSetupArtifactContactsForCleanup}
-              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10"
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--sc-line-strong)] px-2 text-xs text-[var(--st-warning)] transition hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]"
               aria-label={
                 setupArtifactContacts.length === 1
                   ? 'Select 1 setup contact for cleanup'
                   : `Select ${setupArtifactContacts.length} setup contacts for cleanup`
               }
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+              <Icon name="playlist_add_check" />
               Select setup contact{setupArtifactContacts.length === 1 ? '' : 's'}
             </button>
           </div>
@@ -1031,19 +1027,14 @@ export function ContactsWorkspace({
         <section
           role="status"
           aria-label="Duplicate scan could not run"
-          className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
+          className="shrink-0 rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 items-start gap-2">
-              <span
-                className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100"
-                aria-hidden="true"
-              >
-                warning
-              </span>
+              <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
               <div className="min-w-0">
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Duplicate hygiene</p>
-                <h2 className="text-xs font-semibold text-[var(--color-pib-text)]">Duplicate scan could not run</h2>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--st-warning)]">Duplicate hygiene</p>
+                <h2 className="text-xs text-[var(--color-pib-text)]">Duplicate scan could not run</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{duplicatesError}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                   Contacts stay visible, but merge decisions are paused until the duplicate source responds.
@@ -1054,9 +1045,9 @@ export function ContactsWorkspace({
               type="button"
               onClick={handleFindDuplicates}
               disabled={duplicatesLoading}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10 disabled:opacity-50"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--sc-line-strong)] px-2 text-xs text-[var(--st-warning)] transition hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry scan
             </button>
           </div>
@@ -1172,7 +1163,7 @@ export function ContactsWorkspace({
                 : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">trending_up</span>
+            <Icon name="trending_up" />
             High score (&ge;{HIGH_SCORE_THRESHOLD})
           </button>
         </div>
@@ -1215,14 +1206,14 @@ export function ContactsWorkspace({
           role="alertdialog"
           aria-labelledby="bulk-delete-confirm-title"
           aria-describedby="bulk-delete-confirm-description"
-          className="shrink-0 rounded-xl border border-red-400/40 bg-red-400/10 px-3 py-2"
+          className="shrink-0 rounded-[var(--st-radius-raised)] border border-red-400/40 bg-red-400/10 px-3 py-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 gap-2">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-red-300" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-red-300" />
               <div className="min-w-0">
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-200">Bulk delete confirmation</p>
-                <h2 id="bulk-delete-confirm-title" className="text-xs font-semibold text-[var(--color-pib-text)]">
+                <h2 id="bulk-delete-confirm-title" className="text-xs text-[var(--color-pib-text)]">
                   Delete {selectedIds.size} selected contact{selectedIds.size === 1 ? '?' : 's?'}
                 </h2>
                 <p id="bulk-delete-confirm-description" className="mt-1 text-xs leading-5 text-red-100/90">
@@ -1247,7 +1238,7 @@ export function ContactsWorkspace({
                 disabled={bulkPending}
                 aria-label={`Confirm delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                <Icon name="delete" />
                 {bulkPending ? 'Deleting...' : 'Delete selected'}
               </button>
             </div>
@@ -1257,23 +1248,23 @@ export function ContactsWorkspace({
 
       {/* List */}
       {contactsError ? (
-        <section className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2">
+        <section className="shrink-0 rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 gap-2">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
               <div className="min-w-0">
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Source health</p>
-                <h2 className="text-xs font-semibold text-[var(--color-pib-text)]">Contacts could not load</h2>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--st-warning)]">Source health</p>
+                <h2 className="text-xs text-[var(--color-pib-text)]">Contacts could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{contactsError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={fetchContacts}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--sc-line-strong)] px-2 text-xs text-[var(--st-warning)] transition hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]"
               aria-label="Retry loading contacts"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
@@ -1286,10 +1277,8 @@ export function ContactsWorkspace({
         </div>
       ) : displayedContacts.length === 0 ? (
         <div className="pib-surface pib-surface-list p-4 text-center">
-          <span className="pib-icon-tint mx-auto" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">contacts</span>
-          </span>
-          <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{emptyTitle}</h2>
+          <Icon name="contacts" />
+          <h2 className="mt-2 text-sm text-[var(--color-pib-text)]">{emptyTitle}</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             {emptyDescription}
           </p>
@@ -1300,7 +1289,7 @@ export function ContactsWorkspace({
               className="btn-pib-secondary btn-pib-sm mx-auto mt-3"
               aria-label={ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+              <Icon name="filter_alt_off" />
               {ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             </button>
           ) : (
@@ -1311,7 +1300,7 @@ export function ContactsWorkspace({
               aria-label="Add contact"
               className="btn-pib-primary btn-pib-sm mx-auto mt-3 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
+              <Icon name="add" />
               Add contact
             </button>
           )}
@@ -1320,7 +1309,7 @@ export function ContactsWorkspace({
         <div className="pib-surface pib-surface-table min-w-0 overflow-hidden" data-module-accent="amber">
           {/* Table header */}
           <div className="hidden md:grid grid-cols-18 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-1.5">
-            {/* Checkbox cell — 1 col */}
+            {/* Checkbox cell - 1 col */}
             <div className="col-span-1 flex items-center">
               <input
                 type="checkbox"
@@ -1388,7 +1377,7 @@ export function ContactsWorkspace({
                           aria-label={`Email ${c.email} from contacts list`}
                           className="inline-flex max-w-full items-center gap-1 truncate text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">alternate_email</span></span>
+                          <Icon name="alternate_email" className="text-[12px]" />
                           <span className="truncate">{c.email}</span>
                         </a>
                       ) : (
@@ -1412,7 +1401,7 @@ export function ContactsWorkspace({
                           onClick={() => filterByCompany(c.company as string)}
                           className="inline-flex max-w-full items-center gap-1 truncate text-left text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">business</span></span>
+                          <Icon name="business" className="text-[12px]" />
                           <span className="truncate">{c.company}</span>
                         </button>
                       ) : (
@@ -1437,7 +1426,7 @@ export function ContactsWorkspace({
                         aria-label={`Log activity for ${contactName} from last contacted column`}
                         className="inline-flex max-w-full items-center gap-1 text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                       >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                        <Icon name="edit_note" />
                         <span className="truncate">{lastContactedLabel}</span>
                       </Link>
                     </div>
@@ -1447,7 +1436,7 @@ export function ContactsWorkspace({
                           {c.tags.slice(0, 3).map((tag) => (
                             <span
                               key={tag}
-                              className="rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] max-w-[120px] truncate"
+                              className="rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] max-w-[120px] truncate"
                               title={tag}
                             >
                               {tag}
@@ -1460,7 +1449,7 @@ export function ContactsWorkspace({
                           )}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-[var(--color-pib-text-muted)]">—</span>
+                        <span className="text-[11px] text-[var(--color-pib-text-muted)]">-</span>
                       )}
                     </div>
                     <div className="md:col-span-1">
@@ -1501,7 +1490,7 @@ export function ContactsWorkspace({
               className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Previous page"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_left</span>
+              <Icon name="chevron_left" />
               Prev
             </button>
             <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
@@ -1515,7 +1504,7 @@ export function ContactsWorkspace({
               aria-label="Next page"
             >
               Next
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_right</span>
+              <Icon name="chevron_right" />
             </button>
           </div>
         </nav>
@@ -1524,19 +1513,17 @@ export function ContactsWorkspace({
       {/* Duplicates modal */}
       {showDuplicatesModal && (
         <div className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 overflow-y-auto">
-          <div className="w-full max-w-4xl mx-4 mb-8 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
+          <div className="w-full max-w-4xl mx-4 mb-8 rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
             {mergeError && (
               <section
                 role="status"
                 aria-label="Duplicate merge failed"
-                className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
+                className="mb-3 rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2"
               >
                 <div className="flex gap-2">
-                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">
-                    warning
-                  </span>
+                  <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Duplicate merge failed</p>
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--st-warning)]">Duplicate merge failed</p>
                     <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text)]">{mergeError}</p>
                     <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                       No records were merged. Review the canonical contact and try again before the team works this list.
@@ -1561,16 +1548,16 @@ export function ContactsWorkspace({
       {/* New Contact Slide-In */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowNew(false)} />
+          <div className="flex-1 bg-black/60" onClick={() => setShowNew(false)} />
           <div className="w-full max-w-md bg-[var(--color-card)] border-l border-[var(--color-card-border)] overflow-y-auto">
             <div className="flex h-11 items-center justify-between border-b border-[var(--color-card-border)] px-3">
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">New contact</h2>
+              <h2 className="text-sm text-[var(--color-pib-text)]">New contact</h2>
               <button
                 onClick={() => setShowNew(false)}
                 className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 aria-label="Close New contact drawer"
               >
-                <span className="material-symbols-outlined text-[16px]">close</span>
+                <Icon name="close" />
               </button>
             </div>
             <ContactForm onSave={createContact} onCancel={() => setShowNew(false)} />

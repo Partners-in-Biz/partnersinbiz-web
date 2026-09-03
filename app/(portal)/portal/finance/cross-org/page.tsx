@@ -134,7 +134,7 @@ export default function CrossOrgFinancePage() {
     >
 
       {!orgId && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+        <div className="rounded-lg border border-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-3 text-sm">
           Select an organisation scope to use cross-org payment notices.
         </div>
       )}
@@ -143,7 +143,7 @@ export default function CrossOrgFinancePage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="pib-card space-y-3 p-4">
-          <h2 className="text-base font-semibold">Notify linked org (source side)</h2>
+          <h2 className="text-base">Notify linked org (source side)</h2>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             Requires CRM company.linkedOrgId or an active businessRelationship. Money movement is recorded only.
           </p>
@@ -181,8 +181,13 @@ export default function CrossOrgFinancePage() {
 
         <section className="pib-card space-y-3 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Notices</h2>
-            <select className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-sm" value={view} onChange={(e) => setView(e.target.value as typeof view)}>
+            <h2 className="text-base">Notices</h2>
+            <select
+              aria-label="Notice view"
+              className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-sm"
+              value={view}
+              onChange={(e) => setView(e.target.value as typeof view)}
+            >
               <option value="inbox">Inbox (to us)</option>
               <option value="sent">Sent (from us)</option>
               <option value="all">All</option>

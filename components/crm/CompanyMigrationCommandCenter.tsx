@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 export interface CompanyMigrationMatch {
@@ -18,9 +19,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} className="text-[var(--color-pib-text-muted)]" />
       </div>
-      <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )

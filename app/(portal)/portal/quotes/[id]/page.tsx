@@ -49,7 +49,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function formatDate(ts: DateLike) {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const seconds = isRecord(ts) && typeof ts._seconds === 'number'
     ? ts._seconds
     : isRecord(ts) && typeof ts.seconds === 'number'
@@ -132,11 +132,11 @@ export default function QuoteDetailPage() {
       <div className="pib-card space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
           <div>
-            <p className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Partners in Biz</p>
+            <p className="text-lg font-headline text-[var(--color-pib-text)]">Partners in Biz</p>
             <p className="text-sm text-[var(--color-pib-text-muted)]">partnersinbiz.online</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-pib-accent)' }}>{quote.quoteNumber}</p>
+            <p className="text-2xl font-headline" style={{ color: 'var(--color-pib-accent)' }}>{quote.quoteNumber}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Issued: {formatDate(quote.issueDate)}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Valid Until: {formatDate(quote.validUntil)}</p>
           </div>
@@ -178,7 +178,7 @@ export default function QuoteDetailPage() {
                 <span>Tax ({quote.taxRate}%)</span><span>{fmtCurrency(quote.taxAmount ?? 0, quote.currency)}</span>
               </div>
             )}
-            <div className="flex justify-between text-base font-bold text-[var(--color-pib-text)] pt-1 border-t border-[var(--color-pib-line)]">
+            <div className="flex justify-between text-base text-[var(--color-pib-text)] pt-1 border-t border-[var(--color-pib-line)]">
               <span>Total</span>
               <span style={{ color: 'var(--color-pib-accent)' }}>{fmtCurrency(quote.total ?? 0, quote.currency)}</span>
             </div>

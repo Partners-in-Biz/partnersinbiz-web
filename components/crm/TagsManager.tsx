@@ -1,11 +1,12 @@
 'use client'
 
-// US-058 — Tags management. Lists every distinct contact tag with usage counts,
+// US-058 - Tags management. Lists every distinct contact tag with usage counts,
 // supports creating zero-usage registry tags, inline rename (rewrites the tag on
 // all contacts), and delete-with-confirmation (strips the tag from all contacts).
 // Backed by /api/v1/crm/tags + /api/v1/crm/tags/[tag].
 
 import { useCallback, useEffect, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 interface TagRow {
   tag: string
@@ -157,14 +158,16 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
   return (
     <div className="flex min-h-0 flex-col gap-2">
       {/* Create */}
-      <form onSubmit={createTag} className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+      <form onSubmit={createTag} className="space-y-2 rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Create tag</p>
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1 flex-1 min-w-[12rem]">
-            <label className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
+            <label htmlFor="crm-new-tag" className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
               Tag name
             </label>
             <input
+              id="crm-new-tag"
+              aria-label="Tag name"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="vip"
@@ -173,7 +176,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
             />
           </div>
           <button type="submit" disabled={creating} className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            <Icon name="add" />
             {creating ? 'Adding…' : 'Add tag'}
           </button>
         </div>
@@ -192,14 +195,14 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
         <section
           role="alertdialog"
           aria-modal="false"
-          className="rounded-xl border border-red-400/40 bg-red-400/10 p-3"
+          className="rounded-[var(--st-radius-raised)] border border-red-400/40 bg-red-400/10 p-3"
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-red-200" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-red-200" />
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-100/80">Tag delete</p>
-                <h2 className="mt-1 text-sm font-semibold text-red-50">
+                <h2 className="mt-1 text-sm text-red-50">
                   Delete tag &quot;{pendingDelete.tag}&quot;?
                 </h2>
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-red-100/90">
@@ -224,7 +227,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                 disabled={deleting}
                 className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-3 text-xs font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                <Icon name="delete" />
                 {deleting ? 'Deleting…' : 'Delete tag'}
               </button>
             </div>
@@ -240,31 +243,31 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+        <section className="rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
               <div>
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Tags could not load</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">Tags could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
             <button type="button" onClick={fetchTags} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
         </section>
       ) : tags.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">label</span>
-          <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">No tags yet.</h2>
+        <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+          <Icon name="label" className="text-primary" />
+          <h2 className="mt-2 text-sm text-[var(--color-pib-text)]">No tags yet.</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Tags applied to contacts show up here, or create one above.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="overflow-hidden rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[var(--color-card-border)] text-left">
@@ -283,6 +286,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                       {isEditing ? (
                         <input
                           value={editValue}
+                          aria-label="Rename tag"
                           onChange={(e) => setEditValue(e.target.value)}
                           maxLength={64}
                           autoFocus
@@ -339,7 +343,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                               className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                               aria-label={`Rename tag ${row.tag}`}
                             >
-                              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
+                              <Icon name="edit" />
                               Rename
                             </button>
                             <button
@@ -348,7 +352,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                               className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
                               aria-label={`Delete tag ${row.tag}`}
                             >
-                              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
+                              <Icon name="delete" />
                             </button>
                           </>
                         )}

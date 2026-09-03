@@ -131,7 +131,7 @@ describe('Portal CRM hub', () => {
     expect(await screen.findByText('Board reporting rollout')).toBeInTheDocument()
 
     const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
-    expect(global.fetch).toHaveBeenCalledWith(`/api/v1/crm/dashboard?orgId=org-1`)
+    expect(global.fetch).toHaveBeenCalledWith(`/api/v1/crm/dashboard?orgId=org-1&companyId=company-1`)
     expect(screen.getByLabelText('Search contacts, companies, and deals')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', `/portal/contacts?${scope}`)
     expect(screen.getByRole('link', { name: 'Pipeline' })).toHaveAttribute('href', `/portal/deals?${scope}`)

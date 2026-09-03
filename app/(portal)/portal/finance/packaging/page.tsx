@@ -290,14 +290,14 @@ export default function PackagingWorkbenchPage() {
       active="packaging"
       orgScope={scope.orgScope}
       title="Packaging exports"
-      description="SARS-ready, payment instruction, and accountant download packs. Export/download only — operators upload bank files manually. No payment initiate, no bank session, no auto-upload."
+      description="SARS-ready, payment instruction, and accountant download packs. Export/download only - operators upload bank files manually. No payment initiate, no bank session, no auto-upload."
       error={error || scope.error}
       message={message || scope.message}
       loading={scope.loading}
     >
 
       {!orgId ? (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+        <div className="rounded-lg border border-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-4 text-sm">
           Select an organisation scope to manage packaging exports.
         </div>
       ) : null}
@@ -305,13 +305,13 @@ export default function PackagingWorkbenchPage() {
       <FinanceScopeBar scope={scope} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-[var(--color-border)] p-4">
-          <h2 className="text-lg font-semibold">Create export pack</h2>
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+        <section className="space-y-3 border border-[var(--color-border)] p-4">
+          <h2 className="text-lg">Create export pack</h2>
+          <div className="rounded-lg border border-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-3 text-sm">
             <strong>Payment packs are download-only.</strong> Download ACB/NetCash/EFT files here, then upload them yourself in your banking channel (internet banking, ACB bulk, or NetCash). Partners in Biz never initiates payments, opens bank sessions, or auto-uploads to banks.
           </div>
           <p className="text-sm text-[var(--color-muted)]">
-            Entity: {scope.legalEntityId || '—'} · Book: {scope.bookId || '—'}
+            Entity: {scope.legalEntityId || '-'} · Book: {scope.bookId || '-'}
           </p>
           <label className="block text-sm">
             Kind
@@ -369,10 +369,11 @@ export default function PackagingWorkbenchPage() {
           </p>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-[var(--color-border)] p-4">
+        <section className="space-y-3 border border-[var(--color-border)] p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Pack library</h2>
+            <h2 className="text-lg">Pack library</h2>
             <select
+              aria-label="Pack family filter"
               className="rounded border px-2 py-1 text-sm"
               value={familyFilter}
               onChange={(e) => setFamilyFilter(e.target.value)}

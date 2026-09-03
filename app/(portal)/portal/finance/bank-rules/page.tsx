@@ -70,7 +70,7 @@ export default function FinanceBankRulesPage() {
         action: { kind: 'suggest_expense_account', accountId, note: 'Suggested by bank rule' },
         ...requestIdentity('bank-rule'),
       })
-      scope.setMessage(`Rule "${ruleName}" saved — suggestions only, never auto-posts`)
+      scope.setMessage(`Rule "${ruleName}" saved - suggestions only, never auto-posts`)
     })
   }
 
@@ -89,7 +89,7 @@ export default function FinanceBankRulesPage() {
         ],
         ...requestIdentity('bank-rule-eval'),
       })
-      scope.setMessage('Rules evaluated — review pending suggestions (human accept/dismiss only)')
+      scope.setMessage('Rules evaluated - review pending suggestions (human accept/dismiss only)')
     })
   }
 
@@ -109,7 +109,7 @@ export default function FinanceBankRulesPage() {
       active="bank-rules"
       orgScope={scope.orgScope}
       title="Bank rules"
-      description="Match rules for smarter recon suggestions. Accept/dismiss is human-gated — never auto-posts journals and never initiates payments."
+      description="Match rules for smarter recon suggestions. Accept/dismiss is human-gated - never auto-posts journals and never initiates payments."
       error={scope.error}
       message={scope.message}
       loading={scope.loading || busy}
@@ -119,8 +119,8 @@ export default function FinanceBankRulesPage() {
       ) : !scope.loading ? (
         <div className="space-y-6">
           <FinanceScopeBar scope={scope} />
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Create / update rule</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Create / update rule</h2>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="text-xs">
                 Name
@@ -140,8 +140,8 @@ export default function FinanceBankRulesPage() {
             </button>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Evaluate sample transaction</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Evaluate sample transaction</h2>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="text-xs">
                 Description
@@ -161,8 +161,8 @@ export default function FinanceBankRulesPage() {
             </button>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Rules ({bundle?.rules?.length ?? 0})</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Rules ({bundle?.rules?.length ?? 0})</h2>
             <ul className="space-y-2 text-sm">
               {(bundle?.rules || []).map((r) => (
                 <li key={r.id} className="rounded border border-[var(--color-pib-line)] px-3 py-2">
@@ -174,8 +174,8 @@ export default function FinanceBankRulesPage() {
             </ul>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Suggestions ({bundle?.suggestions?.length ?? 0})</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Suggestions ({bundle?.suggestions?.length ?? 0})</h2>
             <ul className="space-y-2 text-sm">
               {(bundle?.suggestions || []).map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--color-pib-line)] px-3 py-2">

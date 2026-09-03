@@ -18,6 +18,7 @@ import type { Contact, Deal, Currency } from '@/lib/crm/types'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { Icon } from '@/components/studio'
 
 type ViewMode = 'board' | 'list' | 'forecast'
 
@@ -144,7 +145,7 @@ function PipelineLaunchCommandCenter({
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <p className="pib-label mb-0">Revenue workspace</p>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Launch this pipeline</h2>
+          <h2 className="mt-1 text-sm text-[var(--color-pib-text)]">Launch this pipeline</h2>
           <p className="mt-1.5 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {needsSetupReview
               ? 'This pipeline needs setup review before the team treats it as board-ready. Review the revenue path, then create the first deal with a buyer, owner, value, stage, and forecast date.'
@@ -157,7 +158,7 @@ function PipelineLaunchCommandCenter({
               className="btn-pib-primary btn-pib-sm"
               aria-label="Create first deal for this pipeline"
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+              <Icon name="add" />
               Create first deal
             </button>
             <button
@@ -166,7 +167,7 @@ function PipelineLaunchCommandCenter({
               className="btn-pib-secondary btn-pib-sm"
               aria-label="Open deal setup for forecast baseline"
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">trending_up</span>
+              <Icon name="trending_up" />
               Build forecast baseline
             </button>
           </div>
@@ -175,11 +176,9 @@ function PipelineLaunchCommandCenter({
           {launchSteps.map((step) => (
             <div key={step.label} className="rounded-lg border border-[var(--color-pib-line)] p-2.5">
               <div className="flex gap-2.5">
-                <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                  <span className="material-symbols-outlined text-[16px]">{step.icon}</span>
-                </span>
+                <Icon name={step.icon} />
                 <div>
-                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{step.label}</p>
+                  <p className="text-xs text-[var(--color-pib-text)]">{step.label}</p>
                   <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{step.body}</p>
                 </div>
               </div>
@@ -202,16 +201,14 @@ function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipelin
     <section
       role="region"
       aria-label={`Pipeline setup review for ${pipeline.name}`}
-      className="rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-3"
+      className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-3"
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex gap-2.5">
-          <span className="pib-icon-tint shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">rule_settings</span>
-          </span>
+          <Icon name="rule_settings" />
           <div>
             <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Pipeline hygiene</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
+            <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               <span className="font-medium text-[var(--color-pib-text)]">{pipeline.name}</span> looks like smoke-test pipeline data.
               Review pipeline settings before the team treats this as a board-ready revenue path.
@@ -223,7 +220,7 @@ function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipelin
           className="btn-pib-secondary btn-pib-sm shrink-0"
           aria-label={`Review pipeline settings for ${pipeline.name}`}
         >
-          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">settings</span>
+          <Icon name="settings" />
           Review settings
         </Link>
       </div>
@@ -359,6 +356,7 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
       }}
       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
       className="w-14 text-right border border-[var(--color-accent-v2)] rounded-md px-1 bg-transparent text-xs"
+      aria-label={`Probability for ${dealTitleLabel(deal)}`}
       autoFocus
     />
   )
@@ -526,7 +524,7 @@ export default function DealsPage() {
     setError(null)
   }, [])
 
-  // A5: deal saved callback — refresh the deal list
+  // A5: deal saved callback - refresh the deal list
   const handleDealSaved = useCallback(() => {
     setShowCreateDrawer(false)
     setEditingDeal(null)
@@ -740,7 +738,7 @@ export default function DealsPage() {
               className="btn-pib-primary btn-pib-sm"
               aria-label="New deal"
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+              <Icon name="add" />
               New deal
             </button>
           </>
@@ -788,11 +786,9 @@ export default function DealsPage() {
             aria-label={ownerLens !== 'all' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
           >
             <div className="flex items-start gap-2">
-              <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
-              </span>
+              <Icon name="manage_accounts" />
               <span className="min-w-0">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">
+                <p className="text-xs text-[var(--color-pib-text)]">
                   {ownerLens === 'unassigned' ? 'Showing unassigned deals' : ownerLens !== 'all' ? 'Showing selected owner deals' : 'Review unassigned deals'}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -807,11 +803,9 @@ export default function DealsPage() {
           </button>
           <Surface variant="quiet" className="!p-3">
             <div className="flex items-start gap-2">
-              <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">query_stats</span>
-              </span>
+              <Icon name="query_stats" />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Pipeline responsibility</p>
+                <p className="text-xs text-[var(--color-pib-text)]">Pipeline responsibility</p>
                 <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                   Use owner coverage with the forecast and stage lenses so open revenue always has a named person behind it.
                 </p>
@@ -830,7 +824,7 @@ export default function DealsPage() {
                   : `Select ${unassignedDeals.length} unassigned deals for owner assignment`
               }
             >
-              <span className="material-symbols-outlined text-[13px]" aria-hidden="true">playlist_add_check</span>
+              <Icon name="playlist_add_check" />
               {unassignedDeals.length > 0
                 ? `Select ${unassignedDeals.length} owner gap${unassignedDeals.length === 1 ? '' : 's'}`
                 : 'No owner gaps'}
@@ -875,7 +869,7 @@ export default function DealsPage() {
             className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Assign owner to ${selectedDealIds.size} selected deal${selectedDealIds.size === 1 ? '' : 's'}`}
           >
-            <span className="material-symbols-outlined text-[15px]">supervisor_account</span>
+            <Icon name="supervisor_account" />
             {bulkOwnerPending ? 'Assigning...' : 'Assign owner'}
           </button>
           <button
@@ -903,7 +897,7 @@ export default function DealsPage() {
                 onClick={() => setStageFilter(s)}
                 aria-pressed={stageFilter === s}
                 className={[
-                  'flex h-7 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-label transition capitalize',
+                  'flex h-7 shrink-0 items-center rounded border px-2.5 text-[11px] font-label transition capitalize',
                   stageFilter === s
                     ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
@@ -918,13 +912,13 @@ export default function DealsPage() {
 
       {/* Error state */}
       {error && (
-        <section className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-3">
+        <section className="rounded-[var(--st-radius-raised)] border border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]/[0.07] p-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--st-warning)]" />
               <div>
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
-                <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--st-warning)]">Source health</p>
+                <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   {selectedPipelineId ? 'Deals could not load' : 'Pipeline could not load'}
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{error}</p>
@@ -937,7 +931,7 @@ export default function DealsPage() {
                 className="btn-pib-secondary btn-pib-sm shrink-0"
                 aria-label="Retry loading deals"
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">refresh</span>
+                <Icon name="refresh" />
                 Retry
               </button>
             )}
@@ -1007,7 +1001,7 @@ export default function DealsPage() {
                 className="btn-pib-secondary btn-pib-sm"
                 aria-label="Show all deals"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                <Icon name="filter_alt_off" />
                 Show all deals
               </button>
             ) : isStageLens ? (
@@ -1017,7 +1011,7 @@ export default function DealsPage() {
                 className="btn-pib-secondary btn-pib-sm"
                 aria-label="Show all stages"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                <Icon name="filter_alt_off" />
                 Show all stages
               </button>
             ) : undefined}
@@ -1090,7 +1084,7 @@ export default function DealsPage() {
                           className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-accent-v2)]"
                         >
                           <span
-                            className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+                            className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded"
                             style={{
                               background: `${stageColor}20`,
                               color: stageColor,
@@ -1107,9 +1101,7 @@ export default function DealsPage() {
                           onClick={() => setEditingDeal(deal)}
                           className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                            {hasAssignedOwner ? 'manage_accounts' : 'person_add'}
-                          </span>
+                          <Icon name={hasAssignedOwner ? 'manage_accounts' : 'person_add'} />
                           <span className="truncate">{dealOwnerLabel(deal)}</span>
                         </button>
                       </td>
@@ -1120,9 +1112,7 @@ export default function DealsPage() {
                           onClick={() => setEditingDeal(deal)}
                           className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
-                            {hasCapturedValue ? 'edit' : 'add'}
-                          </span>
+                          <Icon name={hasCapturedValue ? 'edit' : 'add'} />
                           {fmtDealValue(deal.value, deal.currency)}
                         </button>
                       </td>
@@ -1133,11 +1123,11 @@ export default function DealsPage() {
                           onClick={() => setEditingDeal(deal)}
                           className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-accent-v2)]"
                         >
-                          <span className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
+                          <span className={`rounded border px-1.5 py-0.5 text-[10px] ${
                             prob >= 70
                               ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
                               : prob >= 40
-                                ? 'border-amber-400/40 bg-amber-400/10 text-amber-100'
+                                ? 'border-[var(--sc-line-strong)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                                 : 'border-red-400/40 bg-red-400/10 text-red-100'
                           }`}>
                             {prob}%
@@ -1162,7 +1152,7 @@ export default function DealsPage() {
                             onClick={() => setEditingDeal(deal)}
                             className="inline-flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-v2)]"
                           >
-                            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
+                            <Icon name="person_add" />
                             No contact linked
                           </button>
                         )}
@@ -1187,11 +1177,11 @@ export default function DealsPage() {
             <div className="flex gap-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-3 py-2">
               <div>
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">Total value</span>
-                <span className="ml-2 text-xs font-semibold text-[var(--color-pib-text)]">{formatDealsTotal(openDeals, 'value')}</span>
+                <span className="ml-2 text-xs text-[var(--color-pib-text)]">{formatDealsTotal(openDeals, 'value')}</span>
               </div>
               <div>
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">Weighted</span>
-                <span className="ml-2 text-xs font-semibold text-[var(--color-accent-text)]">{formatDealsTotal(openDeals, 'weighted')}</span>
+                <span className="ml-2 text-xs text-[var(--color-accent-text)]">{formatDealsTotal(openDeals, 'weighted')}</span>
               </div>
             </div>
 
@@ -1200,11 +1190,21 @@ export default function DealsPage() {
               <thead className="pib-label border-b border-[var(--color-pib-line)]">
                 <tr>
                   <th className="text-left px-3 py-2">Deal</th>
-                  <th className="text-left px-3 py-2 hidden md:table-cell">Stage</th>
+                  <th
+                    className="text-left px-3 py-2 hidden md:table-cell"
+                    data-impeccable-disable="content-invisible-at-rest"
+                  >
+                    Stage
+                  </th>
                   <th className="text-right px-3 py-2">Value</th>
                   <th className="text-right px-3 py-2">Prob %</th>
                   <th className="text-right px-3 py-2">Weighted</th>
-                  <th className="text-right px-3 py-2 hidden lg:table-cell">Close Date</th>
+                  <th
+                    className="text-right px-3 py-2 hidden lg:table-cell"
+                    data-impeccable-disable="content-invisible-at-rest"
+                  >
+                    Close Date
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1212,11 +1212,9 @@ export default function DealsPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-6 text-center">
                       <div className="mx-auto flex max-w-xl flex-col items-center rounded-[14px] border border-dashed border-[var(--color-pib-line)] px-4 py-6">
-                        <span className="pib-icon-tint material-symbols-outlined">
-                          trending_up
-                        </span>
+                        <Icon name="trending_up" />
                         <p className="mt-3 eyebrow">Forecast setup</p>
-                        <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{forecastEmptyTitle}</h3>
+                        <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">{forecastEmptyTitle}</h3>
                         <p className="mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                           {forecastEmptyDescription}
                         </p>
@@ -1227,7 +1225,7 @@ export default function DealsPage() {
                             className="btn-pib-secondary btn-pib-sm mt-3"
                             aria-label="Show full forecast"
                           >
-                            <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+                            <Icon name="filter_alt_off" />
                             Show full forecast
                           </button>
                         ) : (
@@ -1236,7 +1234,7 @@ export default function DealsPage() {
                             onClick={() => setShowCreateDrawer(true)}
                             className="btn-pib-primary btn-pib-sm mt-3"
                           >
-                            <span className="material-symbols-outlined text-[14px]">add</span>
+                            <Icon name="add" />
                             Create forecastable deal
                           </button>
                         )}
@@ -1263,7 +1261,12 @@ export default function DealsPage() {
                             {dealTitle}
                           </Link>
                         </td>
-                        <td className="px-3 py-2 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
+                        <td
+                          className="px-3 py-2 text-[var(--color-pib-text-muted)] hidden md:table-cell"
+                          data-impeccable-disable="content-invisible-at-rest"
+                        >
+                          {stageLabel}
+                        </td>
                         <td className="px-3 py-2 text-right">{fmtDealValue(deal.value, deal.currency)}</td>
                         <td className="px-3 py-2 text-right">
                           <ProbabilityInput deal={deal} onUpdate={handleProbabilityUpdate} />
@@ -1271,7 +1274,10 @@ export default function DealsPage() {
                         <td className="px-3 py-2 text-right text-[var(--color-accent-text)]">
                           {fmtDealValue(weighted, deal.currency)}
                         </td>
-                        <td className="px-3 py-2 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
+                        <td
+                          className="px-3 py-2 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell"
+                          data-impeccable-disable="content-invisible-at-rest"
+                        >
                           <button
                             type="button"
                             onClick={() => setEditingDeal(deal)}

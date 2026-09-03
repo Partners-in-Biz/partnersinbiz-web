@@ -108,10 +108,10 @@ function ReportTable({ title, rows, currency, meta }: { title: string; rows: Rep
   return (
     <section className="pib-card p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 className="text-base">{title}</h2>
         {meta ? (
           <span className="text-xs text-[var(--color-pib-text-muted)]">
-            balanced={String(meta.balanced ?? meta.isBalanced ?? '—')}
+            balanced={String(meta.balanced ?? meta.isBalanced ?? '-')}
             {typeof meta.debit === 'number' ? ` · dr ${formatMinor(meta.debit, currency)}` : ''}
             {typeof meta.credit === 'number' ? ` · cr ${formatMinor(meta.credit, currency)}` : ''}
             {typeof meta.netMinor === 'number' ? ` · net ${formatMinor(meta.netMinor, currency)}` : ''}
@@ -137,7 +137,7 @@ function ReportTable({ title, rows, currency, meta }: { title: string; rows: Rep
             <tbody>
               {rows.map((row, idx) => (
                 <tr key={row.accountId || row.id || idx} className="border-t border-[var(--color-pib-line)]">
-                  <td className="py-2 pr-3">{row.accountCode || row.code || ''} {row.accountName || row.name || row.description || row.accountId || '—'}</td>
+                  <td className="py-2 pr-3">{row.accountCode || row.code || ''} {row.accountName || row.name || row.description || row.accountId || '-'}</td>
                   <td className="py-2 pr-3">{formatMinor(row.debitMinor ?? row.debit, currency)}</td>
                   <td className="py-2 pr-3">{formatMinor(row.creditMinor ?? row.credit, currency)}</td>
                   <td className="py-2">{formatMinor(row.amountMinor ?? row.balanceMinor ?? row.netMinor, currency)}</td>

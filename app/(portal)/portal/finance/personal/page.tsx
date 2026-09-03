@@ -130,7 +130,7 @@ export default function PersonalFinancePage() {
       )}
 
       <section className="pib-card p-5 space-y-3">
-        <h2 className="text-base font-semibold">Create personal book</h2>
+        <h2 className="text-base">Create personal book</h2>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="text-xs block">
             Name
@@ -160,7 +160,7 @@ export default function PersonalFinancePage() {
       </section>
 
       <section className="pib-card p-5 space-y-3">
-        <h2 className="text-base font-semibold">Accounts</h2>
+        <h2 className="text-base">Accounts</h2>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="text-xs block">
             Book
@@ -234,7 +234,7 @@ export default function PersonalFinancePage() {
       </section>
 
       <section className="pib-card p-5 space-y-3">
-        <h2 className="text-base font-semibold">Post income / expense</h2>
+        <h2 className="text-base">Post income / expense</h2>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="text-xs block">
             Debit account
@@ -294,7 +294,7 @@ export default function PersonalFinancePage() {
       </section>
 
       <section className="pib-card p-5 space-y-3">
-        <h2 className="text-base font-semibold">Org → you transfer inbox</h2>
+        <h2 className="text-base">Org → you transfer inbox</h2>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           Record-only. Accept posts a balanced personal entry. Reject discards. externalPaymentInitiated is always false.
         </p>
@@ -374,7 +374,7 @@ export default function PersonalFinancePage() {
       </section>
 
       <section className="pib-card p-5">
-        <h2 className="text-base font-semibold mb-2">Recent entries</h2>
+        <h2 className="text-base mb-2">Recent entries</h2>
         <ul className="text-sm space-y-1 text-[var(--color-pib-text-muted)]">
           {(bundle?.entries || []).slice().reverse().slice(0, 20).map((e) => (
             <li key={e.id}>

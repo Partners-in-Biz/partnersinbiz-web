@@ -3,9 +3,9 @@
 import type { ComponentProps, ReactNode } from 'react'
 import Link from 'next/link'
 import { ModuleShell } from '@/components/ui/ModuleShell'
-import { PageHeader, PageLinkTabs, Surface } from '@/components/ui/AppFoundation'
-import { HudChip } from '@/components/ui/HudChip'
+import { EmptyState, PageHeader, PageLinkTabs, Surface } from '@/components/ui/AppFoundation'
 import { Button } from '@/components/ui/Button'
+import { ButtonLink, Icon, Notice, Skeleton, Status } from '@/components/studio'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import {
   FINANCE_NAV,
@@ -53,74 +53,53 @@ export function FinanceModuleFrame({
   const moreLinks = FINANCE_NAV.filter((item) => !FINANCE_PRIMARY_TABS.includes(item.key))
 
   return (
-    <ModuleShell
-      tier={1}
-      accent="amber"
-      shellTestId="finance-module-shell"
-      className="min-h-0"
-      data-finance-route={active}
-    >
-      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col space-y-4" data-module-accent="amber">
+    <ModuleShell tier={1} shellTestId="finance-module-shell" className="min-h-0" data-finance-route={active}>
+      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col space-y-4">
         <PageHeader
-          accent="amber"
           eyebrow="Finance command centre"
           title={title ?? activeItem.label}
           description={description ?? activeItem.description}
           meta={
             meta ?? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <HudChip tone="accent">No SARS submit</HudChip>
-                <HudChip>No external payment initiate</HudChip>
-                <HudChip>Tenant scoped</HudChip>
+              <div className="flex flex-wrap items-center gap-2">
+                <Status>No SARS submit</Status>
+                <Status>No external payment initiate</Status>
+                <Status tone="info">Tenant scoped</Status>
               </div>
             )
           }
           actions={
             actions ?? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Link href={scopedPortalPath('/portal/billing', orgScope)} className="pib-btn-ghost btn-pib-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <ButtonLink href={scopedPortalPath('/portal/billing', orgScope)} variant="ghost" size="sm">
                   Billing hub
-                </Link>
-                <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="pib-btn-ghost btn-pib-sm">
+                </ButtonLink>
+                <ButtonLink href={scopedPortalPath('/portal/invoicing', orgScope)} variant="ghost" size="sm">
                   Invoicing
-                </Link>
-                <Link href={scopedPortalPath('/portal/payments', orgScope)} className="pib-btn-secondary btn-pib-sm">
+                </ButtonLink>
+                <ButtonLink href={scopedPortalPath('/portal/payments', orgScope)} variant="secondary" size="sm">
                   Payments
-                </Link>
+                </ButtonLink>
               </div>
             )
           }
-          tabs={
-            <PageLinkTabs
-              ariaLabel="Finance module sections"
-              activeValue={active}
-              tabs={tabs}
-              variant="segmented"
-            />
-          }
+          tabs={<PageLinkTabs ariaLabel="Finance module sections" activeValue={active} tabs={tabs} />}
         />
 
         {error ? (
-          <div
-            role="alert"
-            className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100"
-            data-testid="finance-error"
-          >
-            {error}
+          <div data-testid="finance-error">
+            <Notice tone="danger">{error}</Notice>
           </div>
         ) : null}
         {message ? (
-          <div
-            className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100"
-            data-testid="finance-message"
-          >
-            {message}
+          <div data-testid="finance-message">
+            <Notice tone="info">{message}</Notice>
           </div>
         ) : null}
 
         {moreLinks.length > 0 ? (
           <Surface variant="list" bodyClassName="!p-0" data-testid="finance-secondary-nav">
-            <div className="flex flex-wrap gap-1.5 p-2">
+            <div className="flex flex-wrap gap-2 p-2">
               {moreLinks.map((item) => {
                 const href = scopedPortalPath(item.href, orgScope)
                 const selected = item.key === active
@@ -128,12 +107,10 @@ export function FinanceModuleFrame({
                   <Link
                     key={item.key}
                     href={href}
-                    className={selected ? 'pib-btn-secondary btn-pib-sm' : 'pib-btn-ghost btn-pib-sm'}
+                    className={selected ? 'st-btn st-btn--secondary st-btn--sm' : 'st-btn st-btn--ghost st-btn--sm'}
                     aria-current={selected ? 'page' : undefined}
                   >
-                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-                      {item.icon}
-                    </span>
+                    <Icon name={item.icon} />
                     {item.label}
                   </Link>
                 )
@@ -143,8 +120,10 @@ export function FinanceModuleFrame({
         ) : null}
 
         {loading ? (
-          <Surface className="p-6 text-sm text-[var(--color-pib-text-muted)]" data-testid="finance-loading">
-            Loading finance workspace…
+          <Surface className="space-y-3 p-5" data-testid="finance-loading">
+            <Skeleton height="1.25rem" width="40%" />
+            <Skeleton height="6rem" />
+            <p className="sc-body text-[var(--sc-ink-soft)]">Loading finance workspace.</p>
           </Surface>
         ) : (
           children
@@ -162,24 +141,29 @@ export function FinanceEmptyScope({
   onBootstrapHref?: string
 }) {
   return (
-    <Surface className="space-y-3 p-5" data-testid="finance-empty-scope">
-      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">Select or bootstrap a book</h2>
-      <p className="text-sm text-[var(--color-pib-text-muted)]">
-        Finance commands need an organisation, legal entity, and book scope. Bootstrap from the command centre or setup guide.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Link href={onBootstrapHref || scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-primary btn-pib-sm">
-          Open command centre
-        </Link>
-        <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-ghost btn-pib-sm">
-          Setup guide
-        </Link>
-      </div>
-    </Surface>
+    <div data-testid="finance-empty-scope">
+      <EmptyState
+        title="Select or bootstrap a book."
+        description="Finance commands need an organisation, legal entity, and book scope. Bootstrap from the command centre or setup guide."
+        action={(
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href={onBootstrapHref || scopedPortalPath('/portal/finance', orgScope)} size="sm">
+              Open command centre
+            </ButtonLink>
+            <ButtonLink href={scopedPortalPath('/portal/finance/setup', orgScope)} variant="ghost" size="sm">
+              Setup guide
+            </ButtonLink>
+          </div>
+        )}
+      />
+    </div>
   )
 }
 
-/** Small helper for pages that still need a plain primary action button. */
-export function FinancePrimaryButton(props: ComponentProps<typeof Button>) {
-  return <Button variant="primary" size="sm" {...props} />
+export function FinancePrimaryButton({ children, ...props }: ComponentProps<typeof Button>) {
+  return (
+    <Button variant="primary" size="sm" {...props}>
+      {children}
+    </Button>
+  )
 }

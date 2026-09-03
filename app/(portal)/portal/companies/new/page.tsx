@@ -7,6 +7,7 @@ import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ export default function NewCompanyPage() {
             href={companyPortalPath('/portal/companies')}
             className="btn-pib-ghost text-xs"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <Icon name="arrow_back" />
             Companies
           </Link>
           <p className="eyebrow mt-4">CRM account setup</p>
@@ -82,11 +83,9 @@ export default function NewCompanyPage() {
             { icon: 'hub', title: 'Relationship graph', copy: 'Owner, parent account, client org link, contacts, deals, and delivery history.' },
           ].map((item) => (
             <div key={item.title} className="pib-card flex items-start gap-3">
-              <span className="pib-icon-tint">
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{item.icon}</span>
-              </span>
+              <Icon name={item.icon} />
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">{item.title}</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
               </div>
             </div>

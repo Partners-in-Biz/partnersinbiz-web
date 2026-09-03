@@ -21,6 +21,7 @@ import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { scopeFromSearchParams, scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 type RelatedContact = {
   id: string
@@ -209,7 +210,7 @@ function PageSkeleton() {
     <div className="space-y-3">
       <Skeleton className="h-6 w-24" />
       <div className="flex items-start gap-4">
-        <Skeleton className="h-16 w-16 rounded-xl" />
+        <Skeleton className="h-16 w-16 rounded-[var(--st-radius-raised)]" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-5 w-40" />
@@ -500,11 +501,11 @@ function ContactsPanel({
       >
         <div className="flex flex-wrap justify-center gap-2">
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add first contact for {company.name}
           </button>
           <button type="button" onClick={onLinkExistingContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            <Icon name="link" />
             Link existing contact
           </button>
         </div>
@@ -522,11 +523,11 @@ function ContactsPanel({
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <button type="button" onClick={onLinkExistingContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
+            <Icon name="link" />
             Link existing contact
           </button>
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add contact for {company.name}
           </button>
         </div>
@@ -630,12 +631,12 @@ function ExistingContactLinkDrawer({
       aria-modal="true"
       aria-label={`Link existing contact to ${company.name}`}
     >
-      <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="flex-1 bg-black/60" onClick={onClose} />
       <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
           <div>
             <p className="eyebrow !text-[10px]">Company contact</p>
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Link existing contact to {company.name}</h2>
+            <h2 className="text-sm text-[var(--color-pib-text)]">Link existing contact to {company.name}</h2>
           </div>
           <button
             type="button"
@@ -643,7 +644,7 @@ function ExistingContactLinkDrawer({
             className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             aria-label={`Close existing contact drawer for ${company.name}`}
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <Icon name="close" />
           </button>
         </div>
         <div className="space-y-4 p-4">
@@ -672,7 +673,7 @@ function ExistingContactLinkDrawer({
               <p className="text-sm text-[var(--color-pib-text-muted)]">No unlinked contacts found. Create a new contact instead if this person is not in CRM yet.</p>
             ) : null}
             {contacts.map((contact) => (
-              <div key={contact.id} className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
+              <div key={contact.id} className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium text-[var(--color-pib-text)]">{contactIdentityLabel(contact)}</p>
@@ -686,7 +687,7 @@ function ExistingContactLinkDrawer({
                     onClick={() => void handleLink(contact)}
                     disabled={Boolean(linkingId)}
                   >
-                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">link</span>
+                    <Icon name="link" />
                     {linkingId === contact.id ? 'Linking...' : 'Link'}
                   </button>
                 </div>
@@ -729,12 +730,12 @@ function DealsPanel({
       >
         {firstContact ? (
           <button type="button" onClick={onCreateDeal} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            <Icon name="add_business" />
             Create first deal for {company.name}
           </button>
         ) : (
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add contact before deal
           </button>
         )}
@@ -752,12 +753,12 @@ function DealsPanel({
         </div>
         {contacts[0] ? (
           <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            <Icon name="add_business" />
             Add deal for {company.name}
           </button>
         ) : (
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add contact before deal
           </button>
         )}
@@ -864,17 +865,17 @@ function ProjectsPanel({
               disabled={creatingProject}
               className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+              <Icon name="add_task" />
               {creatingProject ? 'Creating project...' : `Create discovery project for ${company.name}`}
             </button>
           ) : firstContact ? (
             <Link href={`/portal/contacts/${firstContact.id}`} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+              <Icon name="alternate_email" />
               Add email to {contactLabel(firstContact)}
             </Link>
           ) : (
             <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+              <Icon name="person_add" />
               Add contact before project
             </button>
           )}
@@ -899,17 +900,17 @@ function ProjectsPanel({
             disabled={creatingProject}
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+            <Icon name="add_task" />
             {creatingProject ? 'Creating project...' : `Create another project for ${company.name}`}
           </button>
         ) : firstContact ? (
           <Link href={`/portal/contacts/${firstContact.id}`} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+            <Icon name="alternate_email" />
             Add email to {contactLabel(firstContact)}
           </Link>
         ) : (
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add contact before project
           </button>
         )}
@@ -971,7 +972,7 @@ function ServicesPanel({
             disabled={creatingService}
             className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+            <Icon name="workspaces" />
             {creatingService ? 'Creating workspace...' : `Create service workspace for ${company.name}`}
           </button>
           {serviceError ? <p className="max-w-md text-xs text-red-300">{serviceError}</p> : null}
@@ -994,7 +995,7 @@ function ServicesPanel({
           disabled={creatingService}
           className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+          <Icon name="workspaces" />
           {creatingService ? 'Creating workspace...' : `Create another service workspace for ${company.name}`}
         </button>
       </div>
@@ -1016,7 +1017,7 @@ function ServicesPanel({
 
 function documentOpenHref(document: RelatedDocument, crmOrgScope?: PortalOrgRouteScope | null) {
   // Open under the document's owning org (PiB/platform for work we author).
-  // Never force the linked client workspace — that switches the portal into the client org
+  // Never force the linked client workspace - that switches the portal into the client org
   // and breaks PiB editing of internal drafts.
   const ownerOrgId = typeof document.orgId === 'string' && document.orgId.trim()
     ? document.orgId.trim()
@@ -1055,7 +1056,7 @@ function DocumentsPanel({
             disabled={creatingDocument}
             className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+            <Icon name="note_add" />
             {creatingDocument ? 'Creating proposal...' : `Create sales proposal for ${company.name}`}
           </button>
           {documentError ? <p className="max-w-md text-xs text-red-300">{documentError}</p> : null}
@@ -1086,7 +1087,7 @@ function DocumentsPanel({
           disabled={creatingDocument}
           className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+          <Icon name="note_add" />
           {creatingDocument ? 'Creating proposal...' : `Create another sales proposal for ${company.name}`}
         </button>
       </div>
@@ -1097,9 +1098,9 @@ function DocumentsPanel({
           { label: 'Received', value: documentDirectionCounts.received, help: 'Owned in the linked client organisation' },
           { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
         ].map((item) => (
-          <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
+          <div key={item.label} className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
             <p className="eyebrow !text-[9px]">{item.label}</p>
-            <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
+            <p className="mt-1 text-2xl text-[var(--color-pib-text)]">{item.value}</p>
             <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{item.help}</p>
           </div>
         ))}
@@ -1156,7 +1157,7 @@ function RelationshipsPanel({
             disabled={creatingRelationship}
             className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+            <Icon name="add_link" />
             {creatingRelationship ? 'Creating relationship...' : `Create relationship for ${company.name}`}
           </button>
           {relationshipError ? <p className="max-w-md text-xs text-red-300">{relationshipError}</p> : null}
@@ -1179,7 +1180,7 @@ function RelationshipsPanel({
           disabled={creatingRelationship}
           className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+          <Icon name="add_link" />
           {creatingRelationship ? 'Creating relationship...' : `Create another relationship for ${company.name}`}
         </button>
       </div>
@@ -1235,12 +1236,12 @@ function QuotesPanel({
               disabled={creatingQuote}
               className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+              <Icon name="request_quote" />
               {creatingQuote ? 'Creating quote...' : `Create quote from ${dealLabel(firstDeal)}`}
             </button>
           ) : (
             <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+              <Icon name="add_business" />
               Create deal before quote
             </button>
           )}
@@ -1266,12 +1267,12 @@ function QuotesPanel({
             disabled={creatingQuote}
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+            <Icon name="request_quote" />
             {creatingQuote ? 'Creating quote...' : `Create another quote from ${dealLabel(firstDeal)}`}
           </button>
         ) : (
           <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            <Icon name="add_business" />
             Create deal before quote
           </button>
         )}
@@ -1406,7 +1407,7 @@ function InvoicesPanel({
               disabled={creatingInvoiceId === acceptedQuote.id}
               className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              <Icon name="receipt_long" />
               {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create invoice from ${quoteLabel(acceptedQuote)}`}
             </button>
           ) : (
@@ -1415,7 +1416,7 @@ function InvoicesPanel({
               disabled
               className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+              <Icon name="approval" />
               Accept quote before invoice
             </button>
           )}
@@ -1441,7 +1442,7 @@ function InvoicesPanel({
             disabled={creatingInvoiceId === acceptedQuote.id}
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            <Icon name="receipt_long" />
             {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create another invoice from ${quoteLabel(acceptedQuote)}`}
           </button>
         ) : (
@@ -1450,7 +1451,7 @@ function InvoicesPanel({
             disabled
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+            <Icon name="approval" />
             Accept quote before invoice
           </button>
         )}
@@ -1497,7 +1498,7 @@ function InvoicesPanel({
                   {editingInvoiceId === invoice.id ? (
                   <tr key={`${invoice.id}-editor`}>
                     <td colSpan={5} className="bg-[var(--color-pib-surface-soft)] px-5 py-4">
-                      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-4">
+                      <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-4">
                         <div>
                           <p className="text-sm font-medium text-[var(--color-pib-text)]">Edit draft invoice</p>
                           <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
@@ -1579,7 +1580,7 @@ function OrdersPanel({
               disabled={creatingOrder}
               className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+              <Icon name="add_shopping_cart" />
               {creatingOrder ? 'Creating order...' : `Create fulfillment order from ${invoiceLabel(firstInvoice)}`}
             </button>
           ) : (
@@ -1588,7 +1589,7 @@ function OrdersPanel({
               disabled
               className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              <Icon name="receipt_long" />
               Create invoice before order
             </button>
           )}
@@ -1614,7 +1615,7 @@ function OrdersPanel({
             disabled={creatingOrder}
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+            <Icon name="add_shopping_cart" />
             {creatingOrder ? 'Creating order...' : `Create another fulfillment order from ${invoiceLabel(firstInvoice)}`}
           </button>
         ) : (
@@ -1623,7 +1624,7 @@ function OrdersPanel({
             disabled
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            <Icon name="receipt_long" />
             Create invoice before order
           </button>
         )}
@@ -1678,7 +1679,7 @@ function ShipmentsPanel({
               disabled={creatingShipment}
               className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+              <Icon name="local_shipping" />
               {creatingShipment ? 'Creating shipment...' : `Create shipment for ${orderLabel(firstOrder)}`}
             </button>
           ) : (
@@ -1687,7 +1688,7 @@ function ShipmentsPanel({
               disabled
               className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+              <Icon name="orders" />
               Create order before shipment
             </button>
           )}
@@ -1713,7 +1714,7 @@ function ShipmentsPanel({
             disabled={creatingShipment}
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+            <Icon name="local_shipping" />
             {creatingShipment ? 'Creating shipment...' : `Create another shipment for ${orderLabel(firstOrder)}`}
           </button>
         ) : (
@@ -1722,7 +1723,7 @@ function ShipmentsPanel({
             disabled
             className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+            <Icon name="orders" />
             Create order before shipment
           </button>
         )}
@@ -1769,7 +1770,7 @@ function InventoryPanel({
             disabled={creatingInventoryItem}
             className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+            <Icon name="add_box" />
             {creatingInventoryItem ? 'Creating item...' : `Create inventory item for ${company.name}`}
           </button>
           {inventoryError ? <p className="max-w-md text-xs text-red-300">{inventoryError}</p> : null}
@@ -1792,7 +1793,7 @@ function InventoryPanel({
           disabled={creatingInventoryItem}
           className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+          <Icon name="add_box" />
           {creatingInventoryItem ? 'Creating item...' : `Create another inventory item for ${company.name}`}
         </button>
       </div>
@@ -1848,11 +1849,11 @@ function ActivityPanel({
   const cancelCompanyNoteLabel = `Cancel company note for ${company.name}`
   const saveCompanyNoteLabel = `Save company note for ${company.name}`
   const composer = noteOpen && firstContact ? (
-    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 text-left">
+    <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 text-left">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow !text-[10px]">Company note</p>
-          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Log context for {company.name}</h3>
+          <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Log context for {company.name}</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
           </p>
@@ -1863,7 +1864,7 @@ function ActivityPanel({
           className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
           aria-label={dismissCompanyNoteLabel}
         >
-          <span className="material-symbols-outlined text-[20px]">close</span>
+          <Icon name="close" />
         </button>
       </div>
       <div className="mt-4 space-y-3">
@@ -1917,12 +1918,12 @@ function ActivityPanel({
       >
         {firstContact ? (
           <button type="button" onClick={onOpenNote} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+            <Icon name="edit_note" />
             Log first note for {company.name}
           </button>
         ) : (
           <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            <Icon name="person_add" />
             Add contact before activity
           </button>
         )}
@@ -1933,12 +1934,12 @@ function ActivityPanel({
     <div className="space-y-4">
       <div className="flex justify-end">
         <button type="button" onClick={onOpenNote} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+          <Icon name="edit_note" />
           Log note
         </button>
       </div>
       {composer}
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] divide-y divide-[var(--color-pib-line)]">
+      <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] divide-y divide-[var(--color-pib-line)]">
         {activities.map((activity) => (
           <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
             <div>
@@ -2353,7 +2354,7 @@ export default function CompanyDetailPage() {
           targetOrgId: company.linkedOrgId,
           targetName: company.name,
           relationshipType: 'customer',
-          // CRM relationship metadata only — activation (active/approved/
+          // CRM relationship metadata only - activation (active/approved/
           // portal-visible/capabilities) comes exclusively from an accepted
           // bilateral Partner Link, never from this generic create path.
         }),
@@ -2545,10 +2546,8 @@ export default function CompanyDetailPage() {
 
   if (error || !company) {
     return (
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4 text-center space-y-4">
-        <span className="material-symbols-outlined text-[19px] text-[var(--color-pib-text-muted)]">
-          {error ? 'error_outline' : 'domain_disabled'}
-        </span>
+      <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4 text-center space-y-4">
+        <Icon name={error ? 'error_outline' : 'domain_disabled'} className="text-[var(--color-pib-text-muted)]" />
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {error ?? 'Company not found.'}
         </p>
@@ -2557,7 +2556,7 @@ export default function CompanyDetailPage() {
           aria-label="Back to Companies"
           className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1.5 mt-2"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
+          <Icon name="arrow_back" />
           Back to companies
         </Link>
       </div>
@@ -2574,12 +2573,12 @@ export default function CompanyDetailPage() {
         aria-label="Back to Companies"
         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
       >
-        <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
+        <Icon name="arrow_back" />
         Companies
       </Link>
 
       {/* Header */}
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
+      <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
         <CompanyHeader
           company={company}
           onEdit={() => setEditOpen(true)}
@@ -2600,7 +2599,7 @@ export default function CompanyDetailPage() {
 
       {archiveError && (
         <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
-          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          <Icon name="error" className="mr-1.5 align-middle" />
           {archiveError}
         </div>
       )}
@@ -2615,10 +2614,10 @@ export default function CompanyDetailPage() {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-red-200" />
               <div>
                 <p className="eyebrow !text-[10px] !text-red-100/80">Account archive</p>
-                <h2 id="company-archive-confirm-title" className="mt-1 text-sm font-semibold text-red-50">
+                <h2 id="company-archive-confirm-title" className="mt-1 text-sm text-red-50">
                   Archive account &quot;{company.name}&quot;?
                 </h2>
                 <p id="company-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -2643,10 +2642,10 @@ export default function CompanyDetailPage() {
                 type="button"
                 onClick={handleDelete}
                 aria-label={`Confirm archive ${company.name}`}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deleting}
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                <Icon name="archive" />
                 {deleting ? 'Archiving...' : 'Archive account'}
               </button>
             </div>
@@ -2681,7 +2680,7 @@ export default function CompanyDetailPage() {
       {/* Tab content */}
       <div role="tabpanel">
         {relatedError && tab !== 'overview' && (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-[var(--color-pib-surface-soft)] p-4 text-sm text-red-300">
+          <div className="mb-4 rounded-[var(--st-radius-raised)] border border-red-500/30 bg-[var(--color-pib-surface-soft)] p-4 text-sm text-red-300">
             {relatedError}
           </div>
         )}
@@ -2722,7 +2721,7 @@ export default function CompanyDetailPage() {
               }}
             />
             {customFieldDefs.length > 0 && (
-              <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3">
+              <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3">
                 <p className="eyebrow !text-[10px]">Custom fields</p>
                 <CustomFieldsSection
                   definitions={customFieldDefs}
@@ -2920,12 +2919,12 @@ export default function CompanyDetailPage() {
           aria-modal="true"
           aria-label={`New contact for ${company.name}`}
         >
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
+          <div className="flex-1 bg-black/60" onClick={() => setNewContactOpen(false)} />
           <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
               <div>
                 <p className="eyebrow !text-[10px]">Company contact</p>
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">New contact for {company.name}</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">New contact for {company.name}</h2>
               </div>
               <button
                 type="button"
@@ -2933,7 +2932,7 @@ export default function CompanyDetailPage() {
                 className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                 aria-label={`Close contact drawer for ${company.name}`}
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <Icon name="close" />
               </button>
             </div>
             <ContactForm

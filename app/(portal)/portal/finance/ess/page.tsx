@@ -33,7 +33,7 @@ type EssBundle = {
 }
 
 function formatMoney(minor?: number, currency = 'ZAR') {
-  if (typeof minor !== 'number' || !Number.isFinite(minor)) return '—'
+  if (typeof minor !== 'number' || !Number.isFinite(minor)) return '-'
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 2 }).format(minor / 100)
 }
 
@@ -160,7 +160,7 @@ export default function FinanceEssPage() {
       active="ess"
       orgScope={scope.orgScope}
       title="Employee self-service"
-      description="Mobile-first payslips and leave. Least privilege — no admin payroll controls. Installable via the platform PWA shell."
+      description="Mobile-first payslips and leave. Least privilege - no admin payroll controls. Installable via the platform PWA shell."
       error={scope.error}
       message={scope.message}
       loading={scope.loading}
@@ -192,7 +192,7 @@ export default function FinanceEssPage() {
           <section className="pib-card space-y-2 p-4" aria-labelledby="ess-profile-heading">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 id="ess-profile-heading" className="text-base font-semibold">Your profile</h2>
+                <h2 id="ess-profile-heading" className="text-base">Your profile</h2>
                 <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{employeeLabel}</p>
               </div>
               <HudChip tone={bundle?.linked ? 'success' : 'warning'}>{bundle?.linked ? 'Linked' : 'Not linked'}</HudChip>
@@ -210,20 +210,20 @@ export default function FinanceEssPage() {
           <section className="grid gap-3 sm:grid-cols-3" aria-label="ESS summary">
             <div className="pib-stat-card">
               <p className="pib-label">Payslips</p>
-              <p className="mt-3 text-2xl font-semibold">{bundle?.payslips?.length ?? 0}</p>
+              <p className="mt-3 text-2xl">{bundle?.payslips?.length ?? 0}</p>
             </div>
             <div className="pib-stat-card">
               <p className="pib-label">Leave balances</p>
-              <p className="mt-3 text-2xl font-semibold">{bundle?.leaveBalances?.length ?? 0}</p>
+              <p className="mt-3 text-2xl">{bundle?.leaveBalances?.length ?? 0}</p>
             </div>
             <div className="pib-stat-card">
               <p className="pib-label">Pending approvals</p>
-              <p className="mt-3 text-2xl font-semibold">{bundle?.pendingApprovals?.length ?? 0}</p>
+              <p className="mt-3 text-2xl">{bundle?.pendingApprovals?.length ?? 0}</p>
             </div>
           </section>
 
           <section className="pib-card space-y-3 p-4" aria-labelledby="ess-payslips-heading">
-            <h2 id="ess-payslips-heading" className="text-base font-semibold">
+            <h2 id="ess-payslips-heading" className="text-base">
               {a11y?.payslipListLabel || 'Your payslips'}
             </h2>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -258,7 +258,7 @@ export default function FinanceEssPage() {
 
           <section className="grid gap-4 lg:grid-cols-2">
             <div className="pib-card space-y-3 p-4" aria-labelledby="ess-balances-heading">
-              <h2 id="ess-balances-heading" className="text-base font-semibold">
+              <h2 id="ess-balances-heading" className="text-base">
                 {a11y?.leaveBalanceListLabel || 'Your leave balances'}
               </h2>
               {(bundle?.leaveBalances?.length ?? 0) === 0 ? (
@@ -275,7 +275,7 @@ export default function FinanceEssPage() {
                   ))}
                 </ul>
               )}
-              <h3 className="pt-2 text-sm font-semibold">Recent leave</h3>
+              <h3 className="pt-2 text-sm">Recent leave</h3>
               <ul className="max-h-48 space-y-2 overflow-y-auto text-sm">
                 {(bundle?.leaveRecords || []).map((r) => (
                   <li key={r.id} className="border-b border-[var(--color-pib-line)] pb-2">
@@ -289,7 +289,7 @@ export default function FinanceEssPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4" aria-labelledby="ess-request-heading">
-              <h2 id="ess-request-heading" className="text-base font-semibold">
+              <h2 id="ess-request-heading" className="text-base">
                 {a11y?.leaveRequestFormLabel || 'Request leave'}
               </h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -315,7 +315,7 @@ export default function FinanceEssPage() {
                     <option value="">Select…</option>
                     {(bundle?.leaveTypes || []).map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.code} — {t.name} ({t.unit})
+                        {t.code} - {t.name} ({t.unit})
                       </option>
                     ))}
                   </select>
@@ -373,11 +373,11 @@ export default function FinanceEssPage() {
 
           {bundle?.canApproveLeave ? (
             <section className="pib-card space-y-3 p-4" aria-labelledby="ess-approvals-heading">
-              <h2 id="ess-approvals-heading" className="text-base font-semibold">
+              <h2 id="ess-approvals-heading" className="text-base">
                 {a11y?.pendingApprovalsLabel || 'Leave awaiting your approval'}
               </h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
-                Uses existing leave.decide — no separate approval stack. ESS still hides admin payroll run controls.
+                Uses existing leave.decide - no separate approval stack. ESS still hides admin payroll run controls.
               </p>
               {(bundle.pendingApprovals?.length ?? 0) === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]" role="status">No pending leave requests.</p>

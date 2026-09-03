@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 export const COMPANY_BULK_ACTIONS = ['lifecycleStage', 'tier', 'size', 'industry', 'tags', 'accountManagerUid'] as const
@@ -74,7 +75,7 @@ export function CompaniesBulkCommandBar({
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--color-pib-line)] pb-3">
         <div className="min-w-0">
           <p className={LABEL_CLS}>Account bulk command center</p>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Move selected accounts as one governed set.</h2>
+          <h2 className="mt-1 text-sm text-[var(--color-pib-text)]">Move selected accounts as one governed set.</h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Standardise lifecycle, tier, size, industry, owner, or tags without opening each company record.
           </p>
@@ -84,7 +85,7 @@ export function CompaniesBulkCommandBar({
           className="btn-pib-ghost h-8 shrink-0 gap-1 px-2 text-xs"
           aria-label="Clear selected companies"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <Icon name="close" />
           Clear selection
         </button>
       </div>
@@ -92,11 +93,11 @@ export function CompaniesBulkCommandBar({
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="pib-stat-card">
           <p className={LABEL_CLS}>Selected accounts</p>
-          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{selectedCount} selected</p>
+          <p className="mt-1 text-lg text-[var(--color-pib-text)]">{selectedCount} selected</p>
         </div>
         <div className="pib-stat-card">
           <p className={LABEL_CLS}>Coverage</p>
-          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{coverage}%</p>
+          <p className="mt-1 text-lg text-[var(--color-pib-text)]">{coverage}%</p>
         </div>
         <div className="pib-stat-card">
           <p className={LABEL_CLS}>Next operation</p>
@@ -181,7 +182,7 @@ export function CompaniesBulkCommandBar({
           className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
           aria-label="Apply company bulk updates"
         >
-          <span className="material-symbols-outlined text-[16px]">done_all</span>
+          <Icon name="done_all" />
           {bulkPending ? 'Applying...' : 'Apply updates'}
         </button>
       </div>

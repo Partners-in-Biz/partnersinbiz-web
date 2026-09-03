@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 export type SegmentCommandFocus = 'all' | 'needsRefresh' | 'advanced'
@@ -114,12 +115,12 @@ export function SegmentCommandCenter({
   ]
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
+    <section className="rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
       <div className="flex h-11 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
         <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Segment command center</p>
         <h2 className="truncate text-[11px] text-[var(--color-pib-text-muted)]">Audience reach and targeting quality</h2>
         <div className="ml-auto flex min-w-0 max-w-xs flex-1 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
-          <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">search</span>
+          <Icon name="search" className="text-[var(--color-pib-text-muted)]" />
           <label className="sr-only">Search segments</label>
           <input
             value={search}
@@ -149,9 +150,9 @@ export function SegmentCommandCenter({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{card.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{card.icon}</span>
+                <Icon name={card.icon} className="text-[var(--color-pib-text-muted)]" />
               </div>
-              <p className={`mt-1 text-xs font-semibold ${active ? 'text-primary' : 'text-[var(--color-pib-text)]'}`}>{card.value}</p>
+              <p className={`mt-1 text-xs  ${active ? 'text-primary' : 'text-[var(--color-pib-text)]'}`}>{card.value}</p>
             </button>
           )
         })}

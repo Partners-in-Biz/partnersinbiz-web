@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { CompanyMigrationCommandCenter } from '@/components/crm/CompanyMigrationCommandCenter'
 import { ExistingCompanyReviewLink } from '@/components/crm/ExistingCompanyReviewLink'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,23 +54,23 @@ function ResultBanner({ summary }: { summary: ApplyResponse['summary'] }) {
   const total = summary.created + summary.linked + summary.failed
   return (
     <div className="pib-card space-y-2">
-      <p className="pib-label mb-0">Migration complete — {total} group{total === 1 ? '' : 's'} processed</p>
+      <p className="pib-label mb-0">Migration complete - {total} group{total === 1 ? '' : 's'} processed</p>
       <div className="flex gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-pib-green)]" />
+          <span className="inline-block w-2 h-2 rounded bg-[var(--color-pib-green)]" />
           <span className="text-xs text-[var(--color-pib-text)]">
             {summary.created} company{summary.created === 1 ? '' : 'ies'} created
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-pib-blue)]" />
+          <span className="inline-block w-2 h-2 rounded bg-[var(--color-pib-blue)]" />
           <span className="text-xs text-[var(--color-pib-text)]">
             {summary.linked} linked to existing
           </span>
         </div>
         {summary.failed > 0 && (
           <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-error)]" />
+            <span className="inline-block w-2 h-2 rounded bg-[var(--color-error)]" />
             <span className="text-xs text-[var(--color-pib-text)]">
               {summary.failed} failed
             </span>
@@ -208,7 +209,7 @@ export default function MigrateCompaniesPage() {
             href={companyPortalPath('/portal/companies')}
             className="btn-pib-ghost text-xs"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <Icon name="arrow_back" />
             Companies
           </Link>
           <p className="eyebrow mt-4">CRM · Companies</p>
@@ -230,12 +231,12 @@ export default function MigrateCompaniesPage() {
             >
               {applying ? (
                 <>
-                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <Icon name="progress_activity" />
                   Applying…
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  <Icon name="check_circle" />
                   Apply selected
                 </>
               )}
@@ -278,10 +279,10 @@ export default function MigrateCompaniesPage() {
                       <Link href={companyPortalPath(`/portal/companies/${row.companyId}`)} className="text-[var(--color-pib-accent-hover)] hover:underline">
                         {row.companyId}
                       </Link>
-                    ) : '—'}
+                    ) : '-'}
                   </td>
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono text-xs">
-                    {row.contactsUpdated ?? '—'}
+                    {row.contactsUpdated ?? '-'}
                   </td>
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)] text-xs">{row.reason ?? ''}</td>
                 </tr>
@@ -294,9 +295,7 @@ export default function MigrateCompaniesPage() {
       {/* Errors */}
       {previewError && (
         <div className="pib-empty-state space-y-2">
-          <span className="material-symbols-outlined pib-empty-state-icon">
-            {previewError.includes('Admin') ? 'lock' : 'error_outline'}
-          </span>
+          <Icon name={previewError.includes('Admin') ? 'lock' : 'error_outline'} />
           <p className="text-xs text-[var(--color-pib-text-muted)]">{previewError}</p>
         </div>
       )}
@@ -319,9 +318,7 @@ export default function MigrateCompaniesPage() {
       {/* Empty state (preview loaded, zero matches) */}
       {!loading && !previewError && !applyResult && matches.length === 0 && (
         <div className="pib-empty-state">
-          <span className="pib-icon-tint mb-3" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-          </span>
+          <Icon name="check_circle" />
           <p className="eyebrow">Clean account data</p>
           <h2 className="pib-empty-state-title mt-2">
             No contact company strings need migration.
@@ -331,11 +328,11 @@ export default function MigrateCompaniesPage() {
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <Link href={companyPortalPath('/portal/companies')} className="btn-pib-primary text-xs">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
+              <Icon name="business" />
               Review companies
             </Link>
             <Link href={companyPortalPath('/portal/contacts')} className="btn-pib-secondary text-xs">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group</span>
+              <Icon name="group" />
               Review contacts
             </Link>
           </div>
@@ -406,7 +403,7 @@ export default function MigrateCompaniesPage() {
                           href={companyPortalPath(`/portal/companies/${m.existingCompanyId}`)}
                         />
                       ) : (
-                        <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
+                        <span className="text-xs text-[var(--color-pib-text-muted)]">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text-muted)]">
@@ -434,12 +431,12 @@ export default function MigrateCompaniesPage() {
           >
             {applying ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <Icon name="progress_activity" />
                 Applying…
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <Icon name="check_circle" />
                 Apply selected
               </>
             )}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { EmptyState } from '@/components/ui/AppFoundation'
+import { Checkbox, Notice, Skeleton, Title } from '@/components/studio'
 import {
   FINANCE_OPERATOR_TABLE_SHORTCUTS,
   financeTableRowTabIndex,
@@ -16,7 +18,6 @@ type Col<T> = {
   className?: string
   render: (row: T) => ReactNode
   mobileLabel?: string
-  /** Prefer a human label for selection / row naming. */
   headerSrOnly?: boolean
 }
 
@@ -30,11 +31,9 @@ type Props<T extends { id: string }> = {
   loading?: boolean
   error?: string | null
   getRowKey?: (row: T) => string
-  /** Accessible name for the table (required for WCAG name-from-author). */
   ariaLabel: string
   density?: FinanceTableDensity
   onDensityChange?: (next: FinanceTableDensity) => void
-  /** Optional row primary action (Enter when not selecting). */
   onRowActivate?: (row: T) => void
   getRowLabel?: (row: T) => string
   className?: string
@@ -74,7 +73,6 @@ export function FinanceResponsiveTable<T extends { id: string }>({
     (event: KeyboardEvent) => {
       const action = resolveFinanceTableKeyboardAction(event)
       if (!action) return
-
       if (action === 'help') {
         event.preventDefault()
         setHelpOpen((v) => !v)
@@ -88,20 +86,14 @@ export function FinanceResponsiveTable<T extends { id: string }>({
         return
       }
       if (rows.length === 0) return
-
       if (action === 'next' || action === 'prev' || action === 'first' || action === 'last') {
         event.preventDefault()
         const next =
-          action === 'first'
-            ? 0
-            : action === 'last'
-              ? rows.length - 1
-              : moveFinanceTableFocus(activeIndex, rows.length, action === 'next' ? 1 : -1)
+          action === 'first' ? 0 : action === 'last' ? rows.length - 1 : moveFinanceTableFocus(activeIndex, rows.length, action === 'next' ? 1 : -1)
         setActiveIndex(next)
         queueMicrotask(() => focusRow(next))
         return
       }
-
       if (action === 'toggle') {
         const row = rows[activeIndex]
         if (!row) return
@@ -115,42 +107,28 @@ export function FinanceResponsiveTable<T extends { id: string }>({
 
   if (loading) {
     return (
-      <div
-        className="pib-empty-state"
-        data-testid="finance-table-loading"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">
-          progress_activity
-        </span>
-        <p className="pib-empty-state-title">Loading</p>
-        <p className="pib-empty-state-description">Loading {ariaLabel.toLowerCase()}…</p>
+      <div data-testid="finance-table-loading" role="status" aria-live="polite" aria-busy="true">
+        <Skeleton height="2.75rem" className="mb-2" />
+        <Skeleton height="8rem" />
+        <p className="sc-body mt-2 text-[var(--sc-ink-soft)]">Loading {ariaLabel.toLowerCase()}.</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="pib-empty-state" data-testid="finance-table-error" role="alert">
-        <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">
-          error
-        </span>
-        <h3 className="pib-empty-state-title">Could not load {ariaLabel.toLowerCase()}</h3>
-        <p className="pib-empty-state-description">{error}</p>
+      <div data-testid="finance-table-error">
+        <Notice tone="danger" title={`Could not load ${ariaLabel.toLowerCase()}`}>
+          {error}
+        </Notice>
       </div>
     )
   }
 
   if (rows.length === 0) {
     return (
-      <div className="pib-empty-state" data-testid="finance-table-empty" role="status">
-        <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">
-          inbox
-        </span>
-        <h3 className="pib-empty-state-title">{emptyTitle}</h3>
-        <p className="pib-empty-state-description">{emptyDescription}</p>
+      <div data-testid="finance-table-empty">
+        <EmptyState title={emptyTitle.endsWith('.') ? emptyTitle : `${emptyTitle}.`} description={emptyDescription} />
       </div>
     )
   }
@@ -158,12 +136,7 @@ export function FinanceResponsiveTable<T extends { id: string }>({
   const densityClass = density === 'dense' ? 'pib-finance-table--dense' : 'pib-finance-table--comfortable'
 
   return (
-    <div
-      className={`space-y-3 pib-finance-table ${densityClass} ${className}`.trim()}
-      data-density={density}
-      data-testid="finance-responsive-table"
-      onKeyDown={handleKeyDown}
-    >
+    <div className={`space-y-3 pib-finance-table ${densityClass} ${className}`.trim()} data-density={density} data-testid="finance-responsive-table" onKeyDown={handleKeyDown}>
       <p id={labelId} className="sr-only">
         {ariaLabel}. Use arrow keys or j and k to move between rows
         {onToggle ? ', Space or Enter to toggle selection' : ''}. Press question mark for shortcuts
@@ -171,27 +144,18 @@ export function FinanceResponsiveTable<T extends { id: string }>({
       </p>
 
       {helpOpen ? (
-        <div
-          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-xs text-[var(--color-pib-text)]"
-          role="region"
-          aria-label="Keyboard shortcuts"
-          data-testid="finance-table-shortcuts"
-        >
-          <p className="mb-2 font-semibold">Keyboard shortcuts</p>
-          <ul className="space-y-1 text-[var(--color-pib-text-muted)]">
+        <div className="st-panel st-panel--flat p-3 text-xs" role="region" aria-label="Keyboard shortcuts" data-testid="finance-table-shortcuts">
+          <Title as="h3" className="mb-2 text-sm">Keyboard shortcuts</Title>
+          <ul className="space-y-1 text-[var(--sc-ink-soft)]">
             {FINANCE_OPERATOR_TABLE_SHORTCUTS.map((item) => (
               <li key={item.keys}>
-                <kbd className="rounded border border-[var(--color-pib-line)] px-1 text-[var(--color-pib-text)]">
-                  {item.keys}
-                </kbd>{' '}
-                — {item.action}
+                <kbd className="rounded border border-[var(--sc-line)] px-1 text-[var(--sc-ink)]">{item.keys}</kbd> - {item.action}
               </li>
             ))}
           </ul>
         </div>
       ) : null}
 
-      {/* Mobile cards — density does not collapse card padding (touch targets stay usable). */}
       <div className="grid gap-3 md:hidden" data-testid="finance-table-mobile">
         {rows.map((row, index) => {
           const key = getRowKey ? getRowKey(row) : row.id
@@ -199,28 +163,22 @@ export function FinanceResponsiveTable<T extends { id: string }>({
           return (
             <article
               key={key}
-              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-pib-accent)]"
+              className="st-panel st-panel--flat p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sc-accent)]"
               tabIndex={financeTableRowTabIndex(index, activeIndex)}
               data-finance-table-row={`${labelId}-${index}`}
               aria-label={label}
               onFocus={() => setActiveIndex(index)}
             >
               {onToggle ? (
-                <label className="mb-2 flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds?.has(row.id) || false}
-                    onChange={() => onToggle(row.id)}
-                    aria-label={`Select ${label}`}
-                  />
-                  Select
-                </label>
+                <div className="mb-2">
+                  <Checkbox label="Select" checked={selectedIds?.has(row.id) || false} onChange={() => onToggle(row.id)} aria-label={`Select ${label}`} />
+                </div>
               ) : null}
               <dl className="space-y-1">
                 {columns.map((col) => (
                   <div key={col.key} className="flex items-start justify-between gap-3 text-sm">
-                    <dt className="text-[var(--color-pib-text-muted)]">{col.mobileLabel || col.header}</dt>
-                    <dd className="text-right text-[var(--color-pib-text)]">{col.render(row)}</dd>
+                    <dt className="sc-tiny text-[var(--sc-ink-soft)]">{col.mobileLabel || col.header}</dt>
+                    <dd className="text-right text-[var(--sc-ink)]">{col.render(row)}</dd>
                   </div>
                 ))}
               </dl>
@@ -229,23 +187,14 @@ export function FinanceResponsiveTable<T extends { id: string }>({
         })}
       </div>
 
-      {/* Desktop table */}
       <div className="hidden overflow-x-auto md:block" data-testid="finance-table-desktop">
-        <table className="min-w-full text-left text-sm" aria-labelledby={labelId}>
+        <table className="st-table min-w-full text-left text-sm" aria-labelledby={labelId}>
           <caption className="sr-only">{ariaLabel}</caption>
-          <thead className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-            <tr className="border-b border-[var(--color-pib-line)]">
-              {onToggle ? (
-                <th scope="col" className="finance-table-cell py-2 pr-3">
-                  Select
-                </th>
-              ) : null}
+          <thead>
+            <tr>
+              {onToggle ? <th scope="col" className="sc-tiny finance-table-cell">Select</th> : null}
               {columns.map((col) => (
-                <th
-                  key={col.key}
-                  scope="col"
-                  className={`finance-table-cell py-2 pr-3 ${col.className || ''} ${col.headerSrOnly ? 'sr-only' : ''}`}
-                >
+                <th key={col.key} scope="col" className={`sc-tiny finance-table-cell ${col.className || ''} ${col.headerSrOnly ? 'sr-only' : ''}`}>
                   {col.header}
                 </th>
               ))}
@@ -259,24 +208,19 @@ export function FinanceResponsiveTable<T extends { id: string }>({
               return (
                 <tr
                   key={key}
-                  className="border-t border-[var(--color-pib-line)] text-[var(--color-pib-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-pib-accent)]"
+                  className="text-[var(--sc-ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--sc-accent)]"
                   tabIndex={financeTableRowTabIndex(index, activeIndex)}
                   data-finance-table-row={`${labelId}-${index}`}
                   aria-selected={onToggle ? selected : undefined}
                   onFocus={() => setActiveIndex(index)}
                 >
                   {onToggle ? (
-                    <td className="finance-table-cell py-2 pr-3">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => onToggle(row.id)}
-                        aria-label={`Select ${label}`}
-                      />
+                    <td className="finance-table-cell">
+                      <Checkbox label={<span className="sr-only">Select {label}</span>} checked={selected} onChange={() => onToggle(row.id)} aria-label={`Select ${label}`} />
                     </td>
                   ) : null}
                   {columns.map((col) => (
-                    <td key={col.key} className={`finance-table-cell py-2 pr-3 ${col.className || ''}`}>
+                    <td key={col.key} className={`finance-table-cell ${col.className || ''}`}>
                       {col.render(row)}
                     </td>
                   ))}

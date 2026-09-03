@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { Surface } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
 import { HudChip } from '@/components/ui/HudChip'
@@ -87,7 +88,7 @@ function AgingTable({
   return (
     <Card className="p-4" data-testid={`finance-aging-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+        <h2 className="text-sm text-[var(--color-pib-text)]">{title}</h2>
         <HudChip tone="accent">{formatHubMoney(totalMinor, currency)}</HudChip>
       </div>
       <div className="overflow-x-auto">
@@ -483,7 +484,7 @@ export default function FinanceCommandCentrePage() {
       {entities.length === 0 ? (
         <Card className="space-y-4 p-6" data-testid="finance-bootstrap-panel">
           <div>
-            <h2 className="text-lg font-semibold">Bootstrap your first legal entity</h2>
+            <h2 className="text-lg">Bootstrap your first legal entity</h2>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
               Owner/admin bootstrap creates your finance_admin assignment, legal entity, and primary book.
               No payments, SARS submissions, or production cutover happen from this screen.
@@ -631,7 +632,7 @@ export default function FinanceCommandCentrePage() {
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Accounting periods</h2>
+                <h2 className="text-sm">Accounting periods</h2>
                 <span className="text-xs text-[var(--color-pib-text-muted)]">{periods.length} total</span>
               </div>
               {periods.length === 0 ? (
@@ -670,7 +671,7 @@ export default function FinanceCommandCentrePage() {
 
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Recent journals</h2>
+                <h2 className="text-sm">Recent journals</h2>
                 <span className="text-xs text-[var(--color-pib-text-muted)]">{journals.length}</span>
               </div>
               {journals.length === 0 ? (
@@ -684,7 +685,7 @@ export default function FinanceCommandCentrePage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium">
-                            #{journal.entryNumber ?? '—'} · {journal.description}
+                            #{journal.entryNumber ?? '-'} · {journal.description}
                           </p>
                           <p className="text-xs text-[var(--color-pib-text-muted)]">
                             {journal.postingDate?.slice(0, 10)} · {journal.status}
@@ -704,7 +705,7 @@ export default function FinanceCommandCentrePage() {
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold">Chart of accounts</h2>
+                <h2 className="text-sm">Chart of accounts</h2>
                 <span className="text-xs text-[var(--color-pib-text-muted)]">{accounts.length}</span>
               </div>
               {accounts.length === 0 ? (
@@ -731,7 +732,7 @@ export default function FinanceCommandCentrePage() {
             </Card>
 
             <Card className="p-4">
-              <h2 className="mb-3 text-sm font-semibold">Module lanes</h2>
+              <h2 className="mb-3 text-sm">Module lanes</h2>
               <div className="grid gap-2 sm:grid-cols-2">
                 {moduleLinks.map((item) => (
                   <Link
@@ -740,9 +741,7 @@ export default function FinanceCommandCentrePage() {
                     className="rounded-lg border border-[var(--color-pib-line)] p-3 transition-colors hover:bg-[var(--color-row-hover)]"
                   >
                     <div className="flex items-start gap-2">
-                      <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                        <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
-                      </span>
+                      <Icon name={item.icon} />
                       <span className="min-w-0">
                         <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
                         <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">

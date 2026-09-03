@@ -3,6 +3,7 @@
 import type { Company } from '@/lib/companies/types'
 import Link from 'next/link'
 import { CompanyRow } from '@/components/crm/CompanyRow'
+import { Icon } from '@/components/studio'
 
 // ── Column headers ────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ const COLUMNS = [
 function SkeletonRow() {
   return (
     <tr className="border-b border-[var(--color-card-border)]">
-      <td className="px-3 py-2"><div className="pib-skeleton w-7 h-7 rounded-full" /></td>
+      <td className="px-3 py-2"><div className="pib-skeleton w-7 h-7 rounded" /></td>
       <td className="px-3 py-2"><div className="pib-skeleton h-4 w-36 rounded" /></td>
       <td className="px-3 py-2"><div className="pib-skeleton h-4 w-20 rounded" /></td>
       <td className="px-3 py-2"><div className="pib-skeleton h-4 w-20 rounded" /></td>
@@ -120,11 +121,9 @@ export function CompaniesTable({
             <tr>
               <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-3 py-6 text-center">
                 <div className="mx-auto flex max-w-md flex-col items-center px-3 py-3">
-                  <span className="material-symbols-outlined grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[19px] text-primary">
-                    {state.icon}
-                  </span>
+                  <Icon name={state.icon} className="text-primary" />
                   <p className="mt-3 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{state.eyebrow}</p>
-                  <h3 className="mt-1.5 text-sm font-semibold text-[var(--color-pib-text)]">{state.title}</h3>
+                  <h3 className="mt-1.5 text-sm text-[var(--color-pib-text)]">{state.title}</h3>
                   <p className="mt-1.5 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                     {state.description}
                   </p>
@@ -136,7 +135,7 @@ export function CompaniesTable({
                         className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition ${state.primaryAction.variant === 'accent' ? 'bg-[var(--color-accent-v2)] text-black' : 'bg-primary/10 text-primary hover:bg-primary/15'}`}
                         aria-label={state.primaryAction.label}
                       >
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">{state.primaryAction.icon}</span>
+                        <Icon name={state.primaryAction.icon} />
                         {state.primaryAction.label}
                       </button>
                     ) : (
@@ -145,14 +144,14 @@ export function CompaniesTable({
                           href={newCompanyHref}
                           className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90"
                         >
-                          <span className="material-symbols-outlined text-[15px]">add_business</span>
+                          <Icon name="add_business" />
                           Create first company
                         </Link>
                         <Link
                           href={migrateHref}
                           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[15px]">sync_alt</span>
+                          <Icon name="sync_alt" />
                           Migrate from contacts
                         </Link>
                       </>

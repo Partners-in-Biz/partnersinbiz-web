@@ -176,13 +176,13 @@ describe('finance portal design-system parity', () => {
     expect(frame).toMatch(/ModuleShell/)
     expect(frame).toMatch(/PageHeader/)
     expect(frame).toMatch(/PageLinkTabs/)
-    expect(frame).toMatch(/HudChip/)
-    expect(frame).toMatch(/Button/)
+    expect(frame).toMatch(/Status/)
+    expect(frame).toMatch(/Button|ButtonLink/)
 
     const scopeBar = read('components/finance/FinanceScopeBar.tsx')
     expect(scopeBar).toMatch(/ThemedSelect/)
-    expect(scopeBar).toMatch(/Card/)
-    expect(scopeBar).toMatch(/HudChip/)
+    expect(scopeBar).toMatch(/st-panel|Panel/)
+    expect(scopeBar).toMatch(/Status/)
   })
 
   test('hub and book-scoped pages keep tenant helpers', () => {

@@ -2,6 +2,17 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Textarea,
+  Title,
+} from '@/components/studio'
 import InvoicePreviewModal from './invoice-preview-modal'
 
 interface LineItem {
@@ -157,113 +168,147 @@ function NewInvoiceForm() {
     }
   }
 
-  const inputClass = 'pib-input'
-
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header>
-        <p className="eyebrow">Invoicing · New</p>
-        <h1 className="pib-page-title mt-2">New Invoice</h1>
-        {nextInvoiceNumber && (
-          <p className="pib-page-sub">
-            Invoice #: <span className="font-mono text-[var(--color-pib-text)]">{nextInvoiceNumber}</span>
-          </p>
-        )}
-      </header>
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+      <PageHeader
+        eyebrow="Invoicing"
+        title="New invoice."
+        description={nextInvoiceNumber ? `Next number ${nextInvoiceNumber}.` : 'Create a draft invoice for a client organisation.'}
+      />
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="pib-card space-y-4">
-          <p className="pib-label">Invoice Details</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="pib-label">Client Organisation *</label>
-              <select value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-select">
-                <option value="">Select organisation…</option>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+        <Panel className="space-y-4">
+          <Title as="h2">Invoice details</Title>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field id="invoice-org" label="Client organisation">
+              <Select id="invoice-org" value={orgId} aria-label="Client organisation" onChange={e => setOrgId(e.target.value)} required>
+                <option value="">Select organisation</option>
                 {orgs.map(org => (
                   <option key={org.id} value={org.id}>{org.name}</option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="pib-label">Currency</label>
-              <select value={currency} onChange={e => setCurrency(e.target.value as Currency)} className="pib-select">
+              </Select>
+            </Field>
+            <Field id="invoice-currency" label="Currency">
+              <Select id="invoice-currency" value={currency} aria-label="Currency" onChange={e => setCurrency(e.target.value as Currency)}>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="ZAR">ZAR (R)</option>
-              </select>
-            </div>
-            <div>
-              <label className="pib-label">Due Date</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputClass} />
-            </div>
-            <div>
-              <label className="pib-label">Tax Rate (%)</label>
-              <input type="number" min="0" max="100" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className={inputClass} />
-            </div>
+              </Select>
+            </Field>
+            <Field id="invoice-due" label="Due date">
+              <Input id="invoice-due" type="date" value={dueDate} aria-label="Due date" onChange={e => setDueDate(e.target.value)} />
+            </Field>
+            <Field id="invoice-tax" label="Tax rate (%)">
+              <Input id="invoice-tax" type="number" min="0" max="100" value={taxRate} aria-label="Tax rate (%)" onChange={e => setTaxRate(Number(e.target.value))} />
+            </Field>
           </div>
-        </div>
+        </Panel>
 
-        <div className="pib-card space-y-3">
-          <p className="pib-label">Line Items</p>
-          <div className="pib-label hidden sm:grid grid-cols-12 gap-2">
+        <Panel className="space-y-4">
+          <Title as="h2">Line items</Title>
+          <div className="sc-tiny hidden gap-2 sm:grid sm:grid-cols-12">
             <span className="col-span-6">Description</span>
             <span className="col-span-2">Qty</span>
-            <span className="col-span-2">Unit Price</span>
+            <span className="col-span-2">Unit price</span>
             <span className="col-span-2">Amount</span>
           </div>
           {lineItems.map((item, idx) => (
-            <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:items-center pb-3 sm:pb-0 border-b border-[var(--color-pib-line)] sm:border-0 last:border-b-0">
+            <div key={idx} className="grid grid-cols-2 gap-2 border-b border-[var(--sc-line)] pb-4 last:border-b-0 sm:grid-cols-12 sm:items-end sm:border-0 sm:pb-0">
               <div className="col-span-2 sm:col-span-6">
-                <label className="pib-label sm:hidden">Description</label>
-                <input value={item.description} onChange={e => updateLineItem(idx, 'description', e.target.value)} className={inputClass} placeholder="Description" />
+                <Field id={`line-desc-${idx}`} label={idx === 0 ? 'Description' : `Description ${idx + 1}`}>
+                  <Input
+                    id={`line-desc-${idx}`}
+                    value={item.description}
+                    aria-label={idx === 0 ? 'Description' : `Description ${idx + 1}`}
+                    onChange={e => updateLineItem(idx, 'description', e.target.value)}
+                    placeholder="Description"
+                  />
+                </Field>
               </div>
               <div className="sm:col-span-2">
-                <label className="pib-label sm:hidden">Qty</label>
-                <input type="number" min="1" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', e.target.value)} className={inputClass} />
+                <Field id={`line-qty-${idx}`} label="Qty">
+                  <Input 
+                    id={`line-qty-${idx}`}
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    aria-label="Qty" onChange={e => updateLineItem(idx, 'quantity', e.target.value)}
+                  />
+                </Field>
               </div>
               <div className="sm:col-span-2">
-                <label className="pib-label sm:hidden">Unit Price</label>
-                <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)} className={inputClass} />
+                <Field id={`line-price-${idx}`} label="Unit price">
+                  <Input 
+                    id={`line-price-${idx}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.unitPrice}
+                    aria-label="Unit price" onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)}
+                  />
+                </Field>
               </div>
-              <div className="col-span-2 sm:col-span-2 flex items-center justify-between sm:justify-start gap-2">
-                <div className="text-sm">
-                  <span className="pib-label mr-2 sm:hidden">Amount:</span>
-                  {fmtCurrency(Number(item.quantity) * Number(item.unitPrice), currency)}
-                </div>
-                <button type="button" onClick={() => removeLineItem(idx)} className="text-lg leading-none text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-error)] sm:ml-auto" aria-label="Remove line">×</button>
+              <div className="col-span-2 flex items-center justify-between gap-2 sm:col-span-2 sm:justify-start sm:pb-2">
+                <span className="st-num">{fmtCurrency(Number(item.quantity) * Number(item.unitPrice), currency)}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeLineItem(idx)}
+                  aria-label="Remove line"
+                >
+                  Remove
+                </Button>
               </div>
             </div>
           ))}
-          <button type="button" onClick={addLineItem} className="btn-pib-secondary">+ Add Line</button>
+          <Button type="button" variant="secondary" size="sm" onClick={addLineItem}>
+            Add line
+          </Button>
 
-          <div className="space-y-1 border-t border-[var(--color-pib-line)] pt-3 text-right">
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Subtotal: <span className="text-[var(--color-pib-text)]">{fmtCurrency(subtotal, currency)}</span></p>
-            {taxRate > 0 && <p className="text-sm text-[var(--color-pib-text-muted)]">Tax ({taxRate}%): <span className="text-[var(--color-pib-text)]">{fmtCurrency(taxAmount, currency)}</span></p>}
-            <p className="text-base font-semibold">Total: {fmtCurrency(total, currency)}</p>
+          <div className="space-y-1 border-t border-[var(--sc-line)] pt-4 text-right">
+            <p className="sc-body text-[var(--sc-ink-soft)]">
+              Subtotal: <span className="st-num text-[var(--sc-ink)]">{fmtCurrency(subtotal, currency)}</span>
+            </p>
+            {taxRate > 0 ? (
+              <p className="sc-body text-[var(--sc-ink-soft)]">
+                Tax ({taxRate}%): <span className="st-num text-[var(--sc-ink)]">{fmtCurrency(taxAmount, currency)}</span>
+              </p>
+            ) : null}
+            <p className="st-title">
+              Total: <span className="st-num">{fmtCurrency(total, currency)}</span>
+            </p>
           </div>
-        </div>
+        </Panel>
 
-        <div className="pib-card">
-          <label className="pib-label mb-2 block">Notes / Terms</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} className="pib-textarea" rows={3} placeholder="Payment terms, thank you note, etc." />
-        </div>
+        <Panel>
+          <Field id="invoice-notes" label="Notes / terms">
+            <Textarea 
+              id="invoice-notes"
+              value={notes}
+              aria-label="Notes / terms" onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Payment terms, thank you note, etc."
+            />
+          </Field>
+        </Panel>
 
-        {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+        {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        <div className="flex flex-wrap gap-3">
-          <button type="submit" disabled={saving} className="btn-pib-primary flex-1 justify-center sm:flex-none">
-            {saving ? 'Creating…' : 'Create Invoice'}
-          </button>
-          <button type="button" onClick={handlePreview} className="btn-pib-secondary flex-1 justify-center sm:flex-none">
-            Preview Invoice
-          </button>
-          <button type="button" onClick={() => router.back()} className="btn-pib-ghost flex-1 justify-center sm:flex-none">Cancel</button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" loading={saving}>
+            {saving ? 'Creating…' : 'Create invoice'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={handlePreview}>
+            Preview invoice
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => router.back()}>
+            Cancel
+          </Button>
         </div>
       </form>
 
-      {showPreview && (
-        <InvoicePreviewModal html={previewHtml} onClose={() => setShowPreview(false)} />
-      )}
+      <InvoicePreviewModal open={showPreview} html={previewHtml} onClose={() => setShowPreview(false)} />
     </div>
   )
 }

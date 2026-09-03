@@ -261,7 +261,7 @@ export default function FinancePayrollPage() {
 
   return (
     <FinanceModuleFrame active="payroll" orgScope={scope.orgScope} title="Payroll"
-      description="Bureau board, leave calendar, salary structures, bulk payslip ZIP packs, EMP501 annual readiness. Download only — no bank payout or SARS submit. Employees use ESS for self-serve."
+      description="Bureau board, leave calendar, salary structures, bulk payslip ZIP packs, EMP501 annual readiness. Download only - no bank payout or SARS submit. Employees use ESS for self-serve."
       error={scope.error} message={scope.message} loading={scope.loading}>
       {!scope.loading && !scope.scopeReady ? <FinanceEmptyScope orgScope={scope.orgScope} /> : !scope.loading ? (
         <>
@@ -271,7 +271,7 @@ export default function FinancePayrollPage() {
           </section>
           <section className="grid gap-4 md:grid-cols-4">
             {[['Employees', bundle?.employees?.length ?? 0],['Pay periods', bundle?.periods?.length ?? 0],['Leave records', bundle?.leaveRecords?.length ?? 0],['Payslips', bundle?.payslipCount ?? 0]].map(([label,n]) => (
-              <div key={String(label)} className="pib-stat-card"><p className="pib-label">{label}</p><p className="mt-3 text-2xl font-semibold">{n}</p></div>
+              <div key={String(label)} className="pib-stat-card"><p className="pib-label">{label}</p><p className="mt-3 text-2xl">{n}</p></div>
             ))}
           </section>
           <section className="pib-card p-4 text-xs text-[var(--color-pib-text-muted)]">
@@ -284,7 +284,7 @@ export default function FinancePayrollPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Multi-entity / batch pay-run board</h2>
+              <h2 className="text-base">Multi-entity / batch pay-run board</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
                 Locked {bundle?.payRunBoard?.summary?.lockedCount ?? 0} · In review {bundle?.payRunBoard?.summary?.inReviewCount ?? 0} · Draft/calc {bundle?.payRunBoard?.summary?.draftOrCalculatedCount ?? 0}
               </p>
@@ -298,14 +298,14 @@ export default function FinancePayrollPage() {
               </ul>
               <div className="flex flex-wrap gap-2 text-xs text-[var(--color-pib-text-muted)]">
                 {(bundle?.payRunBoard?.density || []).slice(0, 8).map((d: AnyRec) => (
-                  <span key={d.date} className="rounded-full border border-[var(--color-pib-line)] px-2 py-1">{d.date}: pay {d.payDateCount}/lock {d.lockedRunCount}</span>
+                  <span key={d.date} className="border border-[var(--color-pib-line)] px-2 py-1">{d.date}: pay {d.payDateCount}/lock {d.lockedRunCount}</span>
                 ))}
               </div>
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Leave calendar</h2>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">{bundle?.leaveMonth?.monthKey || '—'} · pending {bundle?.leaveMonth?.pendingRequests?.length ?? 0}</p>
+              <h2 className="text-base">Leave calendar</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{bundle?.leaveMonth?.monthKey || '-'} · pending {bundle?.leaveMonth?.pendingRequests?.length ?? 0}</p>
               <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
                 {(bundle?.leaveMonth?.pendingRequests || []).map((r: AnyRec) => (
                   <li key={r.leaveRecordId} className="border-b border-[var(--color-pib-line)] pb-2">
@@ -324,13 +324,13 @@ export default function FinancePayrollPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Pay-run calendar</h2>
+              <h2 className="text-base">Pay-run calendar</h2>
               <label className="block text-sm">Code<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={calCode} onChange={(e) => setCalCode(e.target.value)} /></label>
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void createCalendar()}>Create monthly calendar</button>
               <label className="block text-sm">Calendar
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedCalendarId} onChange={(e) => setSelectedCalendarId(e.target.value)}>
                   <option value="">Select…</option>
-                  {(bundle?.calendars || []).map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                  {(bundle?.calendars || []).map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
                 </select>
               </label>
               <div className="grid gap-2 md:grid-cols-2">
@@ -352,7 +352,7 @@ export default function FinancePayrollPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Employee master</h2>
+              <h2 className="text-base">Employee master</h2>
               <label className="block text-sm">Number<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={empCode} onChange={(e) => setEmpCode(e.target.value)} /></label>
               <label className="block text-sm">Name<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={empName} onChange={(e) => setEmpName(e.target.value)} /></label>
               <label className="block text-sm">Linked portal user id<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={linkUserId} onChange={(e) => setLinkUserId(e.target.value)} /></label>
@@ -363,7 +363,7 @@ export default function FinancePayrollPage() {
               <label className="block text-sm">Selected
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
                   <option value="">Select…</option>
-                  {(bundle?.employees || []).map((e) => <option key={e.id} value={e.id}>{e.employeeNumber} — {e.displayName}</option>)}
+                  {(bundle?.employees || []).map((e) => <option key={e.id} value={e.id}>{e.employeeNumber} - {e.displayName}</option>)}
                 </select>
               </label>
               <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
@@ -379,7 +379,7 @@ export default function FinancePayrollPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Leave</h2>
+              <h2 className="text-base">Leave</h2>
               <label className="block text-sm">Code<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={leaveCode} onChange={(e) => setLeaveCode(e.target.value)} /></label>
               <label className="block text-sm">Pay effect
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={leavePayEffect} onChange={(e) => setLeavePayEffect(e.target.value as any)}>
@@ -412,8 +412,8 @@ export default function FinancePayrollPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Self-serve payslips & PDF pack download</h2>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">Linked employees only see their own payslips. Packs download locally — never mass-emailed.</p>
+              <h2 className="text-base">Self-serve payslips & PDF pack download</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Linked employees only see their own payslips. Packs download locally - never mass-emailed.</p>
               {myPayslips.length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No self-serve payslips for this user/book.</p>
               ) : (
@@ -436,7 +436,7 @@ export default function FinancePayrollPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Bulk payslip ZIP (locked run)</h2>
+              <h2 className="text-base">Bulk payslip ZIP (locked run)</h2>
               <label className="block text-sm">Pay run
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
                   <option value="">Select…</option>
@@ -448,7 +448,7 @@ export default function FinancePayrollPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Salary structures</h2>
+              <h2 className="text-base">Salary structures</h2>
               <label className="block text-sm">Code<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={structureCode} onChange={(e) => setStructureCode(e.target.value)} /></label>
               <label className="block text-sm">Name<input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={structureName} onChange={(e) => setStructureName(e.target.value)} /></label>
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void createSalaryStructure()}>Create + activate template</button>
@@ -462,18 +462,18 @@ export default function FinancePayrollPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">EMP501 annual pack + IRP5 batch readiness</h2>
+              <h2 className="text-base">EMP501 annual pack + IRP5 batch readiness</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">Prepare/download only. No SARS eFiling submit.</p>
               <label className="block text-sm">EMP501 id
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedEmp501Id} onChange={(e) => setSelectedEmp501Id(e.target.value)} />
               </label>
               <button type="button" className="pib-btn-primary" disabled={busy || !selectedEmp501Id} onClick={() => void downloadEmp501AnnualPack()}>Prepare annual pack</button>
               {emp501PackPreview ? <pre className="max-h-32 overflow-auto rounded-lg bg-black/20 p-3 text-xs">{JSON.stringify({ readiness: emp501PackPreview.readiness, sarsSubmissionInitiated: emp501PackPreview.sarsSubmissionInitiated, files: (emp501PackPreview.files||[]).map((f:AnyRec)=>f.name) }, null, 2)}</pre> : null}
-              <p className="text-xs text-[var(--color-pib-text-muted)]">Statutory counts — IRP5 {bundle?.irp5Count ?? 0} · EMP201 {bundle?.emp201Count ?? 0} · EMP501 {bundle?.emp501Count ?? 0}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Statutory counts - IRP5 {bundle?.irp5Count ?? 0} · EMP201 {bundle?.emp201Count ?? 0} · EMP501 {bundle?.emp501Count ?? 0}</p>
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Vera calc fixtures</h2>
+              <h2 className="text-base">Vera calc fixtures</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{(bundle?.veraFixtureIds || []).length} fixtures available for PAYE/UIF/SDL edge audit.</p>
               <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void runVeraSample()}>Run sample fixture</button>
               {veraResult ? <pre className="max-h-40 overflow-auto rounded-lg bg-black/20 p-3 text-xs">{JSON.stringify(veraResult, null, 2)}</pre> : null}

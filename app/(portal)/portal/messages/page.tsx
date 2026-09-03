@@ -11,6 +11,7 @@ import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import {
+import { Icon } from '@/components/studio'
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
@@ -140,7 +141,7 @@ export default function PortalMessagesPage() {
           <h1 className="pib-page-title mt-2">Messages</h1>
         </header>
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-blue)]">forum</span>
+          <Icon name="forum" className="text-4xl text-[var(--color-pib-blue)]" />
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {error ?? 'Could not load your workspace. Please try again.'}
           </p>

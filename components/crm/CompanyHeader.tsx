@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { companyAccountOwnerRef, companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
+import { Icon } from '@/components/studio'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     { label: 'Docs', value: stats?.documents ?? 0, icon: 'description' },
   ]
   const setupButtonClass =
-    'inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-pib-text)] transition-colors hover:bg-[var(--color-row-hover)]'
+    'inline-flex items-center gap-1 rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-pib-text)] transition-colors hover:bg-[var(--color-row-hover)]'
 
   return (
     <div className="flex flex-col">
@@ -144,7 +145,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               className="mt-0.5 h-9 w-9 shrink-0 rounded-lg object-cover"
             />
           ) : (
-            <div className="pib-icon-tint mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-label">
+            <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded text-xs font-label">
               {initials(company.name)}
             </div>
           )}
@@ -153,7 +154,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <div className="min-w-0 flex-1">
             <p className="pib-label">Account command center</p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <h1 className="truncate text-base font-semibold leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
+              <h1 className="truncate text-base leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
               {company.linkedOrgId ? <SystemLinkBadge kind="org" size="md" /> : null}
               {tierLabel && (
                 <button
@@ -183,9 +184,9 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               {am && (
                 <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
                   {am.avatarUrl ? (
-                    <Image src={am.avatarUrl} alt={am.displayName} width={20} height={20} unoptimized className="h-4 w-4 rounded-full object-cover" />
+                    <Image src={am.avatarUrl} alt={am.displayName} width={20} height={20} unoptimized className="h-4 w-4 rounded object-cover" />
                   ) : (
-                    <div className="pib-icon-tint grid h-4 w-4 place-items-center rounded-full text-[8px] font-label">
+                    <div className="grid h-4 w-4 place-items-center rounded text-[8px] font-label">
                       {initials(am.displayName)}
                     </div>
                   )}
@@ -202,7 +203,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add domain for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_link</span>
+                  <Icon name="add_link" />
                   Add domain
                 </button>
               )}
@@ -215,7 +216,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add industry for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">category</span>
+                  <Icon name="category" />
                   Add industry
                 </button>
               )}
@@ -232,7 +233,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Open website for ${company.name}`}
               className="btn-pib-ghost btn-pib-sm gap-1"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
+              <Icon name="open_in_new" />
               Website
             </a>
           )}
@@ -242,7 +243,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Email billing contact for ${company.name}`}
               className="btn-pib-ghost btn-pib-sm gap-1"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
+              <Icon name="mail" />
               Billing
             </a>
           )}
@@ -252,7 +253,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Call ${company.name}`}
               className="btn-pib-ghost btn-pib-sm gap-1"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
+              <Icon name="call" />
               Call
             </a>
           )}
@@ -262,7 +263,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             aria-label={`Edit account profile for ${company.name}`}
             className="btn-pib-primary btn-pib-sm shrink-0 gap-1"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
+            <Icon name="edit" />
             Edit
           </button>
           {onDelete && (
@@ -284,7 +285,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Account owner missing</p>
-              <h2 className="mt-0.5 text-xs font-semibold text-[var(--color-pib-text)]">Assign account ownership</h2>
+              <h2 className="mt-0.5 text-xs text-[var(--color-pib-text)]">Assign account ownership</h2>
               <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.
               </p>
@@ -295,7 +296,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Assign account manager for ${company.name}`}
               className="btn-pib-secondary btn-pib-sm shrink-0 gap-1.5"
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
+              <Icon name="person_add" />
               Assign manager
             </button>
           </div>
@@ -308,8 +309,8 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <p className="pib-label">Profile health</p>
             <span className={`font-mono text-xs ${strengthTone}`}>{strength}%</span>
           </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
-            <div className={`h-full rounded-full ${strengthBarTone}`} style={{ width: `${strength}%` }} />
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--color-pib-surface-soft)]">
+            <div className={`h-full rounded ${strengthBarTone}`} style={{ width: `${strength}%` }} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             <span>{formatCurrency(company.annualRevenue, company.currency)}</span>
@@ -322,7 +323,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                 aria-label={`Add company size for ${company.name}`}
                 className={setupButtonClass}
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+                <Icon name="groups" />
                 Add size
               </button>
             )}
@@ -333,9 +334,9 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <div key={tile.label} className="pib-stat-card">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{tile.label}</span>
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+              <Icon name={tile.icon} className="text-[var(--color-pib-text-muted)]" />
             </div>
-            <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{tile.value}</p>
+            <p className="mt-1 text-lg leading-none text-[var(--color-pib-text)]">{tile.value}</p>
           </div>
         ))}
       </div>

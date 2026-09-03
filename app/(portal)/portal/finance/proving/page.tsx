@@ -172,7 +172,7 @@ export default function FinanceProvingKitPage() {
         ...requestIdentity('prov-seed'),
       })
       const replay = Boolean(body?.data?.result?.idempotentReplay)
-      setMessage(replay ? 'Seed replayed idempotently (same seedKey digest).' : 'Demo company seeded — multi-entity books + sample activity.')
+      setMessage(replay ? 'Seed replayed idempotently (same seedKey digest).' : 'Demo company seeded - multi-entity books + sample activity.')
     })
   }
 
@@ -188,7 +188,7 @@ export default function FinanceProvingKitPage() {
       setMessage(
         resolveBlockers
           ? `Close fixture finished with status ${status}. Reports freeze when closed.`
-          : `Close blockers evaluated — status ${status}. Resolve then re-run with blockers cleared.`,
+          : `Close blockers evaluated - status ${status}. Resolve then re-run with blockers cleared.`,
       )
     })
   }
@@ -197,7 +197,7 @@ export default function FinanceProvingKitPage() {
     await withBusy(async () => {
       const body = await runCommand('proving.packaging.dry_run', { ...requestIdentity('prov-pack') })
       const n = body?.data?.result?.packs?.length ?? 0
-      setMessage(`Packaging dry-run built ${n} packs (download only — no submit/initiate).`)
+      setMessage(`Packaging dry-run built ${n} packs (download only - no submit/initiate).`)
     })
   }
 
@@ -266,7 +266,7 @@ export default function FinanceProvingKitPage() {
       active="proving"
       orgScope={orgScope}
       title="Finance proving kit"
-      description="Deterministic demo company, multi-month close program (≥3 periods × ≥2 entities), packaging dry-run, and accountant acceptance pack export. Development/staging proof path — no SARS submit, no payment initiate."
+      description="Deterministic demo company, multi-month close program (≥3 periods × ≥2 entities), packaging dry-run, and accountant acceptance pack export. Development/staging proof path - no SARS submit, no payment initiate."
       loading={loading}
       error={error}
       message={message}
@@ -304,14 +304,14 @@ export default function FinanceProvingKitPage() {
             <StatCard label="Entities" value={String(seed?.entities.length ?? 0)} detail="Multi-entity seed" icon="apartment" />
             <StatCard
               label="Close"
-              value={latestClose?.status ?? '—'}
+              value={latestClose?.status ?? '-'}
               detail={latestClose ? latestClose.periodKey : 'Not run'}
               icon="event_available"
             />
             <StatCard label="Packs" value={String(packs.length)} detail="Dry-run downloads" icon="inventory_2" />
             <StatCard
               label="Checklist"
-              value={requiredTotal ? `${requiredDone}/${requiredTotal}` : '—'}
+              value={requiredTotal ? `${requiredDone}/${requiredTotal}` : '-'}
               detail={requiredDone === requiredTotal && requiredTotal > 0 ? 'Sign-off ready' : 'In progress'}
               icon="checklist"
             />
@@ -366,7 +366,7 @@ export default function FinanceProvingKitPage() {
           {seed ? (
             <Card className="space-y-3 p-5" data-testid="proving-company">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">{seed.companyName}</h2>
+                <h2 className="text-base">{seed.companyName}</h2>
                 <div className="flex flex-wrap gap-1.5">
                   <HudChip>{seed.seedKey}</HudChip>
                 </div>
@@ -393,7 +393,7 @@ export default function FinanceProvingKitPage() {
 
           {latestProgram ? (
             <Card className="space-y-3 p-5" data-testid="proving-multi-month">
-              <h2 className="text-base font-semibold">Multi-month close program</h2>
+              <h2 className="text-base">Multi-month close program</h2>
               <div className="flex flex-wrap gap-1.5">
                 <HudChip tone="accent">{latestProgram.status}</HudChip>
                 <HudChip>
@@ -414,7 +414,7 @@ export default function FinanceProvingKitPage() {
 
           {latestClose ? (
             <Card className="space-y-3 p-5" data-testid="proving-close-fixture">
-              <h2 className="text-base font-semibold">Latest close fixture</h2>
+              <h2 className="text-base">Latest close fixture</h2>
               <div className="flex flex-wrap gap-1.5">
                 <HudChip tone="accent">{latestClose.status}</HudChip>
                 <HudChip>{latestClose.periodKey}</HudChip>
@@ -427,7 +427,7 @@ export default function FinanceProvingKitPage() {
               <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
                 {latestClose.blockers.map((b) => (
                   <li key={b.code}>
-                    {b.resolved ? '✓' : '•'} {b.code} — {b.label}
+                    {b.resolved ? '✓' : '•'} {b.code} - {b.label}
                   </li>
                 ))}
               </ul>
@@ -439,7 +439,7 @@ export default function FinanceProvingKitPage() {
 
           {packs.length > 0 ? (
             <Card className="space-y-3 p-5" data-testid="proving-packaging">
-              <h2 className="text-base font-semibold">Packaging dry-run</h2>
+              <h2 className="text-base">Packaging dry-run</h2>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead>
@@ -473,7 +473,7 @@ export default function FinanceProvingKitPage() {
           <Card className="space-y-4 p-5 print:shadow-none" data-testid="proving-acceptance-checklist">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-semibold">Accountant acceptance checklist</h2>
+                <h2 className="text-base">Accountant acceptance checklist</h2>
                 <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                   Printable evidence checkboxes for a one-sitting proving run. Not a permanent CEO dashboard.
                 </p>

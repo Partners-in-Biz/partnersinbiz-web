@@ -86,7 +86,7 @@ export default function FinanceInventoryPage() {
         expectedVersion: 0,
         ...requestIdentity('inv-item'),
       })
-      scope.setMessage(`SKU ${sku} created (stock lite — no WMS/POS)`)
+      scope.setMessage(`SKU ${sku} created (stock lite - no WMS/POS)`)
       setSelectedItemId(id)
     })
   }
@@ -176,10 +176,10 @@ export default function FinanceInventoryPage() {
         <div className="space-y-6">
           <FinanceScopeBar scope={scope} />
 
-          <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-[var(--portal-muted)]">SKU / item master</h2>
+          <section className="border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
+            <h2 className="text-sm tracking-wide uppercase text-[var(--portal-muted)]">SKU / item master</h2>
             <p className="text-sm text-[var(--portal-muted)]">
-              Light inventory only — quantity on hand, average cost, COGS on invoice issue. No warehouse, POS, or barcode hardware.
+              Light inventory only - quantity on hand, average cost, COGS on invoice issue. No warehouse, POS, or barcode hardware.
             </p>
             <div className="grid gap-3 md:grid-cols-4">
               <label className="text-sm">SKU
@@ -200,8 +200,8 @@ export default function FinanceInventoryPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-[var(--portal-muted)]">Stock movements</h2>
+          <section className="border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
+            <h2 className="text-sm tracking-wide uppercase text-[var(--portal-muted)]">Stock movements</h2>
             <label className="text-sm block">Item
               <select
                 className="mt-1 w-full rounded border px-2 py-1"
@@ -211,7 +211,7 @@ export default function FinanceInventoryPage() {
               >
                 <option value="">Select…</option>
                 {(bundle?.items || []).map((item) => (
-                  <option key={item.id} value={item.id}>{item.sku} — {item.name}</option>
+                  <option key={item.id} value={item.id}>{item.sku} - {item.name}</option>
                 ))}
               </select>
             </label>
@@ -246,8 +246,8 @@ export default function FinanceInventoryPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-[var(--portal-muted)]">Stock on hand</h2>
+          <section className="border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-3">
+            <h2 className="text-sm tracking-wide uppercase text-[var(--portal-muted)]">Stock on hand</h2>
             <div className="text-sm text-[var(--portal-muted)]">
               Tracked items: {soh?.trackedItemCount ?? 0} · Value: {formatMinor(soh?.totalInventoryValueMinor ?? 0, currency)}
             </div>
@@ -279,8 +279,8 @@ export default function FinanceInventoryPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-2">
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-[var(--portal-muted)]">Recent COGS postings</h2>
+          <section className="border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-2">
+            <h2 className="text-sm tracking-wide uppercase text-[var(--portal-muted)]">Recent COGS postings</h2>
             <ul className="text-sm space-y-1">
               {(bundle?.cogsPostings || []).slice(0, 8).map((c) => (
                 <li key={c.id} className="font-mono">
@@ -292,8 +292,8 @@ export default function FinanceInventoryPage() {
             <p className="text-xs text-[var(--portal-muted)]">Hard gates: no SARS submit, no external payment initiate, no client egress.</p>
           </section>
 
-          <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-2">
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-[var(--portal-muted)]">Audit</h2>
+          <section className="border border-[var(--portal-border)] bg-[var(--portal-surface)] p-4 space-y-2">
+            <h2 className="text-sm tracking-wide uppercase text-[var(--portal-muted)]">Audit</h2>
             <ul className="text-sm space-y-1 max-h-48 overflow-auto">
               {(bundle?.recentAudit || []).map((e) => (
                 <li key={e.id}>{e.at} · {e.eventType} · {e.summary}</li>

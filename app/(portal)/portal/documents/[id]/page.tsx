@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { useSearchParams } from 'next/navigation'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '@/lib/firebase/client'
@@ -378,11 +379,11 @@ export default function PortalDocumentDetail({ params }: Props) {
     return (
       <div className="space-y-6">
         <Link href={documentsHref} className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]">
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" className="text-base" />
           Back to Documents
         </Link>
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">description</span>
+          <Icon name="description" />
           <h2 className="pib-empty-state-title">Document not found.</h2>
         </div>
       </div>
@@ -411,13 +412,13 @@ export default function PortalDocumentDetail({ params }: Props) {
           href={documentsHref}
           className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)]"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" className="text-base" />
           Back to Documents
         </Link>
         <div className="flex items-center gap-3">
           {(doc as { signedByExternal?: { signerName?: string } }).signedByExternal && (
             <span className="pib-pill pib-pill-success">
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">verified</span>
+              <Icon name="verified" className="text-[14px]" />
               Signed
             </span>
           )}
@@ -434,7 +435,7 @@ export default function PortalDocumentDetail({ params }: Props) {
             onClick={() => setShowVersionHistory(true)}
             className="btn-pib-secondary"
           >
-            <span className="material-symbols-outlined text-sm" aria-hidden="true">history</span>
+            <Icon name="history" className="text-sm" />
             Version history
           </button>
           <ShareWithPartnerButton resourceType="client_document" resourceId={id} />
@@ -448,7 +449,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-        <div ref={articleScrollRef} className="min-w-0 rounded-xl overflow-hidden">
+        <div ref={articleScrollRef} className="min-w-0 overflow-hidden">
           <DocumentRenderer
             document={doc}
             version={version}
@@ -470,7 +471,7 @@ export default function PortalDocumentDetail({ params }: Props) {
                 onClick={() => setShowShare((v) => !v)}
                 className="btn-pib-secondary"
               >
-                <span className="material-symbols-outlined text-sm" aria-hidden="true">share</span>
+                <Icon name="share" className="text-sm" />
                 {showShare ? 'Hide share' : 'Share'}
               </button>
             </div>
@@ -484,12 +485,10 @@ export default function PortalDocumentDetail({ params }: Props) {
             />
           )}
 
-          {/* PDF Export — US-174 */}
+          {/* PDF Export - US-174 */}
           <div className="pib-card flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
-              </span>
+              <Icon name="picture_as_pdf" className="text-[18px]" />
               <div>
                 <p className="text-xs font-medium">Export document</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Download as PDF</p>
@@ -501,19 +500,19 @@ export default function PortalDocumentDetail({ params }: Props) {
               disabled={exportingPdf}
               className="btn-pib-secondary"
             >
-              <span className="material-symbols-outlined text-sm">download</span>
+              <Icon name="download" className="text-sm" />
               {exportingPdf ? 'Generating…' : 'PDF'}
             </button>
           </div>
 
-          {/* E-signature — US-172 */}
+          {/* E-signature - US-172 */}
           <SignatureRequestPanel
             documentId={id}
             canRequest={Boolean(doc.latestPublishedVersionId) && doc.shareEnabled === true}
           />
 
           {publishError ? (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+            <div className="rounded-lg border border-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-xs text-[var(--st-warning)]">
               {publishError}
             </div>
           ) : null}
@@ -528,20 +527,20 @@ export default function PortalDocumentDetail({ params }: Props) {
             onScrollToComment={handleScrollToComment}
           />
 
-          {/* Recent views — US-188 */}
+          {/* Recent views - US-188 */}
           {accessLog.length > 0 && (
             <section className="pib-card space-y-2">
               <h3 className="pib-label">Recent views</h3>
               {accessLog.slice(0, 5).map((entry) => (
                 <div key={entry.id} className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <span className="material-symbols-outlined text-sm">person</span>
+                  <Icon name="person" className="text-sm" />
                   <span>{fmtTimestamp(entry.accessedAt)}</span>
                 </div>
               ))}
             </section>
           )}
 
-          {/* Action items — US-215 */}
+          {/* Action items - US-215 */}
           <DocumentTaskList documentId={id} />
 
           {canComment && (
@@ -572,8 +571,8 @@ export default function PortalDocumentDetail({ params }: Props) {
 
           {approved && (
             <div className="pib-card text-center">
-              <span className="material-symbols-outlined text-2xl text-[var(--color-pib-success)]">check_circle</span>
-              <p className="mt-1 text-sm font-medium">Document approved — thank you!</p>
+              <Icon name="check_circle" className="text-2xl text-[var(--color-pib-success)]" />
+              <p className="mt-1 text-sm font-medium">Document approved - thank you!</p>
             </div>
           )}
         </div>
@@ -604,7 +603,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       {showApproveModal && (
         <div className="pib-dialog-backdrop flex items-center justify-center px-4">
           <div className="pib-card w-full max-w-md space-y-4">
-            <h2 className="font-display text-xl">Formal acceptance</h2>
+            <h2 className="text-xl">Formal acceptance</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)]">
               By signing below, you confirm that you have read and accept the document in full.
             </p>

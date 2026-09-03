@@ -509,7 +509,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-org-slug', 'lumen-speeds')
     expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-id', 'company-1')
     expect(screen.getByTestId('contact-deals-panel')).toHaveAttribute('data-source-company-name', 'Lumen')
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1?orgId=org-1&companyId=company-1')
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 

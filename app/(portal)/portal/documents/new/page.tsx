@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { CLIENT_DOCUMENT_TEMPLATES } from '@/lib/client-documents/templates'
 import type { ClientDocumentType, UserDocumentTemplate } from '@/lib/client-documents/types'
 import {
@@ -175,15 +176,15 @@ export default function PortalNewDocumentPage() {
 
       {savedTemplate && (
         <div className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent)]/8 px-4 py-3 text-sm">
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">bookmark</span>
+          <Icon name="bookmark" className="text-[18px] text-[var(--color-pib-accent)]" />
           <span>
-            Starting from saved template: <span className="font-semibold">{savedTemplate.name}</span>
+            Starting from saved template: <span className="">{savedTemplate.name}</span>
           </span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Step 1 — Template picker grid */}
+        {/* Step 1 - Template picker grid */}
         <section className="space-y-3">
           <h2 className="pib-label">
             Choose a template
@@ -211,21 +212,19 @@ export default function PortalNewDocumentPage() {
                   {/* Selected checkmark */}
                   {isSelected && (
                     <span
-                      className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-pib-accent)] text-[var(--color-pib-bg)]"
+                      className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center bg-[var(--color-pib-accent)] text-[var(--color-pib-bg)]"
                       aria-hidden="true"
                     >
-                      <span className="material-symbols-outlined text-[14px]">check</span>
+                      <Icon name="check" className="text-[14px]" />
                     </span>
                   )}
 
                   {/* Icon */}
-                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
-                  </span>
+                  <Icon name={icon} />
 
                   {/* Name */}
                   <p className={[
-                    'text-sm font-semibold leading-snug',
+                    'text-sm  leading-snug',
                     isSelected ? 'text-[var(--color-pib-accent)]' : '',
                   ].join(' ')}>
                     {template.label}
@@ -241,7 +240,7 @@ export default function PortalNewDocumentPage() {
           </div>
         </section>
 
-        {/* Selected template detail — shown after pick */}
+        {/* Selected template detail - shown after pick */}
         {selectedTemplate && (
           <section className="pib-card text-sm">
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -260,7 +259,7 @@ export default function PortalNewDocumentPage() {
           </section>
         )}
 
-        {/* Step 2 — Details */}
+        {/* Step 2 - Details */}
         <section
           className={[
             'pib-card space-y-4 transition-opacity duration-200',
@@ -289,7 +288,7 @@ export default function PortalNewDocumentPage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={selectedTemplate ? `e.g. ${selectedTemplate.label} — ${orgName || 'Client'} Q3 2026` : 'e.g. Acme Corp — Proposal Q3 2026'}
+              placeholder={selectedTemplate ? `e.g. ${selectedTemplate.label} - ${orgName || 'Client'} Q3 2026` : 'e.g. Acme Corp - Proposal Q3 2026'}
               required
               disabled={!canCreateDocument || !type}
               className="pib-input w-full"

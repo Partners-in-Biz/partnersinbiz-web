@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Card } from '@/components/ui/Card'
-import { HudChip } from '@/components/ui/HudChip'
+import { Icon, Status, Title } from '@/components/studio'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import type { FinancePersona, FinanceRoleHubModule } from '@/lib/finance/role-ux/types'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
@@ -15,7 +14,7 @@ const PERSONA_LABEL: Record<FinancePersona, string> = {
 }
 
 const PERSONA_HINT: Record<FinancePersona, string> = {
-  owner: 'Cash, runway, and approvals — decisions without payout rails.',
+  owner: 'Cash, runway, and approvals. Decisions without payout rails.',
   bookkeeper: 'Daily capture, bank import, and recon queue.',
   accountant: 'Period close, reports, and download-only packs.',
   practice: 'Multi-client switcher, notification centre, audit explorer.',
@@ -35,15 +34,15 @@ export function FinanceRoleHubModules({
   availablePersonas?: FinancePersona[]
 }) {
   return (
-    <Card className="space-y-3 p-4" data-testid="finance-role-hub-modules">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="st-panel space-y-4 p-4" data-testid="finance-role-hub-modules">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Role hub</h2>
-            <HudChip tone="accent">{PERSONA_LABEL[persona]}</HudChip>
-            <HudChip>Same design system</HudChip>
+            <Title as="h2">Role hub</Title>
+            <Status tone="info">{PERSONA_LABEL[persona]}</Status>
+            <Status>Same design system</Status>
           </div>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{PERSONA_HINT[persona]}</p>
+          <p className="sc-body mt-1 text-xs text-[var(--sc-ink-soft)]">{PERSONA_HINT[persona]}</p>
         </div>
         {onPersonaChange ? (
           <div className="w-full max-w-[220px]">
@@ -60,7 +59,7 @@ export function FinanceRoleHubModules({
       </div>
 
       {modules.length === 0 ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]" data-testid="finance-role-hub-empty">
+        <p className="sc-body text-sm text-[var(--sc-ink-soft)]" data-testid="finance-role-hub-empty">
           No modules visible for this role. Ask an admin for a finance assignment.
         </p>
       ) : (
@@ -69,20 +68,18 @@ export function FinanceRoleHubModules({
             <Link
               key={module.id}
               href={scopedPortalPath(module.href.replace(/#.*$/, ''), orgScope) + (module.href.includes('#') ? module.href.slice(module.href.indexOf('#')) : '')}
-              className="rounded-lg border border-[var(--color-pib-line)] p-3 transition-colors hover:bg-[var(--color-row-hover)]"
+              className="st-panel st-panel--flat p-3 transition-colors hover:border-[var(--sc-ink)]"
               data-testid={`finance-role-module-${module.id}`}
               data-persona={module.persona}
             >
               <div className="flex items-start gap-2">
-                <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                  <span className="material-symbols-outlined text-[16px]">{module.icon}</span>
-                </span>
+                <Icon name={module.icon} className="shrink-0 text-[var(--sc-ink-soft)]" />
                 <span className="min-w-0">
-                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{module.title}</p>
-                  <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{module.summary}</p>
+                  <p className="text-sm font-medium text-[var(--sc-ink)]">{module.title}</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-[var(--sc-ink-soft)]">{module.summary}</p>
                   {module.emphasis === 'primary' ? (
                     <span className="mt-1.5 inline-block">
-                      <HudChip tone="accent">Primary</HudChip>
+                      <Status tone="info">Primary</Status>
                     </span>
                   ) : null}
                 </span>
@@ -91,6 +88,6 @@ export function FinanceRoleHubModules({
           ))}
         </div>
       )}
-    </Card>
+    </div>
   )
 }

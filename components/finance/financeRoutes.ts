@@ -36,7 +36,7 @@ export type FinanceNavItem = {
   group: 'command' | 'books' | 'ops' | 'exports'
 }
 
-/** Canonical portal finance navigation — keep hub + subpages in lockstep. */
+/** Canonical portal finance navigation - keep hub + subpages in lockstep. */
 export const FINANCE_NAV: FinanceNavItem[] = [
   {
     key: 'hub',
@@ -83,7 +83,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Tax',
     href: '/portal/finance/tax',
     icon: 'percent',
-    description: 'VAT codes, periods, and return prep — no SARS submit.',
+    description: 'VAT codes, periods, and return prep - no SARS submit.',
     group: 'ops',
   },
   {
@@ -91,7 +91,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Payroll',
     href: '/portal/finance/payroll',
     icon: 'groups',
-    description: 'ZA payroll calcs, pay runs, and payslips — no bank payout.',
+    description: 'ZA payroll calcs, pay runs, and payslips - no bank payout.',
     group: 'ops',
   },
   {
@@ -99,7 +99,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'ESS',
     href: '/portal/finance/ess',
     icon: 'badge',
-    description: 'Mobile/PWA employee self-service: own payslips + leave request/approval routing — no admin payroll controls.',
+    description: 'Mobile/PWA employee self-service: own payslips + leave request/approval routing - no admin payroll controls.',
     group: 'ops',
   },
   {
@@ -131,7 +131,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Inventory',
     href: '/portal/finance/inventory',
     icon: 'shelves',
-    description: 'SKU master, stock on hand, bill/invoice qty movements, COGS on issue, audited adjustments — no WMS/POS.',
+    description: 'SKU master, stock on hand, bill/invoice qty movements, COGS on issue, audited adjustments - no WMS/POS.',
     group: 'books',
   },
   {
@@ -155,7 +155,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Bank rules',
     href: '/portal/finance/bank-rules',
     icon: 'rule',
-    description: 'Match rules for smarter recon suggestions — human accept only, never auto-pay.',
+    description: 'Match rules for smarter recon suggestions - human accept only, never auto-pay.',
     group: 'ops',
   },
   {
@@ -163,7 +163,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Bank feeds',
     href: '/portal/finance/bank-feeds',
     icon: 'account_balance_wallet',
-    description: 'Mock-first bank feed connector: sync SA lines + suggestions — human accept/dismiss only, no paid vendor.',
+    description: 'Mock-first bank feed connector: sync SA lines + suggestions - human accept/dismiss only, no paid vendor.',
     group: 'ops',
   },
   {
@@ -227,7 +227,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Period close',
     href: '/portal/finance/period-close',
     icon: 'event_available',
-    description: 'Close-week blockers with deep links — unreconciled banks, unapproved journals, open pay runs, FX reval, cutover.',
+    description: 'Close-week blockers with deep links - unreconciled banks, unapproved journals, open pay runs, FX reval, cutover.',
     group: 'command',
   },
   {

@@ -27,6 +27,7 @@ import { useDroppable } from '@dnd-kit/core'
 import Link from 'next/link'
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
+import { Icon } from '@/components/studio'
 
 // ── Internal deal card ─────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function dealTitleLabel(deal: Deal): string {
 
 // US-059: sum the captured value of every deal in a stage and render it with the
 // stage's currency (deals in a column can in theory differ; we use the first
-// deal's currency, defaulting to ZAR — matching formatValue's locale).
+// deal's currency, defaulting to ZAR - matching formatValue's locale).
 function formatColumnTotal(deals: Deal[]): string {
   const valued = deals.filter(
     d => d.value !== null && d.value !== undefined && !Number.isNaN(d.value),
@@ -133,7 +134,7 @@ function DealCard({
       {...listeners}
     >
       <div
-        className="cursor-pointer select-none rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2 transition hover:bg-[var(--color-row-hover)]"
+        className="cursor-pointer select-none rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2 transition hover:bg-[var(--color-row-hover)]"
         style={{ borderLeft: `2px solid ${stageColor}` }}
       >
         <p className="text-xs font-medium text-[var(--color-pib-text)] mb-1.5 leading-snug">{titleLabel}</p>
@@ -147,12 +148,12 @@ function DealCard({
                 onEditDeal(deal)
               }}
               aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from deal board`}
-              className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold transition-colors hover:text-[var(--color-pib-text)]"
+              className="text-[11px] font-mono text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             >
               {valueLabel}
             </button>
           ) : (
-            <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold">
+            <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)]">
               {valueLabel}
             </span>
           )}
@@ -181,7 +182,7 @@ function DealCard({
         ) : null}
         {daysLabel && (
           <div className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]" title="Time in current stage">
-            <span className="material-symbols-outlined text-[12px] leading-none" aria-hidden="true">schedule</span>
+            <Icon name="schedule" className="text-[12px]" />
             <span className="font-label">{daysLabel} in stage</span>
           </div>
         )}
@@ -223,7 +224,7 @@ function DealColumn({
       {/* Column header */}
       <div className="mb-2 px-1">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+          <div className="w-2 h-2 rounded shrink-0" style={{ background: color }} />
           <span className="pib-label mb-0">
             {stage.label}
           </span>
@@ -232,7 +233,7 @@ function DealColumn({
           </span>
         </div>
         {/* US-059: per-column total value */}
-        <p className="mt-0.5 text-[11px] font-mono font-semibold text-[var(--color-pib-text-muted)]" title="Total value of deals in this stage">
+        <p className="mt-0.5 text-[11px] font-mono text-[var(--color-pib-text-muted)]" title="Total value of deals in this stage">
           {columnTotal}
         </p>
       </div>
@@ -259,7 +260,7 @@ function DealColumn({
           ))}
           {deals.length === 0 && (
             <div
-              className="rounded-2xl border border-dashed border-[var(--color-pib-line)] flex items-center justify-center py-6"
+              className="rounded-[var(--st-radius-raised)] border border-dashed border-[var(--color-pib-line)] flex items-center justify-center py-6"
             >
               <p className="text-[11px] text-[var(--color-pib-text-muted)]">Drop here</p>
             </div>
@@ -277,11 +278,11 @@ function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: 
 
   return (
     <div
-      className="select-none w-56 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2"
+      className="select-none w-56 rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2"
       style={{ borderLeft: `2px solid ${stageColor}`, opacity: 0.9 }}
     >
       <p className="text-xs font-medium text-[var(--color-pib-text)] mb-1.5 leading-snug">{titleLabel}</p>
-      <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold">
+      <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)]">
         {formatValue(deal.value, deal.currency)}
       </span>
     </div>
@@ -398,7 +399,7 @@ export function DealKanban({
           loading ? (
             <div key={stage.id} className="flex flex-col w-56 shrink-0">
               <div className="flex items-center gap-2 mb-2 px-1">
-                <div className="w-2 h-2 rounded-full" style={{ background: stage.color ?? '#6b7280' }} />
+                <div className="w-2 h-2 rounded" style={{ background: stage.color ?? '#6b7280' }} />
                 <span className="pib-label mb-0">
                   {stage.label}
                 </span>

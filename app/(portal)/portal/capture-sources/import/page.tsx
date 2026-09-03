@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import type { CaptureSource } from '@/lib/crm/captureSources'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
+import { Icon } from '@/components/studio'
   parseCsv,
   autoMapHeaders,
   rowsFromGridWithMapping,
@@ -69,7 +70,7 @@ export default function PortalCaptureSourceImportPage() {
     [grid, colMap],
   )
 
-  // Email is required by the import API — block submit until a column maps to it.
+  // Email is required by the import API - block submit until a column maps to it.
   const emailMapped = colMap.includes('email')
 
   // Load capture sources
@@ -205,7 +206,7 @@ export default function PortalCaptureSourceImportPage() {
             href={captureSourcesHref}
             className="btn-pib-secondary text-xs"
           >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+            <Icon name="arrow_back" />
             Back to capture sources
           </Link>
         </div>
@@ -264,11 +265,12 @@ export default function PortalCaptureSourceImportPage() {
             type="file"
             accept=".csv,text/csv"
             onChange={handleFileChange}
-            className="block text-sm text-[var(--color-pib-text)] file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border file:border-[var(--color-pib-line-strong)] file:bg-transparent file:text-[var(--color-pib-text)] file:text-sm file:cursor-pointer"
+            aria-label="CSV file"
+            className="block text-sm text-[var(--color-pib-text)] file:mr-3 file:px-3 file:py-1.5 file:rounded file:border file:border-[var(--color-pib-line-strong)] file:bg-transparent file:text-[var(--color-pib-text)] file:text-sm file:cursor-pointer"
           />
           {fileName && (
             <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
-              {fileName} — parsed {rows.length} row{rows.length === 1 ? '' : 's'}
+              {fileName} - parsed {rows.length} row{rows.length === 1 ? '' : 's'}
             </p>
           )}
           {parseError && (
@@ -288,6 +290,7 @@ export default function PortalCaptureSourceImportPage() {
             value={defaultTagsRaw}
             onChange={(e) => setDefaultTagsRaw(e.target.value)}
             placeholder="e.g. q2-import, webinar-leads"
+            aria-label="Default tags"
             className="pib-input"
           />
           <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
@@ -302,6 +305,7 @@ export default function PortalCaptureSourceImportPage() {
           <select
             value={selectedSourceId}
             onChange={(e) => setSelectedSourceId(e.target.value)}
+            aria-label="Capture source"
             className="pib-select"
           >
             <option value="">(none)</option>
@@ -435,7 +439,7 @@ export default function PortalCaptureSourceImportPage() {
       )}
 
       {submitError && (
-        <div className="rounded-xl border border-[var(--color-error)]/40 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">
+        <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-error)]/40 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">
           {submitError}
         </div>
       )}
@@ -503,7 +507,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="pib-label mb-0">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -526,13 +530,11 @@ function ImportStat({
           <p className="pib-label mb-0">
             {label}
           </p>
-          <p className="mt-2 truncate text-2xl font-display text-[var(--color-pib-text)]">
+          <p className="mt-2 truncate text-2xl text-[var(--color-pib-text)]">
             {value}
           </p>
         </div>
-        <span className="pib-icon-tint" aria-hidden="true">
-          <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        </span>
+        <Icon name={icon} />
       </div>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>

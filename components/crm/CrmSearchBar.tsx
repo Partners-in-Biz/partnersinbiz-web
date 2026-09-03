@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 interface ContactResult {
   id: string
@@ -89,7 +90,7 @@ export function CrmSearchBar({ className, orgScope }: Props) {
 
       setOpen(true)
     } catch {
-      // network failure — show empty sections
+      // network failure - show empty sections
       setContacts([])
       setCompanies([])
       setDeals([])
@@ -142,9 +143,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
         className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 transition-colors focus-within:border-primary/40"
       >
         {loading ? (
-          <span className="material-symbols-outlined animate-spin text-[15px] text-[var(--color-pib-text-muted)]">progress_activity</span>
+          <Icon name="progress_activity" className="text-[var(--color-pib-text-muted)]" />
         ) : (
-          <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">search</span>
+          <Icon name="search" className="text-[var(--color-pib-text-muted)]" />
         )}
         <input
           ref={inputRef}
@@ -163,7 +164,7 @@ export function CrmSearchBar({ className, orgScope }: Props) {
             className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             aria-label="Clear search"
           >
-            <span className="material-symbols-outlined text-[14px]">close</span>
+            <Icon name="close" />
           </button>
         )}
       </div>
@@ -190,8 +191,8 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
-                        <span className="material-symbols-outlined text-[14px]">person</span>
+                      <span aria-hidden="true" className="shrink-0" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <Icon name="person" />
                       </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{contactResultLabel(c)}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Contact</span>
@@ -211,8 +212,8 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
-                        <span className="material-symbols-outlined text-[14px]">business</span>
+                      <span aria-hidden="true" className="shrink-0" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <Icon name="business" />
                       </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{co.name}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Company</span>
@@ -232,8 +233,8 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
-                        <span className="material-symbols-outlined text-[14px]">handshake</span>
+                      <span aria-hidden="true" className="shrink-0" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <Icon name="handshake" />
                       </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{d.title}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">

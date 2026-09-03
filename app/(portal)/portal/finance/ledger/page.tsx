@@ -119,7 +119,7 @@ export default function FinanceLedgerPage() {
           </section>
 
           <section className="pib-card space-y-3 p-4">
-            <h2 className="text-base font-semibold">Post balanced journal</h2>
+            <h2 className="text-base">Post balanced journal</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">Period
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
@@ -133,13 +133,13 @@ export default function FinanceLedgerPage() {
               <label className="text-sm">Debit account
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={debitAccountId} onChange={(e) => setDebitAccountId(e.target.value)}>
                   <option value="">Select…</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
                 </select>
               </label>
               <label className="text-sm">Credit account
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={creditAccountId} onChange={(e) => setCreditAccountId(e.target.value)}>
                   <option value="">Select…</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
                 </select>
               </label>
               <label className="text-sm md:col-span-2">Description
@@ -155,7 +155,7 @@ export default function FinanceLedgerPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Chart of accounts ({accounts.length})</h2>
+              <h2 className="mb-3 text-base">Chart of accounts ({accounts.length})</h2>
               <FinanceResponsiveTable
                 ariaLabel="Chart of accounts"
                 density={density}
@@ -187,7 +187,7 @@ export default function FinanceLedgerPage() {
               />
             </div>
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Recent journals ({journals.length})</h2>
+              <h2 className="mb-3 text-base">Recent journals ({journals.length})</h2>
               <FinanceResponsiveTable
                 ariaLabel="Recent journals"
                 density={density}
@@ -202,7 +202,7 @@ export default function FinanceLedgerPage() {
                     header: 'Entry',
                     render: (j) => (
                       <span className="font-medium">
-                        #{j.entryNumber ?? '—'} · {j.description}
+                        #{j.entryNumber ?? '-'} · {j.description}
                       </span>
                     ),
                   },
