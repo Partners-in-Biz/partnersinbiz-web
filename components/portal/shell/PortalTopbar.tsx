@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
@@ -90,21 +90,11 @@ function TopbarChrome({
   children: ReactNode
   className?: string
 }) {
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
   return (
     <header
       className={[
-        'sticky top-0 z-30 shrink-0 bg-[var(--sc-canvas)] text-[var(--sc-ink)]',
+        'st-topbar sticky top-0 z-30 shrink-0 bg-[var(--sc-canvas)] text-[var(--sc-ink)]',
         TOPBAR_H,
-        scrolled ? 'border-b border-[var(--sc-line)]' : 'border-b border-transparent',
         className,
       ].filter(Boolean).join(' ')}
     >

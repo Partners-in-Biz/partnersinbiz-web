@@ -26,7 +26,7 @@ export function AdminTopbar({
 
   return (
     <header
-      className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--sc-line)] bg-[var(--sc-canvas)] px-3 md:px-4"
+      className="st-topbar sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 bg-[var(--sc-canvas)] px-3 md:px-4"
       style={{ height: 'calc(var(--sc-u) * 14)' }}
     >
       <div className="flex min-w-0 items-center gap-2">

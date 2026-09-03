@@ -47,6 +47,7 @@ describe('AdminTopbarNav account display', () => {
     expect(screen.queryByText('peet@example.com')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open notifications' })).toHaveAttribute('data-mode', 'admin')
     expect(screen.getByRole('button', { name: 'Switch to Ink' })).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveClass('st-topbar')
     expect(screen.getByRole('link', { name: /logout/i })).toBeInTheDocument()
   })
 })

@@ -8,8 +8,8 @@ import { useSearchParams } from 'next/navigation'
 import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
 import { TrendAreaChart, DonutChart } from '@/components/ui/Charts'
+import { CrmPipelineLedger } from '@/components/crm/CrmPipelineLedger'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
-import { StatCard } from '@/components/ui/StatCard'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
 import { canAccessModule, normalizeMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
@@ -201,11 +201,6 @@ function formatCurrency(value: unknown, currency = 'ZAR'): string {
 
 function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
-
-function formatPercent(value: unknown): string {
-  const ratio = typeof value === 'number' && Number.isFinite(value) ? value : 0
-  return `${(ratio * 100).toFixed(1)}%`
 }
 
 function formatCount(value: unknown): string {
@@ -536,76 +531,24 @@ export default function PortalCrmPage() {
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16" />)
-        ) : (
-          <>
-            <StatCard
-              accent="amber"
-              icon="paid"
-              label="Open pipeline"
-              value={formatCurrency(dashboard?.openDealsValue, primaryCurrency)}
-              detail={`${dashboard?.openDealsCount ?? 0} active deals`}
-            />
-            <StatCard
-              accent="amber"
-              icon="trending_up"
-              label="Weighted forecast"
-              value={formatCurrency(dashboard?.weightedPipelineValue, primaryCurrency)}
-              detail="Probability adjusted"
-            />
-            <StatCard
-              accent="amber"
-              icon="emoji_events"
-              label="Won this month"
-              value={formatCurrency(dashboard?.wonThisMonth?.value, primaryCurrency)}
-              detail={`${dashboard?.wonThisMonth?.count ?? 0} closed wins`}
-            />
-            <StatCard
-              accent="amber"
-              icon="warning"
-              label="Lost this month"
-              value={String(dashboard?.lostThisMonth?.count ?? 0)}
-              detail="Review loss reasons"
-            />
-          </>
-        )}
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <Skeleton key={`contact-metric-${index}`} className="h-16" />)
-        ) : (
-          <>
-            <StatCard
-              accent="amber"
-              icon="contacts"
-              label="Total contacts"
-              value={formatCount(dashboard?.totalContacts)}
-              detail="People in this workspace"
-            />
-            <StatCard
-              accent="amber"
-              icon="person_add"
-              label="New this month"
-              value={formatCount(dashboard?.newThisMonth)}
-              detail="Contacts created this month"
-            />
-            <StatCard
-              accent="amber"
-              icon="flag"
-              label="Active leads"
-              value={formatCount(dashboard?.activeLeads)}
-              detail="Leads still in the pipeline"
-            />
-            <StatCard
-              accent="amber"
-              icon="trending_up"
-              label="Conversion rate"
-              value={formatPercent(dashboard?.conversionRate)}
-              detail={`${formatCount(dashboard?.convertedClients)} converted to clients`}
-            />
-          </>
-        )}
-      </section>
+      <CrmPipelineLedger
+        loading={loading}
+        currency={primaryCurrency}
+        metrics={{
+          openDealsCount: numberValue(dashboard?.openDealsCount),
+          openDealsValue: numberValue(dashboard?.openDealsValue),
+          weightedPipelineValue: numberValue(dashboard?.weightedPipelineValue),
+          wonThisMonthCount: numberValue(dashboard?.wonThisMonth?.count),
+          wonThisMonthValue: numberValue(dashboard?.wonThisMonth?.value),
+          lostThisMonthCount: numberValue(dashboard?.lostThisMonth?.count),
+          totalContacts: numberValue(dashboard?.totalContacts),
+          newThisMonth: numberValue(dashboard?.newThisMonth),
+          activeLeads: numberValue(dashboard?.activeLeads),
+          conversionRate: typeof dashboard?.conversionRate === 'number' ? dashboard.conversionRate : 0,
+          convertedClients: numberValue(dashboard?.convertedClients),
+        }}
+        buildHref={crmPortalPath}
+      />
 
       <Surface variant="list" bodyClassName="!p-0">
         <div className="grid divide-y divide-[var(--color-card-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
