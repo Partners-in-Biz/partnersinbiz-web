@@ -119,7 +119,7 @@ export function CaptionsPanel({
   return (
     <div className="pib-card-section flex flex-col gap-3" aria-label="Captions">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Captions</h3>
+        <h3 className="text-sm">Captions</h3>
         <button type="button" className="pib-button-secondary text-xs" onClick={onTranscribe} disabled={busy}>
           Transcribe project audio
         </button>
@@ -161,7 +161,7 @@ export function CaptionsPanel({
                 className="pib-input"
                 onChange={(event) => setTrackPreset('stylePreset', event.target.value)}
                 defaultValue={track.clips[0]?.caption?.stylePreset ?? 'clean'}
-              >
+               aria-label="Input">
                 {EDITOR_CAPTION_STYLE_PRESETS.map((preset) => (
                   <option key={preset} value={preset}>
                     {preset}
@@ -175,7 +175,7 @@ export function CaptionsPanel({
                 className="pib-input"
                 onChange={(event) => setTrackPreset('animationPreset', event.target.value)}
                 defaultValue={track.clips[0]?.caption?.animationPreset ?? 'none'}
-              >
+               aria-label="Input">
                 {EDITOR_CAPTION_ANIMATION_PRESETS.map((preset) => (
                   <option key={preset} value={preset}>
                     {preset}

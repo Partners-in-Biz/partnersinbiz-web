@@ -5,6 +5,7 @@ import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader
 import { TrendChart } from '@/components/seo/TrendChart'
 import { fetchSeo } from '@/components/seo/seoToolClient'
 import type { PerformanceResult } from '@/lib/seo/performance'
+import { Icon } from '@/components/studio'
 
 type HistoricalRun = {
   id: string
@@ -46,11 +47,11 @@ function MetricCard({ label, value, icon, subtext, ok }: { label: string; value:
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="pib-icon-tint pib-icon-tint-green" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span className="" aria-hidden="true"><Icon name={icon} /></span>
       </div>
       <p
-        className="mt-3 text-xl font-semibold tabular-nums tracking-tight tabular-nums"
+        className="mt-3 text-xl tabular-nums tracking-tight"
         style={{ color: ok !== undefined ? (ok ? '#34d399' : '#f87171') : undefined }}
       >
         {value}
@@ -119,13 +120,13 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       />
 
       {/* Input card */}
-      <div className="pib-card p-6 space-y-4">
+      <div className="st-panel p-6 space-y-4">
         <div className="grid grid-cols-1 gap-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="space-y-1.5">
               {i === 0 && <label className="pib-label">URL {i + 1} (required)</label>}
-              {i > 0 && <label className="pib-label text-[var(--color-pib-text-muted)]">URL {i + 1} (optional — compare)</label>}
-              <input
+              {i > 0 && <label className="pib-label text-[var(--color-pib-text-muted)]">URL {i + 1} (optional  -  compare)</label>}
+              <input name="url"
                 type="url"
                 className="pib-input w-full"
                 placeholder={i === 0 ? 'https://example.com' : 'https://example.com/page-2 (optional)'}
@@ -143,7 +144,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label className="pib-label">Strategy</label>
-            <select
+            <select name="speedanalyzerclient-select-82"
               className="pib-select !w-auto text-sm"
               value={strategy}
               onChange={(e) => setStrategy(e.target.value as 'mobile' | 'desktop')}
@@ -153,13 +154,13 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
               <option value="desktop">Desktop</option>
             </select>
           </div>
-          <button
+          <button name="speedanalyzerclient-action-83"
             onClick={analyse}
             disabled={activeUrls.length === 0 || loading}
             className="pib-btn-primary text-sm disabled:opacity-50"
           >
-            <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>
-              {loading ? 'autorenew' : 'speed'}
+            <span className={`inline-flex ${loading ? 'animate-spin' : ''}`}>
+              <Icon name={loading ? 'autorenew' : 'speed'} />
             </span>
             {loading ? 'Analysing…' : activeUrls.length > 1 ? `Analyse ${activeUrls.length} URLs` : 'Analyse'}
           </button>
@@ -167,8 +168,8 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <span className="material-symbols-outlined text-[16px] align-middle mr-1.5">error</span>
+        <div className="border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <Icon name="error" />
           {error}
         </div>
       )}
@@ -217,17 +218,17 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
           {singleResult.opportunities.length > 0 && (
             <section className="pib-card-section">
               <div className="pib-card-section-header">
-                <h3 className="text-sm font-semibold">Opportunities</h3>
+                <h3 className="text-sm">Opportunities</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Sorted by estimated savings, descending.</p>
               </div>
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {singleResult.opportunities.map((opp) => (
                   <div key={opp.id} className="flex items-start gap-4 px-5 py-4">
-                    <span className="material-symbols-outlined text-[20px] text-amber-400 flex-shrink-0 mt-0.5">bolt</span>
+                    <Icon name="bolt" className="mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium">{opp.title}</p>
-                        <span className="pib-pill text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-300">
+                        <span className="pib-pill text-[10px] border-amber-500/30 bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] text-[var(--sc-ink-soft)]">
                           -{fmtMs(opp.savingsMs)}
                         </span>
                       </div>
@@ -247,19 +248,19 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       {multiCompare && (
         <section className="pib-card-section overflow-hidden">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">URL Comparison</h3>
+            <h3 className="text-sm">URL Comparison</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{strategy} strategy</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                  <th className="px-5 py-3 eyebrow !text-[10px]">URL</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Score</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">LCP</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">CLS</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">INP</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">TTFB</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">URL</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Score</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">LCP</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">CLS</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">INP</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">TTFB</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-pib-line)]">
@@ -270,7 +271,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
                         {r.url.replace(/^https?:\/\//, '')}
                       </a>
                     </td>
-                    <td className="px-5 py-3 text-right tabular-nums font-bold" style={{ color: scoreColor(r.score) }}>
+                    <td className="px-5 py-3 text-right tabular-nums" style={{ color: scoreColor(r.score) }}>
                       {r.score}
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums text-xs">{fmtMs(r.lcp)}</td>
@@ -289,7 +290,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       {trendRuns.length > 1 && (
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">Performance trend</h3>
+            <h3 className="text-sm">Performance trend</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Mobile performance score over recent runs.</p>
           </div>
           <div className="p-4">
@@ -305,9 +306,9 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       )}
 
       {trendRuns.length === 0 && results.length === 0 && !loading && (
-        <div className="pib-card p-6 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-green)]">speed</span>
-          <h3 className="font-headline text-lg font-semibold mt-3">No runs yet</h3>
+        <div className="st-panel p-6 text-center">
+          <Icon name="speed" />
+          <h3 className="font-headline text-lg mt-3">No runs yet</h3>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">
             Enter a URL above and click Analyse to see PageSpeed metrics.
           </p>

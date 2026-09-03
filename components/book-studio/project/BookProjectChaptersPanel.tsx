@@ -87,7 +87,7 @@ export function BookProjectChaptersPanel({
   }
 
   return (
-    <Surface header={<h2 className="text-lg font-semibold">Chapters</h2>}>
+    <Surface header={<h2 className="text-lg">Chapters</h2>}>
       {ordered.length === 0 && !selected ? (
         <div className="space-y-4">
           {readOnly ? null : (
@@ -97,7 +97,7 @@ export function BookProjectChaptersPanel({
                 placeholder="New chapter title"
                 value={newTitle}
                 onChange={(event) => setNewTitle(event.target.value)}
-              />
+               aria-label="New chapter title"/>
               <button type="submit" className="btn-secondary" disabled={addingChapter}>
                 {addingChapter ? 'Adding…' : 'Add chapter'}
               </button>
@@ -118,7 +118,7 @@ export function BookProjectChaptersPanel({
                       onClick={() => setSelectedId(chapter.id)}
                       aria-current={isSelected ? 'true' : undefined}
                       className={[
-                        'w-full rounded-xl border p-3 text-left transition-colors',
+                        'w-full rounded-[6px] border p-3 text-left transition-colors',
                         isSelected
                           ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-surface-muted)]'
                           : 'border-[var(--color-pib-border)] hover:bg-[var(--color-pib-surface-muted)]',
@@ -166,7 +166,7 @@ export function BookProjectChaptersPanel({
                   placeholder="New chapter title"
                   value={newTitle}
                   onChange={(event) => setNewTitle(event.target.value)}
-                />
+                 aria-label="New chapter title"/>
                 <button type="submit" className="btn-secondary" disabled={addingChapter}>
                   {addingChapter ? 'Adding…' : 'Add chapter'}
                 </button>
@@ -183,7 +183,7 @@ export function BookProjectChaptersPanel({
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{selected.title || 'Untitled chapter'}</p>
                   <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-sm">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Status</span>
+                      <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Status</span>
                       {readOnly ? (
                         <StatusPill tone={selected.status === 'approved' ? 'success' : 'neutral'}>{humanizeToken(selected.status ?? 'draft')}</StatusPill>
                       ) : (
@@ -191,7 +191,7 @@ export function BookProjectChaptersPanel({
                           className="input-field"
                           value={selected.status ?? 'draft'}
                           onChange={(event) => onEditStatus(selected.id, event.target.value as BookChapter['status'])}
-                        >
+                         aria-label="Input">
                           {statusOptions.map((option) => (
                             <option key={option} value={option}>
                               {humanizeToken(option)}

@@ -57,7 +57,7 @@ export function YouTubeStudioDetailsTabs(props: YouTubeStudioDetailsTabsProps) {
 
   return (
     <section className="space-y-3">
-      <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Production details</h2>
+      <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Production details</h2>
       <div role="tablist" aria-label="Production details" className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button
@@ -92,7 +92,7 @@ function SourceAssetsTabContent({ assets }: { assets: YouTubeSourceAsset[] }) {
         <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{asset.title}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{asset.title}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{sourceAssetMeta(asset)}</p>
             </div>
           </div>
@@ -113,7 +113,7 @@ function ClipCandidatesTabContent({ clips }: { clips: YouTubeClipCandidate[] }) 
         <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{clip.title}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{clip.title}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{clipMeta(clip)}</p>
             </div>
           </div>
@@ -147,7 +147,7 @@ function ProductionDraftsTabContent({
         <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{draft.title}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{draft.title}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{productionDraftMeta(draft)}</p>
             </div>
           </div>
@@ -192,8 +192,8 @@ function ProductionDraftsTabContent({
                 value={draftNotes[draft.id] ?? ''}
                 onChange={(event) => onDraftNotesChange(draft.id!, event.target.value)}
                 placeholder="Draft notes for PiB"
-                className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-              />
+                className="w-full rounded-[6px] border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+               aria-label="Draft notes for PiB"/>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -242,7 +242,7 @@ function RenderJobsTabContent({
         <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{job.title}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{renderJobMeta(job)}</p>
             </div>
           </div>
@@ -282,8 +282,8 @@ function RenderJobsTabContent({
                 value={renderNotes[job.id] ?? ''}
                 onChange={(event) => onRenderNotesChange(job.id!, event.target.value)}
                 placeholder="Render notes for PiB"
-                className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-              />
+                className="w-full rounded-[6px] border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+               aria-label="Render notes for PiB"/>
               <div className="flex flex-wrap gap-2">
                 <button type="button" disabled={Boolean(reviewingRenderId)} onClick={() => onRenderDecision(job.id!, 'approved')} className="pib-btn-primary text-sm">Approve render</button>
                 <button type="button" disabled={Boolean(reviewingRenderId)} onClick={() => onRenderDecision(job.id!, 'changes_requested')} className="pib-btn-ghost text-sm">Request render changes</button>
@@ -311,7 +311,7 @@ function PacketsTabContent({
         <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{packetTitle(packet)}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{packetTitle(packet)}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 Version {packet.versionNumber || 1} / {formatToken(packet.status)} / {formatToken(packet.visibility)}
               </p>
@@ -347,8 +347,8 @@ function PacketsTabContent({
                 value={packetNotes[packet.id] ?? ''}
                 onChange={(event) => onPacketNotesChange(packet.id!, event.target.value)}
                 placeholder="Packet notes for PiB"
-                className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-              />
+                className="w-full rounded-[6px] border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+               aria-label="Packet notes for PiB"/>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -390,7 +390,7 @@ function ReleasePlansTabContent({ plans }: { plans: YouTubeReleasePlan[] }) {
         <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{plan.publicSummary || 'YouTube release plan'}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{plan.publicSummary || 'YouTube release plan'}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
               </p>
@@ -424,7 +424,7 @@ function AnalyticsTabContent({ analytics }: { analytics: YouTubeAnalyticsSnapsho
         <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
+              <h3 className="break-words text-[var(--color-pib-text)]">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
               </p>

@@ -306,7 +306,7 @@ export default function CanvasTopBar({
               type="checkbox"
               checked={autoSaveEnabled}
               onChange={(event) => onToggleAutoSave(event.target.checked)}
-            />
+             aria-label="Toggle"/>
             Auto-save versions
           </label>
           <button

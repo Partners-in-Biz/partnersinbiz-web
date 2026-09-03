@@ -8,7 +8,8 @@ import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPic
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { LineSeries, DonutChart } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
-import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { PageHeader, Surface, EmptyState } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 interface OverviewData {
   kpis: {
@@ -54,7 +55,7 @@ export default function OverviewPage() {
       <PageHeader
         accent="violet"
         eyebrow="Analytics · Overview"
-        title="Overview"
+        title="Overview."
       />
 
       <Surface variant="glass" className="space-y-3 !p-3">
@@ -63,10 +64,7 @@ export default function OverviewPage() {
       </Surface>
 
       {!propertyId && (
-        <div className="pib-empty-state !py-8">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">monitoring</span>
-          <p className="pib-empty-state-description">Select a client and property to see the overview.</p>
-        </div>
+        <EmptyState title="Select a client and property to see the overview." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
@@ -86,18 +84,14 @@ export default function OverviewPage() {
           <div className="grid gap-3 lg:grid-cols-3">
             <Surface className="!p-3 lg:col-span-2">
               <div className="mb-3 flex items-center gap-2.5">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7">
-                  <span className="material-symbols-outlined text-[16px]">show_chart</span>
-                </span>
+                <Icon name="show_chart" />
                 <h2 className="pib-label mb-0">Sessions over time</h2>
               </div>
               <LineSeries data={data!.sessionsSeries} xKey="date" yKey="sessions" />
             </Surface>
             <Surface className="!p-3">
               <div className="mb-3 flex items-center gap-2.5">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7">
-                  <span className="material-symbols-outlined text-[16px]">alt_route</span>
-                </span>
+                <Icon name="alt_route" />
                 <h2 className="pib-label mb-0">Traffic sources</h2>
               </div>
               <DonutChart data={data!.trafficSources} />

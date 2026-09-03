@@ -516,7 +516,7 @@ function ContactsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Stakeholders</p>
+          <p className="sc-tiny !text-[10px]">Stakeholders</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
           </p>
@@ -635,7 +635,7 @@ function ExistingContactLinkDrawer({
       <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
           <div>
-            <p className="eyebrow !text-[10px]">Company contact</p>
+            <p className="sc-tiny !text-[10px]">Company contact</p>
             <h2 className="text-sm text-[var(--color-pib-text)]">Link existing contact to {company.name}</h2>
           </div>
           <button
@@ -746,7 +746,7 @@ function DealsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Opportunities</p>
+          <p className="sc-tiny !text-[10px]">Opportunities</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep every expansion, renewal, and new commercial track visible for {company.name}.
           </p>
@@ -888,7 +888,7 @@ function ProjectsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Delivery workspaces</p>
+          <p className="sc-tiny !text-[10px]">Delivery workspaces</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep every discovery sprint, build, handoff, and delivery track connected to {company.name}.
           </p>
@@ -984,7 +984,7 @@ function ServicesPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Service workspaces</p>
+          <p className="sc-tiny !text-[10px]">Service workspaces</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep every retainer, delivery lane, and operational workspace connected to {company.name}.
           </p>
@@ -1076,7 +1076,7 @@ function DocumentsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Commercial documents</p>
+          <p className="sc-tiny !text-[10px]">Commercial documents</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep proposals, approvals, and client-facing account history connected to {company.name}.
           </p>
@@ -1099,7 +1099,7 @@ function DocumentsPanel({
           { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
         ].map((item) => (
           <div key={item.label} className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
-            <p className="eyebrow !text-[9px]">{item.label}</p>
+            <p className="sc-tiny !text-[9px]">{item.label}</p>
             <p className="mt-1 text-2xl text-[var(--color-pib-text)]">{item.value}</p>
             <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{item.help}</p>
           </div>
@@ -1169,7 +1169,7 @@ function RelationshipsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Business relationships</p>
+          <p className="sc-tiny !text-[10px]">Business relationships</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep partnerships, shared delivery, and collaboration context connected to {company.name}.
           </p>
@@ -1255,7 +1255,7 @@ function QuotesPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Commercial quotes</p>
+          <p className="sc-tiny !text-[10px]">Commercial quotes</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep proposal momentum, pricing context, and validity windows connected to {company.name}.
           </p>
@@ -1430,7 +1430,7 @@ function InvoicesPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Billing invoices</p>
+          <p className="sc-tiny !text-[10px]">Billing invoices</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep accepted revenue, billing status, due dates, and finance handoffs connected to {company.name}.
           </p>
@@ -1603,7 +1603,7 @@ function OrdersPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Fulfillment orders</p>
+          <p className="sc-tiny !text-[10px]">Fulfillment orders</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep delivery commitments, order value, and fulfillment status connected to {company.name}.
           </p>
@@ -1702,7 +1702,7 @@ function ShipmentsPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Delivery shipments</p>
+          <p className="sc-tiny !text-[10px]">Delivery shipments</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep carrier, tracking, and expected delivery context connected to {company.name}.
           </p>
@@ -1782,7 +1782,7 @@ function InventoryPanel({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Inventory control</p>
+          <p className="sc-tiny !text-[10px]">Inventory control</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Keep stock levels, reservations, low-stock thresholds, and fulfillment readiness visible for {company.name}.
           </p>
@@ -1852,7 +1852,7 @@ function ActivityPanel({
     <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 text-left">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="eyebrow !text-[10px]">Company note</p>
+          <p className="sc-tiny !text-[10px]">Company note</p>
           <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Log context for {company.name}</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
@@ -2616,7 +2616,7 @@ export default function CompanyDetailPage() {
             <div className="flex gap-3">
               <Icon name="warning" className="mt-0.5 text-red-200" />
               <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Account archive</p>
+                <p className="sc-tiny !text-[10px] !text-red-100/80">Account archive</p>
                 <h2 id="company-archive-confirm-title" className="mt-1 text-sm text-red-50">
                   Archive account &quot;{company.name}&quot;?
                 </h2>
@@ -2722,7 +2722,7 @@ export default function CompanyDetailPage() {
             />
             {customFieldDefs.length > 0 && (
               <div className="rounded-[var(--st-radius-raised)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3">
-                <p className="eyebrow !text-[10px]">Custom fields</p>
+                <p className="sc-tiny !text-[10px]">Custom fields</p>
                 <CustomFieldsSection
                   definitions={customFieldDefs}
                   values={(company.customFields as Record<string, unknown>) ?? {}}
@@ -2923,7 +2923,7 @@ export default function CompanyDetailPage() {
           <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
               <div>
-                <p className="eyebrow !text-[10px]">Company contact</p>
+                <p className="sc-tiny !text-[10px]">Company contact</p>
                 <h2 className="text-sm text-[var(--color-pib-text)]">New contact for {company.name}</h2>
               </div>
               <button

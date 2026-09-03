@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { CompanyMarketingSection } from '@/components/marketing/CompanyMarketingSection'
@@ -44,10 +45,10 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
 
   return (
     <main className="min-w-0 space-y-8 text-[var(--color-pib-text)]" data-module-accent="blue">
-      <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_16px_48px_rgba(0,0,0,0.16)]">
+      <div className="min-w-0 overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_16px_48px_rgba(0,0,0,0.16)]">
         <header className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="pib-icon-tint pib-icon-tint-blue shrink-0 text-[18px]" aria-hidden="true">
+            <span className="shrink-0 text-[18px]" aria-hidden="true">
               stacked_email
             </span>
             <div className="min-w-0">
@@ -55,7 +56,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
                 Workspace / Marketing
               </p>
               <div className="flex min-w-0 items-baseline gap-2">
-                <h1 className="truncate text-sm font-semibold leading-tight">Marketing Studio</h1>
+                <h1 className="truncate text-sm leading-tight">Marketing Studio</h1>
                 {workspaceLabel ? <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {workspaceLabel}</span> : null}
               </div>
             </div>
@@ -64,7 +65,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
             href={scopedPortalPath('/portal/campaigns/email/new', scope)}
             className="btn-pib-primary btn-pib-sm inline-flex shrink-0 items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+            <Icon name="add" />
             <span className="hidden sm:inline">Create email campaign</span>
             <span className="sm:hidden">Create</span>
           </Link>
@@ -78,7 +79,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
             className="border-b border-[var(--color-card-border)] bg-primary/[0.035] px-3 py-3 sm:px-4"
           >
             <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Company marketing</p>
-            <h2 className="mt-1 text-sm font-semibold">{workspaceLabel || 'This company'}</h2>
+            <h2 className="mt-1 text-sm">{workspaceLabel || 'This company'}</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               This company&apos;s campaigns, accounts, and brand stay here. They do not mix with organisation marketing or Personal.
             </p>
@@ -90,7 +91,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
             <div className="flex items-center justify-between gap-3 px-3 pb-1 pt-3">
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Programs</p>
-                <h2 id="marketing-work-queue" className="mt-0.5 text-sm font-semibold">Work queue</h2>
+                <h2 id="marketing-work-queue" className="mt-0.5 text-sm">Work queue</h2>
               </div>
               <span className="text-[11px] text-[var(--color-pib-text-muted)]">Open an existing workspace</span>
             </div>
@@ -101,7 +102,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
             <section aria-labelledby="sender-health-heading" className="border-b border-[var(--color-card-border)]">
               <div className="px-3 pb-1 pt-3">
                 <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Readiness</p>
-                <h2 id="sender-health-heading" className="mt-0.5 text-sm font-semibold">Sender health</h2>
+                <h2 id="sender-health-heading" className="mt-0.5 text-sm">Sender health</h2>
               </div>
               <div className="px-1.5 pb-2">
                 {HEALTH_LINKS.map((item) => (
@@ -110,14 +111,14 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
                     href={scopedPortalPath(item.href, scope)}
                     className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/[0.025]"
                   >
-                    <span className="pib-icon-tint pib-icon-tint-blue !h-7 !w-7 shrink-0" aria-hidden="true">
-                      <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
+                    <span className="!h-7 !w-7 shrink-0" aria-hidden="true">
+                      <Icon name={item.icon} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-medium text-[var(--color-pib-text)]">{item.label}</span>
                       <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{item.detail}</span>
                     </span>
-                    <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">chevron_right</span>
+                    <Icon name="chevron_right" />
                   </Link>
                 ))}
               </div>
@@ -132,7 +133,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
                     href={scopedPortalPath(item.href, scope)}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.03] hover:text-[var(--color-pib-text)]"
                   >
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{item.icon}</span>
+                    <Icon name={item.icon} />
                     {item.label}
                   </Link>
                 ))}
@@ -142,7 +143,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
         </div>
 
         <footer className="flex min-w-0 items-center gap-2 overflow-x-auto border-t border-[var(--color-card-border)] bg-black/[0.06] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
-          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">info</span>
+          <Icon name="info" />
           <span className="whitespace-nowrap">Live counts stay in their source workspaces until the unified program data contract is available.</span>
         </footer>
       </div>

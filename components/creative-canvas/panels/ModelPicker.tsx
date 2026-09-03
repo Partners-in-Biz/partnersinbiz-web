@@ -226,7 +226,7 @@ export default function ModelPicker({
           borderRadius: '10px',
           outline: 'none',
         }}
-      />
+       aria-label="Search models"/>
 
       {groupedFamilies.length > 0 ? (
         <section>

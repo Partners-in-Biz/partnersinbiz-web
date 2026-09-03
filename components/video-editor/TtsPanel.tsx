@@ -39,7 +39,7 @@ export function TtsPanel({ voices, busy, onGenerate }: TtsPanelProps) {
 
   return (
     <div className="pib-card-section flex flex-col gap-3" aria-label="Voiceover">
-      <h3 className="text-sm font-semibold">AI voiceover</h3>
+      <h3 className="text-sm">AI voiceover</h3>
       <label className="flex flex-col gap-1 text-xs">
         <span>Voiceover script (blank line = new section)</span>
         <textarea

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -34,7 +35,7 @@ const BUCKET_META: Array<{
   tone: string
 }> = [
   { key: 'active90d', label: 'Active (90d)', tone: 'text-[var(--color-pib-accent)]' },
-  { key: 'neverOpened', label: 'Never opened', tone: 'text-amber-300' },
+  { key: 'neverOpened', label: 'Never opened', tone: 'text-[var(--sc-ink-soft)]' },
   { key: 'inactive180d', label: 'Inactive (180d+)', tone: 'text-[#F87171]' },
   { key: 'invalidFormat', label: 'Invalid format', tone: 'text-[#F87171]' },
   { key: 'unsubscribed', label: 'Unsubscribed', tone: 'text-[var(--color-pib-text-muted)]' },
@@ -46,21 +47,21 @@ function HealthScore({ score }: { score: number }) {
   return (
     <div className="bento-card !p-6 flex items-center gap-5">
       <div
-        className="flex items-center justify-center rounded-full"
+        className="flex items-center justify-center rounded"
         style={{
           width: 96,
           height: 96,
           background: `conic-gradient(${color} ${score * 3.6}deg, var(--color-pib-line) ${score * 3.6}deg)`,
         }}
       >
-        <div className="flex items-center justify-center rounded-full bg-[var(--color-pib-surface)]" style={{ width: 76, height: 76 }}>
-          <span className="font-display text-3xl" style={{ color }}>
+        <div className="flex items-center justify-center rounded bg-[var(--color-pib-surface)]" style={{ width: 76, height: 76 }}>
+          <span className="text-3xl" style={{ color }}>
             {score}
           </span>
         </div>
       </div>
       <div>
-        <p className="eyebrow !text-[10px]">List health score</p>
+        <p className="sc-tiny !text-[10px]">List health score</p>
         <p className="text-sm text-[var(--color-pib-text-muted)] max-w-sm mt-1">
           Share of your list that is deliverable and engaged. Suppress inactive contacts to lift it.
         </p>
@@ -74,8 +75,8 @@ function BucketGrid({ breakdown }: { breakdown: ListHealthBreakdown }) {
     <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {BUCKET_META.map((b) => (
         <div key={b.key} className="bento-card !p-4">
-          <p className="eyebrow !text-[10px]">{b.label}</p>
-          <p className={`font-display text-2xl mt-1 ${b.tone}`}>{breakdown[b.key].toLocaleString()}</p>
+          <p className="sc-tiny !text-[10px]">{b.label}</p>
+          <p className={` text-2xl mt-1 ${b.tone}`}>{breakdown[b.key].toLocaleString()}</p>
         </div>
       ))}
     </div>
@@ -95,10 +96,10 @@ function HistoryTable({ history }: { history: CleaningHistoryEntry[] }) {
       <table className="w-full text-sm">
         <thead className="bg-white/[0.02]">
           <tr className="text-left">
-            <th className="px-3 py-2 eyebrow !text-[10px]">When</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Action</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Affected</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Note</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">When</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Action</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Affected</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Note</th>
           </tr>
         </thead>
         <tbody>
@@ -217,7 +218,7 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
             <HealthScore score={report.healthScore} />
             <div className="bento-card !p-5 flex flex-col gap-3">
               <div>
-                <p className="eyebrow !text-[10px]">One-click clean</p>
+                <p className="sc-tiny !text-[10px]">One-click clean</p>
                 <p className="text-sm mt-1">
                   {inactiveCount > 0
                     ? `${inactiveCount.toLocaleString()} contacts have had no engagement in 180+ days.`
@@ -239,18 +240,16 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
             <section
               role="alertdialog"
               aria-label="Confirm suppress inactive contacts"
-              className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4"
+              className="rounded-lg border border-amber-400/30 bg-[var(--sc-surface)]/10 p-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
-                    warning
-                  </span>
+                  <Icon name="warning" />
                   <div>
-                    <h3 className="font-display text-lg text-amber-50">
+                    <h3 className="text-lg text-[var(--sc-ink-soft)]">
                       Suppress {inactiveCount.toLocaleString()} inactive contacts?
                     </h3>
-                    <p className="mt-2 max-w-2xl text-sm text-amber-50/90">
+                    <p className="mt-2 max-w-2xl text-sm text-[var(--sc-ink-soft)]/90">
                       They&apos;ll be added to the suppression list (reason: list cleanup) and flagged on
                       their contact record. This protects sender reputation and is recorded in cleaning
                       history. Contacts are not deleted.
@@ -280,7 +279,7 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
           )}
 
           <section>
-            <h2 className="font-display text-xl mb-3">Breakdown</h2>
+            <h2 className="text-xl mb-3">Breakdown</h2>
             <BucketGrid breakdown={report.breakdown} />
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
               {report.breakdown.total.toLocaleString()} contacts total.
@@ -288,7 +287,7 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
           </section>
 
           <section>
-            <h2 className="font-display text-xl mb-3">Suggested actions</h2>
+            <h2 className="text-xl mb-3">Suggested actions</h2>
             <div className="space-y-3">
               {report.suggestedActions.map((a) => (
                 <div key={a.code} className="bento-card !p-4">
@@ -300,7 +299,7 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
           </section>
 
           <section>
-            <h2 className="font-display text-xl mb-3">Cleaning history</h2>
+            <h2 className="text-xl mb-3">Cleaning history</h2>
             <HistoryTable history={report.cleaningHistory} />
           </section>
         </>

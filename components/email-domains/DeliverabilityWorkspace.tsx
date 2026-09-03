@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -44,7 +45,7 @@ const AUTH_LABEL: Record<AuthStatus, string> = {
 function AuthBadge({ status, label }: { status: AuthStatus; label: string }) {
   return (
     <span className={`${AUTH_PILL[status]} !text-[10px]`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span className="w-1.5 h-1.5 rounded bg-current" />
       {label}: {AUTH_LABEL[status]}
     </span>
   )
@@ -82,10 +83,10 @@ function ReputationGauge({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute top-12 flex flex-col items-center">
-        <span className="font-display text-4xl" style={{ color }}>
+        <span className="text-4xl" style={{ color }}>
           {score}
         </span>
-        <span className="eyebrow !text-[10px]">Reputation</span>
+        <span className="sc-tiny !text-[10px]">Reputation</span>
       </div>
     </div>
   )
@@ -94,8 +95,8 @@ function ReputationGauge({ score }: { score: number }) {
 function MetricTile({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
   return (
     <div className="bento-card !p-4">
-      <p className="eyebrow !text-[10px]">{label}</p>
-      <p className={`font-display text-2xl mt-1 ${danger ? 'text-[#F87171]' : ''}`}>{value}</p>
+      <p className="sc-tiny !text-[10px]">{label}</p>
+      <p className={` text-2xl mt-1 ${danger ? 'text-[#F87171]' : ''}`}>{value}</p>
     </div>
   )
 }
@@ -105,16 +106,11 @@ function AlertBanner({ alert }: { alert: DeliverabilityAlert }) {
   return (
     <div
       className={`rounded-lg border p-3 flex gap-3 items-start ${
-        critical ? 'border-red-400/30 bg-red-500/10' : 'border-amber-400/30 bg-amber-500/10'
+        critical ? 'border-red-400/30 bg-red-500/10' : 'border-amber-400/30 bg-[var(--sc-surface)]/10'
       }`}
     >
-      <span
-        className={`material-symbols-outlined text-[18px] ${critical ? 'text-red-200' : 'text-amber-200'}`}
-        aria-hidden="true"
-      >
-        {critical ? 'error' : 'warning'}
-      </span>
-      <p className={`text-sm ${critical ? 'text-red-50' : 'text-amber-50'}`}>{alert.message}</p>
+      <Icon name={critical ? 'error' : 'warning'} className={critical ? 'text-red-200' : 'text-[var(--sc-ink-soft)]'} />
+      <p className={`text-sm ${critical ? 'text-red-50' : 'text-[var(--sc-ink-soft)]'}`}>{alert.message}</p>
     </div>
   )
 }
@@ -124,16 +120,16 @@ function DomainAuthCard({ domain }: { domain: DomainAuthStatus }) {
     <div className="bento-card !p-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="pib-icon-tint pib-icon-tint-blue !w-7 !h-7 text-[16px]">dns</span>
+          <span className="!w-7 !h-7 text-[16px]">dns</span>
           <p className="font-medium truncate">{domain.domain}</p>
           {domain.verified ? (
             <span className="pib-pill pib-pill-success !text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              <span className="w-1.5 h-1.5 rounded bg-current" />
               Verified
             </span>
           ) : (
             <span className="pib-pill pib-pill-warn !text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              <span className="w-1.5 h-1.5 rounded bg-current" />
               Unverified
             </span>
           )}
@@ -235,17 +231,17 @@ export function DeliverabilityWorkspace({ orgId, orgName }: DeliverabilityWorksp
           </section>
 
           <section>
-            <h2 className="font-display text-xl mb-3">Blacklist status</h2>
+            <h2 className="text-xl mb-3">Blacklist status</h2>
             <div className="bento-card !p-5">
               <div className="flex items-center gap-3 flex-wrap">
                 {report.blacklist.clean ? (
                   <span className="pib-pill pib-pill-success">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    <span className="w-1.5 h-1.5 rounded bg-current" />
                     Not listed
                   </span>
                 ) : (
                   <span className="pib-pill pib-pill-danger">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    <span className="w-1.5 h-1.5 rounded bg-current" />
                     Listed on {report.blacklist.listings.length} blocklist
                     {report.blacklist.listings.length === 1 ? '' : 's'}
                   </span>
@@ -275,7 +271,7 @@ export function DeliverabilityWorkspace({ orgId, orgName }: DeliverabilityWorksp
           </section>
 
           <section>
-            <h2 className="font-display text-xl mb-3">Domain authentication</h2>
+            <h2 className="text-xl mb-3">Domain authentication</h2>
             {report.domains.length === 0 ? (
               <div className="bento-card !p-6 text-sm text-[var(--color-pib-text-muted)]">
                 No sending domains configured. Verify a domain to send signed mail.
@@ -290,14 +286,12 @@ export function DeliverabilityWorkspace({ orgId, orgName }: DeliverabilityWorksp
           </section>
 
           <section>
-            <h2 className="font-display text-xl mb-3">Recommendations</h2>
+            <h2 className="text-xl mb-3">Recommendations</h2>
             <div className="bento-card !p-5">
               <ul className="space-y-2">
                 {report.recommendations.map((r, i) => (
                   <li key={i} className="flex gap-2 text-sm">
-                    <span className="material-symbols-outlined text-[var(--color-pib-accent)] text-[18px]">
-                      check_circle
-                    </span>
+                    <Icon name="check_circle" />
                     <span>{r}</span>
                   </li>
                 ))}

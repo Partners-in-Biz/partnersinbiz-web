@@ -187,7 +187,7 @@ export function CountBar({
             {rightLabel ?? value.toLocaleString()}
           </span>
         </div>
-        <div className="h-1.5 mt-1 rounded-full bg-[var(--color-pib-line)] overflow-hidden">
+        <div className="h-1.5 mt-1 rounded bg-[var(--color-pib-line)] overflow-hidden">
           <div
             className="h-full bg-[var(--color-pib-blue)]"
             style={{ width: `${pct}%` }}

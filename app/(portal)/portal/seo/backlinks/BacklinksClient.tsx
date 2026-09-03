@@ -5,6 +5,7 @@ import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader
 import { downloadText } from '@/components/seo/seoToolClient'
 import { toCsv } from '@/lib/seo/csv'
 import type { BacklinkProfile, BacklinkRow } from '@/lib/seo/backlink-profile'
+import { Icon } from '@/components/studio'
 
 type RelFilter = 'all' | 'dofollow' | 'nofollow'
 type StatusFilter = 'all' | 'live' | 'submitted'
@@ -108,15 +109,15 @@ export function BacklinksClient({
         sprints={sprints}
         activeSprintId={activeSprintId}
         action={
-          <button onClick={handleExportCsv} disabled={links.length === 0} className="pib-btn-secondary text-sm disabled:opacity-40">
-            <span className="material-symbols-outlined text-[18px]">download</span>
+          <button name="backlinksclient-action-39" onClick={handleExportCsv} disabled={links.length === 0} className="pib-btn-secondary text-sm disabled:opacity-40">
+            <Icon name="download" />
             Export CSV
           </button>
         }
       />
 
       {!profile ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No active SEO sprint. Create a sprint to start tracking backlinks.
         </div>
       ) : (
@@ -134,15 +135,15 @@ export function BacklinksClient({
           <section className="pib-card-section overflow-hidden">
             <div className="pib-card-section-header flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h3 className="text-sm font-semibold">Referring domains</h3>
+                <h3 className="text-sm">Referring domains</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Select domains to include in a disavow file. Sorted by domain authority.</p>
               </div>
-              <button
+              <button name="backlinksclient-action-40"
                 onClick={handleDisavow}
                 disabled={busy || selected.size === 0}
                 className="pib-btn-secondary text-sm disabled:opacity-40"
               >
-                <span className="material-symbols-outlined text-[18px]">gpp_bad</span>
+                <Icon name="gpp_bad" />
                 Disavow {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             </div>
@@ -153,30 +154,30 @@ export function BacklinksClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                      <th className="px-5 py-3 eyebrow !text-[10px] w-10"></th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Domain</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">DA</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Links</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">DoFollow</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">NoFollow</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">First seen</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] w-10"></th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Domain</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">DA</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Links</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">DoFollow</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">NoFollow</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">First seen</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-pib-line)]">
                     {profile.referringDomains.map((d) => (
                       <tr key={d.domain} className="hover:bg-[var(--color-pib-surface-2)]">
                         <td className="px-5 py-3">
-                          <input type="checkbox" checked={selected.has(d.domain)} onChange={() => toggleDomain(d.domain)} className="accent-[var(--color-pib-accent)]" />
+                          <input name="backlinksclient-field-41" type="checkbox" checked={selected.has(d.domain)} onChange={() => toggleDomain(d.domain)} className="accent-[var(--color-pib-accent)]" />
                         </td>
                         <td className="px-5 py-3 font-medium flex items-center gap-2">
                           {d.domain}
                           {d.isNew && <span className="pib-pill pib-pill-success text-[10px]">NEW</span>}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums">{d.domainAuthority != null ? d.domainAuthority.toFixed(0) : '—'}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{d.domainAuthority != null ? d.domainAuthority.toFixed(0) : ' - '}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{d.links}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{d.dofollow}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{d.nofollow}</td>
-                        <td className="px-5 py-3 tabular-nums text-[var(--color-pib-text-muted)]">{d.firstSeen.slice(0, 10) || '—'}</td>
+                        <td className="px-5 py-3 tabular-nums text-[var(--color-pib-text-muted)]">{d.firstSeen.slice(0, 10) || ' - '}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -189,7 +190,7 @@ export function BacklinksClient({
           {profile.topAnchors.length > 0 && (
             <section className="pib-card-section">
               <div className="pib-card-section-header">
-                <h3 className="text-sm font-semibold">Top anchor text</h3>
+                <h3 className="text-sm">Top anchor text</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Most common anchor text across all inbound links.</p>
               </div>
               <div className="flex flex-wrap gap-2 p-4">
@@ -205,20 +206,20 @@ export function BacklinksClient({
           {/* All links table with filters */}
           <section className="pib-card-section overflow-hidden">
             <div className="pib-card-section-header flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="text-sm font-semibold">All backlinks</h3>
+              <h3 className="text-sm">All backlinks</h3>
               <div className="flex flex-wrap items-center gap-2">
-                <input
+                <input name="backlinksclient-field-42"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search domain or anchor…"
                   className="pib-input !w-auto text-xs"
                 />
-                <select value={relFilter} onChange={(e) => setRelFilter(e.target.value as RelFilter)} className="pib-select !w-auto text-xs">
+                <select name="backlinksclient-select-43" value={relFilter} onChange={(e) => setRelFilter(e.target.value as RelFilter)} className="pib-select !w-auto text-xs">
                   <option value="all">All rel</option>
                   <option value="dofollow">DoFollow</option>
                   <option value="nofollow">NoFollow</option>
                 </select>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="pib-select !w-auto text-xs">
+                <select name="backlinksclient-select-44" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="pib-select !w-auto text-xs">
                   <option value="all">All status</option>
                   <option value="live">Live</option>
                   <option value="submitted">Submitted</option>
@@ -232,12 +233,12 @@ export function BacklinksClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Source</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Anchor</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Rel</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">DA</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">First seen</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Status</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Source</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Anchor</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Rel</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">DA</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">First seen</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-pib-line)]">
@@ -250,12 +251,12 @@ export function BacklinksClient({
                             l.domain
                           )}
                         </td>
-                        <td className="px-5 py-3 max-w-xs truncate text-[var(--color-pib-text-muted)]">{l.anchorText || '—'}</td>
+                        <td className="px-5 py-3 max-w-xs truncate text-[var(--color-pib-text-muted)]">{l.anchorText || ' - '}</td>
                         <td className="px-5 py-3">
                           <span className={`pib-pill text-[10px] ${l.rel === 'dofollow' ? 'pib-pill-success' : ''}`}>{l.rel}</span>
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums">{l.domainAuthority != null ? l.domainAuthority.toFixed(0) : '—'}</td>
-                        <td className="px-5 py-3 tabular-nums text-[var(--color-pib-text-muted)]">{l.firstSeen.slice(0, 10) || '—'}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{l.domainAuthority != null ? l.domainAuthority.toFixed(0) : ' - '}</td>
+                        <td className="px-5 py-3 tabular-nums text-[var(--color-pib-text-muted)]">{l.firstSeen.slice(0, 10) || ' - '}</td>
                         <td className="px-5 py-3">
                           <span className="pib-pill pib-pill-success text-[10px]">{l.status}</span>
                         </td>
@@ -270,7 +271,7 @@ export function BacklinksClient({
       )}
 
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm">
           {toast}
         </div>
       )}
@@ -282,10 +283,10 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: str
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className={`mt-3 text-xl font-semibold tabular-nums tracking-tight ${highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''}`}>{value}</p>
+      <p className={`mt-3 text-xl tabular-nums tracking-tight ${highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''}`}>{value}</p>
     </div>
   )
 }

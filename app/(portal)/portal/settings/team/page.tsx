@@ -402,7 +402,7 @@ export default function TeamPage() {
         >
           <div className="flex items-start justify-between gap-4 border-b border-[var(--color-pib-line)] pb-4">
             <div>
-              <p className="eyebrow !text-[10px]">Team member access</p>
+              <p className="sc-tiny !text-[10px]">Team member access</p>
               <h2 id="team-access-drawer-title" className="mt-1 text-xl text-[var(--color-pib-text)]">
                 Edit access for {memberDisplayName(editingAccessMember)}
               </h2>
@@ -480,7 +480,7 @@ export default function TeamPage() {
 
                 <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">
                   <div>
-                    <p className="eyebrow !text-[10px]">Invoice and quote issuer rights</p>
+                    <p className="sc-tiny !text-[10px]">Invoice and quote issuer rights</p>
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                       Allow this member to create and manage invoices or quotes for clients they own or are linked to in CRM.
                       Billing module access alone does not grant issuer rights. Members never see the full book of other staff clients.
@@ -516,7 +516,7 @@ export default function TeamPage() {
 
                 <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">
                   <div>
-                    <p className="eyebrow !text-[10px]">Agent access by computer</p>
+                    <p className="sc-tiny !text-[10px]">Agent access by computer</p>
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                       Choose the agents this member may start on each authorised computer. Their existing computer and Workspace access still applies.
                     </p>
@@ -598,7 +598,7 @@ export default function TeamPage() {
             <div className="flex gap-3">
               <Icon name="person_remove" />
               <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Workspace access removal</p>
+                <p className="sc-tiny !text-[10px] !text-red-100/80">Workspace access removal</p>
                 <h2 id="team-remove-confirm-title" className="mt-1 text-lg text-red-50">
                   Remove {[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from this workspace?
                 </h2>

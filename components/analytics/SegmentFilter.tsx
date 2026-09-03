@@ -95,7 +95,7 @@ export function SegmentFilter({
     <div className={`flex flex-wrap items-end gap-2 ${className}`}>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Visitor</label>
-        <select
+        <select name="segmentfilter-select-87"
           value={value.visitorType}
           onChange={e => onChange({ ...value, visitorType: e.target.value as SegmentValue['visitorType'] })}
           className="pib-input text-xs"
@@ -107,7 +107,7 @@ export function SegmentFilter({
       </div>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Device</label>
-        <select
+        <select name="segmentfilter-select-88"
           value={value.device}
           onChange={e => onChange({ ...value, device: e.target.value as SegmentValue['device'] })}
           className="pib-input text-xs"
@@ -120,7 +120,7 @@ export function SegmentFilter({
       </div>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Source</label>
-        <input
+        <input name="text"
           type="text"
           value={value.source}
           onChange={e => onChange({ ...value, source: e.target.value })}
@@ -130,7 +130,7 @@ export function SegmentFilter({
       </div>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Country</label>
-        <input
+        <input name="text"
           type="text"
           value={value.country}
           onChange={e => onChange({ ...value, country: e.target.value.toUpperCase() })}
@@ -142,7 +142,7 @@ export function SegmentFilter({
       {crmSegments.length > 0 && (
         <div>
           <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">CRM Segment</label>
-          <select
+          <select name="segmentfilter-select-89"
             value={value.crmSegmentId}
             onChange={e => onChange({ ...value, crmSegmentId: e.target.value })}
             className="pib-input text-xs"
@@ -153,10 +153,10 @@ export function SegmentFilter({
         </div>
       )}
       {active && (
-        <button
+        <button name="segmentfilter-action-90"
           type="button"
           onClick={() => onChange(EMPTY_SEGMENT)}
-          className="px-2.5 py-1.5 rounded text-xs font-medium text-red-400 hover:bg-red-400/10"
+          className="px-2.5 py-1.5 rounded text-xs font-medium text-[var(--st-danger)] hover:bg-red-400/10"
         >
           Clear
         </button>

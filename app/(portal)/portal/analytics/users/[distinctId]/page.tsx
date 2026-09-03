@@ -3,7 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { Icon, ButtonLink } from '@/components/studio'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 
 interface EventRow {
   id: string
@@ -42,22 +43,21 @@ export default function UserTimelinePage() {
 
   if (notFound) return (
     <div className="p-6">
-      <Link href="/portal/analytics/users" className="btn-pib-secondary mb-6 inline-block">← Back</Link>
-      <div className="pib-empty-state">
-        <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">person_off</span>
-        <p className="pib-empty-state-description">User not found.</p>
-      </div>
+      <ButtonLink href="/portal/analytics/users" variant="secondary" size="sm" className="mb-6">Back</ButtonLink>
+      <EmptyState title="User not found." />
     </div>
   )
 
   return (
     <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
-      <Link href="/portal/analytics/users" className="btn-pib-secondary inline-block">← Users</Link>
-      <header>
-        <p className="eyebrow">Analytics · Users</p>
-        <h1 className="pib-page-title mt-2">User Timeline</h1>
-        <p className="pib-page-sub font-mono">{distinctId}</p>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Users"
+        title="User timeline."
+        description={distinctId}
+        actions={(
+          <ButtonLink href="/portal/analytics/users" variant="secondary" size="sm">Users</ButtonLink>
+        )}
+      />
 
       <div className="pib-surface pib-surface-table overflow-hidden">
         <table className="w-full text-sm">
@@ -75,10 +75,10 @@ export default function UserTimelinePage() {
               <tr key={ev.id ?? i} className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]">
                 <td className="p-3 font-mono text-xs text-[var(--color-pib-accent-hover)]">{ev.event}</td>
                 <td className="p-3 text-[var(--color-pib-text-muted)] text-xs truncate max-w-[200px]">
-                  {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? '—'}
+                  {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? ' - '}
                 </td>
-                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.device ?? '—'}</td>
-                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.country ?? '—'}</td>
+                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.device ?? ' - '}</td>
+                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.country ?? ' - '}</td>
                 <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">
                   {(ev.serverTime as any)?.toDate
                     ? (ev.serverTime as any).toDate().toLocaleString()

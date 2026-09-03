@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 import { useState } from 'react'
@@ -76,16 +77,14 @@ function PageRow({
   const isPuzzle = page.kind === 'puzzle'
 
   return (
-    <li id={`page-${encodeURIComponent(page.id)}`} className="rounded-2xl border border-[var(--color-pib-border)] p-4" aria-label={page.title ?? `Page ${index + 1}`}>
+    <li id={`page-${encodeURIComponent(page.id)}`} className="rounded-[6px] border border-[var(--color-pib-border)] p-4" aria-label={page.title ?? `Page ${index + 1}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           {page.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={page.imageUrl} alt="" className="h-14 w-14 rounded-lg border border-[var(--color-pib-border)] object-cover" />
           ) : (
-            <span className="material-symbols-outlined flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]">
-              {pageKindIcons[page.kind ?? 'text']}
-            </span>
+            <Icon name={pageKindIcons[page.kind ?? 'text']} className="flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]" />
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -138,16 +137,16 @@ function PageRow({
           }}
         >
           <label className="block space-y-1 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
-            <input className="input-field w-full" value={title} onChange={(event) => setTitle(event.target.value)} />
+            <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
+            <input className="input-field w-full" value={title} onChange={(event) => setTitle(event.target.value)}  aria-label="Input"/>
           </label>
           <label className="block space-y-1 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Prompt</span>
-            <textarea className="input-field w-full" rows={2} value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+            <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Prompt</span>
+            <textarea className="input-field w-full" rows={2} value={prompt} onChange={(event) => setPrompt(event.target.value)}  aria-label="Input"/>
           </label>
           <label className="block space-y-1 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Caption</span>
-            <input className="input-field w-full" value={caption} onChange={(event) => setCaption(event.target.value)} />
+            <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Caption</span>
+            <input className="input-field w-full" value={caption} onChange={(event) => setCaption(event.target.value)}  aria-label="Input"/>
           </label>
           <button type="submit" className="btn-primary">Save page</button>
         </form>
@@ -226,20 +225,20 @@ function GeneratePuzzlesDialog({
       <form className="space-y-4" onSubmit={submit}>
         {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-900" role="alert">{error}</p> : null}
         <label className="block space-y-1 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Kind</span>
+          <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Kind</span>
           <select
             className="input-field w-full"
             value={kind}
             disabled={!isMixed}
             onChange={(event) => setKind(event.target.value)}
-          >
+           aria-label="Input">
             {isMixed
               ? ['sudoku', 'word_search', 'maze', 'crossword'].map((option) => <option key={option} value={option}>{humanizeToken(option)}</option>)
               : <option value={kind}>{humanizeToken(kind)}</option>}
           </select>
         </label>
         <label className="block space-y-1 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Count</span>
+          <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Count</span>
           <input
             type="number"
             min={1}
@@ -247,17 +246,17 @@ function GeneratePuzzlesDialog({
             className="input-field w-full"
             value={count}
             onChange={(event) => setCount(Number(event.target.value))}
-          />
+           aria-label="Number"/>
         </label>
         <label className="block space-y-1 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Difficulty</span>
-          <select className="input-field w-full" value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
+          <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Difficulty</span>
+          <select className="input-field w-full" value={difficulty} onChange={(event) => setDifficulty(event.target.value)} aria-label="Input">
             {difficulties.map((option) => <option key={option} value={option}>{humanizeToken(option)}</option>)}
           </select>
         </label>
         {showWordsInput ? (
           <label className="block space-y-1 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               {kind === 'crossword' ? 'Entries (word:clue per line)' : 'Words (one per line)'}
             </span>
             <textarea
@@ -266,7 +265,7 @@ function GeneratePuzzlesDialog({
               value={wordsText}
               onChange={(event) => setWordsText(event.target.value)}
               placeholder={kind === 'crossword' ? 'OCEAN:Large body of salt water' : 'OCEAN'}
-            />
+             aria-label="Input"/>
           </label>
         ) : null}
         <div className="flex gap-2">
@@ -296,11 +295,11 @@ function AddPageForm({ onAddPage, adding }: { onAddPage: BookProjectPagesPanelPr
 
   return (
     <form className="grid gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]" onSubmit={submit}>
-      <select className="input-field" value={kind} onChange={(event) => setKind(event.target.value as BookPageKind)}>
+      <select className="input-field" value={kind} onChange={(event) => setKind(event.target.value as BookPageKind)} aria-label="Input">
         {pageKinds.map((option) => <option key={option} value={option}>{humanizeToken(option)}</option>)}
       </select>
-      <input className="input-field" placeholder="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
-      <input className="input-field" placeholder="Prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+      <input className="input-field" placeholder="Title" value={title} onChange={(event) => setTitle(event.target.value)}  aria-label="Title"/>
+      <input className="input-field" placeholder="Prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)}  aria-label="Prompt"/>
       <button type="submit" className="btn-secondary" disabled={adding}>
         {adding ? 'Adding…' : 'Add page'}
       </button>
@@ -336,7 +335,7 @@ export function BookProjectPagesPanel({
     <Surface
       header={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Pages</h2>
+          <h2 className="text-lg">Pages</h2>
           {showGeneratePuzzles ? (
             <button type="button" className="btn-secondary" onClick={() => setDialogOpen(true)}>
               Generate puzzles

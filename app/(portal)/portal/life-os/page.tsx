@@ -1,4 +1,5 @@
 import { LifeOsPlanningWorkbench } from '@/components/self-improvement/LifeOsPlanningWorkbench'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 export const metadata = {
   title: 'Life OS Planning | Partners in Biz',
@@ -6,10 +7,12 @@ export const metadata = {
 
 export default function PortalLifeOsPage() {
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <LifeOsPlanningWorkbench />
-      </div>
-    </main>
+    <div className="space-y-8">
+      <PageHeader
+        title="Life OS."
+        description="Plan experiments and reflections for personal operating cadence."
+      />
+      <LifeOsPlanningWorkbench />
+    </div>
   )
 }

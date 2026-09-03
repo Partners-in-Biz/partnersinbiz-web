@@ -1,7 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Title,
+} from '@/components/studio'
 
 interface PartnerOrder {
   id: string
@@ -40,11 +50,11 @@ function money(value: number, currency: string): string {
   }
 }
 
-const STATUS_CLS: Record<PartnerOrder['partnerOrderStatus'], string> = {
-  pending: 'pib-pill-warn',
-  confirmed: 'pib-pill-success',
-  rejected: 'pib-pill-danger',
-  cancelled: '',
+const STATUS_TONE: Record<PartnerOrder['partnerOrderStatus'], 'warning' | 'success' | 'danger' | 'info' | undefined> = {
+  pending: 'warning',
+  confirmed: 'success',
+  rejected: 'danger',
+  cancelled: undefined,
 }
 
 export default function PartnerOrdersPage() {
@@ -176,95 +186,95 @@ export default function PartnerOrdersPage() {
 
   function renderOrder(order: PartnerOrder, canDecide: boolean) {
     return (
-      <li key={order.id} className="rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+      <li key={order.id} className="st-panel st-panel--flat p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">
+          <span className="min-w-0 flex-1 truncate sc-body text-[var(--sc-ink)]">
             {order.title || 'Partner order'}
           </span>
-          <span className={`pib-pill px-2 py-0.5 text-[10px] ${STATUS_CLS[order.partnerOrderStatus]}`}>
-            {order.partnerOrderStatus}
-          </span>
-          <span className="font-mono text-sm text-[var(--color-pib-text)]">
+          <Status tone={STATUS_TONE[order.partnerOrderStatus]}>{order.partnerOrderStatus}</Status>
+          <span className="st-num text-[var(--sc-ink)]">
             {money(order.total, order.currency)}
           </span>
         </div>
 
         {order.lineItems && order.lineItems.length > 0 ? (
-          <ul className="mt-2 space-y-0.5">
+          <ul className="mt-2 space-y-1">
             {order.lineItems.map((l, i) => (
-              <li key={i} className="flex justify-between gap-3 text-[11px] text-[var(--color-pib-text-muted)]">
+              <li key={i} className="flex justify-between gap-4 sc-body text-[0.75rem]">
                 <span className="min-w-0 truncate">{l.name} × {l.qty}</span>
-                <span className="font-mono">{money(l.total, order.currency)}</span>
+                <span className="st-num">{money(l.total, order.currency)}</span>
               </li>
             ))}
           </ul>
         ) : null}
 
         {order.notes ? (
-          <p className="mt-2 rounded border-l-2 border-[var(--color-accent-v2)] bg-white/[0.03] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+          <p className="mt-2 border-l-2 border-[var(--sc-accent)] px-2 py-1 sc-body text-[0.75rem]">
             {order.notes}
           </p>
         ) : null}
 
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {order.partnerOrderStatus === 'confirmed' && order.fulfillmentStatus ? (
-            <span className="pib-pill px-2 py-0.5 text-[10px]">
-              {order.fulfillmentStatus.replace('_', ' ')}
-            </span>
+            <Status>{order.fulfillmentStatus.replace('_', ' ')}</Status>
           ) : null}
 
           {canDecide && order.partnerOrderStatus === 'pending' ? (
             <>
-              <button
+              <Button
                 type="button"
+                size="sm"
                 onClick={() => void decide(order, 'confirm')}
                 disabled={busyId === order.id}
-                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                loading={busyId === order.id}
               >
-                {busyId === order.id ? 'Working…' : 'Confirm'}
-              </button>
-              <button
+                Confirm
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={() => void decide(order, 'reject')}
                 disabled={busyId === order.id}
-                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
               >
                 Decline
-              </button>
+              </Button>
             </>
           ) : null}
 
           {canDecide && order.partnerOrderStatus === 'confirmed' ? (
             <>
               {['not_started', 'picking'].includes(order.fulfillmentStatus ?? '') ? (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="secondary"
                   onClick={() => void act(order, { action: 'pack' }, 'Marked as packed.')}
                   disabled={busyId === order.id}
-                  className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] disabled:opacity-50"
                 >
                   Mark packed
-                </button>
+                </Button>
               ) : null}
               {['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? '') ? (
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onClick={() => void startShip(order)}
                   disabled={busyId === order.id}
-                  className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
                 >
-                  {busyId === order.id ? 'Working…' : 'Mark shipped'}
-                </button>
+                  Mark shipped
+                </Button>
               ) : null}
               {order.fulfillmentStatus === 'in_transit' ? (
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onClick={() => void act(order, { action: 'deliver' }, 'Marked as delivered.')}
                   disabled={busyId === order.id}
-                  className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                  loading={busyId === order.id}
                 >
                   Mark delivered
-                </button>
+                </Button>
               ) : null}
             </>
           ) : null}
@@ -272,8 +282,10 @@ export default function PartnerOrdersPage() {
           {(order.partnerOrderStatus === 'pending' ||
             (canDecide && order.partnerOrderStatus === 'confirmed' &&
               ['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? ''))) ? (
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="danger"
               onClick={() => void act(
                 order,
                 { action: 'cancel' },
@@ -283,83 +295,82 @@ export default function PartnerOrdersPage() {
                   : 'Cancel this order?',
               )}
               disabled={busyId === order.id}
-              className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
             >
               Cancel
-            </button>
+            </Button>
           ) : null}
           {order.invoiceId ? (
-            <Link
-              href={`/portal/invoicing/${order.invoiceId}`}
-              className="text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-accent-v2)]"
-            >
-              View invoice →
-            </Link>
+            <ButtonLink href={`/portal/invoicing/${order.invoiceId}`} variant="ghost" size="sm">
+              View invoice
+            </ButtonLink>
           ) : null}
         </div>
 
         {shipDraft?.orderId === order.id ? (
-          <div className="mt-3 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-            <p className="mb-2 text-[11px] text-[var(--color-pib-text-muted)]">
+          <div className="mt-4 st-panel st-panel--flat p-4">
+            <p className="mb-4 sc-body text-[0.75rem]">
               Ship a partial quantity per product. Leave a product at zero to ship it later.
             </p>
-            <div className="space-y-2">
+            <div className="space-y-4">
               {(order.lineItems ?? []).map((line, i) => (
-                <label key={i} className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-pib-text)]">
+                <label key={i} className="flex items-center justify-between gap-4 sc-body text-[0.75rem] text-[var(--sc-ink)]">
                   <span className="min-w-0 truncate">
                     {line.name} × {line.qty}
                     {line.productId && outstandingOf(order, line) < line.qty
-                      ? <span className="text-[var(--color-pib-text-muted)]"> ({outstandingOf(order, line)} remaining)</span>
+                      ? <span className="text-[var(--sc-ink-soft)]"> ({outstandingOf(order, line)} remaining)</span>
                       : null}
                   </span>
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     max={line.productId ? outstandingOf(order, line) : line.qty}
                     value={shipDraft.quantities[line.productId ?? ''] ?? '0'}
+                    aria-label={`Ship quantity for ${line.name}`}
                     onChange={(e) => {
                       const productId = line.productId ?? ''
                       if (!productId) return
                       setShipDraft({ ...shipDraft, quantities: { ...shipDraft.quantities, [productId]: e.target.value } })
                     }}
-                    className="w-20 rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-right text-xs text-[var(--color-pib-text)]"
+                    className="w-20 text-right"
                   />
                 </label>
               ))}
-              <div className="grid grid-cols-2 gap-2">
-                <input
+              <div className="grid grid-cols-2 gap-4">
+                <Input
                   type="text"
                   placeholder="Tracking number (optional)"
+                  aria-label="Tracking number"
                   value={shipDraft.trackingNumber}
                   onChange={(e) => setShipDraft({ ...shipDraft, trackingNumber: e.target.value })}
-                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
                 />
-                <input
+                <Input
                   type="text"
                   placeholder="Carrier (optional)"
+                  aria-label="Carrier"
                   value={shipDraft.carrier}
                   onChange={(e) => setShipDraft({ ...shipDraft, carrier: e.target.value })}
-                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
                 />
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
                 type="button"
+                size="sm"
                 onClick={() => void submitShip(order, shipDraft)}
                 disabled={busyId === order.id}
-                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                loading={busyId === order.id}
               >
-                {busyId === order.id ? 'Working…' : 'Confirm shipment'}
-              </button>
-              <button
+                Confirm shipment
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={() => setShipDraft(null)}
                 disabled={busyId === order.id}
-                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -368,53 +379,48 @@ export default function PartnerOrdersPage() {
   }
 
   return (
-    <div className="space-y-5 p-4">
-      <div>
-        <Link href="/portal/partners" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-          ← Back to partners
-        </Link>
-        <p className="eyebrow mt-2">CRM</p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-[var(--color-pib-text)]">Partner orders</h1>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Orders placed across your workspace links. Confirming an incoming order reserves your stock and drafts an
-          invoice; nothing moves while it is pending.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Partners"
+        title="Partner orders."
+        description="Orders placed across your workspace links. Confirming an incoming order reserves your stock and drafts an invoice; nothing moves while it is pending."
+        actions={<ButtonLink href="/portal/partners" variant="ghost" size="sm">Back to partners</ButtonLink>}
+      />
 
-      {error ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>
-      ) : null}
-      {notice ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{notice}</p>
-      ) : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
 
       {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+        <div className="space-y-4">
+          <Skeleton height="8rem" />
+          <Skeleton height="8rem" />
+        </div>
       ) : (
         <>
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               Orders you received {incoming.length > 0 ? `(${incoming.length})` : ''}
-            </h2>
+            </Title>
             {incoming.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No partner has ordered from you yet.</p>
+              <p className="mt-4 sc-body">No partner has ordered from you yet.</p>
             ) : (
-              <ul className="space-y-2">{incoming.map((o) => renderOrder(o, true))}</ul>
+              <ul className="mt-4 space-y-4">{incoming.map((o) => renderOrder(o, true))}</ul>
             )}
-          </section>
+          </Panel>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               Orders you placed {outgoing.length > 0 ? `(${outgoing.length})` : ''}
-            </h2>
+            </Title>
             {outgoing.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">
-                You haven&rsquo;t ordered from a partner yet. Open a linked partner to browse their catalogue.
-              </p>
+              <EmptyState
+                title="No orders placed yet."
+                description="Open a linked partner to browse their catalogue."
+              />
             ) : (
-              <ul className="space-y-2">{outgoing.map((o) => renderOrder(o, false))}</ul>
+              <ul className="mt-4 space-y-4">{outgoing.map((o) => renderOrder(o, false))}</ul>
             )}
-          </section>
+          </Panel>
         </>
       )}
     </div>

@@ -117,7 +117,7 @@ function FilePreviewPane({
             {saveError && <p role="alert" className="text-[10px] text-red-300">{saveError}</p>}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => { setEditing(false); setDraft(preview.content ?? ''); setSaveError(null) }} className="rounded-md px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]">Cancel</button>
-              <button type="button" onClick={() => { void save() }} disabled={saveState === 'saving' || draft === (preview.content ?? '')} className="rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-black disabled:opacity-50">{saveState === 'saving' ? 'Saving…' : 'Approve & save'}</button>
+              <button type="button" onClick={() => { void save() }} disabled={saveState === 'saving' || draft === (preview.content ?? '')} className="rounded-md bg-primary px-2 py-1 text-[10px] text-black disabled:opacity-50">{saveState === 'saving' ? 'Saving…' : 'Approve & save'}</button>
             </div>
           </div>
         ) : (

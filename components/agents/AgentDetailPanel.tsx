@@ -13,42 +13,42 @@ import { buildOrgDefaultsFromRuntime } from '@/lib/agent-org/syncRuntime'
 import OrgRoleForm from '@/components/agents/org-chart/OrgRoleForm'
 
 const COLOR_ACCENT: Record<string, string> = {
-  violet:  'text-violet-400',
-  sky:     'text-sky-400',
-  amber:   'text-amber-400',
+  violet: 'text-[var(--sc-ink-soft)]',
+  sky: 'text-sky-400',
+  amber: 'text-[var(--sc-ink-soft)]',
   emerald: 'text-emerald-400',
-  rose:    'text-rose-400',
+  rose: 'text-rose-400',
 }
 
 const COLOR_ICON_BG: Record<string, string> = {
-  violet:  'bg-violet-500/15 text-violet-400',
-  sky:     'bg-sky-500/15 text-sky-400',
-  amber:   'bg-amber-500/15 text-amber-400',
+  violet: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]',
+  sky: 'bg-sky-500/15 text-sky-400',
+  amber: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]',
   emerald: 'bg-emerald-500/15 text-emerald-400',
-  rose:    'bg-rose-500/15 text-rose-400',
+  rose: 'bg-rose-500/15 text-rose-400',
 }
 
 const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = {
-  ok:          { label: 'Online',      className: 'bg-emerald-500/15 text-emerald-400' },
-  degraded:    { label: 'Degraded',    className: 'bg-amber-500/15 text-amber-400' },
-  unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-red-400' },
-  loading:     { label: 'Checking…',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
+  ok: { label: 'Online', className: 'bg-emerald-500/15 text-emerald-400' },
+  degraded: { label: 'Degraded', className: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]' },
+  unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-[var(--st-danger)]' },
+  loading: { label: 'Checking…', className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
 }
 
 const BASE_TABS = ['overview', 'skills', 'cron', 'env', 'config', 'soul', 'files', 'logs', 'edit'] as const
 type BaseTab = typeof BASE_TABS[number]
 type Tab = BaseTab | 'org'
 const TAB_LABELS: Record<Tab, string> = {
-  org:      'Org role',
+  org: 'Org role',
   overview: 'Overview',
-  skills:   'Skills',
-  cron:     'Cron',
-  env:      'Env',
-  config:   'Config',
-  soul:     'Soul',
-  files:    'Files',
-  logs:     'Logs',
-  edit:     'Edit',
+  skills: 'Skills',
+  cron: 'Cron',
+  env: 'Env',
+  config: 'Config',
+  soul: 'Soul',
+  files: 'Files',
+  logs: 'Logs',
+  edit: 'Edit',
 }
 
 export type AgentDetailOrgRoleContext = {
@@ -184,7 +184,7 @@ function RegistryList({ title, items }: { title: string; items?: string[] }) {
       <ul className="space-y-1.5 text-xs text-[var(--color-pib-text-muted)] leading-relaxed">
         {items.map((item) => (
           <li key={item} className="flex gap-2">
-            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
+            <span className="mt-1 h-1 w-1 shrink-0 rounded bg-primary/70" />
             <span>{item}</span>
           </li>
         ))}
@@ -220,78 +220,78 @@ export function AgentDetailPanel({
   }, [orgRole, activeTab])
 
   // Edit form state
-  const [editName, setEditName]       = useState('')
+  const [editName, setEditName] = useState('')
   const [editPersona, setEditPersona] = useState('')
   const [editEnabled, setEditEnabled] = useState(true)
   const [editBaseUrl, setEditBaseUrl] = useState('')
-  const [editApiKey, setEditApiKey]   = useState('')
-  const [editModel, setEditModel]     = useState('')
+  const [editApiKey, setEditApiKey] = useState('')
+  const [editModel, setEditModel] = useState('')
 
   // Health check state
   const [healthResult, setHealthResult] = useState<HealthResult | null>(null)
-  const [pinging, setPinging]           = useState(false)
+  const [pinging, setPinging] = useState(false)
 
   // Save state
   const [saving, setSaving] = useState(false)
 
   // Skills tab state
-  const [skills, setSkills]       = useState<Skill[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
-  const [skillsError, setSkillsError]     = useState<string | null>(null)
+  const [skillsError, setSkillsError] = useState<string | null>(null)
   const [skillsMessage, setSkillsMessage] = useState<string | null>(null)
-  const [skillPolicy, setSkillPolicy]     = useState<SkillPolicyView | null>(null)
+  const [skillPolicy, setSkillPolicy] = useState<SkillPolicyView | null>(null)
   const [skillPolicyLoading, setSkillPolicyLoading] = useState(false)
   const [skillPolicyApplying, setSkillPolicyApplying] = useState(false)
-  const [uploading, setUploading]         = useState(false)
-  const [dragOver, setDragOver]           = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const skillInputRef = useRef<HTMLInputElement | null>(null)
 
   // Config tab state
-  const [configData, setConfigData]       = useState<unknown>(null)
+  const [configData, setConfigData] = useState<unknown>(null)
   const [configLoading, setConfigLoading] = useState(false)
-  const [configError, setConfigError]     = useState<string | null>(null)
-  const [configText, setConfigText]       = useState('')
-  const [configSaving, setConfigSaving]   = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
+  const [configText, setConfigText] = useState('')
+  const [configSaving, setConfigSaving] = useState(false)
   const [configMessage, setConfigMessage] = useState<string | null>(null)
 
   // Profile files / soul state
-  const [profileFiles, setProfileFiles]       = useState<ProfileFile[] | null>(null)
-  const [filesLoading, setFilesLoading]       = useState(false)
-  const [filesError, setFilesError]           = useState<string | null>(null)
+  const [profileFiles, setProfileFiles] = useState<ProfileFile[] | null>(null)
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [filesError, setFilesError] = useState<string | null>(null)
   const [selectedFilePath, setSelectedFilePath] = useState('SOUL.md')
-  const [fileContent, setFileContent]         = useState('')
-  const [fileMeta, setFileMeta]               = useState<ProfileFile | null>(null)
-  const [fileSaving, setFileSaving]           = useState(false)
-  const [fileMessage, setFileMessage]         = useState<string | null>(null)
+  const [fileContent, setFileContent] = useState('')
+  const [fileMeta, setFileMeta] = useState<ProfileFile | null>(null)
+  const [fileSaving, setFileSaving] = useState(false)
+  const [fileMessage, setFileMessage] = useState<string | null>(null)
 
   // Logs tab state
-  const [logsData, setLogsData]       = useState<LogRun[] | null>(null)
+  const [logsData, setLogsData] = useState<LogRun[] | null>(null)
   const [logsLoading, setLogsLoading] = useState(false)
-  const [logsError, setLogsError]     = useState<string | null>(null)
+  const [logsError, setLogsError] = useState<string | null>(null)
 
   // Cron tab state
-  const [cronJobs, setCronJobs]               = useState<CronJob[]>([])
-  const [cronSupported, setCronSupported]     = useState<boolean | null>(null)
-  const [cronLoading, setCronLoading]         = useState(false)
-  const [cronError, setCronError]             = useState<string | null>(null)
-  const [cronMessage, setCronMessage]     = useState<string | null>(null)
-  const [cronName, setCronName]           = useState('')
-  const [cronPrompt, setCronPrompt]       = useState('')
-  const [cronSchedule, setCronSchedule]   = useState('0 9 * * *')
-  const [cronProvider, setCronProvider]   = useState('')
-  const [cronModel, setCronModel]         = useState('')
-  const [cronCreating, setCronCreating]   = useState(false)
-  const [showCronForm, setShowCronForm]   = useState(false)
+  const [cronJobs, setCronJobs] = useState<CronJob[]>([])
+  const [cronSupported, setCronSupported] = useState<boolean | null>(null)
+  const [cronLoading, setCronLoading] = useState(false)
+  const [cronError, setCronError] = useState<string | null>(null)
+  const [cronMessage, setCronMessage] = useState<string | null>(null)
+  const [cronName, setCronName] = useState('')
+  const [cronPrompt, setCronPrompt] = useState('')
+  const [cronSchedule, setCronSchedule] = useState('0 9 * * *')
+  const [cronProvider, setCronProvider] = useState('')
+  const [cronModel, setCronModel] = useState('')
+  const [cronCreating, setCronCreating] = useState(false)
+  const [showCronForm, setShowCronForm] = useState(false)
 
   // Env tab state
-  const [envData, setEnvData]             = useState<EnvEntry[] | null>(null)
-  const [envSupported, setEnvSupported]   = useState<boolean | null>(null)
-  const [envLoading, setEnvLoading]       = useState(false)
-  const [envError, setEnvError]           = useState<string | null>(null)
-  const [envKey, setEnvKey]               = useState('')
-  const [envValue, setEnvValue]           = useState('')
-  const [envSaving, setEnvSaving]         = useState(false)
-  const [envMessage, setEnvMessage]       = useState<string | null>(null)
+  const [envData, setEnvData] = useState<EnvEntry[] | null>(null)
+  const [envSupported, setEnvSupported] = useState<boolean | null>(null)
+  const [envLoading, setEnvLoading] = useState(false)
+  const [envError, setEnvError] = useState<string | null>(null)
+  const [envKey, setEnvKey] = useState('')
+  const [envValue, setEnvValue] = useState('')
+  const [envSaving, setEnvSaving] = useState(false)
+  const [envMessage, setEnvMessage] = useState<string | null>(null)
 
   // Lazy-load tracking: which tabs have been loaded for the current agent
   const loadedTabs = useRef<Set<Tab>>(new Set())
@@ -516,21 +516,21 @@ export function AgentDetailPanel({
 
   if (!agent) return null
 
-  const { agentId }  = agent
-  const iconClass    = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-[var(--color-pib-text-muted)]'
-  const accentClass  = COLOR_ACCENT[agent.colorKey] ?? 'text-[var(--color-pib-text-muted)]'
+  const { agentId } = agent
+  const iconClass = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-[var(--color-pib-text-muted)]'
+  const accentClass = COLOR_ACCENT[agent.colorKey] ?? 'text-[var(--color-pib-text-muted)]'
 
   async function pingHealth() {
     setPinging(true)
     setHealthResult(null)
     try {
-      const res  = await fetch(`/api/v1/admin/agents/${agentId}/health`)
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/health`)
       const body = await res.json()
       if (!res.ok) {
         setHealthResult({ status: 'unreachable' })
       } else {
         setHealthResult({
-          status:    body.data?.status ?? 'unreachable',
+          status: body.data?.status ?? 'unreachable',
           latencyMs: body.data?.latencyMs,
         })
       }
@@ -550,19 +550,19 @@ export function AgentDetailPanel({
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
-        name:         editName.trim(),
-        persona:      editPersona.trim(),
-        enabled:      editEnabled,
-        baseUrl:      editBaseUrl.trim(),
+        name: editName.trim(),
+        persona: editPersona.trim(),
+        enabled: editEnabled,
+        baseUrl: editBaseUrl.trim(),
         defaultModel: editModel.trim(),
       }
       if (editApiKey.trim()) {
         payload.apiKey = editApiKey.trim()
       }
-      const res  = await fetch(`/api/v1/admin/agents/${agentId}`, {
-        method:  'PUT',
+      const res = await fetch(`/api/v1/admin/agents/${agentId}`, {
+        method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify(payload),
+        body: JSON.stringify(payload),
       })
       const body = await res.json()
       if (!res.ok) {
@@ -645,7 +645,7 @@ export function AgentDetailPanel({
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res  = await fetch(`/api/v1/admin/agents/${agentId}/skills`, { method: 'POST', body: fd })
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/skills`, { method: 'POST', body: fd })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || `Upload failed (${res.status})`)
       setSkillsMessage(`Installed: ${body.data?.installed || 'skill'} (${body.data?.fileCount ?? '?'} files). Gateway restarting…`)
@@ -665,7 +665,7 @@ export function AgentDetailPanel({
     if (!confirm(`Delete skill "${name}"? This will remove it from the VPS and restart the gateway.`)) return
     setSkillsError(null)
     try {
-      const res  = await fetch(`/api/v1/admin/agents/${agentId}/skills/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/skills/${encodeURIComponent(name)}`, { method: 'DELETE' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || `Delete failed (${res.status})`)
       setSkillsMessage(`Deleted ${name}. Gateway restarting…`)
@@ -830,16 +830,16 @@ export function AgentDetailPanel({
   const healthPill = healthResult ? HEALTH_PILL[healthResult.status] : null
 
   // Config summary extraction — API returns flat Firestore fields
-  const configObj          = configData && typeof configData === 'object' ? configData as Record<string, unknown> : null
+  const configObj = configData && typeof configData === 'object' ? configData as Record<string, unknown> : null
   const configModelDefault = configObj?.defaultModel as string | undefined
-  const configRole         = configObj?.role as string | undefined
-  const configPersona      = configObj?.persona as string | undefined
-  const configEnabled      = configObj?.enabled as boolean | undefined
-  const configModels       = configObj?.models  // optional /v1/models probe result
-  const liveConfigObj      = configObj?.liveConfig && typeof configObj.liveConfig === 'object'
+  const configRole = configObj?.role as string | undefined
+  const configPersona = configObj?.persona as string | undefined
+  const configEnabled = configObj?.enabled as boolean | undefined
+  const configModels = configObj?.models // optional /v1/models probe result
+  const liveConfigObj = configObj?.liveConfig && typeof configObj.liveConfig === 'object'
     ? configObj.liveConfig as Record<string, unknown>
     : null
-  const liveConfigPath     = liveConfigObj?.path as string | undefined
+  const liveConfigPath = liveConfigObj?.path as string | undefined
   const tabsForPanel: Tab[] = orgRole
     ? (['org', ...BASE_TABS] as Tab[])
     : ([...BASE_TABS] as Tab[])
@@ -854,7 +854,7 @@ export function AgentDetailPanel({
             <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className={`text-sm font-semibold ${accentClass}`}>{agent.name}</h2>
+            <h2 className={`text-sm ${accentClass}`}>{agent.name}</h2>
             <p className="text-xs leading-snug text-[var(--color-pib-text-muted)]">{agent.role}</p>
           </div>
           {healthPill ? (
@@ -934,14 +934,14 @@ export function AgentDetailPanel({
                 <div className="pib-card p-3 space-y-0.5">
                   <p className="text-[10px] pib-label">Status</p>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                    <span className={`w-1.5 h-1.5 rounded ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
                     <span className="text-sm text-[var(--color-pib-text)]">{agent.enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                 </div>
                 <div className="pib-card p-3 space-y-0.5">
                   <p className="text-[10px] pib-label">Last health</p>
                   {agent.lastHealthStatus ? (
-                    <span className={`inline-block mt-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${HEALTH_PILL[agent.lastHealthStatus].className}`}>
+                    <span className={`inline-block mt-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${HEALTH_PILL[agent.lastHealthStatus].className}`}>
                       {HEALTH_PILL[agent.lastHealthStatus].label}
                     </span>
                   ) : (
@@ -992,7 +992,7 @@ export function AgentDetailPanel({
                 </button>
                 {healthPill && !pinging && (
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${healthPill.className}`}>
+                    <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${healthPill.className}`}>
                       {healthPill.label}
                     </span>
                     {healthResult?.latencyMs !== undefined && (
@@ -1043,10 +1043,10 @@ export function AgentDetailPanel({
                     <p className="text-[10px] pib-label">Runtime skill policy</p>
                     <code className="mt-1 block text-xs text-[var(--color-pib-text-muted)] break-all">{skillPolicy.policy.vpsExternalDir}</code>
                   </div>
-                  <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                  <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${
                     skillPolicy.drift?.status === 'in_sync'
                       ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-amber-500/15 text-amber-400'
+                      : 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]'
                   }`}>
                     {skillPolicy.drift?.status?.replace('_', ' ') ?? 'unknown'}
                   </span>
@@ -1063,7 +1063,7 @@ export function AgentDetailPanel({
                   </p>
                 )}
                 {skillPolicy.drift && skillPolicy.drift.status !== 'in_sync' && (
-                  <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-200">
+                  <div className="rounded-md border border-amber-500/20 bg-[var(--sc-surface)]/10 p-2 text-xs text-[var(--sc-ink-soft)]">
                     Drift detected: {[
                       skillPolicy.drift.missingPibSkills.length ? `${skillPolicy.drift.missingPibSkills.length} missing PiB` : '',
                       skillPolicy.drift.unexpectedPibSkills.length ? `${skillPolicy.drift.unexpectedPibSkills.length} unexpected PiB` : '',
@@ -1113,7 +1113,7 @@ export function AgentDetailPanel({
               </div>
             )}
 
-            {skillsError   && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{skillsError}</div>}
+            {skillsError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{skillsError}</div>}
             {skillsMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{skillsMessage}</div>}
 
             <div className="grid gap-2 sm:grid-cols-2">
@@ -1132,7 +1132,7 @@ export function AgentDetailPanel({
                       <button
                         type="button"
                         onClick={() => removeSkill(s.name)}
-                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
+                        className="text-xs text-[var(--st-danger)] hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
                         title="Delete skill"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -1206,7 +1206,7 @@ export function AgentDetailPanel({
                     <div className="pib-card p-3">
                       <p className="text-[10px] pib-label mb-1">Status</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${configEnabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                        <span className={`w-1.5 h-1.5 rounded ${configEnabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
                         <span className="text-xs text-[var(--color-pib-text)]">{configEnabled ? 'Enabled' : 'Disabled'}</span>
                       </div>
                     </div>
@@ -1422,13 +1422,13 @@ export function AgentDetailPanel({
                   <div key={run.id} className="pib-card p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                        <span className={`text-[10px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded ${
                           run.status === 'done' || run.status === 'completed'
                             ? 'bg-emerald-500/15 text-emerald-400'
                             : run.status === 'error' || run.status === 'failed'
-                            ? 'bg-red-500/15 text-red-400'
+                            ? 'bg-red-500/15 text-[var(--st-danger)]'
                             : run.status === 'in-progress'
-                            ? 'bg-amber-500/15 text-amber-400'
+                            ? 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]'
                             : 'bg-white/10 text-[var(--color-pib-text-muted)]'
                         }`}>{run.status ?? 'unknown'}</span>
                         {run.orgId && (
@@ -1580,7 +1580,7 @@ export function AgentDetailPanel({
               </form>
             )}
 
-            {cronError   && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{cronError}</div>}
+            {cronError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{cronError}</div>}
             {cronMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{cronMessage}</div>}
 
             {cronLoading && (
@@ -1610,9 +1610,9 @@ export function AgentDetailPanel({
                       {job.name && <span className="text-sm font-medium text-[var(--color-pib-text)]">{job.name}</span>}
                       <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/60 bg-white/5 px-1.5 py-0.5 rounded">{job.schedule}</code>
                       {job.status && (
-                        <span className={`text-[10px] font-label uppercase px-1.5 py-0.5 rounded-full ${
+                        <span className={`text-[10px] font-label uppercase px-1.5 py-0.5 rounded ${
                           job.status === 'running' ? 'bg-emerald-500/15 text-emerald-400'
-                          : job.status === 'paused' ? 'bg-amber-500/15 text-amber-400'
+                          : job.status === 'paused' ? 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]'
                           : 'bg-white/10 text-[var(--color-pib-text-muted)]'
                         }`}>{job.status}</span>
                       )}
@@ -1664,7 +1664,7 @@ export function AgentDetailPanel({
                           if (res.ok) { setCronMessage('Job deleted.'); loadedTabs.current.delete('cron'); loadCron(agentId) }
                           else { setCronError(b.error || 'Failed to delete') }
                         }}
-                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
+                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
@@ -1762,7 +1762,7 @@ export function AgentDetailPanel({
                       entry.is_set ? 'bg-white/5' : 'bg-transparent border border-white/5'
                     }`}
                   >
-                    <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${entry.is_set ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                    <span className={`mt-0.5 w-2 h-2 rounded shrink-0 ${entry.is_set ? 'bg-emerald-400' : 'bg-white/20'}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <code className="text-xs font-mono text-[var(--color-pib-text)]">{entry.key}</code>
@@ -1776,7 +1776,7 @@ export function AgentDetailPanel({
                       {entry.tools && entry.tools.length > 0 && (
                         <div className="flex gap-1 flex-wrap mt-1">
                           {entry.tools.map((t) => (
-                            <span key={t} className="text-[9px] font-label bg-primary/10 text-primary/80 px-1.5 py-0.5 rounded-full">{t}</span>
+                            <span key={t} className="text-[9px] font-label bg-primary/10 text-primary/80 px-1.5 py-0.5 rounded">{t}</span>
                           ))}
                         </div>
                       )}
@@ -1787,7 +1787,7 @@ export function AgentDetailPanel({
                         onClick={() => unsetEnvKey(entry.key)}
                         disabled={envSaving}
                         title={`Unset ${entry.key}`}
-                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors disabled:opacity-50"
+                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
@@ -1869,10 +1869,10 @@ export function AgentDetailPanel({
             <label className="flex items-center gap-3 cursor-pointer group select-none">
               <div
                 onClick={() => setEditEnabled((v) => !v)}
-                className={`relative w-10 h-6 rounded-full transition-colors duration-150 ${editEnabled ? 'bg-emerald-500' : 'bg-white/20'}`}
+                className={`relative w-10 h-6 rounded transition-colors duration-150 ${editEnabled ? 'bg-emerald-500' : 'bg-white/20'}`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${editEnabled ? 'translate-x-4' : 'translate-x-0'}`}
+                  className={`absolute top-1 left-1 w-4 h-4 rounded bg-white shadow transition-transform duration-150 ${editEnabled ? 'translate-x-4' : 'translate-x-0'}`}
                 />
               </div>
               <span className="text-sm text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-text)]">

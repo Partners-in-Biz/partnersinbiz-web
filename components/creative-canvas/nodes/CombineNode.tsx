@@ -119,7 +119,7 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
             fontSize: 13,
             padding: 10,
           }}
-        />
+         aria-label="Describe how the linked nodes come together…"/>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${canvasTheme.border}` }}>

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
@@ -20,9 +21,9 @@ type TimestampLike = { _seconds?: number; seconds?: number; toDate?: () => Date 
 const STATUS_PILL: Record<BroadcastStatus, string> = {
   draft: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/25',
   scheduled: 'bg-sky-500/15 text-sky-300 border-sky-500/25',
-  sending: 'bg-violet-500/15 text-violet-300 border-violet-500/25 animate-pulse',
+  sending: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-violet-500/25 ',
   sent: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-  paused: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+  paused: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-amber-500/25',
   failed: 'bg-rose-500/15 text-rose-300 border-rose-500/25',
   canceled: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
 }
@@ -39,8 +40,8 @@ const STATUS_LABEL: Record<BroadcastStatus, string> = {
 
 const AB_STATUS_PILL: Record<string, string> = {
   inactive: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/25',
-  testing: 'bg-violet-500/15 text-violet-300 border-violet-500/25 animate-pulse',
-  'winner-pending': 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+  testing: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-violet-500/25 ',
+  'winner-pending': 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-amber-500/25',
   'winner-sent': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
   complete: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
 }
@@ -55,8 +56,8 @@ const AB_STATUS_LABEL: Record<string, string> = {
 
 const DOMAIN_STATUS_PILL: Record<string, string> = {
   verified: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-  pending: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
-  not_started: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+  pending: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-amber-500/25',
+  not_started: 'bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)] border-amber-500/25',
   failed: 'bg-rose-500/15 text-rose-300 border-rose-500/25',
   temporary_failure: 'bg-rose-500/15 text-rose-300 border-rose-500/25',
 }
@@ -195,7 +196,7 @@ export default async function PortalBroadcastPage({
           href={scopedPortalHref('/portal/campaigns', scope)}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" />
           Campaigns
         </Link>
 
@@ -208,11 +209,11 @@ export default async function PortalBroadcastPage({
               {broadcast.name || 'Untitled broadcast'}
             </h1>
             <span
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-label tracking-wide ${
+              className={`inline-flex items-center gap-2 rounded border px-3 py-1 text-xs font-label tracking-wide ${
                 STATUS_PILL[status] ?? STATUS_PILL.draft
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              <span className="w-1.5 h-1.5 rounded bg-current" />
               {STATUS_LABEL[status] ?? status}
             </span>
           </div>
@@ -281,7 +282,7 @@ export default async function PortalBroadcastPage({
               className="text-xs text-[var(--brand-accent,var(--color-pib-accent))] hover:underline inline-flex items-center gap-1"
             >
               Open preview
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
+              <Icon name="open_in_new" />
             </Link>
           </div>
           <div className="space-y-2">
@@ -293,18 +294,18 @@ export default async function PortalBroadcastPage({
             )}
           </div>
           {templateId ? (
-            <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 text-xs text-[var(--color-pib-text-muted)] font-mono break-all">
+            <div className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 text-xs text-[var(--color-pib-text-muted)] font-mono break-all">
               Rendered from template {templateId}
             </div>
           ) : bodyHtml ? (
             <iframe
               title="Email preview"
               srcDoc={bodyHtml}
-              className="w-full h-[280px] rounded-xl border border-[var(--color-pib-line)] bg-white overflow-auto"
+              className="w-full h-[280px] rounded-[6px] border border-[var(--color-pib-line)] bg-white overflow-auto"
               sandbox=""
             />
           ) : (
-            <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 text-xs text-[var(--color-pib-text-muted)] italic">
+            <div className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 text-xs text-[var(--color-pib-text-muted)] italic">
               No body content yet.
             </div>
           )}
@@ -322,7 +323,7 @@ export default async function PortalBroadcastPage({
               {bodyText.length} chars
             </p>
           </div>
-          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 font-mono text-sm whitespace-pre-wrap text-[var(--color-pib-text)]">
+          <div className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 font-mono text-sm whitespace-pre-wrap text-[var(--color-pib-text)]">
             {bodyText || (
               <span className="text-[var(--color-pib-text-muted)] italic font-sans">No SMS body yet.</span>
             )}
@@ -400,13 +401,11 @@ export default async function PortalBroadcastPage({
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {domain ? (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-label ${
+                className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-label ${
                   DOMAIN_STATUS_PILL[domain.status] ?? DOMAIN_STATUS_PILL.pending
                 }`}
               >
-                <span className="material-symbols-outlined text-sm">
-                  {domain.status === 'verified' ? 'verified' : 'warning'}
-                </span>
+                <Icon name={domain.status === 'verified' ? 'verified' : 'warning'} />
                 {domain.name} ·{' '}
                 {domain.status === 'verified' ? 'Verified' : domain.status.replace('_', ' ')}
               </span>
@@ -416,8 +415,8 @@ export default async function PortalBroadcastPage({
               </span>
             )}
             {domain?.status === 'verified' && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 font-label">
-                <span className="material-symbols-outlined text-sm">shield</span>
+              <span className="inline-flex items-center gap-1.5 rounded border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 font-label">
+                <Icon name="shield" />
                 SPF · DKIM · DMARC verified
               </span>
             )}
@@ -435,16 +434,16 @@ export default async function PortalBroadcastPage({
             <div className="flex items-center gap-2">
               {ab.autoPromote && (
                 <span className="pib-pill pib-pill-rose !text-[11px] !px-2.5 !py-0.5">
-                  <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                  <Icon name="auto_awesome" />
                   Auto-promotes winner
                 </span>
               )}
               <span
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-label ${
+                className={`inline-flex items-center gap-2 rounded border px-3 py-1 text-xs font-label ${
                   AB_STATUS_PILL[ab.status] ?? AB_STATUS_PILL.inactive
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                <span className="w-1.5 h-1.5 rounded bg-current" />
                 {AB_STATUS_LABEL[ab.status] ?? ab.status}
               </span>
             </div>
@@ -454,7 +453,7 @@ export default async function PortalBroadcastPage({
               ? `Testing on ${ab.testCohortPercent}% of audience for ${ab.testDurationMinutes} min, deciding by ${ab.winnerMetric}.`
               : `Split test across ${ab.variants.length} variants, deciding by ${ab.winnerMetric}.`}
           </p>
-          <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)]">
+          <div className="overflow-x-auto rounded-[6px] border border-[var(--color-pib-line)]">
             <table className="w-full text-sm">
               <thead className="bg-white/[0.02]">
                 <tr className="text-left">
@@ -511,8 +510,8 @@ export default async function PortalBroadcastPage({
                       </td>
                       <td className="px-4 py-3">
                         {isWinner ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 font-label">
-                            <span className="material-symbols-outlined text-xs">star</span>
+                          <span className="inline-flex items-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 font-label">
+                            <Icon name="star" />
                             Winner
                           </span>
                         ) : (
@@ -537,9 +536,7 @@ export default async function PortalBroadcastPage({
           <div className="space-y-2">
             {showLocalDelivery && (
               <p className="text-sm text-[var(--color-pib-text)] flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-[var(--brand-accent,var(--color-pib-accent))]">
-                  schedule
-                </span>
+                <Icon name="schedule" />
                 Sends at recipients&apos; local time
                 <span className="text-[var(--color-pib-text-muted)]">
                   (window: {broadcast.localDeliveryWindowHours ?? 24}h)
@@ -548,9 +545,7 @@ export default async function PortalBroadcastPage({
             )}
             {showTopic && (
               <p className="text-sm text-[var(--color-pib-text)] flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-[var(--brand-accent,var(--color-pib-accent))]">
-                  label
-                </span>
+                <Icon name="label" />
                 Topic:{' '}
                 <span className="font-mono text-[var(--color-pib-text-muted)]">{topicId}</span>
               </p>

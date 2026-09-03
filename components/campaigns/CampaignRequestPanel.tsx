@@ -122,8 +122,8 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
     <section className="pib-card !p-0 overflow-hidden">
       <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">Request a campaign</p>
-          <h2 className="font-headline text-xl md:text-2xl font-semibold mt-2">Tell us what you want to launch next</h2>
+          <p className="sc-tiny">Request a campaign</p>
+          <h2 className="font-headline text-xl md:text-2xl mt-2">Tell us what you want to launch next</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">
             Pick the campaign type and fill in the brief. The follow-up questions change based on what you need.
           </p>
@@ -155,8 +155,8 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
                     : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] hover:bg-[var(--color-pib-surface-2)]',
                 ].join(' ')}
               >
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose"><span className="material-symbols-outlined text-[15px]">{option.icon}</span></span>
-                <span className="block font-semibold text-sm mt-2">{option.label}</span>
+                <span aria-hidden="true" className=" "><span className="material-symbols-outlined text-[15px]">{option.icon}</span></span>
+                <span className="block text-sm mt-2">{option.label}</span>
                 <span className="block text-xs text-[var(--color-pib-text-muted)] mt-1 leading-relaxed">{option.hint}</span>
               </button>
             ))}
@@ -174,7 +174,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
           </div>
 
           <div>
-            <p className="eyebrow !text-[10px] mb-3">Channels</p>
+            <p className="sc-tiny !text-[10px] mb-3">Channels</p>
             <div className="flex flex-wrap gap-2">
               {CHANNELS.map((channel) => (
                 <button
@@ -182,7 +182,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
                   type="button"
                   onClick={() => toggleChannel(channel)}
                   className={[
-                    'rounded-full px-3 py-1.5 text-xs border transition-colors',
+                    'rounded px-3 py-1.5 text-xs border transition-colors',
                     selectedChannels.includes(channel)
                       ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
                       : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
@@ -240,7 +240,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="eyebrow !text-[10px]">{label}</span>
+      <span className="sc-tiny !text-[10px]">{label}</span>
       <input name={name} required={required} placeholder={placeholder} className="pib-input mt-2 w-full" />
     </label>
   )
@@ -263,7 +263,7 @@ function Textarea({
 }) {
   return (
     <label className="block">
-      <span className="eyebrow !text-[10px]">{label}</span>
+      <span className="sc-tiny !text-[10px]">{label}</span>
       <textarea
         name={name}
         required={required}

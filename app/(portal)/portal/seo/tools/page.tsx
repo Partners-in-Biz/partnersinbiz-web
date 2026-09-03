@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 const TOOLS = [
   { key: 'metadata-check', label: 'Metadata Check', input: 'url', desc: 'Audit page title, description, OG, Twitter cards', icon: 'description', tag: 'SERP' },
@@ -70,15 +71,15 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
   }
 
   return (
-    <div className="pib-card group p-4 space-y-3 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
+    <div className="st-panel group p-4 space-y-3 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="pib-icon-tint pib-icon-tint-green shrink-0">
-            <span className="material-symbols-outlined text-[20px]">{tool.icon}</span>
+          <span className="shrink-0">
+            <Icon name={tool.icon} />
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold leading-tight">{tool.label}</h3>
+              <h3 className="text-sm leading-tight">{tool.label}</h3>
               <span className="pib-pill pib-pill-success !px-2 !py-0.5">
                 {tool.tag}
               </span>
@@ -88,10 +89,10 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
         </div>
         <button
           onClick={onToggle}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
           aria-label={expanded ? `Close ${tool.label}` : `Open ${tool.label}`}
         >
-          <span className="material-symbols-outlined text-[18px]">{expanded ? 'close' : 'arrow_forward'}</span>
+          <Icon name={expanded ? 'close' : 'arrow_forward'} />
         </button>
       </div>
       {expanded && (
@@ -111,16 +112,16 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
             <button
               onClick={run}
               disabled={busy}
-              className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
+              className="st-btn st-btn--primary st-btn--sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>
-                  <span className="material-symbols-outlined text-[18px] animate-spin">autorenew</span>
+                  <Icon name="autorenew" className="animate-spin" />
                   Running
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                  <Icon name="play_arrow" />
                   Run tool
                 </>
               )}

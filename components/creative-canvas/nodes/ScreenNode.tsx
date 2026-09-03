@@ -29,7 +29,7 @@ function ScreenNodeComponent({ data, selected }: NodeProps) {
         <textarea
           value={d.text ?? ''}
           onChange={(event) => d.onTextChange?.(event.target.value)}
-          placeholder="Describe this screen — purpose, content, key elements…"
+          placeholder="Describe this screen: purpose, content, key elements."
           rows={3}
           className="nodrag"
           style={{
@@ -42,6 +42,7 @@ function ScreenNodeComponent({ data, selected }: NodeProps) {
             fontSize: 12,
             padding: 8,
           }}
+          aria-label="Describe this screen"
         />
         {hasDescription ? (
           <button

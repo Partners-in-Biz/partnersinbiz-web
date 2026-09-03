@@ -15,7 +15,7 @@ export function SpeedRampSection({ clip, onPatch }: { clip: EditorClip; onPatch:
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Speed ramp</h3>
+      <h3 className="text-sm text-[var(--color-pib-text)]">Speed ramp</h3>
       <div className="flex flex-wrap gap-1">
         {SPEED_RAMP_PRESET_IDS.map((id) => (
           <button

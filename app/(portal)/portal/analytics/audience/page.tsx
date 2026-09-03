@@ -9,6 +9,8 @@ import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components
 import { SegmentFilter, EMPTY_SEGMENT, segmentToParams, loadPersistedSegment, type SegmentValue } from '@/components/analytics/SegmentFilter'
 import { DonutChart } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface AudienceData {
   visitors: { new: number; returning: number; total: number }
@@ -70,22 +72,19 @@ export default function AudiencePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="audience" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Audience</p>
-        <h1 className="pib-page-title mt-2">Audience</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Audience"
+        title="Audience."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
         {propertyId && <SegmentFilter value={seg} onChange={setSeg} orgId={orgId} />}
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">groups</span>
-          <p className="pib-empty-state-description">Select a client and property to see audience insights.</p>
-        </div>
+        <EmptyState title="Select a client and property to see audience insights." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
@@ -100,30 +99,30 @@ export default function AudiencePage() {
           </div>
 
           <div className="grid lg:grid-cols-2 gap-4">
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">group_add</span></span>
+                <Icon name="group_add" />
                 <h2 className="pib-label mb-0">New vs returning</h2>
               </div>
               <DonutChart data={[{ label: 'New', count: v.new }, { label: 'Returning', count: v.returning }]} />
             </div>
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">devices</span></span>
+                <Icon name="devices" />
                 <h2 className="pib-label mb-0">Devices</h2>
               </div>
               <DonutChart data={data.devices} />
             </div>
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">public</span></span>
+                <Icon name="public" />
                 <h2 className="pib-label mb-0">Browsers</h2>
               </div>
               <DonutChart data={data.browsers} />
             </div>
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">memory</span></span>
+                <Icon name="memory" />
                 <h2 className="pib-label mb-0">Operating systems</h2>
               </div>
               <DonutChart data={data.operatingSystems} />

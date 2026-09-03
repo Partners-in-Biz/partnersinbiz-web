@@ -40,7 +40,7 @@ export function BookStudioProjectsIndex({ orgId, orgSlug }: BookStudioProjectsIn
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Book projects</h2>
+        <h2 className="text-sm text-[var(--color-pib-text)]">Book projects</h2>
         <button type="button" className="btn-pib-primary btn-pib-sm font-label" onClick={() => setDialogOpen(true)}>
           New book
         </button>

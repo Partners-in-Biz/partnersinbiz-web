@@ -805,19 +805,19 @@
     "note": ""
   },
   "app/(portal)/portal/ads/activity/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/ads/ads/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/ads/campaigns/[id]/page.tsx": {
-    "status": "todo",
-    "batch": "4.8",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/ads/layout.tsx": {
     "status": "todo",
@@ -825,114 +825,114 @@
     "note": ""
   },
   "app/(portal)/portal/ads/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/attribution/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/audience/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/conversions/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/custom-events/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/events/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/funnels/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/heatmaps/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/live/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/overview/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/page.tsx": {
-    "status": "na",
+    "status": "done",
     "batch": "4.9",
-    "note": "redirect or og"
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/realtime/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/reports/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/retention/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/revenue/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/sessions/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/sessions/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/settings/page.tsx": {
-    "status": "todo",
-    "batch": "4.5",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/traffic/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/users/[distinctId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/users/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/analytics/utm-builder/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/billing/page.tsx": {
     "status": "done",
@@ -945,74 +945,74 @@
     "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/book-studio/[bookId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/book-studio/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/branding/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/briefings/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/broadcasts/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/broadcasts/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/[id]/blog/[blogId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/broadcast/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/email/[id]/analytics/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/email/[id]/edit/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/email/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/email/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/campaigns/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/capture-sources/[id]/edit/page.tsx": {
     "status": "done",
@@ -1075,14 +1075,14 @@
     "note": "Studio batch 4.6"
   },
   "app/(portal)/portal/content-campaigns/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/content-campaigns/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/conversations/page.tsx": {
     "status": "done",
@@ -1090,9 +1090,9 @@
     "note": "Studio batch 4.6"
   },
   "app/(portal)/portal/creative-canvas/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/crm/page.tsx": {
     "status": "done",
@@ -1140,59 +1140,59 @@
     "note": "Studio batch 4.7"
   },
   "app/(portal)/portal/email-analytics/broadcasts/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-analytics/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-analytics/sequences/[id]/page.tsx": {
-    "status": "todo",
-    "batch": "4.6",
-    "note": ""
+    "status": "done",
+    "batch": "4.8",
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-deliverability/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-domains/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-list-health/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-preferences/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-templates/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email-templates/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email/inbound/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/email/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/enquiries/[id]/page.tsx": {
     "status": "done",
@@ -1340,14 +1340,14 @@
     "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/geo-seo/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/geo-seo/workspaces/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/integrations/page.tsx": {
     "status": "done",
@@ -1375,14 +1375,14 @@
     "note": "Studio batch 4.7"
   },
   "app/(portal)/portal/life-os/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/marketing/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/messages/page.tsx": {
     "status": "done",
@@ -1390,44 +1390,44 @@
     "note": "Studio batch 4.6"
   },
   "app/(portal)/portal/mobile-apps/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/[relationshipId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/catalog/[relationshipId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/orders/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/settlements/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/shared/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/partners/shared/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/payments/page.tsx": {
     "status": "done",
@@ -1435,79 +1435,79 @@
     "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/personal/campaigns/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/campaigns/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/marketing/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/social/accounts/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/social/calendar/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/social/compose/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/social/history/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/personal/social/vault/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/project/page.tsx": {
-    "status": "na",
+    "status": "done",
     "batch": "4.10",
-    "note": "redirect or og"
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/projects/[projectId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/projects/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/properties/[id]/connections/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/properties/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/properties/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/properties/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.10",
-    "note": ""
+    "note": "Studio batch 4.10"
   },
   "app/(portal)/portal/quotes/[id]/page.tsx": {
     "status": "done",
@@ -1530,29 +1530,29 @@
     "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/reports/crm/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/reports/new/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/reports/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/research/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/research/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/segments/page.tsx": {
     "status": "done",
@@ -1560,99 +1560,99 @@
     "note": "Studio batch 4.6"
   },
   "app/(portal)/portal/seo/audit/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/backlinks/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/briefs/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/competitors/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/dashboard/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/gap-analysis/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/keywords/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/keywords/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/on-page/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/reports/page.tsx": {
-    "status": "todo",
-    "batch": "4.3",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/settings/integrations/page.tsx": {
-    "status": "todo",
-    "batch": "4.5",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/speed/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/audits/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/backlinks/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/blog/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/content/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/health/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/keywords/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/layout.tsx": {
     "status": "todo",
@@ -1660,49 +1660,49 @@
     "note": ""
   },
   "app/(portal)/portal/seo/sprints/[id]/optimizations/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/pages/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/performance/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/settings/page.tsx": {
-    "status": "todo",
-    "batch": "4.5",
-    "note": ""
+    "status": "done",
+    "batch": "4.9",
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/[id]/tasks/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/new/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/sprints/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/seo/tools/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.9",
-    "note": ""
+    "note": "Studio batch 4.9"
   },
   "app/(portal)/portal/sequences/[id]/page.tsx": {
     "status": "done",
@@ -1895,94 +1895,94 @@
     "note": "Studio batch 4.5"
   },
   "app/(portal)/portal/social/accounts/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/analytics/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/bulk/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/calendar/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/compose/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/design/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/history/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/inbox/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/links/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/listening/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/queue/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/replies/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/review/[id]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/review/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/rss/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/templates/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/social/vault/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/suppression/page.tsx": {
     "status": "done",
@@ -1995,9 +1995,9 @@
     "note": "Studio batch 4.6"
   },
   "app/(portal)/portal/video-editor/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/wiki/page.tsx": {
     "status": "done",
@@ -2005,14 +2005,14 @@
     "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/youtube-studio/editor/[projectId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(portal)/portal/youtube-studio/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.8",
-    "note": ""
+    "note": "Studio batch 4.8"
   },
   "app/(public)/about/page.tsx": {
     "status": "done",

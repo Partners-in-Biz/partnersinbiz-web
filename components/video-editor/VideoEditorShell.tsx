@@ -593,7 +593,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     <main className="mx-auto max-w-[1600px] space-y-3 p-4 sm:p-6 lg:p-8" data-module-accent="cyan">
       <GlassBar className="flex-wrap items-end justify-between gap-2 p-3">
         <div className="min-w-0">
-          <p className="eyebrow !text-[10px]">Video Editor</p>
+          <p className="sc-tiny !text-[10px]">Video Editor</p>
           <h1 className="pib-page-title !text-lg">{project.title}</h1>
           <p className="mt-0.5 max-w-3xl text-xs text-[var(--color-pib-text-muted)]">Assemble source media, trim clips, add text, render an MP4, and send the result back to YouTube Studio or Marketing Studio.</p>
         </div>
@@ -665,7 +665,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
                 type="button"
                 role="tab"
                 aria-selected={rightTab === tab}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm capitalize ${rightTab === tab ? 'bg-[var(--color-pib-line)] font-semibold text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm capitalize ${rightTab === tab ? 'bg-[var(--color-pib-line)]  text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
                 onClick={() => setRightTab(tab)}
               >
                 {tab}

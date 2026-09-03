@@ -83,7 +83,7 @@ export function SendToYouTubeStudioButton({
       </button>
       {state === 'sent' ? <span className="text-xs text-emerald-300">Sent to YouTube Studio</span> : null}
       {state === 'no_channel' ? (
-        <span className="text-xs text-amber-300">No YouTube channel connected - link one in YouTube Studio first.</span>
+        <span className="text-xs text-[var(--sc-ink-soft)]">No YouTube channel connected - link one in YouTube Studio first.</span>
       ) : null}
       {state === 'error' ? <span className="text-xs text-red-300">{errorMessage}</span> : null}
     </span>

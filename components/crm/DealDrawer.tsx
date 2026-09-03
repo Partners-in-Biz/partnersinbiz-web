@@ -436,7 +436,7 @@ export function DealDrawer({
         lineItems: lineItems.length > 0 ? lineItems : undefined,
       }
       if (showLostReason && lostReason.trim()) payload.lostReason = lostReason.trim()
-      else payload.lostReason = null  // clear if stage is no longer lost
+      else payload.lostReason = null // clear if stage is no longer lost
 
       const url = isEdit ? dealSavePath(deal!.id) : dealSavePath()
       const method = isEdit ? 'PUT' : 'POST'

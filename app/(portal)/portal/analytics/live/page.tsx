@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
+import { Icon, Status } from '@/components/studio'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 
 interface LiveEvent {
   id: string
@@ -74,34 +76,24 @@ export default function LivePage() {
   return (
     <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="live" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Live</p>
-        <div className="mt-2 flex items-center gap-4">
-          <h1 className="pib-page-title">Live</h1>
-          {active && (
-            <span className="pib-pill pib-pill-success">
-              <span className="pib-status-dot pib-status-dot-success animate-pulse" />
-              Live — last 5 min
-            </span>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Live"
+        title="Live."
+        actions={active ? <Status tone="success">Live, last 5 min</Status> : undefined}
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} disabled={active} />
         <div className="flex justify-end">
           {!active
-            ? <button className="btn-pib-primary" onClick={start} disabled={!propertyId}>Start</button>
-            : <button className="btn-pib-secondary" onClick={stop}>Stop</button>
+            ? <button className="st-btn st-btn--primary" onClick={start} disabled={!propertyId}>Start</button>
+            : <button className="st-btn st-btn--secondary" onClick={stop}>Stop</button>
           }
         </div>
       </div>
 
       {events.length === 0 && active && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">sensors</span>
-          <p className="pib-empty-state-description">Waiting for events in the last 5 minutes…</p>
-        </div>
+        <EmptyState title="Waiting for events in the last 5 minutes." />
       )}
 
       {events.length > 0 && (
@@ -113,7 +105,7 @@ export default function LivePage() {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-[var(--color-pib-text-muted)] text-xs truncate">
-                  {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? '—'}
+                  {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? ' - '}
                 </p>
                 <p className="text-[var(--color-pib-text-muted)] text-xs">
                   {ev.distinctId?.slice(0, 12)}… · {ev.device ?? '?'} · {ev.country ?? '?'}

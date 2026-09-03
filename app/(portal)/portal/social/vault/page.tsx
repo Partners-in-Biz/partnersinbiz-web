@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -118,8 +120,8 @@ const STATUS_LABELS: Record<VaultStatus, string> = {
 const VAULT_PREVIEW_BRAND: PreviewBrand = {
   name: 'Partners in Biz',
   palette: {
-    bg: '#0A0A0B',
-    accent: '#F5A623',
+    bg: 'var(--sc-ink)',
+    accent: 'var(--sc-accent)',
     alert: '#FF5A5F',
     text: '#EDEDED',
     muted: '#8B8B92',
@@ -128,7 +130,7 @@ const VAULT_PREVIEW_BRAND: PreviewBrand = {
 
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform] ?? { bg: 'bg-[var(--color-pib-line-strong)]', label: platform.slice(0, 2).toUpperCase() }
-  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
+  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded `}>{cfg.label}</span>
 }
 
 function getPostText(post: VaultPost): string {
@@ -271,14 +273,14 @@ function useInlineToast() {
       {toasts.map(t => (
         <div
           key={t.id}
-          className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg min-w-72 max-w-sm animate-[slideIn_0.2s_ease-out]"
+          className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] min-w-72 max-w-sm animate-[slideIn_0.2s_ease-out]"
           style={{
             background: 'var(--color-sidebar)',
             border: `1px solid ${t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)'}`,
           }}
         >
           <span
-            className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            className="w-5 h-5 rounded flex items-center justify-center text-xs shrink-0"
             style={{
               background: t.tone === 'success' ? 'var(--color-pib-green-soft)' : t.tone === 'error' ? 'color-mix(in srgb, var(--color-error) 15%, transparent)' : 'var(--color-pib-blue-soft)',
               color: t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)',
@@ -339,24 +341,22 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
           <button
             type="button"
             onClick={() => setPreviewOpen(true)}
-            className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+            className="grid h-7 w-7 place-items-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
             aria-label="Preview post"
             title="Preview post"
           >
-            <span className="material-symbols-outlined text-[16px] leading-none">visibility</span>
+            <Icon name="visibility" />
           </button>
           {headerAction && (
             <button
               type="button"
               onClick={() => onPostAction(post, headerAction)}
               disabled={actionBusy}
-              className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)] disabled:cursor-wait disabled:opacity-50"
+              className="grid h-7 w-7 place-items-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)] disabled:cursor-wait disabled:opacity-50"
               aria-label={headerAction === 'post' ? 'Post scheduled post' : 'Repost published post'}
               title={headerAction === 'post' ? 'Post now' : 'Repost'}
             >
-              <span className="material-symbols-outlined text-[16px] leading-none">
-                {headerAction === 'post' ? 'publish' : 'repeat'}
-              </span>
+              <Icon name={headerAction === 'post' ? 'publish' : 'repeat'} />
             </button>
           )}
           <span className={`text-[10px] font-label uppercase tracking-widest border px-2 py-0.5 rounded flex-shrink-0 ${STATUS_PILL_STYLES[status] ?? 'border-white/10 text-white/40'}`}>
@@ -374,7 +374,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
           onClick={() => setPreviewOpen(false)}
         >
           <div
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] p-4 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-surface)] p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -389,10 +389,10 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
               <button
                 type="button"
                 onClick={() => setPreviewOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
+                className="grid h-8 w-8 place-items-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                 aria-label="Close preview"
               >
-                <span className="material-symbols-outlined text-[18px] leading-none">close</span>
+                <Icon name="close" />
               </button>
             </div>
             <div className="mx-auto max-w-md">
@@ -438,7 +438,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
                   </span>
                 )}
                 {i === visibleMedia.length - 1 && media.length > visibleMedia.length && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm text-white">
                     +{media.length - visibleMedia.length} more
                   </span>
                 )}
@@ -457,7 +457,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
         </p>
         {needsReadMore && !expanded && (
           <>
-            <div className="absolute bottom-6 left-0 right-0 h-8 bg-gradient-to-t from-[var(--color-surface)] to-transparent pointer-events-none" />
+            <div className="absolute bottom-6 left-0 right-0 h-8 -t from-[var(--color-surface)] to-transparent pointer-events-none" />
             <button
               onClick={() => setExpanded(true)}
               className="text-xs text-[var(--color-accent-v2)] hover:underline mt-1"
@@ -714,7 +714,7 @@ export function SocialVaultWorkspace({
 
       {/* Header */}
       <header>
-        <p className="eyebrow">Social · Vault</p>
+        <p className="sc-tiny">Social · Vault</p>
         <h1 className="pib-page-title mt-2">{title}</h1>
         <p className="pib-page-sub">
           {description}
@@ -722,18 +722,20 @@ export function SocialVaultWorkspace({
       </header>
 
       {/* Filters */}
-      <div className="pib-card p-4 space-y-3 sticky top-2 z-10 backdrop-blur-sm">
+      <div className="pib-card p-4 space-y-3 sticky top-2 z-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search content…"
+            aria-label="Search content"
             className="pib-input"
           />
           <select
             value={platform}
             onChange={e => setPlatform(e.target.value)}
+            aria-label="Platform filter"
             className="pib-input"
           >
             {PLATFORM_OPTIONS.map(opt => (
@@ -745,6 +747,7 @@ export function SocialVaultWorkspace({
             value={labelQuery}
             onChange={e => setLabelQuery(e.target.value)}
             placeholder="Label or campaign…"
+            aria-label="Label or campaign"
             className="pib-input"
           />
           <div className="flex gap-2">
@@ -775,7 +778,7 @@ export function SocialVaultWorkspace({
               <button
                 key={p.key}
                 onClick={() => toggleStatus(p.key)}
-                className={`text-[10px] font-label uppercase tracking-widest border px-2.5 py-1 rounded-full transition-colors ${
+                className={`text-[10px] font-label uppercase tracking-widest border px-2.5 py-1 rounded transition-colors ${
                   active
                     ? p.cls
                     : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
@@ -807,7 +810,7 @@ export function SocialVaultWorkspace({
       {/* Bulk actions */}
       {!loading && posts.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-label uppercase tracking-widest border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] px-2.5 py-1 rounded-full">
+          <span className="text-xs font-label uppercase tracking-widest border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] px-2.5 py-1 rounded">
             {visiblePosts.length} of {posts.length} {posts.length === 1 ? 'post' : 'posts'}
           </span>
           <button

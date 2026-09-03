@@ -156,7 +156,7 @@ function TagToggle({
             disabled={disabled}
             onClick={() => onToggle(option)}
             className={[
-              'rounded-full px-3 py-1 text-xs font-label transition-colors disabled:opacity-60',
+              'rounded px-3 py-1 text-xs font-label transition-colors disabled:opacity-60',
               active
                 ? 'bg-[var(--color-pib-accent)] text-black'
                 : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
@@ -195,7 +195,7 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-      />
+       aria-label="Input"/>
     </div>
   )
 }
@@ -317,8 +317,8 @@ export function BrandProfileEditor({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <p className="eyebrow">Workspace / Brand</p>
-        <h1 className="mt-1 font-headline text-2xl font-bold text-[var(--color-pib-text)]">Brand Profile</h1>
+        <p className="sc-tiny">Workspace / Brand</p>
+        <h1 className="mt-1 font-headline text-2xl text-[var(--color-pib-text)]">Brand Profile</h1>
         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
           {description ?? `Everything Partners in Biz agents and designers need to produce on-brand work for ${org.name}.`}
         </p>
@@ -373,7 +373,7 @@ export function BrandProfileEditor({
             <p className={labelCls}>Design Aesthetic</p>
             <div className="flex flex-wrap gap-2">
               {(formData.designAesthetic ?? []).map((tag) => (
-                <span key={tag} className="rounded-full bg-[var(--color-pib-accent)] px-3 py-1 text-xs font-label text-black">
+                <span key={tag} className="rounded bg-[var(--color-pib-accent)] px-3 py-1 text-xs font-label text-black">
                   {tag}
                 </span>
               ))}
@@ -402,7 +402,7 @@ export function BrandProfileEditor({
                 }}
                 placeholder="e.g. EFT-first invoicing, no Stripe"
                 disabled={saving}
-              />
+               aria-label="e.g. EFT-first invoicing, no Stripe"/>
               <button type="button" className="pib-btn-secondary shrink-0 !px-3 !text-xs" disabled={saving} onClick={() => addListValue('keyDifferentiators', diffInput, () => setDiffInput(''))}>
                 Add
               </button>
@@ -439,7 +439,7 @@ export function BrandProfileEditor({
             <div className="flex gap-4">
               {(['light', 'dark', 'both'] as const).map((mode) => (
                 <label key={mode} className="flex cursor-pointer items-center gap-1.5 text-sm capitalize">
-                  <input type="radio" name="colorMode" value={mode} checked={formData.colorMode === mode} onChange={() => set('colorMode', mode)} disabled={saving} />
+                  <input type="radio" name="colorMode" value={mode} checked={formData.colorMode === mode} onChange={() => set('colorMode', mode)} disabled={saving}  aria-label="Input"/>
                   {mode}
                 </label>
               ))}
@@ -449,16 +449,16 @@ export function BrandProfileEditor({
             {COLOR_DEFS.map(({ key, label, hint }) => (
               <div key={key} className="space-y-2 rounded-lg border border-[var(--color-pib-line)] p-3">
                 <div className="flex items-center gap-3">
-                  <input type="color" value={colors[key] || '#000000'} onChange={(event) => setColors((previous) => ({ ...previous, [key]: event.target.value }))} className="h-9 w-12 shrink-0 cursor-pointer rounded" disabled={saving} />
+                  <input type="color" value={colors[key] || '#000000'} onChange={(event) => setColors((previous) => ({ ...previous, [key]: event.target.value }))} className="h-9 w-12 shrink-0 cursor-pointer rounded" disabled={saving}  aria-label="Colour"/>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-label uppercase tracking-wide">{label}</span>
                       <span className="text-[10px] text-[var(--color-pib-text-muted)]">{hint}</span>
                     </div>
-                    <input className="pib-input mt-1 !py-1 font-mono text-xs" value={colors[key] || ''} onChange={(event) => setColors((previous) => ({ ...previous, [key]: event.target.value }))} placeholder="#000000 or transparent" disabled={saving} />
+                    <input className="pib-input mt-1 !py-1 font-mono text-xs" value={colors[key] || ''} onChange={(event) => setColors((previous) => ({ ...previous, [key]: event.target.value }))} placeholder="#000000 or transparent" disabled={saving}  aria-label="#000000 or transparent"/>
                   </div>
                 </div>
-                <input className="pib-input !py-1 text-xs" value={colorNotes[key] || ''} onChange={(event) => setColorNotes((previous) => ({ ...previous, [key]: event.target.value }))} placeholder="Usage note (optional)" disabled={saving} />
+                <input className="pib-input !py-1 text-xs" value={colorNotes[key] || ''} onChange={(event) => setColorNotes((previous) => ({ ...previous, [key]: event.target.value }))} placeholder="Usage note (optional)" disabled={saving}  aria-label="Usage note (optional)"/>
               </div>
             ))}
           </div>
@@ -474,7 +474,7 @@ export function BrandProfileEditor({
           <h2 className="text-sm font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Voice & Tone</h2>
           <div>
             <label className={labelCls}>Tone of Voice</label>
-            <textarea className={inputCls} value={formData.toneOfVoice ?? ''} onChange={(event) => set('toneOfVoice', event.target.value)} rows={3} placeholder="e.g. Direct, confident, honest. No jargon." disabled={saving} />
+            <textarea className={inputCls} value={formData.toneOfVoice ?? ''} onChange={(event) => set('toneOfVoice', event.target.value)} rows={3} placeholder="e.g. Direct, confident, honest. No jargon." disabled={saving}  aria-label="e.g. Direct, confident, honest. No jargon."/>
           </div>
           <TextField label="Target Audience" value={formData.targetAudience ?? ''} onChange={(value) => set('targetAudience', value)} placeholder="e.g. Ambitious SMEs in South Africa, UK, and US" disabled={saving} />
           <PersonasEditor personas={formData.personas ?? []} disabled={saving} onChange={(personas) => set('personas', personas)} />
@@ -495,7 +495,7 @@ export function BrandProfileEditor({
             <div className="flex gap-4">
               {(['large', 'medium', 'compact'] as const).map((scale) => (
                 <label key={scale} className="flex cursor-pointer items-center gap-1.5 text-sm capitalize">
-                  <input type="radio" value={scale} checked={(formData.fonts?.headingScale ?? 'medium') === scale} onChange={() => set('fonts', { ...formData.fonts, headingScale: scale })} disabled={saving} />
+                  <input type="radio" value={scale} checked={(formData.fonts?.headingScale ?? 'medium') === scale} onChange={() => set('fonts', { ...formData.fonts, headingScale: scale })} disabled={saving}  aria-label="Input"/>
                   {scale}
                 </label>
               ))}
@@ -507,8 +507,8 @@ export function BrandProfileEditor({
           <h2 className="text-sm font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Competitors & Inspiration</h2>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Add brands to differentiate from, and brands to draw visual or tone inspiration from.</p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input className={inputCls} value={competitorInput} onChange={(event) => setCompetitorInput(event.target.value)} placeholder="https://competitor.com" disabled={saving} />
-            <select className="pib-select sm:w-40" value={competitorRel} onChange={(event) => setCompetitorRel(event.target.value as 'differentiate' | 'inspire')} disabled={saving}>
+            <input className={inputCls} value={competitorInput} onChange={(event) => setCompetitorInput(event.target.value)} placeholder="https://competitor.com" disabled={saving}  aria-label="https://competitor.com"/>
+            <select className="pib-select sm:w-40" value={competitorRel} onChange={(event) => setCompetitorRel(event.target.value as 'differentiate' | 'inspire')} disabled={saving} aria-label="Input">
               <option value="differentiate">Differentiate</option>
               <option value="inspire">Inspire</option>
             </select>
@@ -523,7 +523,7 @@ export function BrandProfileEditor({
           <div className="space-y-2">
             {(formData.competitors ?? []).map((competitor, index) => (
               <div key={`${competitor.url}-${index}`} className="flex items-center gap-3 text-sm">
-                <span className={['shrink-0 rounded-full px-2 py-0.5 text-[10px] font-label', competitor.relationship === 'inspire' ? 'bg-blue-400/10 text-blue-200' : 'bg-orange-400/10 text-orange-200'].join(' ')}>
+                <span className={['shrink-0 rounded px-2 py-0.5 text-[10px] font-label', competitor.relationship === 'inspire' ? 'bg-blue-400/10 text-blue-200' : 'bg-orange-400/10 text-orange-200'].join(' ')}>
                   {competitor.relationship}
                 </span>
                 <span className="flex-1 truncate font-mono text-xs text-[var(--color-pib-text-muted)]">{competitor.url}</span>
@@ -566,7 +566,7 @@ export function BrandProfileEditor({
         <section className="pib-card space-y-3">
           <h2 className="text-sm font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Additional Guidelines</h2>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Free-form. Markdown supported. Anything that does not fit the fields above.</p>
-          <textarea className={inputCls} value={formData.guidelines ?? ''} onChange={(event) => set('guidelines', event.target.value)} rows={6} placeholder="e.g. Never use stock photos. Always pair a stat with a source." disabled={saving} />
+          <textarea className={inputCls} value={formData.guidelines ?? ''} onChange={(event) => set('guidelines', event.target.value)} rows={6} placeholder="e.g. Never use stock photos. Always pair a stat with a source." disabled={saving}  aria-label="e.g. Never use stock photos. Always pair a stat with a source."/>
         </section>
 
         <div className="pb-8 pt-2">
@@ -613,9 +613,9 @@ function AssetUpload({
         <div className="flex-1 space-y-2">
           <label className={`inline-flex rounded-lg px-3 py-2 text-xs font-label ${uploading || disabled ? 'cursor-not-allowed opacity-50' : 'pib-btn-secondary'}`}>
             {uploading ? 'Uploading...' : 'Upload'}
-            <input type="file" accept="image/*" className="hidden" disabled={uploading || disabled} onChange={onUpload} />
+            <input type="file" accept="image/*" className="hidden" disabled={uploading || disabled} onChange={onUpload}  data-impeccable-disable="content-invisible-at-rest"/>
           </label>
-          <input type="url" className={`${inputCls} text-xs`} value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder="or paste URL" disabled={disabled} />
+          <input type="url" className={`${inputCls} text-xs`} value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder="or paste URL" disabled={disabled}  aria-label="or paste URL"/>
         </div>
       </div>
     </div>
@@ -642,18 +642,18 @@ function PersonasEditor({
                 const next = [...personas]
                 next[index] = { ...next[index], name: event.target.value }
                 onChange(next)
-              }} placeholder="Name (e.g. The Founder)" disabled={disabled} />
+              }} placeholder="Name (e.g. The Founder)" disabled={disabled}  aria-label="Name (e.g. The Founder)"/>
               <input className={inputCls} value={persona.role} onChange={(event) => {
                 const next = [...personas]
                 next[index] = { ...next[index], role: event.target.value }
                 onChange(next)
-              }} placeholder="Role / title" disabled={disabled} />
+              }} placeholder="Role / title" disabled={disabled}  aria-label="Role / title"/>
             </div>
             <textarea className={inputCls} value={persona.painPoints} onChange={(event) => {
               const next = [...personas]
               next[index] = { ...next[index], painPoints: event.target.value }
               onChange(next)
-            }} placeholder="Pain points, goals, what they care about" rows={2} disabled={disabled} />
+            }} placeholder="Pain points, goals, what they care about" rows={2} disabled={disabled}  aria-label="Pain points, goals, what they care about"/>
             <button type="button" className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-300" onClick={() => onChange(personas.filter((_, itemIndex) => itemIndex !== index))}>
               Remove persona
             </button>
@@ -702,14 +702,14 @@ function WordList({
           }}
           placeholder="Type and press Enter"
           disabled={disabled}
-        />
+         aria-label="Type and press Enter"/>
         <button type="button" className="pib-btn-secondary shrink-0 !px-3 !text-xs" disabled={disabled} onClick={onAdd}>
           Add
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
         {words.map((word, index) => (
-          <span key={`${word}-${index}`} className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${pillClass}`}>
+          <span key={`${word}-${index}`} className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs ${pillClass}`}>
             {word}
             <button type="button" className="opacity-60 hover:opacity-100" onClick={() => onRemove(index)}>
               x

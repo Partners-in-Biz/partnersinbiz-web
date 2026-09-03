@@ -253,8 +253,8 @@ export function PlatformChip({ platform }: { platform: string }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-xs">
-      <span className={`${config.bg} text-white text-[9px] px-1.5 py-0.5 rounded font-bold`}>
+    <span className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded bg-[var(--color-pib-surface-2)] text-xs">
+      <span className={`${config.bg} text-white text-[9px] px-1.5 py-0.5 rounded `}>
         {config.label}
       </span>
       <span className="text-[var(--color-pib-text)]">{config.full}</span>
@@ -269,7 +269,7 @@ function Notice({ notice }: { notice: ReviewNotice }) {
   return (
     <div className="fixed top-20 right-4 z-50 max-w-sm">
       <div
-        className="px-4 py-3 rounded-[var(--radius-card)] shadow-lg text-sm"
+        className="px-4 py-3 rounded-[var(--radius-card)] text-sm"
         style={{
           background: 'var(--color-sidebar, var(--color-surface))',
           border: `1px solid ${border}`,
@@ -287,7 +287,7 @@ function MediaGrid({ media }: { media: SocialReviewMedia[] }) {
 
   return (
     <div>
-      <p className="eyebrow mb-2">
+      <p className="sc-tiny mb-2">
         Media - {media.length} {media.length === 1 ? 'item' : 'items'}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -325,9 +325,9 @@ function RolePill({ role }: { role?: string }) {
   const normalized = role.toLowerCase()
   const tone =
     normalized === 'admin'
-      ? 'bg-amber-500/10 text-amber-300'
+      ? 'bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
       : normalized === 'client'
-        ? 'bg-violet-500/10 text-violet-300'
+        ? 'bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
         : normalized === 'ai'
           ? 'bg-sky-500/10 text-sky-300'
           : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
@@ -525,7 +525,7 @@ export function SocialPostReviewWorkspace({
           <Link href={backHref} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
             &larr; Back to {backLabel}
           </Link>
-          <p className="eyebrow mt-2">{eyebrow}</p>
+          <p className="sc-tiny mt-2">{eyebrow}</p>
           <h1 className="font-headline text-xl md:text-2xl text-[var(--color-pib-text)] mt-1">{title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -544,7 +544,7 @@ export function SocialPostReviewWorkspace({
         <div className="lg:col-span-3 space-y-4">
           <div className="pib-card space-y-5">
             <div>
-              <p className="eyebrow mb-2">Platforms</p>
+              <p className="sc-tiny mb-2">Platforms</p>
               <div className="flex flex-wrap gap-2">
                 {platforms.length === 0 ? (
                   <span className="text-xs text-[var(--color-pib-text-muted)]">No platforms set</span>
@@ -556,14 +556,14 @@ export function SocialPostReviewWorkspace({
 
             {scheduled ? (
               <div>
-                <p className="eyebrow mb-2">Scheduled for</p>
+                <p className="sc-tiny mb-2">Scheduled for</p>
                 <p className="text-sm text-[var(--color-pib-text)]">{fmtScheduled(scheduled)}</p>
               </div>
             ) : null}
 
             <div>
-              <p className="eyebrow mb-2">Content</p>
-              <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text)] leading-relaxed whitespace-pre-wrap break-words">
+              <p className="sc-tiny mb-2">Content</p>
+              <div className="rounded-[6px] bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text)] leading-relaxed whitespace-pre-wrap break-words">
                 {text || <span className="text-[var(--color-pib-text-muted)] italic">(empty content)</span>}
               </div>
             </div>
@@ -572,14 +572,14 @@ export function SocialPostReviewWorkspace({
 
             {hashtags.length > 0 ? (
               <div>
-                <p className="eyebrow mb-2">Hashtags</p>
+                <p className="sc-tiny mb-2">Hashtags</p>
                 <div className="flex flex-wrap gap-1.5">
                   {hashtags.map((hashtag, index) => {
                     const tag = hashtag.startsWith('#') ? hashtag : `#${hashtag}`
                     return (
                       <span
                         key={`${tag}-${index}`}
-                        className="text-xs px-2 py-1 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]"
+                        className="text-xs px-2 py-1 rounded bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]"
                       >
                         {tag}
                       </span>
@@ -591,7 +591,7 @@ export function SocialPostReviewWorkspace({
 
             {aiPrompt ? (
               <div>
-                <p className="eyebrow mb-2">Original prompt</p>
+                <p className="sc-tiny mb-2">Original prompt</p>
                 <p className="text-xs font-mono text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-words">
                   {aiPrompt}
                 </p>
@@ -607,13 +607,13 @@ export function SocialPostReviewWorkspace({
                 className="w-full flex items-center justify-between text-left"
               >
                 <div>
-                  <p className="eyebrow">previous version</p>
+                  <p className="sc-tiny">previous version</p>
                   <p className="text-sm text-[var(--color-pib-text)] mt-1">View original before regeneration</p>
                 </div>
                 <span className="text-[var(--color-pib-text-muted)] text-lg">{showOriginal ? '-' : '+'}</span>
               </button>
               {showOriginal ? (
-                <div className="mt-3 rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text-muted)] leading-relaxed whitespace-pre-wrap break-words">
+                <div className="mt-3 rounded-[6px] bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text-muted)] leading-relaxed whitespace-pre-wrap break-words">
                   {original}
                 </div>
               ) : null}
@@ -624,7 +624,7 @@ export function SocialPostReviewWorkspace({
         <div className="lg:col-span-2 space-y-4">
           <div className="pib-card space-y-3">
             <div>
-              <p className="eyebrow">decision</p>
+              <p className="sc-tiny">decision</p>
               <h2 className="font-headline text-lg text-[var(--color-pib-text)] mt-1">{decisionTitle}</h2>
               {decisionDescription ? (
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{decisionDescription}</p>
@@ -689,8 +689,8 @@ export function SocialPostReviewWorkspace({
                       value={rejectReason}
                       onChange={event => setRejectReason(event.target.value)}
                       disabled={rejectAction.busy}
-                    />
-                    {rejectError ? <p className="text-xs text-red-400">{rejectError}</p> : null}
+                     aria-label="Input"/>
+                    {rejectError ? <p className="text-xs text-[var(--st-danger)]">{rejectError}</p> : null}
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] text-[var(--color-pib-text-muted)]">
                         {rejectReason.trim().length}/{rejectAction.minLength ?? 10} min
@@ -744,7 +744,7 @@ export function SocialPostReviewWorkspace({
 
           <div className="pib-card space-y-4">
             <div>
-              <p className="eyebrow">activity</p>
+              <p className="sc-tiny">activity</p>
               <h2 className="font-headline text-lg text-[var(--color-pib-text)] mt-1">{conversationTitle}</h2>
             </div>
 
@@ -767,7 +767,7 @@ export function SocialPostReviewWorkspace({
                   placeholder={notePlaceholder}
                   className="pib-textarea"
                   disabled={commentBusy}
-                />
+                 aria-label="Input"/>
                 <div className="flex justify-end">
                   <button
                     type="button"

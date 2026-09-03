@@ -14,7 +14,7 @@ export function KpiCard({
   return (
     <div className="pib-stat-card p-3" data-module-accent="violet">
       <p className="pib-label text-[10px] tracking-[0.14em] text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className={cn('mt-1 text-xl font-semibold tabular-nums tracking-tight', accent ? 'text-[var(--color-pib-violet)]' : 'text-[var(--color-pib-text)]')}>{value}</p>
+      <p className={cn('mt-1 text-xl st-num tracking-tight', accent ? 'text-[var(--sc-accent)]' : 'text-[var(--sc-ink)]')}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>}
     </div>
   )
@@ -38,9 +38,9 @@ export function CopyButton({
           setTimeout(() => setCopied(false), 1500)
         } catch { /* clipboard unavailable */ }
       }}
-      className={cn('btn-pib-secondary btn-pib-sm text-xs', className)}
+      className={cn('st-btn st-btn--secondary st-btn--sm text-xs', className)}
     >
-      {copied ? 'Copied!' : label}
+      {copied ? 'Copied' : label}
     </button>
   )
 }
@@ -53,10 +53,10 @@ export function SimpleTable({
   empty?: string
 }) {
   if (rows.length === 0) {
-    return <div className="pib-card p-4 text-center text-sm text-[var(--color-pib-text-muted)]">{empty}</div>
+    return <div className="st-panel p-4 text-center text-sm text-[var(--color-pib-text-muted)]">{empty}</div>
   }
   return (
-    <div className="pib-card overflow-x-auto" data-module-accent="violet">
+    <div className="st-panel overflow-x-auto" data-module-accent="violet">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-pib-line)]">
@@ -72,7 +72,7 @@ export function SimpleTable({
             <tr key={i} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-white/[0.02]">
               {columns.map(c => (
                 <td key={c.key} className={`px-3 py-1.5 text-[var(--color-pib-text)] ${c.align === 'right' ? 'text-right tabular-nums' : 'text-left'}`}>
-                  {String(r[c.key] ?? '—')}
+                  {String(r[c.key] ?? ' - ')}
                 </td>
               ))}
             </tr>

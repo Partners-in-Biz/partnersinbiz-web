@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useMemo, useState } from 'react'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import { PageHeader } from '@/components/ui/AppFoundation'
@@ -15,7 +17,7 @@ export function VideoEditorPortalWorkspace({ orgId, projectId }: { orgId?: strin
       <div>
         <div className="mx-auto max-w-[1600px] px-4 pt-4 sm:px-6 lg:px-8">
           <a className="pib-btn-ghost text-sm" href={backHref} onClick={() => setActiveProjectId('')}>
-            <span className="material-symbols-rounded text-base">arrow_back</span>
+            <Icon name="arrow_back" />
             Projects
           </a>
         </div>

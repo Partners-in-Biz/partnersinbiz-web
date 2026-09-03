@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ export default async function TasksTab({ params }: { params: Promise<{ id: strin
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="pib-label mb-2">Sprint ledger</p>
-          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Tasks</h2>
+          <h2 className="text-2xl text-[var(--color-pib-text)]">Tasks</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="pib-pill pib-pill-success">{tasks.filter((t) => t.status === 'done').length} done</span>
@@ -48,10 +49,10 @@ export default async function TasksTab({ params }: { params: Promise<{ id: strin
         <section key={week} className="pib-card-section">
           <div className="pib-card-section-header flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Week {week}</h3>
+              <h3 className="text-sm text-[var(--color-pib-text)]">Week {week}</h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{items.length} sprint tasks</p>
             </div>
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">view_list</span></span>
+            <Icon name="view_list" />
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
             {items.map((t) => (

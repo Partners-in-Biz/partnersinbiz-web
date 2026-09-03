@@ -667,8 +667,8 @@ export default function SocialPostComposer({
             ?? accounts.find((item) => item.platform === platform)
           return (
             <div key={platform} className={previewMode === 'toggle' ? 'flex-shrink-0' : 'space-y-2'}>
-              <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+              <div className="flex items-center gap-2 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded `}>
                   {PLATFORM_CONFIG[platform]?.short ?? platform.slice(0, 2).toUpperCase()}
                 </span>
                 {PLATFORM_CONFIG[platform]?.label ?? platform}
@@ -692,7 +692,7 @@ export default function SocialPostComposer({
     <div className={previewMode === 'sidebar' ? 'grid gap-6 xl:grid-cols-[minmax(0,42rem)_minmax(22rem,1fr)]' : 'p-6 max-w-2xl mx-auto space-y-6'}>
       <div className="space-y-6 max-w-2xl">
         <div>
-          <h1 className={advanced ? 'text-2xl font-semibold text-[var(--color-pib-text)]' : 'font-headline text-2xl font-bold tracking-tighter'}>
+          <h1 className={advanced ? 'text-2xl  text-[var(--color-pib-text)]' : 'font-headline text-2xl  tracking-tighter'}>
             {title}
           </h1>
           <p className={advanced ? 'text-sm text-[var(--color-pib-text-muted)] mt-1' : 'text-sm text-[var(--color-pib-text-muted)] mt-1'}>
@@ -718,11 +718,11 @@ export default function SocialPostComposer({
                   <button
                     key={platform}
                     onClick={() => togglePlatform(platform)}
-                    className={`px-4 py-2 text-sm font-label font-bold uppercase tracking-widest border transition-colors ${
+                    className={`px-4 py-2 text-sm font-label  uppercase tracking-widest border transition-colors ${
                       selected ? 'pib-btn-primary' : 'pib-btn-secondary'
                     }`}
                   >
-                    <span className={`${config.bg} inline-block w-5 h-5 rounded text-[10px] font-bold leading-5 text-center text-white mr-1.5 align-middle`}>
+                    <span className={`${config.bg} inline-block w-5 h-5 rounded text-[10px]  leading-5 text-center text-white mr-1.5 align-middle`}>
                       {config.short}
                     </span>
                     {config.label}
@@ -751,8 +751,8 @@ export default function SocialPostComposer({
                           checked={selectedAccounts.includes(account.id)}
                           onChange={() => toggleAccount(account.id)}
                           className="accent-[var(--color-accent-v2)]"
-                        />
-                        <span className={`${PLATFORM_CONFIG[account.platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+                         aria-label="Toggle"/>
+                        <span className={`${PLATFORM_CONFIG[account.platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded `}>
                           {PLATFORM_CONFIG[account.platform]?.short ?? account.platform.slice(0, 2).toUpperCase()}
                         </span>
                         <span className="text-sm text-[var(--color-pib-text)]">{accountLabel(account)}</span>
@@ -779,7 +779,7 @@ export default function SocialPostComposer({
                   key={option.value}
                   type="button"
                   onClick={() => setLinkedinShareType(option.value)}
-                  className={`px-4 py-2 text-sm font-label font-bold uppercase tracking-widest border transition-colors ${
+                  className={`px-4 py-2 text-sm font-label  uppercase tracking-widest border transition-colors ${
                     linkedinShareType === option.value ? 'pib-btn-primary' : 'pib-btn-secondary'
                   }`}
                 >
@@ -818,7 +818,7 @@ export default function SocialPostComposer({
                   <button
                     onClick={() => setShowPreview((value) => !value)}
                     className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      showPreview ? 'bg-amber-500 text-black font-label' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] font-label'
+                      showPreview ? 'bg-[var(--sc-surface)] text-black font-label' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] font-label'
                     }`}
                   >
                     {showPreview ? 'Hide Preview' : 'Show Preview'}
@@ -833,11 +833,11 @@ export default function SocialPostComposer({
           <section className="pib-card space-y-3">
             <h2 className="text-sm pib-label">Thread Parts</h2>
             {threadParts.map((part, index) => (
-              <div key={index} className="rounded-xl bg-[var(--color-pib-surface)] p-3 space-y-2">
+              <div key={index} className="rounded-[6px] bg-[var(--color-pib-surface)] p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[var(--color-pib-text-muted)]">Part {index + 1}</span>
                   {threadParts.length > 1 && (
-                    <button onClick={() => removeThreadPart(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                    <button onClick={() => removeThreadPart(index)} className="text-xs text-[var(--st-danger)] hover:text-red-300 transition-colors">
                       Remove
                     </button>
                   )}
@@ -848,14 +848,14 @@ export default function SocialPostComposer({
                   onChange={(event) => updateThreadPart(index, event.target.value)}
                   placeholder={`Part ${index + 1}...`}
                   className="w-full bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 resize-none outline-none"
-                />
+                 aria-label="Input"/>
                 <div className="flex justify-end">
-                  <span className={`text-xs ${part.length > charLimit ? 'text-red-400' : 'text-[var(--color-pib-text-muted)]'}`}>
+                  <span className={`text-xs ${part.length > charLimit ? 'text-[var(--st-danger)]' : 'text-[var(--color-pib-text-muted)]'}`}>
                     {part.length} / {charLimit}
                   </span>
                 </div>
                 {(errors[`thread_${index}`] || errors[`thread_${index}_len`]) && (
-                  <p className="text-xs text-red-400">{errors[`thread_${index}`] || errors[`thread_${index}_len`]}</p>
+                  <p className="text-xs text-[var(--st-danger)]">{errors[`thread_${index}`] || errors[`thread_${index}_len`]}</p>
                 )}
               </div>
             ))}
@@ -869,7 +869,7 @@ export default function SocialPostComposer({
                 <button
                   type="button"
                   onClick={() => setShowTemplatePicker(true)}
-                  className="text-[11px] font-label font-bold uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
+                  className="text-[11px] font-label uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
                 >
                   Use template
                 </button>
@@ -882,9 +882,9 @@ export default function SocialPostComposer({
                 onChange={(event) => setContent(event.target.value)}
                 placeholder="Write your post…"
                 className="w-full bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] resize-none outline-none"
-              />
+               aria-label="Write your post…"/>
               <div className="flex justify-end mt-1">
-                <span className={`text-xs ${content.length > charLimit ? 'text-red-400' : 'text-[var(--color-pib-text-muted)]'}`}>
+                <span className={`text-xs ${content.length > charLimit ? 'text-[var(--st-danger)]' : 'text-[var(--color-pib-text-muted)]'}`}>
                   {content.length} / {charLimit}
                 </span>
               </div>
@@ -895,7 +895,7 @@ export default function SocialPostComposer({
 
         {previewMode === 'toggle' && showPreview && (
           <section className="pib-card p-6">
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)] mb-4">Platform Preview</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)] mb-4">Platform Preview</h3>
             {renderPreview()}
           </section>
         )}
@@ -910,7 +910,7 @@ export default function SocialPostComposer({
                   <button
                     type="button"
                     onClick={() => setMediaItems((prev) => prev.filter((item) => item.id !== media.id))}
-                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center bg-black/70 text-sm font-bold text-white transition-colors hover:bg-red-600"
+                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center bg-black/70 text-sm text-white transition-colors hover:bg-red-600"
                     aria-label="Remove image"
                   >
                     x
@@ -922,12 +922,12 @@ export default function SocialPostComposer({
           {advanced ? (
             <button
               onClick={() => setShowImageModal(true)}
-              className="w-full px-4 py-3 text-sm font-label font-bold uppercase tracking-widest border border-dashed border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
+              className="w-full px-4 py-3 text-sm font-label uppercase tracking-widest border border-dashed border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             >
               + Generate Image with AI
             </button>
           ) : (
-            <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-pib-line)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+            <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-pib-line)] px-4 py-3 text-sm font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
               {uploadingImage ? 'Uploading...' : '+ Upload Image'}
               <input
                 type="file"
@@ -938,7 +938,7 @@ export default function SocialPostComposer({
                   event.currentTarget.value = ''
                 }}
                 className="sr-only"
-              />
+               aria-label="Upload file"/>
             </label>
           )}
           {errors.upload && <p className="text-red-300 text-xs mt-1">{errors.upload}</p>}
@@ -966,7 +966,7 @@ export default function SocialPostComposer({
                         value={aiTone}
                         onChange={(event) => setAiTone(event.target.value as AiTone)}
                         className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors capitalize"
-                      >
+                       aria-label="Input">
                         {AI_TONES.map((tone) => (
                           <option key={tone} value={tone}>{tone}</option>
                         ))}
@@ -978,7 +978,7 @@ export default function SocialPostComposer({
                         value={aiCount}
                         onChange={(event) => setAiCount(Number(event.target.value))}
                         className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-                      >
+                       aria-label="Input">
                         {[1, 2, 3, 4, 5].map((n) => (
                           <option key={n} value={n}>{n} {n === 1 ? 'variation' : 'variations'}</option>
                         ))}
@@ -993,7 +993,7 @@ export default function SocialPostComposer({
                       onKeyDown={(event) => event.key === 'Enter' && handleAiGenerate()}
                       placeholder="Topic or prompt"
                       className="flex-1 rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-                    />
+                     aria-label="Topic or prompt"/>
                     <button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt.trim()} className="pib-btn-primary !py-2 !px-3 !text-xs disabled:opacity-50">
                       {aiLoading ? 'Generating...' : 'Generate'}
                     </button>
@@ -1024,7 +1024,7 @@ export default function SocialPostComposer({
                             key={index}
                             onClick={() => applyHashtag(item.tag)}
                             disabled={hashtags.includes(item.tag)}
-                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                            className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
                               hashtags.includes(item.tag) ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]/40' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]'
                             }`}
                           >
@@ -1050,8 +1050,8 @@ export default function SocialPostComposer({
                 value={scheduledFor}
                 min={minDateTime}
                 onChange={(event) => setScheduledFor(event.target.value)}
-                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-              />
+                className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
+               aria-label="Date and time"/>
             </div>
             {advanced && (
               <button onClick={handleBestTime} disabled={bestTimeLoading} className="pib-btn-secondary !py-2.5 !px-3 !text-xs disabled:opacity-50">
@@ -1069,8 +1069,8 @@ export default function SocialPostComposer({
               <select
                 value={category}
                 onChange={(event) => setCategory(event.target.value as SocialPostCategory)}
-                className="rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors capitalize"
-              >
+                className="rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors capitalize"
+               aria-label="Input">
                 {CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </section>
@@ -1107,8 +1107,8 @@ export default function SocialPostComposer({
             value={firstComment}
             onChange={(event) => setFirstComment(event.target.value)}
             placeholder="Optional — e.g. drop your link or extra hashtags as the first comment…"
-            className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
-          />
+            className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
+           aria-label="Optional — e.g. drop your link or extra hashtags as the first comment…"/>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             Leave empty to skip. The comment is posted on the published post by the same account; a comment failure never blocks the post.
           </p>
@@ -1121,7 +1121,7 @@ export default function SocialPostComposer({
               <button
                 type="button"
                 onClick={() => setShowHashtagSets((value) => !value)}
-                className="text-[11px] font-label font-bold uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
+                className="text-[11px] font-label uppercase tracking-widest text-[var(--color-accent-v2)] hover:underline"
               >
                 {showHashtagSets ? 'Hide' : 'Browse sets'}
               </button>
@@ -1137,7 +1137,7 @@ export default function SocialPostComposer({
                     <button
                       type="button"
                       onClick={() => applyHashtagSet(set)}
-                      className="shrink-0 px-3 py-1.5 rounded bg-[var(--color-accent-v2)] text-black text-xs font-label font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
+                      className="shrink-0 px-3 py-1.5 rounded bg-[var(--color-accent-v2)] text-black text-xs font-label uppercase tracking-widest hover:opacity-90 transition-opacity"
                     >
                       Insert
                     </button>
@@ -1181,7 +1181,7 @@ export default function SocialPostComposer({
       {previewMode === 'sidebar' && (
         <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
           <div>
-            <h2 className="font-headline text-xl font-bold tracking-tighter">Preview</h2>
+            <h2 className="font-headline text-xl tracking-tighter">Preview</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">Selected platforms render here as you compose.</p>
           </div>
           {renderPreview()}
@@ -1190,9 +1190,9 @@ export default function SocialPostComposer({
 
       {advanced && showImageModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-[6px] max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">AI Image Generation</h2>
+              <h2 className="text-lg text-[var(--color-pib-text)]">AI Image Generation</h2>
               <button onClick={() => setShowImageModal(false)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
 
@@ -1210,8 +1210,8 @@ export default function SocialPostComposer({
                     setImageSize(template.suggestedSize)
                   }
                 }}
-                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-              >
+                className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
+               aria-label="Input">
                 <option value="">Choose a template...</option>
                 {imageTemplates.map((template) => (
                   <option key={template.id} value={template.id}>{template.name} - {template.description}</option>
@@ -1226,22 +1226,22 @@ export default function SocialPostComposer({
                 value={imagePrompt}
                 onChange={(event) => setImagePrompt(event.target.value)}
                 placeholder="Describe the image you want to generate..."
-                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
-              />
+                className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
+               aria-label="Describe the image you want to generate..."/>
               <p className="text-[10px] text-[var(--color-pib-text-muted)]">{imagePrompt.length} / 4000 characters</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-2 text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Provider
-                <select value={imageProvider} onChange={(event) => setImageProvider(event.target.value as ImageProvider)} className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]">
+                <select value={imageProvider} onChange={(event) => setImageProvider(event.target.value as ImageProvider)} className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]" aria-label="Input">
                   <option value="xai">xAI (Grok)</option>
                   <option value="gemini">Google Gemini</option>
                 </select>
               </label>
               <label className="space-y-2 text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Size
-                <select value={imageSize} onChange={(event) => setImageSize(event.target.value as ImageSize)} className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]">
+                <select value={imageSize} onChange={(event) => setImageSize(event.target.value as ImageSize)} className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]" aria-label="Input">
                   <option value="1024x1024">Square (1024x1024)</option>
                   <option value="1024x1536">Portrait (1024x1536)</option>
                   <option value="1536x1024">Landscape (1536x1024)</option>
@@ -1249,7 +1249,7 @@ export default function SocialPostComposer({
               </label>
             </div>
 
-            {imageError && <div className="px-4 py-3 rounded-xl bg-red-900/30 text-red-400 text-sm">{imageError}</div>}
+            {imageError && <div className="px-4 py-3 rounded-[6px] bg-red-900/30 text-[var(--st-danger)] text-sm">{imageError}</div>}
 
             <button onClick={handleGenerateImage} disabled={imageLoading || !imagePrompt.trim()} className="w-full pib-btn-primary disabled:opacity-50">
               {imageLoading ? 'Generating...' : 'Generate Image'}
@@ -1257,7 +1257,7 @@ export default function SocialPostComposer({
 
             {generatedImageUrl && (
               <div className="space-y-2">
-                <div className="rounded-xl bg-[var(--color-pib-surface)] overflow-hidden">
+                <div className="rounded-[6px] bg-[var(--color-pib-surface)] overflow-hidden">
                   <img src={generatedImageUrl} alt="generated" className="w-full" />
                 </div>
                 {generatedPrompt && (
@@ -1275,9 +1275,9 @@ export default function SocialPostComposer({
 
       {showTemplatePicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-[6px] max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Use a Post Template</h2>
+              <h2 className="text-lg text-[var(--color-pib-text)]">Use a Post Template</h2>
               <button onClick={() => setShowTemplatePicker(false)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
             {templates.length === 0 ? (
@@ -1307,9 +1307,9 @@ export default function SocialPostComposer({
 
       {activeTemplate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-[6px] max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{activeTemplate.name}</h2>
+              <h2 className="text-lg text-[var(--color-pib-text)]">{activeTemplate.name}</h2>
               <button onClick={() => { setActiveTemplate(null); setTemplateVars({}) }} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
 
@@ -1325,7 +1325,7 @@ export default function SocialPostComposer({
                       onChange={(event) => setTemplateVars((prev) => ({ ...prev, [variable]: event.target.value }))}
                       placeholder={variable}
                       className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-                    />
+                     aria-label="Input"/>
                   </div>
                 ))}
               </div>
@@ -1375,12 +1375,12 @@ function ChipSection({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
-      />
+        className="w-full rounded-[6px] bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
+       aria-label="Input"/>
       {items.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
-            <span key={item} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-xs font-medium">
+            <span key={item} className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-xs font-medium">
               {item}
               <button onClick={() => onRemove(item)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors ml-0.5">x</button>
             </span>

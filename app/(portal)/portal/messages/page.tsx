@@ -10,8 +10,8 @@ import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import {
 import { Icon } from '@/components/studio'
+import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'

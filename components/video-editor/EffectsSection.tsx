@@ -121,7 +121,7 @@ export function EffectsSection({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Effects</h3>
+      <h3 className="text-sm text-[var(--color-pib-text)]">Effects</h3>
       <label className="block text-xs text-[var(--color-pib-text-muted)]">
         Add effect
         <select

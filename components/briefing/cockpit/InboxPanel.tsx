@@ -46,7 +46,7 @@ export function InboxPanel({ status, messages, unreadCount, loading, onAskPipRep
           className="rounded-lg border-y border-r border-l-4 border-[var(--color-pib-line)] border-l-blue-400 bg-[var(--color-card)] p-2.5"
         >
           <div className="flex items-start justify-between gap-2">
-            <span className="text-xs font-bold text-[var(--color-pib-text)]">{mail.from}</span>
+            <span className="text-xs text-[var(--color-pib-text)]">{mail.from}</span>
             <span className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)]">
               {timeAgo(mail.receivedAt)}
             </span>

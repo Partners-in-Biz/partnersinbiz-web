@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import TemplateEditor from '@/components/admin/email-builder/TemplateEditor'
+import { EmptyState } from '@/components/ui/AppFoundation'
+import { Skeleton, Button } from '@/components/studio'
 import type { EmailTemplate } from '@/lib/email-builder/templates'
 
 export default function EmailTemplateEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,22 +33,21 @@ export default function EmailTemplateEditorPage({ params }: { params: Promise<{ 
   }, [params])
 
   if (loading) {
-    return <div className="pib-skeleton h-screen" />
+    return <Skeleton height="100vh" />
   }
 
   if (error || !template) {
     return (
       <div className="mx-auto max-w-3xl">
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">mail</span>
-          <h2 className="pib-empty-state-title">Could not load template</h2>
-          <p className="pib-empty-state-description">{error ?? 'Unknown error'}</p>
-          <div className="mt-5 flex justify-center">
-            <button onClick={() => router.push('/portal/email-templates')} className="btn-pib-secondary">
+        <EmptyState
+          title="Could not load template."
+          description={error ?? 'Unknown error.'}
+          action={
+            <Button variant="secondary" onClick={() => router.push('/portal/email-templates')}>
               Back to templates
-            </button>
-          </div>
-        </div>
+            </Button>
+          }
+        />
       </div>
     )
   }

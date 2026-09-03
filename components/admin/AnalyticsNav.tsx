@@ -39,11 +39,12 @@ export function AnalyticsNav({ active, propertyId: selectedPropertyId, basePath 
           <Link
             key={href}
             href={propertyId ? `${href}?propertyId=${encodeURIComponent(propertyId)}` : href}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`px-2.5 py-1 text-xs font-medium transition-colors border-b-2 ${
               active === t.key
-                ? 'bg-[var(--color-pib-violet-soft)] text-[var(--color-pib-violet)]'
-                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-            }`}>
+                ? 'border-[var(--sc-accent)] text-[var(--sc-ink)]'
+                : 'border-transparent text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)]'
+            }`}
+          >
             {t.label}
           </Link>
         )

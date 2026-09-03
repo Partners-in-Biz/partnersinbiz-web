@@ -7,6 +7,8 @@ import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { LineSeries } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon, Status } from '@/components/studio'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 
 interface RealtimeData {
   activeVisitors: number
@@ -59,34 +61,28 @@ export default function RealtimePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="realtime" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Realtime</p>
-        <div className="mt-2 flex items-center gap-4">
-          <h1 className="pib-page-title">Realtime</h1>
-          {active && (
-            <span className="pib-pill pib-pill-success">
-              <span className="pib-status-dot pib-status-dot-success animate-pulse" />
-              Live{data ? ` — last ${data.activeWindowMin} min` : ''}
-            </span>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Realtime"
+        title="Realtime."
+        actions={active ? (
+          <Status tone="success">
+            Live{data ? `, last ${data.activeWindowMin} min` : ''}
+          </Status>
+        ) : undefined}
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} disabled={active} />
         <div className="flex justify-end">
           {!active
-            ? <button className="btn-pib-primary text-sm" onClick={start} disabled={!propertyId}>Start</button>
-            : <button className="btn-pib-secondary text-sm" onClick={stop}>Stop</button>
+            ? <button className="st-btn st-btn--primary text-sm" onClick={start} disabled={!propertyId}>Start</button>
+            : <button className="st-btn st-btn--secondary text-sm" onClick={stop}>Stop</button>
           }
         </div>
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">monitoring</span>
-          <p className="pib-empty-state-description">Select a client and property to see realtime activity.</p>
-        </div>
+        <EmptyState title="Select a client and property to see realtime activity." />
       )}
 
       {propertyId && data && (
@@ -97,12 +93,12 @@ export default function RealtimePage() {
                 <span className="pib-status-dot pib-status-dot-success animate-pulse" />
                 Active visitors
               </p>
-              <p className="text-3xl font-semibold mt-1 text-[var(--color-pib-text)]">{data.activeVisitors.toLocaleString()}</p>
+              <p className="text-3xl mt-1 text-[var(--color-pib-text)]">{data.activeVisitors.toLocaleString()}</p>
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">last {data.activeWindowMin} min</p>
             </div>
           </div>
 
-          <div className="pib-card">
+          <div className="st-panel">
             <h2 className="pib-label mb-3">Last {data.activeWindowMin} minutes</h2>
             <LineSeries data={data.trend} xKey="minute" yKey="visitors" label="Visitors" />
           </div>

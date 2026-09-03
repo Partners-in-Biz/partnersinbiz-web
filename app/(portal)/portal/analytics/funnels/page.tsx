@@ -7,6 +7,8 @@ import type { FunnelResults } from '@/lib/analytics/types'
 import { VALID_FUNNEL_WINDOWS } from '@/lib/analytics/types'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface Funnel {
   id: string
@@ -97,15 +99,15 @@ export default function FunnelsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="funnels" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Funnels</p>
-        <h1 className="pib-page-title mt-2">Funnels</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Funnels"
+        title="Funnels."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex justify-end">
-          <button onClick={fetchFunnels} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
+          <button name="page-action-12" onClick={fetchFunnels} disabled={!propertyId || loading} className="st-btn st-btn--primary text-sm">
             {loading ? 'Loading…' : 'Load Funnels'}
           </button>
         </div>
@@ -113,21 +115,21 @@ export default function FunnelsPage() {
 
       {/* Create funnel form */}
       {propertyId && (
-        <div className="pib-card space-y-4">
+        <div className="st-panel space-y-4">
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">filter_alt</span></span>
+            <Icon name="filter_alt" />
             <h2 className="pib-label mb-0">Create Funnel</h2>
           </div>
           <div>
             <label className="pib-label mb-1">Name</label>
-            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="App Store Conversion" className="pib-input text-sm w-72" />
+            <input name="text" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="App Store Conversion" className="pib-input text-sm w-72" />
           </div>
           <div className="space-y-2">
             <label className="pib-label">Steps (event names)</label>
             {newSteps.map((s, i) => (
               <div key={i} className="flex gap-2 items-center">
                 <span className="text-xs text-[var(--color-pib-text-muted)] w-6">{i + 1}.</span>
-                <input
+                <input name="text"
                   type="text"
                   value={s}
                   onChange={e => setNewSteps(steps => steps.map((x, j) => j === i ? e.target.value : x))}
@@ -135,22 +137,22 @@ export default function FunnelsPage() {
                   className="pib-input text-sm w-56"
                 />
                 {newSteps.length > 2 && (
-                  <button onClick={() => setNewSteps(steps => steps.filter((_, j) => j !== i))} className="text-xs text-[var(--color-error)]">✕</button>
+                  <button name="page-action-13" onClick={() => setNewSteps(steps => steps.filter((_, j) => j !== i))} className="text-xs text-[var(--color-error)]">✕</button>
                 )}
               </div>
             ))}
-            <button onClick={() => setNewSteps(s => [...s, ''])} className="btn-pib-secondary text-xs px-3 py-1.5">
+            <button name="page-action-14" onClick={() => setNewSteps(s => [...s, ''])} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
               + Add Step
             </button>
           </div>
           <div>
             <label className="pib-label mb-1">Conversion Window</label>
-            <select value={newWindow} onChange={e => setNewWindow(e.target.value)} className="pib-select text-sm w-32">
+            <select name="page-select-15" value={newWindow} onChange={e => setNewWindow(e.target.value)} className="pib-select text-sm w-32">
               {VALID_FUNNEL_WINDOWS.map(w => <option key={w} value={w}>{w}</option>)}
             </select>
           </div>
           {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
-          <button onClick={createFunnel} disabled={creating || !newName.trim()} className="btn-pib-primary text-sm">
+          <button name="page-action-16" onClick={createFunnel} disabled={creating || !newName.trim()} className="st-btn st-btn--primary text-sm">
             {creating ? 'Creating…' : 'Create Funnel'}
           </button>
         </div>
@@ -160,10 +162,10 @@ export default function FunnelsPage() {
       {funnels.length > 0 && (
         <div className="space-y-4">
           {funnels.map(f => (
-            <div key={f.id} className="pib-card space-y-3">
+            <div key={f.id} className="st-panel space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">filter_alt</span></span>
+                  <Icon name="filter_alt" />
                   <div>
                     <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{f.name}</h3>
                     <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -172,10 +174,10 @@ export default function FunnelsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => viewResults(f.id)} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-17" onClick={() => viewResults(f.id)} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     View Results
                   </button>
-                  <button onClick={() => deleteFunnel(f.id)} className="btn-pib-ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
+                  <button name="page-action-18" onClick={() => deleteFunnel(f.id)} className="st-btn st-btn--ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
                     Delete
                   </button>
                 </div>
@@ -191,7 +193,7 @@ export default function FunnelsPage() {
                         {results.steps.map((step, i) => (
                           <div key={i} className="text-center">
                             <p className="text-xs font-mono text-[var(--color-pib-text)]">{step.event}</p>
-                            <p className="text-lg font-semibold text-[var(--color-pib-text)]">{step.count}</p>
+                            <p className="text-lg text-[var(--color-pib-text)]">{step.count}</p>
                             {step.conversionFromPrev !== null && (
                               <p className="text-xs text-[var(--color-pib-text-muted)]">{step.conversionFromPrev}% from prev</p>
                             )}
@@ -212,10 +214,7 @@ export default function FunnelsPage() {
       )}
 
       {!loading && funnels.length === 0 && propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">filter_alt</span>
-          <p className="pib-empty-state-description">No funnels yet — create one above.</p>
-        </div>
+        <EmptyState title="No funnels yet  -  create one above." />
       )}
     </div>
   )

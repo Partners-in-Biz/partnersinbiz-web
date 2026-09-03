@@ -242,10 +242,10 @@ function Field({ label, htmlFor, required, error, children }: {
   return (
     <div className="space-y-1">
       <label htmlFor={htmlFor} className="block text-[11px] font-label text-[var(--color-pib-text-muted)]">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}{required && <span className="text-[var(--st-danger)] ml-0.5">*</span>}
       </label>
       {control}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--st-danger)]">{error}</p>}
     </div>
   )
 }
@@ -346,7 +346,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, te
       <div className="relative flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-card)]">
         {/* Header */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4">
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">{title}</h2>
           <button
             type="button"
             aria-label={`Close ${title} drawer`}

@@ -137,7 +137,7 @@ function NewQuoteForm() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <header>
-        <p className="eyebrow">Quotes / New</p>
+        <p className="sc-tiny">Quotes / New</p>
         <h1 className="pib-page-title mt-2">New Quote</h1>
       </header>
 

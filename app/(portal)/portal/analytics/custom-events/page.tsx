@@ -7,6 +7,8 @@ import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { KpiCard, SimpleTable, CopyButton } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface CustomEvent {
   id: string
@@ -26,9 +28,9 @@ interface BreakdownData {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return ' - '
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleString()
+  return isNaN(d.getTime()) ? ' - ' : d.toLocaleString()
 }
 
 function snippet(name: string): string {
@@ -112,33 +114,30 @@ export default function CustomEventsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="custom-events" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Custom Events</p>
-        <h1 className="pib-page-title mt-2">Custom Events</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Custom Events"
+        title="Custom Events."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
-          <p className="pib-empty-state-description">Select a client and property to manage custom events.</p>
-        </div>
+        <EmptyState title="Select a client and property to manage custom events." />
       )}
 
       {propertyId && (
         <>
-          <form onSubmit={submit} className="pib-card space-y-4">
+          <form onSubmit={submit} className="st-panel space-y-4">
             <div className="flex items-center gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">bolt</span></span>
+              <Icon name="bolt" />
               <h2 className="pib-label mb-0">Define an event</h2>
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               <div>
                 <label className="pib-label">Name</label>
-                <input
+                <input name="text"
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
@@ -149,7 +148,7 @@ export default function CustomEventsPage() {
               </div>
               <div>
                 <label className="pib-label">Description</label>
-                <input
+                <input name="text"
                   type="text"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -160,7 +159,7 @@ export default function CustomEventsPage() {
             </div>
             <div>
               <label className="pib-label">Properties (comma-separated)</label>
-              <input
+              <input name="text"
                 type="text"
                 value={propsInput}
                 onChange={e => setPropsInput(e.target.value)}
@@ -169,7 +168,7 @@ export default function CustomEventsPage() {
               />
             </div>
             {formError && <p className="text-xs text-[var(--color-error)]">{formError}</p>}
-            <button type="submit" disabled={saving || !name.trim()} className="btn-pib-primary text-sm px-4 py-2">
+            <button name="page-action-10" type="submit" disabled={saving || !name.trim()} className="st-btn st-btn--primary text-sm px-4 py-2">
               {saving ? 'Saving…' : 'Define event'}
             </button>
           </form>
@@ -180,10 +179,7 @@ export default function CustomEventsPage() {
             <div className="space-y-2">
               <h2 className="pib-label mb-2">Events</h2>
               {events.length === 0 ? (
-                <div className="pib-empty-state">
-                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
-                  <p className="pib-empty-state-description">No custom events defined yet.</p>
-                </div>
+                <EmptyState title="No custom events defined yet." />
               ) : (
                 <div className="pib-surface pib-surface-table overflow-x-auto">
                   <table className="w-full text-sm">
@@ -205,7 +201,7 @@ export default function CustomEventsPage() {
                           className={`border-b border-[var(--color-pib-line)] last:border-0 cursor-pointer hover:bg-[var(--color-row-hover)] ${selected === ev.name ? 'bg-[var(--color-pib-violet-soft)]' : ''}`}
                         >
                           <td className="px-3 py-2 text-[var(--color-pib-text)] font-medium">{ev.name}</td>
-                          <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.description || '—'}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.description || ' - '}</td>
                           <td className="px-3 py-2 text-[var(--color-pib-text)] text-right tabular-nums">{ev.triggerCount.toLocaleString()}</td>
                           <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{fmtDate(ev.lastTriggered)}</td>
                           <td className="px-3 py-2">
@@ -228,7 +224,7 @@ export default function CustomEventsPage() {
           )}
 
           {selected && (
-            <div className="pib-card space-y-4">
+            <div className="st-panel space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="pib-label mb-0">
                   Breakdown · <span className="text-[var(--color-pib-violet)]">{selected}</span>

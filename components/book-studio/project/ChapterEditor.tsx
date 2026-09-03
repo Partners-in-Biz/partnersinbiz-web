@@ -134,7 +134,7 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
   }, [])
 
   if (!editor) {
-    return <div className="pib-skeleton h-80 rounded-2xl" />
+    return <div className="pib-skeleton h-80 rounded-[6px]" />
   }
 
   const Btn = ({

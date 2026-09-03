@@ -6,6 +6,7 @@ import { downloadText } from '@/components/seo/seoToolClient'
 import { toCsv } from '@/lib/seo/csv'
 import { scopedPortalHref, type PortalSeoScope } from '../portalSeoScopeShared'
 import type { GapAnalysisResult } from '@/lib/seo/gap-analysis'
+import { Icon } from '@/components/studio'
 
 const INTENT_COLORS: Record<string, string> = {
   solution: 'pib-pill-success',
@@ -88,13 +89,13 @@ export function GapAnalysisClient({
 
       <section className="pib-card-section">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold">Competitor domain</h3>
+          <h3 className="text-sm">Competitor domain</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Enter a competitor&apos;s domain. We crawl their top pages and compare topics to your tracked keywords.</p>
         </div>
         <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="pib-label" htmlFor="competitor">Domain</label>
-            <input
+            <input name="gapanalysisclient-field-57"
               id="competitor"
               value={competitor}
               onChange={(e) => setCompetitor(e.target.value)}
@@ -104,15 +105,15 @@ export function GapAnalysisClient({
               disabled={loading}
             />
           </div>
-          <button onClick={runAnalysis} disabled={loading || !activeSprintId || !competitor.trim()} className="pib-btn-primary text-sm disabled:opacity-40">
+          <button name="gapanalysisclient-action-58" onClick={runAnalysis} disabled={loading || !activeSprintId || !competitor.trim()} className="pib-btn-primary text-sm disabled:opacity-40">
             {loading ? (
               <>
-                <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                <Icon name="autorenew" className="animate-spin" />
                 Analysing…
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-[18px]">travel_explore</span>
+                <Icon name="travel_explore" />
                 Run analysis
               </>
             )}
@@ -123,7 +124,7 @@ export function GapAnalysisClient({
         )}
         {error && (
           <p className="px-4 pb-4 flex items-center gap-1.5 text-xs text-red-300">
-            <span className="material-symbols-outlined text-sm">error</span>
+            <Icon name="error" />
             {error}
           </p>
         )}
@@ -141,29 +142,29 @@ export function GapAnalysisClient({
           <section className="pib-card-section overflow-hidden">
             <div className="pib-card-section-header flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <h3 className="text-sm font-semibold">Gap keywords for {result.competitorDomain}</h3>
+                <h3 className="text-sm">Gap keywords for {result.competitorDomain}</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">
                   Keywords {result.competitorDomain} covers that you don&apos;t rank well for. {result.generatedBy === 'ai' ? 'Refined with AI.' : 'Heuristic extraction.'}
                 </p>
               </div>
-              <button onClick={exportCsv} disabled={result.gaps.length === 0} className="pib-btn-secondary text-sm disabled:opacity-40">
-                <span className="material-symbols-outlined text-[18px]">download</span>
+              <button name="gapanalysisclient-action-59" onClick={exportCsv} disabled={result.gaps.length === 0} className="pib-btn-secondary text-sm disabled:opacity-40">
+                <Icon name="download" />
                 Export CSV
               </button>
             </div>
             {result.gaps.length === 0 ? (
-              <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No gaps found — you already cover this competitor&apos;s topics.</div>
+              <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No gaps found  -  you already cover this competitor&apos;s topics.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Keyword</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Intent</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Opportunity</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Your status</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Mentions</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]"></th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Keyword</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Intent</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Opportunity</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Your status</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Mentions</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-pib-line)]">
@@ -175,9 +176,9 @@ export function GapAnalysisClient({
                         </td>
                         <td className="px-5 py-3 text-right">
                           <div className="inline-flex items-center gap-2">
-                            <span className="tabular-nums font-semibold">{g.opportunityScore}</span>
-                            <span className="h-1.5 w-16 rounded-full bg-white/10 overflow-hidden">
-                              <span className="block h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${g.opportunityScore}%` }} />
+                            <span className="tabular-nums">{g.opportunityScore}</span>
+                            <span className="h-1.5 w-16 rounded bg-white/10 overflow-hidden">
+                              <span className="block h-full rounded bg-[var(--color-pib-accent)]" style={{ width: `${g.opportunityScore}%` }} />
                             </span>
                           </div>
                         </td>
@@ -187,7 +188,7 @@ export function GapAnalysisClient({
                         <td className="px-5 py-3 text-right tabular-nums">{g.competitorMentions}</td>
                         <td className="px-5 py-3 text-right">
                           <a href={briefHref(g.keyword)} className="pib-btn-secondary text-xs !py-1.5">
-                            <span className="material-symbols-outlined text-[14px]">edit_document</span>
+                            <Icon name="edit_document" />
                             Brief
                           </a>
                         </td>
@@ -208,10 +209,10 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }

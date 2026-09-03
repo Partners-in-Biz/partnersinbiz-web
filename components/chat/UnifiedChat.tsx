@@ -7431,14 +7431,14 @@ export default function UnifiedChat({
         data-presentation={sessionsOverlayViewport && showListOnMobile ? tabletSessionsDrawer ? 'drawer' : 'sheet' : 'rail'}
         className={[
           hermesLayout
-            ? `min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] ${railCollapsed ? 'p-1' : 'p-2'}`
+            ? `min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-[6px] border border-[var(--color-card-border)] bg-black/[0.08] ${railCollapsed ? 'p-1' : 'p-2'}`
             : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
           compact ? '!rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
           showListOnMobile
             ? compact
               ? 'flex h-full min-h-0'
               : tabletSessionsDrawer
-                ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
+                ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] xl:static xl:w-auto xl:shadow-none'
                 : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:pl-[max(.75rem,env(safe-area-inset-left))] max-xl:pr-[max(.75rem,env(safe-area-inset-right))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
             : 'hidden',
         ].join(' ')}
@@ -7456,11 +7456,11 @@ export default function UnifiedChat({
               {filteredConversations.slice(0, 10).map((conversation) => (
                 <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
-                  {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
+                  {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded bg-[var(--sc-surface)]" /> : null}
                   {(conversation.unreadCount ?? 0) > 0 ? (
                     <span
                       aria-label={`${conversation.unreadCount} unread message${conversation.unreadCount === 1 ? '' : 's'}`}
-                      className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[8px] font-bold text-on-primary"
+                      className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary px-1 font-mono text-[8px] text-on-primary"
                     >
                       {conversation.unreadCount! > 9 ? '9+' : conversation.unreadCount}
                     </span>
@@ -7476,7 +7476,7 @@ export default function UnifiedChat({
           <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden">
             <div>
               <p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">{botMode ? 'Bot mode' : 'Messages'}</p>
-              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{botMode ? 'Browse bots' : 'Browse sessions'}</h2>
+              <h2 className="text-base text-[var(--color-pib-text)]">{botMode ? 'Browse bots' : 'Browse sessions'}</h2>
             </div>
             {activeConversation && (
               <button
@@ -7484,7 +7484,7 @@ export default function UnifiedChat({
                 type="button"
                 aria-label="Close sessions"
                 onClick={closeSessions}
-                className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"
+                className="grid h-11 w-11 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"
               >
                 <span aria-hidden="true" className="material-symbols-outlined">close</span>
               </button>
@@ -7668,7 +7668,7 @@ export default function UnifiedChat({
                       >
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder</span>
                         <HoverTip label={company.name} side="right" className="min-w-0 flex-1">
-                          <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{company.name}</span>
+                          <span className="block min-w-0 truncate text-[11px] leading-4 text-[var(--color-pib-text)]">{company.name}</span>
                         </HoverTip>
                         <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
@@ -7776,7 +7776,7 @@ export default function UnifiedChat({
                       >
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder_managed</span>
                         <HoverTip label={project.name} side="right" className="min-w-0 flex-1">
-                          <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{project.name}</span>
+                          <span className="block min-w-0 truncate text-[11px] leading-4 text-[var(--color-pib-text)]">{project.name}</span>
                         </HoverTip>
                         <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
@@ -7811,7 +7811,7 @@ export default function UnifiedChat({
                             id={`project-actions-${project.id}`}
                             role="menu"
                             aria-label={`Actions for ${project.name}`}
-                            className="absolute right-0 top-full z-40 mt-1 min-w-[13.5rem] overflow-hidden rounded-lg border border-white/[0.1] bg-[var(--color-pib-surface,rgba(18,18,24,0.98))] py-1 shadow-xl shadow-black/40"
+                            className="absolute right-0 top-full z-40 mt-1 min-w-[13.5rem] overflow-hidden rounded-lg border border-white/[0.1] bg-[var(--color-pib-surface,rgba(18,18,24,0.98))] py-1 shadow-black/40"
                           >
                             <button
                               type="button"
@@ -7885,11 +7885,11 @@ export default function UnifiedChat({
                               key={location.locationId}
                               data-testid={`project-location-badge-${project.id}-${location.locationId}`}
                               aria-label={`${machineType} ${location.label}: ${runtimeStatus}`}
-                              className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-xs ${runtimeReady
+                              className={`inline-flex max-w-full items-center gap-1 rounded border px-2 py-1 text-xs ${runtimeReady
                                 ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
-                                : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}
+                                : 'border-amber-400/20 bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'}`}
                             >
-                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${runtimeReady ? 'bg-emerald-300' : 'bg-amber-300'}`} aria-hidden="true" />
+                              <span className={`h-1.5 w-1.5 shrink-0 rounded ${runtimeReady ? 'bg-emerald-300' : 'bg-[var(--sc-surface)]'}`} aria-hidden="true" />
                               <HoverTip label={`${machineType} · ${location.label} · ${runtimeStatus}`} side="top" className="min-w-0 max-w-full">
                                 <span className="block min-w-0 truncate">
                                   {machineType} · {location.label} · {runtimeStatus}
@@ -7907,7 +7907,7 @@ export default function UnifiedChat({
                         className="mx-1 mb-1 space-y-2 rounded-md border border-primary/20 bg-black/10 p-2"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Project locations</span>
+                          <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Project locations</span>
                           <button
                             type="button"
                             aria-label={`Close location manager for ${project.name}`}
@@ -7938,7 +7938,7 @@ export default function UnifiedChat({
                                       </span>
                                     </HoverTip>
                                     {!location.authenticatedRuntime && (
-                                      <span className="rounded bg-amber-500/10 px-1.5 py-1 text-xs text-amber-100">Legacy · pairing required</span>
+                                      <span className="rounded bg-[var(--sc-surface)]/10 px-1.5 py-1 text-xs text-[var(--sc-ink-soft)]">Legacy · pairing required</span>
                                     )}
                                     {location.visibility === 'private' && (
                                       <span className="rounded bg-white/[0.06] px-1.5 py-1 text-xs text-[var(--color-pib-text-muted)]">Private</span>
@@ -7961,7 +7961,7 @@ export default function UnifiedChat({
                             <div className="space-y-1">
                               <div className="text-xs font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]/70">Available to link</div>
                               {projectLocationManagementCandidates.length === 0 ? (
-                                <p className="rounded border border-amber-400/15 bg-amber-500/[0.08] px-2 py-2 text-xs leading-5 text-amber-100">
+                                <p className="rounded border border-amber-400/15 bg-[var(--sc-surface)]/[0.08] px-2 py-2 text-xs leading-5 text-[var(--sc-ink-soft)]">
                                   A device must first be shared with and mapped to this organisation before it can be linked to the project.
                                 </p>
                               ) : managedUnlinkedLocationCandidates.length === 0 ? (
@@ -7985,7 +7985,7 @@ export default function UnifiedChat({
                                     <HoverTip label={fullLabel} side="right" className="min-w-0 flex-1">
                                       <span className="block min-w-0 truncate">{candidate.label}</span>
                                     </HoverTip>
-                                    <span className={candidate.selectable ? 'text-emerald-200' : 'text-amber-100'}>
+                                    <span className={candidate.selectable ? 'text-emerald-200' : 'text-[var(--sc-ink-soft)]'}>
                                       {candidate.selectable ? 'Online' : 'Computer unavailable'}
                                     </span>
                                   </label>
@@ -8003,7 +8003,7 @@ export default function UnifiedChat({
                                     : projectSyncStatusLabel(managedProjectSync?.projectId === project.id ? managedProjectSync.status : null)}
                                 </span>
                               </div>
-                              <p className={`text-xs leading-5 ${managedProjectSyncEligible ? 'text-[var(--color-pib-text-muted)]' : 'text-amber-100'}`}>
+                              <p className={`text-xs leading-5 ${managedProjectSyncEligible ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--sc-ink-soft)]'}`}>
                                 {managedProjectHasLegacyLocations
                                   ? 'Pair every legacy location with an authenticated runtime before enabling sync.'
                                   : managedProjectSyncEligible
@@ -8011,13 +8011,13 @@ export default function UnifiedChat({
                                     : 'Link at least two locations, including an organisation VPS, to keep this project synced.'}
                               </p>
                               {managedProjectSync?.projectId === project.id && managedProjectSync.blocker && !managedProjectSync.notice && (
-                                <p className="rounded border border-amber-400/15 bg-amber-500/[0.08] px-2 py-2 text-xs leading-5 text-amber-100">
+                                <p className="rounded border border-amber-400/15 bg-[var(--sc-surface)]/[0.08] px-2 py-2 text-xs leading-5 text-[var(--sc-ink-soft)]">
                                   File transfer is {projectSyncBlockerMessage(managedProjectSync.blocker)}
                                 </p>
                               )}
                               {managedProjectSync?.projectId === project.id
                                 && ['conflict', 'failed'].includes(managedProjectSync.status ?? '') && (
-                                <p className="rounded border border-amber-400/20 bg-amber-500/10 px-2 py-2 text-xs leading-5 text-amber-100">
+                                <p className="rounded border border-amber-400/20 bg-[var(--sc-surface)]/10 px-2 py-2 text-xs leading-5 text-[var(--sc-ink-soft)]">
                                   {projectSyncConflictMessage(managedProjectSync.conflictKind)} Both versions were preserved. Reconcile the files on the linked machines before resetting and re-inventorying.
                                 </p>
                               )}
@@ -8029,7 +8029,7 @@ export default function UnifiedChat({
                                     : managedProjectSync.noticeTone === 'success'
                                       ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
                                       : managedProjectSync.noticeTone === 'blocker'
-                                        ? 'border-amber-400/20 bg-amber-500/10 text-amber-100'
+                                        ? 'border-amber-400/20 bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
                                         : 'border-white/[0.08] bg-white/[0.04] text-[var(--color-pib-text-muted)]'}`}
                                 >
                                   {managedProjectSync.notice}
@@ -8049,7 +8049,7 @@ export default function UnifiedChat({
                                   type="button"
                                   onClick={() => void resetManagedProjectSync({ id: project.id, name: project.name })}
                                   disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting}
-                                  className="min-h-11 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
+                                  className="min-h-11 w-full rounded border border-amber-400/30 bg-[var(--sc-surface)]/10 px-2 py-2 text-xs font-medium text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
                                 >
                                   {projectSyncResetting ? 'Resetting…' : 'Reset sync safely'}
                                 </button>
@@ -8166,7 +8166,7 @@ export default function UnifiedChat({
                         >
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">work</span>
                           <HoverTip label={workspace.name} side="right" className="min-w-0 flex-1">
-                            <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{workspace.name}</span>
+                            <span className="block min-w-0 truncate text-[11px] leading-4 text-[var(--color-pib-text)]">{workspace.name}</span>
                           </HoverTip>
                           <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{workspace.conversations.length}</span>
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
@@ -8193,7 +8193,7 @@ export default function UnifiedChat({
                             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">more_horiz</span>
                           </button>
                           {folderActionsOpenKey === groupKey && (
-                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 shadow-xl">
+                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 ">
                               <button
                                 type="button"
                                 aria-label={`Remove ${workspace.name} from sidebar`}
@@ -8305,7 +8305,7 @@ export default function UnifiedChat({
                         >
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">smart_toy</span>
                           <HoverTip label={agent.name} side="right" className="min-w-0 flex-1">
-                            <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{agent.name}</span>
+                            <span className="block min-w-0 truncate text-[11px] leading-4 text-[var(--color-pib-text)]">{agent.name}</span>
                           </HoverTip>
                           <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{agent.conversations.length}</span>
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
@@ -8332,7 +8332,7 @@ export default function UnifiedChat({
                             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">more_horiz</span>
                           </button>
                           {folderActionsOpenKey === groupKey && (
-                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 shadow-xl">
+                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 ">
                               <button
                                 type="button"
                                 aria-label={`Remove ${agent.name} from sidebar`}
@@ -8560,7 +8560,7 @@ export default function UnifiedChat({
           data-conv-menu
           data-placement={menuPosition.placement}
           style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
-          className="z-50 max-h-[min(22rem,calc(100vh-1rem))] min-w-[176px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
+          className="z-50 max-h-[min(22rem,calc(100vh-1rem))] min-w-[176px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 "
         >
           <button
             type="button"
@@ -8628,7 +8628,7 @@ export default function UnifiedChat({
           {allowArchiveConversations && (
             <button
               type="button"
-              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--st-danger)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => archiveConversation(menuOpenId)}
             >
               <span className="material-symbols-outlined text-[14px]">archive</span>
@@ -8652,7 +8652,7 @@ export default function UnifiedChat({
       <section
         className={[
           hermesLayout
-            ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
+            ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-[6px] border border-[var(--color-card-border)] bg-black/[0.06]'
             : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
           compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!p-0 max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
           showConversationList && showListOnMobile && !tabletSessionsDrawer ? 'hidden' : 'flex',
@@ -8669,7 +8669,7 @@ export default function UnifiedChat({
               onClick={() => setMobilePane('list')}
               aria-label="Open Sessions"
               className={[
-                '-ml-1 h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.1]',
+                '-ml-1 h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.1]',
                 compact ? 'flex' : 'flex xl:hidden',
               ].join(' ')}
             >
@@ -8727,7 +8727,7 @@ export default function UnifiedChat({
                     {isCommandSession ? (
                       <span
                         data-testid="command-session-badge"
-                        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-200"
+                        className="inline-flex items-center gap-1 rounded border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-200"
                         title="Kanban task lifecycle events and blocked-task auto-wake feed into this chat"
                       >
                         <span className="material-symbols-outlined text-[12px]" aria-hidden="true">hub</span>
@@ -8739,7 +8739,7 @@ export default function UnifiedChat({
                         data-testid="bind-command-session"
                         disabled={commandSessionBusy}
                         onClick={() => { void bindCommandSession() }}
-                        className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2 py-0.5 font-semibold text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-primary disabled:opacity-50"
                         title="Link this chat as the project command room for task updates and blocked-task wake"
                       >
                         <span className="material-symbols-outlined text-[12px]" aria-hidden="true">link</span>
@@ -8763,11 +8763,11 @@ export default function UnifiedChat({
                       >
                         <span
                           className={[
-                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            'h-1.5 w-1.5 shrink-0 rounded',
                             activeConnectionWhere.online === true
                               ? 'bg-emerald-400'
                               : activeConnectionWhere.online === false
-                                ? 'bg-amber-400'
+                                ? 'bg-[var(--sc-surface)]'
                                 : 'bg-white/30',
                           ].join(' ')}
                         />
@@ -8792,17 +8792,17 @@ export default function UnifiedChat({
             {activeConnectionWhere && (
               <div
                 data-testid="connection-where-chip"
-                className="hidden shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-[var(--color-pib-text-muted)] lg:inline-flex"
+                className="hidden shrink-0 items-center gap-1.5 rounded border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-[var(--color-pib-text-muted)] lg:inline-flex"
                 title={activeConnectionWhere.title}
                 aria-label={`Connected via ${activeConnectionWhere.display}`}
               >
                 <span
                   className={[
-                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                    'h-1.5 w-1.5 shrink-0 rounded',
                     activeConnectionWhere.online === true
                       ? 'bg-emerald-400'
                       : activeConnectionWhere.online === false
-                        ? 'bg-amber-400'
+                        ? 'bg-[var(--sc-surface)]'
                         : 'bg-white/30',
                   ].join(' ')}
                 />
@@ -8837,12 +8837,12 @@ export default function UnifiedChat({
                   onClick={() => setHeaderMenuOpen((v) => !v)}
                   aria-label="Conversation options"
                   aria-expanded={headerMenuOpen}
-                  className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-[var(--color-pib-text-muted)] transition-colors"
+                  className="flex items-center justify-center w-9 h-9 rounded hover:bg-white/[0.06] active:bg-white/[0.1] text-[var(--color-pib-text-muted)] transition-colors"
                 >
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
                 </button>
                 {headerMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 z-30 hidden min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl md:block">
+                  <div className="absolute right-0 top-full mt-1 z-30 hidden min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 md:block">
                     <button
                       type="button"
                       className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -8889,7 +8889,7 @@ export default function UnifiedChat({
                     {allowArchiveConversations && (
                       <button
                         type="button"
-                        className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                        className="w-full text-left px-3 py-2 text-sm text-[var(--st-danger)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
                         onClick={() => {
                           setHeaderMenuOpen(false)
                           archiveConversation(activeConversation.id)
@@ -9068,7 +9068,7 @@ export default function UnifiedChat({
                   />
                   {m.acceptedDevice && (
                     <div className="ml-10 mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]" aria-label="Linked computer execution receipt">
-                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-emerald-300">Accepted by {m.acceptedDevice.machineLabel}</span>
+                      <span className="rounded border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-emerald-300">Accepted by {m.acceptedDevice.machineLabel}</span>
                       <span>Runtime {m.acceptedDevice.runtimeVersion}</span>
                     </div>
                   )}
@@ -9094,7 +9094,7 @@ export default function UnifiedChat({
                   {m.role === 'assistant' &&
                     m.status === 'waiting_approval' &&
                     approvalPending[m.id] && (
-                      <div className="mt-2 ml-10 rounded-xl border border-[#f59e0b44] bg-[#1a1500] px-4 py-3 text-sm">
+                      <div className="mt-2 ml-10 rounded-[6px] border border-[#f59e0b44] bg-[#1a1500] px-4 py-3 text-sm">
                         <div className="mb-1 font-medium text-[#f59e0b]">
                           Waiting for approval
                         </div>
@@ -9154,7 +9154,7 @@ export default function UnifiedChat({
         {/* Error bar */}
         {unavailableActiveRuntime && (
           <div role="alert" className="border-t border-red-500/35 bg-red-500/10 px-4 py-2.5 text-xs text-red-200">
-            <div className="font-semibold text-red-100">{unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
+            <div className=" text-red-100">{unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
             <div className="mt-0.5">
               {unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering
                 ? `${unavailableActiveRuntime.label} is reconnecting. This session remains linked to it; messages will queue on this computer and resume automatically when it is ready, within the 45-minute queue window.`
@@ -9190,7 +9190,7 @@ export default function UnifiedChat({
                 {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
                   <span
                     data-testid="project-composer-chip"
-                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-[var(--color-pib-text)]"
+                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-[var(--color-pib-text)]"
                   >
                     <span className="material-symbols-outlined text-[13px]" aria-hidden="true">folder_managed</span>
                     <span className="max-w-[180px] truncate">{projectChat.progress.project.name}</span>
@@ -9208,7 +9208,7 @@ export default function UnifiedChat({
                     }}
                     disabled={!canUseComposer || sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
                     title="Use current page as context"
-                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-45"
+                    className="inline-flex h-7 items-center gap-1.5 rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-45"
                   >
                     <span className="material-symbols-outlined text-[14px]">add_link</span>
                     Use current page
@@ -9218,7 +9218,7 @@ export default function UnifiedChat({
                   <span
                     key={contextReferenceKey(ref)}
                     data-testid={ref.type === 'project' && ref.id === projectChat.activeProjectId ? 'project-composer-chip' : undefined}
-                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-[var(--color-pib-text)]"
+                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-[var(--color-pib-text)]"
                     title={`${ref.type}: ${contextChipLabel(ref)}`}
                   >
                     <span className="material-symbols-outlined text-[13px]">
@@ -9229,7 +9229,7 @@ export default function UnifiedChat({
                       type="button"
                       onClick={() => removeContextRef(ref)}
                       aria-label={`Remove ${contextChipLabel(ref)} context`}
-                      className="-mr-1 grid h-5 w-5 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                      className="-mr-1 grid h-5 w-5 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[13px]">close</span>
                     </button>
@@ -9261,7 +9261,7 @@ export default function UnifiedChat({
                     disabled={!canUseComposer || sending}
                     title="Thinking effort"
                     aria-label="Thinking effort"
-                    className="h-7 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus:border-primary disabled:opacity-40"
+                    className="h-7 rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus:border-primary disabled:opacity-40"
                   >
                     <option value="">Auto</option>
                     {AGENT_EFFORT_OPTIONS.map((option) => (
@@ -9274,7 +9274,7 @@ export default function UnifiedChat({
           )}
 
           {slashPrompt && (
-            <div className="max-h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl lg:max-h-[50dvh]">
+            <div className="max-h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 lg:max-h-[50dvh]">
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Slash commands
               </div>
@@ -9301,7 +9301,7 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Mention types" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Mention types" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 ">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Mention types
               </div>
@@ -9337,7 +9337,7 @@ export default function UnifiedChat({
           )}
 
           {contextMention && isAgentComposerMention && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Agents" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Agents" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 ">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @agent: specialists{mentionRuntimeLabel ? ` · ${mentionRuntimeLabel}` : ''}
               </div>
@@ -9375,7 +9375,7 @@ export default function UnifiedChat({
           )}
 
           {contextMention && !isAgentComposerMention && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 ">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
               </div>
@@ -9441,7 +9441,7 @@ export default function UnifiedChat({
                     <button
                       type="button"
                       onClick={() => loadQueuedDraftIntoComposer(draft)}
-                      className="rounded-full px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10"
+                      className="rounded px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10"
                     >
                       Load
                     </button>
@@ -9449,7 +9449,7 @@ export default function UnifiedChat({
                       type="button"
                       onClick={() => removeQueuedDraft(draft.id)}
                       aria-label="Remove queued follow-up"
-                      className="grid h-6 w-6 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                      className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
                     </button>
@@ -9478,7 +9478,7 @@ export default function UnifiedChat({
               {attachments.map((f, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-1.5 rounded-full bg-white/8 border border-white/10 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]"
+                  className="flex items-center gap-1.5 rounded bg-white/8 border border-white/10 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]"
                 >
                   <span className="material-symbols-outlined text-[13px]">
                     {f.type.startsWith('image/') ? 'image' : f.type === 'application/pdf' ? 'picture_as_pdf' : 'attach_file'}
@@ -9502,9 +9502,9 @@ export default function UnifiedChat({
           <div
             data-testid="chat-input-pill"
             className={[
-              'flex min-w-0 items-end gap-2 rounded-3xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1.5',
+              'flex min-w-0 items-end gap-2 rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1.5',
               hermesLayout
-                ? 'lg:rounded-xl lg:bg-black/[0.08] lg:px-2 lg:py-1'
+                ? 'lg:rounded-[6px] lg:bg-black/[0.08] lg:px-2 lg:py-1'
                 : compact ? '' : 'lg:rounded-lg lg:border-0 lg:bg-transparent lg:px-0 lg:py-0',
             ].join(' ')}
           >
@@ -9534,7 +9534,7 @@ export default function UnifiedChat({
                 disabled={!canUseComposer || sending}
                 data-active={designMenuOpen || selectedSlashCommand?.executorKind === 'design_command' || undefined}
                 className={[
-                  'flex items-center justify-center w-9 h-9 rounded-full transition-colors shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40',
+                  'flex items-center justify-center w-9 h-9 rounded transition-colors shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40',
                   designMenuOpen || selectedSlashCommand?.executorKind === 'design_command'
                     ? 'bg-primary/15 text-primary ring-1 ring-primary/45'
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08]',
@@ -9546,7 +9546,7 @@ export default function UnifiedChat({
                 <div
                   role="menu"
                   aria-label="Design commands"
-                  className="absolute bottom-full right-0 z-30 mb-2 max-h-[min(60dvh,28rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl"
+                  className="absolute bottom-full right-0 z-30 mb-2 max-h-[min(60dvh,28rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 "
                 >
                   <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     Design commands
@@ -9586,7 +9586,7 @@ export default function UnifiedChat({
               title={activeConversation ? 'Attach file' : 'Attach file and start a new conversation'}
               aria-label="Attach file"
               aria-disabled={!canUseComposer || sending}
-              className="self-end flex items-center justify-center w-9 h-9 rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed"
+              className="self-end flex items-center justify-center w-9 h-9 rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
             </label>
@@ -9679,7 +9679,7 @@ export default function UnifiedChat({
               disabled={!canUseComposer || sending || (!input.trim() && attachments.length === 0)}
               aria-label="Send message"
               className={[
-                'self-end flex items-center justify-center w-9 h-9 rounded-full bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0',
+                'self-end flex items-center justify-center w-9 h-9 rounded bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0',
                 compact ? '' : 'lg:w-auto lg:h-auto lg:rounded-lg lg:px-4 lg:py-2 lg:text-sm lg:font-medium',
               ].join(' ')}
             >
@@ -9693,28 +9693,28 @@ export default function UnifiedChat({
           {hermesLayout && (
             <div
               data-testid="hermes-runtime-control-bar"
-              className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
+              className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-[6px] border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
             >
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
-                  <span className={`h-1.5 w-1.5 rounded-full ${hasInFlightAgentRun ? 'bg-amber-300' : 'bg-emerald-300'}`} />
+                <span className="inline-flex h-6 items-center gap-1 rounded border border-white/10 bg-white/[0.04] px-2">
+                  <span className={`h-1.5 w-1.5 rounded ${hasInFlightAgentRun ? 'bg-[var(--sc-surface)]' : 'bg-emerald-300'}`} />
                   {activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
                 </span>
                 {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
                   <button
                     type="button"
                     onClick={() => stopAgentRun(activeId, activeRuntimeMessage.id)}
-                    className="inline-flex h-6 items-center gap-1 rounded-full border border-red-400/25 bg-red-500/10 px-2 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                    className="inline-flex h-6 items-center gap-1 rounded border border-red-400/25 bg-red-500/10 px-2 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
                   >
                     <span className="material-symbols-outlined text-[13px]">stop_circle</span>
                     Stop
                   </button>
                 )}
-                <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
+                <span className="inline-flex h-6 items-center gap-1 rounded border border-white/10 bg-white/[0.04] px-2">
                   <span className="material-symbols-outlined text-[13px]">playlist_add</span>
                   {activeQueuedDrafts.length} queued
                 </span>
-                <label className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1.5 sm:px-2">
+                <label className="inline-flex h-6 items-center gap-1 rounded border border-white/10 bg-white/[0.04] px-1.5 sm:px-2">
                   <span className="material-symbols-outlined text-[13px]">shield_lock</span>
                   <span className="sr-only">Approval mode</span>
                   <select
@@ -9759,7 +9759,7 @@ export default function UnifiedChat({
                       disabled={!canUseComposer || sending}
                       title="Thinking effort"
                       aria-label="Runtime thinking effort"
-                      className="h-7 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus:border-primary disabled:opacity-40"
+                      className="h-7 rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus:border-primary disabled:opacity-40"
                     >
                       <option value="">Auto effort</option>
                       {AGENT_EFFORT_OPTIONS.map((option) => (
@@ -9778,7 +9778,7 @@ export default function UnifiedChat({
                       if (workbenchOpen) handleWorkbenchOpenChange(false)
                       else openWorkbenchTab(workbenchTab)
                     }}
-                    className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                    className="inline-flex h-7 items-center gap-1 rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                   >
                     <span className="material-symbols-outlined text-[13px]">dock_to_left</span>
                     Workbench
@@ -9789,7 +9789,7 @@ export default function UnifiedChat({
                   data-testid="hermes-runtime-inspector-toggle"
                   aria-label="Open runtime inspector"
                   onClick={() => setExecutionDockRequest((value) => value + 1)}
-                  className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                  className="inline-flex h-7 items-center gap-1 rounded border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[13px]">developer_board</span>
                   Inspector
@@ -10005,7 +10005,7 @@ export default function UnifiedChat({
         <AccessibleDialog
           label="New conversation"
           onClose={closeNewConversation}
-          className="flex h-[min(80dvh,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden overscroll-none rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl [overflow-anchor:none] sm:max-h-[calc(100dvh-2rem)]"
+          className="flex h-[min(80dvh,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden overscroll-none rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] [overflow-anchor:none] sm:max-h-[calc(100dvh-2rem)]"
         >
             {/* Modal header — always pinned; body scrolls underneath */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
@@ -10199,13 +10199,13 @@ export default function UnifiedChat({
                           : 'Pick a linked computer. The project folder is already chosen above.'}
                     </div>
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
-                      <p role="status" className="mt-2 text-xs text-amber-200">
+                      <p role="status" className="mt-2 text-xs text-[var(--sc-ink-soft)]">
                         Link a location to this project before starting a session.
                       </p>
                     )}
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length > 0
                       && !workspaceRuntimeTargets.some((runtime) => runtime.selectable) && (
-                      <p role="status" className="mt-2 text-xs text-amber-200">
+                      <p role="status" className="mt-2 text-xs text-[var(--sc-ink-soft)]">
                         No linked computer currently has a ready project folder. Wait for sync to finish or bring a linked computer online.
                       </p>
                     )}
@@ -10266,7 +10266,7 @@ export default function UnifiedChat({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">New project</h3>
+                          <h3 className="text-sm text-[var(--color-pib-text)]">New project</h3>
                           <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">Choose the project first, then link its approved locations.</p>
                         </div>
                         <button
@@ -10329,7 +10329,7 @@ export default function UnifiedChat({
                               ) : projectSetupExistingProjects.map((project) => (
                                 <div key={project.id} className="flex items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
                                   <div className="min-w-0">
-                                    <p className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{project.name}</p>
+                                    <p className="truncate text-xs text-[var(--color-pib-text)]">{project.name}</p>
                                     <p className="text-[11px] text-[var(--color-pib-text-muted)]">Existing Cowork project for {projectSetupCompanyName}</p>
                                   </div>
                                   <button
@@ -10401,14 +10401,14 @@ export default function UnifiedChat({
                                 </select>
                               </label>
                               {!registeredWorkspaceFoldersLoading && registeredWorkspaceFolders.length === 0 && (
-                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                <p className="rounded-md border border-amber-400/20 bg-[var(--sc-surface)]/10 px-2.5 py-2 text-xs text-[var(--sc-ink-soft)]">
                                   A folder must first be registered and mapped to this organisation Workspace.
                                 </p>
                               )}
                               <fieldset className="space-y-1.5">
                                 <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
                                 {projectSetupLocationOptions.length === 0 ? (
-                                  <p className="text-xs text-amber-100">No authorised computers are mapped to this Workspace.</p>
+                                  <p className="text-xs text-[var(--sc-ink-soft)]">No authorised computers are mapped to this Workspace.</p>
                                 ) : projectSetupLocationOptions.map((location) => (
                                   <label key={location.key} className={`flex items-center justify-between gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs text-[var(--color-pib-text)] ${location.selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
                                     <span className="flex items-center gap-2">
@@ -10434,12 +10434,12 @@ export default function UnifiedChat({
                             <fieldset className="space-y-1.5">
                               <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
                               {projectSetupDuplicateName && (
-                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                <p className="rounded-md border border-amber-400/20 bg-[var(--sc-surface)]/10 px-2.5 py-2 text-xs text-[var(--sc-ink-soft)]">
                                   A project with this name already exists for the company. Add that project instead or use a different name.
                                 </p>
                               )}
                               {projectSetupLocationOptions.length === 0 ? (
-                                <p className="text-xs text-amber-100">No authorised computers are mapped to this Workspace.</p>
+                                <p className="text-xs text-[var(--sc-ink-soft)]">No authorised computers are mapped to this Workspace.</p>
                               ) : projectSetupLocationOptions.map((location) => {
                                 const isCanonicalVps = location.locationId === projectSetupCanonicalVps?.locationId
                                 return (
@@ -10456,14 +10456,14 @@ export default function UnifiedChat({
                                       />
                                       {location.label}
                                     </span>
-                                    <span className={location.selectable ? 'text-emerald-300' : 'text-amber-200'}>
+                                    <span className={location.selectable ? 'text-emerald-300' : 'text-[var(--sc-ink-soft)]'}>
                                       {isCanonicalVps ? 'Canonical VPS · Online' : location.selectable ? 'Online' : 'Computer unavailable'}
                                     </span>
                                   </label>
                                 )
                               })}
                               {!projectSetupCanonicalVps && (
-                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                <p className="rounded-md border border-amber-400/20 bg-[var(--sc-surface)]/10 px-2.5 py-2 text-xs text-[var(--sc-ink-soft)]">
                                   A verified online organisation VPS is required before creating a standard project.
                                 </p>
                               )}
@@ -10509,7 +10509,7 @@ export default function UnifiedChat({
                         <div className="space-y-3">
                           <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-3">
                             <div className="text-sm font-medium text-[var(--color-pib-text)]">{projectSetupResult.projectName}</div>
-                            <div className="mt-1 text-xs font-semibold text-primary">{projectSetupStateLabel(projectSetupResult.plan.state)}</div>
+                            <div className="mt-1 text-xs text-primary">{projectSetupStateLabel(projectSetupResult.plan.state)}</div>
                           </div>
                           {(projectSetupResult.plan.actions?.length ?? 0) > 0 && (
                             <ul className="space-y-1.5" aria-label="Project setup actions">
@@ -10529,7 +10529,7 @@ export default function UnifiedChat({
                                 : 'Sync is not yet confirmed. The canonical online location can be used while secondary computers finish syncing.'}
                           </p>
                           {projectSetupResult.mode !== 'full_client' && !projectSetupHasAvailableLocation && (
-                            <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                            <p className="rounded-md border border-amber-400/20 bg-[var(--sc-surface)]/10 px-2.5 py-2 text-xs text-[var(--sc-ink-soft)]">
                               No linked location is currently available. A session can start after a linked computer comes online and the Workspace refreshes.
                             </p>
                           )}
@@ -10634,12 +10634,12 @@ export default function UnifiedChat({
         <AccessibleDialog
           label={`Project access for ${accessProject.name}`}
           onClose={() => setAccessProject(null)}
-          className="w-full max-w-6xl rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 shadow-2xl sm:p-6"
+          className="w-full max-w-6xl rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 sm:p-6"
         >
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="pib-label">Messages project</p>
-              <h2 className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Link client organisation to {accessProject.name}</h2>
+              <h2 className="mt-1 text-lg text-[var(--color-pib-text)]">Link client organisation to {accessProject.name}</h2>
             </div>
             <button type="button" autoFocus onClick={() => setAccessProject(null)} className="pib-btn-secondary text-xs">Close</button>
           </div>

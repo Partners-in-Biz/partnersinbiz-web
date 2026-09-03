@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
@@ -24,7 +26,7 @@ const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-start justify-start whitespace-normal rounded-lg px-3 py-2 text-left text-xs leading-4'
 const ACTION_CONTROL_LINK_CLASS = `${ACTION_CONTROL_CLASS} inline-flex`
-const ACTION_CONTROL_ICON_CLASS = 'material-symbols-outlined shrink-0 text-[15px]'
+const ACTION_CONTROL_ICON_CLASS = 'st-icon shrink-0 text-[15px]'
 const SOURCE_ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-center justify-center whitespace-normal rounded-lg px-3 py-2 text-center text-xs leading-4'
 
 export function briefingContextSeed(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope): ContextReferenceSeed {
@@ -129,7 +131,7 @@ function priorityClass(priority: BriefingCard['priority']) {
     case 'critical':
       return 'border-red-400/45 bg-red-500/15 text-red-100'
     case 'needs-peet':
-      return 'border-amber-300/45 bg-amber-400/15 text-amber-100'
+      return 'border-amber-300/45 bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]'
     case 'client-risk':
       return 'border-orange-300/45 bg-orange-400/15 text-orange-100'
     case 'review':
@@ -408,7 +410,7 @@ function statusToneClass(status: AgentOutputReviewStatus) {
     case 'pass':
       return 'border-emerald-300/35 bg-emerald-400/10 text-emerald-100'
     case 'blocked':
-      return 'border-amber-300/45 bg-amber-400/10 text-amber-100'
+      return 'border-amber-300/45 bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
     default:
       return 'border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]'
   }
@@ -2385,19 +2387,19 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   const workFeedContent = (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 text-[var(--color-pib-text)]">
         {/* Daily snapshot strip — desktop only; mobile uses lane filter tabs instead */}
-        <section className="hidden shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3 lg:block">
+        <section className="hidden shrink-0 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3 lg:block">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.call}</p>
+                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.call}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Call</p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.followUp}</p>
+                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.followUp}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Follow up</p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.blocked}</p>
+                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.blocked}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Blocked</p>
               </div>
             </div>
@@ -2407,9 +2409,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 onClick={() => setShowAgentOps(!showAgentOps)}
                 className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
-                <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                <Icon name="smart_toy" />
                 <span>Agents ({agentOpsItems.length})</span>
-                <span className="material-symbols-outlined text-[16px]">{showAgentOps ? 'expand_less' : 'expand_more'}</span>
+                <Icon name={showAgentOps ? 'expand_less' : 'expand_more'} />
               </button>
             ) : null}
           </div>
@@ -2419,8 +2421,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
             <div className="pl-2">
-              <p className="eyebrow !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Mission Control' : 'Workspace / Mission Control'}</p>
-              <h1 className="mt-1 max-w-4xl font-display text-3xl font-semibold text-[var(--color-pib-text)] sm:text-4xl">Briefings Mission Control</h1>
+              <p className="sc-tiny !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Mission Control' : 'Workspace / Mission Control'}</p>
+              <h1 className="mt-1 max-w-4xl text-3xl text-[var(--color-pib-text)] sm:text-4xl">Briefings Mission Control</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 One place to see what needs Peet, what is blocked, and what can safely move without opening every task.
               </p>
@@ -2429,10 +2431,10 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               {missionRoutes.map((route) => (
                 <div key={route.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-brand" aria-hidden="true">{route.icon}</span>
-                    <span className="text-2xl font-semibold text-[var(--color-pib-text)]">{route.count}</span>
+                    <Icon name={route.icon} className="text-[18px] text-brand" />
+                    <span className="text-2xl text-[var(--color-pib-text)]">{route.count}</span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{route.label}</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text)]">{route.label}</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{route.description}</p>
                 </div>
               ))}
@@ -2441,7 +2443,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Mission Control detail counters">
             {SUMMARY_COUNTER_DEFS.map((stat) => (
               <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-pib-line)] bg-black/10 px-2 py-2">
-                <p className="text-lg font-semibold text-[var(--color-pib-text)]">{topStats[stat.id]}</p>
+                <p className="text-lg text-[var(--color-pib-text)]">{topStats[stat.id]}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.label}</p>
               </div>
             ))}
@@ -2454,7 +2456,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         ) : null}
 
-        <section className={`shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5 ${mode === 'admin' ? '' : 'hidden lg:block'}`}>
+        <section className={`shrink-0 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5 ${mode === 'admin' ? '' : 'hidden lg:block'}`}>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mode === 'admin' ? (
               <>
@@ -2471,11 +2473,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             )}
             <div className="ml-auto hidden items-center gap-1 lg:flex">
               <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{autoRefresh ? 'sync' : 'sync_disabled'}</span>
+                <Icon name={autoRefresh ? 'sync' : 'sync_disabled'} />
                 {autoRefresh ? 'Live on' : 'Live off'}
               </button>
               <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]" type="button" onClick={createSnapshot} disabled={snapshotting}>
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_added</span>
+                <Icon name="bookmark_added" />
                 {snapshotting ? 'Saving' : 'Snapshot'}
               </button>
             </div>
@@ -2492,7 +2494,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               </p>
           </div>
             {pulseSelectionId ? (
-              <button type="button" className="h-7 shrink-0 rounded-full border border-[var(--color-pib-line)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={clearPulseSelection}>
+              <button type="button" className="h-7 shrink-0 rounded border border-[var(--color-pib-line)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={clearPulseSelection}>
                 {mode === 'portal' ? 'All accounts' : 'All workspaces'}
               </button>
             ) : null}
@@ -2509,10 +2511,10 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 type="button"
                 onClick={() => selectPulseRow(row)}
                 aria-label={`Filter to ${row.name} ${mode === 'portal' ? 'account' : 'workspace'}`}
-                className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
+                className={`flex h-7 shrink-0 items-center gap-1.5 rounded border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
               >
                 <span className="max-w-40 truncate">{row.name}</span>
-                <span className={row.action > 0 ? 'text-amber-300' : 'text-emerald-300'}>{row.action}</span>
+                <span className={row.action > 0 ? 'text-[var(--sc-ink-soft)]' : 'text-emerald-300'}>{row.action}</span>
               </button>
             ))}
           </div>
@@ -2521,7 +2523,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
         {/* Mobile: filter to one workflow column so cards stay visible */}
         <nav
           aria-label="Briefings workflow lanes"
-          className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 p-1 lg:hidden"
+          className="grid shrink-0 grid-cols-3 gap-1 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 p-1 lg:hidden"
         >
           {WORKFLOW_LANES.map((lane) => {
             const count = workflowLaneCount(mainLaneItems, lane.id)
@@ -2538,13 +2540,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
-                <span
-                  className="material-symbols-outlined shrink-0 text-[15px]"
-                  style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }}
-                  aria-hidden="true"
-                >
-                  {lane.icon}
-                </span>
+                <span className="shrink-0 text-[15px]" style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }} aria-hidden="true">{lane.icon}</span>
                 <span className="truncate">{lane.label}</span>
                 <span className="tabular-nums text-[var(--color-pib-text-muted)]">{count}</span>
               </button>
@@ -2560,20 +2556,20 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             return (
               <div
                 key={lane.id}
-                className={`min-h-0 flex-col rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 ${showOnMobile ? 'flex' : 'hidden'} lg:flex`}
+                className={`min-h-0 flex-col rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 ${showOnMobile ? 'flex' : 'hidden'} lg:flex`}
               >
                 {/* Column header */}
                 <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--color-pib-line)] px-3">
                   <div className="flex items-center gap-2">
                     <span 
-                      className="material-symbols-outlined text-[16px]" 
+                      className="st-icon text-[16px]" 
                       style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }}
                       aria-hidden="true"
                     >
                       {lane.icon}
                     </span>
                     <span className="text-sm font-medium text-[var(--color-pib-text)]">{lane.label}</span>
-                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{laneItems.length}</span>
+                    <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{laneItems.length}</span>
                   </div>
                 </div>
 
@@ -2618,7 +2614,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
-                                <p data-testid="briefing-card-title" className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">{item.title}</p>
+                                <p data-testid="briefing-card-title" className="break-words text-sm leading-5 text-[var(--color-pib-text)]">{item.title}</p>
                               </button>
                               {summary ? (
                                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -2628,14 +2624,14 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                               {listFacts.length ? (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                   {listFacts.map((fact) => (
-                                    <span key={fact.id} className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
+                                    <span key={fact.id} className="max-w-full truncate rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
                                       <span className="text-[var(--color-pib-text-muted)]">{fact.label}:</span> {fact.value}
                                     </span>
                                   ))}
                                 </div>
                               ) : null}
                               <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
-                                <span className={`rounded-full border px-2 py-0.5 font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
+                                <span className={`rounded border px-2 py-0.5  ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
                                 <span className="truncate">{item.timeAgo}</span>
                               </div>
                             </div>
@@ -2650,7 +2646,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                                   className="pib-btn-primary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <span className="material-symbols-outlined text-[15px]">{primaryAction.icon}</span>
+                                  <span className="st-icon text-[15px]">{primaryAction.icon}</span>
                                   {primaryAction.label}
                                 </a>
                               ) : (
@@ -2669,7 +2665,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                                   }}
                                   disabled={!!busyAction}
                                 >
-                                  <span className="material-symbols-outlined text-[15px]">{primaryAction.icon}</span>
+                                  <span className="st-icon text-[15px]">{primaryAction.icon}</span>
                                   {primaryAction.label}
                                 </button>
                               )
@@ -2682,7 +2678,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                                   setSelectedId(item.id)
                                 }}
                               >
-                                <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                                <Icon name="open_in_new" />
                                 Open
                               </button>
                             )}
@@ -2696,7 +2692,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                               disabled={!!busyAction}
                               title="Snooze 24h"
                             >
-                              <span className="material-symbols-outlined text-[15px]">snooze</span>
+                              <Icon name="snooze" />
                             </button>
                             <button
                               type="button"
@@ -2708,7 +2704,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                               }}
                               title="More actions"
                             >
-                              <span className="material-symbols-outlined text-[15px]">more_horiz</span>
+                              <Icon name="more_horiz" />
                             </button>
                           </div>
                         </div>
@@ -2723,12 +2719,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
         {/* Agent ops collapsed drawer */}
         {showAgentOps && agentOpsItems.length > 0 ? (
-          <section className="mt-2 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45">
+          <section className="mt-2 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/45">
             <div className="flex h-10 items-center justify-between border-b border-[var(--color-pib-line)] px-3">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-accent-v2)]" aria-hidden="true">smart_toy</span>
+                <Icon name="smart_toy" />
                 <span className="text-sm font-medium text-[var(--color-pib-text)]">Agent operations</span>
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{agentOpsItems.length}</span>
+                <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{agentOpsItems.length}</span>
               </div>
               <button
                 type="button"
@@ -2745,7 +2741,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3"
                   style={{ borderLeft: `3px solid ${priorityAccentColor('review')}` }}
                 >
-                  <p className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">
+                  <p className="break-words text-sm leading-5 text-[var(--color-pib-text)]">
                     <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
                       {item.title}
                     </button>
@@ -2759,7 +2755,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       className="pib-btn-secondary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
                       onClick={() => setSelectedId(item.id)}
                     >
-                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                      <Icon name="open_in_new" />
                       Open
                     </button>
                   </div>
@@ -2773,22 +2769,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
         {selected ? (
           <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 pt-16" onClick={() => setSelectedId(null)}>
             <aside 
-              className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-2xl" 
+              className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-card)]" 
               onClick={(e) => e.stopPropagation()}
               aria-label="Selected briefing detail panel"
             >
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3">
-                <p className="eyebrow !text-[10px] text-brand">Detail panel</p>
+                <p className="sc-tiny !text-[10px] text-brand">Detail panel</p>
                 <button
                   type="button"
                   onClick={() => setSelectedId(null)}
+                  aria-label="Close detail panel"
                   className="rounded-md p-1 text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  <Icon name="close" />
                 </button>
               </div>
               <div className="p-4 sm:p-5 space-y-5">
-                  <h2 data-testid="selected-briefing-title" className="break-words text-xl font-semibold text-[var(--color-pib-text)]">{selected.title}</h2>
+                  <h2 data-testid="selected-briefing-title" className="break-words text-xl text-[var(--color-pib-text)]">{selected.title}</h2>
                   {(() => {
                     const summary = briefingUsefulSummary(selected)
                     const fallback = humanReadableCopy(selected.excerpt || selected.summary)
@@ -2816,7 +2813,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {briefingDisplayFacts(selected).length ? (
                   <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3" aria-label="Card details">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">This card</p>
+                    <p className="text-xs uppercase tracking-[0.16em] text-brand">This card</p>
                     <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {briefingDisplayFacts(selected).map((fact) => (
                         <div key={fact.id} className="min-w-0">
@@ -2834,13 +2831,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {briefingContactChannels(selected).email ? (
                           <a href={`mailto:${briefingContactChannels(selected).email}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
-                            <span className="material-symbols-outlined text-[15px]">mail</span>
+                            <Icon name="mail" />
                             Email {briefingPersonName(selected) || 'contact'}
                           </a>
                         ) : null}
                         {briefingContactChannels(selected).phone ? (
                           <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
-                            <span className="material-symbols-outlined text-[15px]">call</span>
+                            <Icon name="call" />
                             Call {briefingPersonName(selected) || 'contact'}
                           </a>
                         ) : null}
@@ -2852,7 +2849,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                             : copyBriefingAction(selected, 'agent-handoff')}
                           disabled={!!busyAction}
                         >
-                          <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                          <Icon name="smart_toy" />
                           Hand off to {phase2AgentLabel(selected)}
                         </button>
                       </div>
@@ -2866,13 +2863,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     <div className="grid grid-cols-2 gap-2">
                       {briefingContactChannels(selected).phone ? (
                         <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
-                          <span className="material-symbols-outlined text-[15px]">call</span>
+                          <Icon name="call" />
                           Call
                         </a>
                       ) : null}
                       {briefingContactChannels(selected).email ? (
                         <a href={`mailto:${briefingContactChannels(selected).email}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
-                          <span className="material-symbols-outlined text-[15px]">mail</span>
+                          <Icon name="mail" />
                           Email
                         </a>
                       ) : null}
@@ -2887,12 +2884,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         onClick={() => (reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected)) ? approvePhase2Item(selected) : unblockTask(selected)}
                         disabled={!!busyAction}
                       >
-                        <span className="material-symbols-outlined text-[15px]">{reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? 'verified' : 'play_arrow'}</span>
+                        <Icon name={reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? 'verified' : 'play_arrow'} />
                         {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? 'Approve' : 'Unblock'}
                       </button>
                       {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
                         <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
-                          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                          <Icon name="open_in_new" />
                           Open
                         </a>
                       ) : null}
@@ -2907,12 +2904,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         onClick={() => setItemState(selected, 'handled')}
                         disabled={!!busyAction}
                       >
-                        <span className="material-symbols-outlined text-[15px]">done</span>
+                        <Icon name="done" />
                         Done
                       </button>
                       {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
                         <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
-                          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                          <Icon name="open_in_new" />
                           Open
                         </a>
                       ) : null}
@@ -2921,7 +2918,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   
                   {/* Universal secondary action */}
                   <button type="button" className="pib-btn-secondary w-full min-w-0 justify-center px-3 py-2 text-xs" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
-                    <span className="material-symbols-outlined text-[15px]">snooze</span>
+                    <Icon name="snooze" />
                     Later
                   </button>
                   
@@ -2932,7 +2929,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     className="flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span>{showMoreActions ? 'Less' : 'More'}</span>
-                    <span className="material-symbols-outlined text-[16px]">{showMoreActions ? 'expand_less' : 'expand_more'}</span>
+                    <Icon name={showMoreActions ? 'expand_less' : 'expand_more'} />
                   </button>
                 </div>
 
@@ -2947,22 +2944,22 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         disabled={!!busyAction}
                         title={`Send this briefing to ${phase2AgentLabel(selected)}`}
                       >
-                        <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                        <Icon name="smart_toy" />
                         Ask {phase2AgentLabel(selected)}
                       </button>
                     ) : null}
                     {selected.context.projectId ? (
                       <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => createPhase2Task(selected)} disabled={!!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]">add_task</span>
+                        <Icon name="add_task" />
                         Follow-up task
                       </button>
                     ) : null}
                     <button className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                      <Icon name="content_copy" />
                       Copy ask
                     </button>
                     <button className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" type="button" onClick={() => setItemState(selected, 'handled')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]">done_all</span>
+                      <Icon name="done_all" />
                       Mark reviewed
                     </button>
                   </div>
@@ -2971,7 +2968,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
                   <div className="flex flex-wrap gap-2">
                     {phase2StateChips(selected, mode).map((chip) => (
-                      <span key={chip} className="rounded-full border border-[var(--color-accent-v2)]/30 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-text)]">
+                      <span key={chip} className="rounded border border-[var(--color-accent-v2)]/30 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-text)]">
                         {chip}
                       </span>
                     ))}
@@ -2982,8 +2979,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 {selected.decisionRequest && selected.options?.length && selected.inputTarget && selected.afterSubmit && !isGenericBriefingDecision(selected) ? (
                   <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3" aria-label="Inline decision submission">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Decision required</p>
-                      <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Auditable internal write</span>
+                      <p className="text-xs uppercase tracking-[0.16em] text-brand">Decision required</p>
+                      <span className="rounded border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Auditable internal write</span>
                     </div>
                     <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">{selected.decisionRequest.prompt}</p>
                     {selected.decisionRequest.reason ? <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{selected.decisionRequest.reason}</p> : null}
@@ -3000,14 +2997,14 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                                 checked={checked}
                                 disabled={option.disabled || !!busyAction}
                                 onChange={() => setDecisionChoices((current) => ({ ...current, [selected.id]: option.id }))}
-                              />
+                               aria-label="Input"/>
                               <span className="min-w-0 flex-1">
                                 <span className="flex flex-wrap items-center gap-2 font-medium text-[var(--color-pib-text)]">
                                   {option.label}
-                                  {recommended ? <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-100">Recommended</span> : null}
+                                  {recommended ? <span className="rounded border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-100">Recommended</span> : null}
                                 </span>
                                 {option.description ? <span className="mt-1 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{option.description}</span> : null}
-                                {option.disabledReason ? <span className="mt-1 block text-xs leading-5 text-amber-100">{option.disabledReason}</span> : null}
+                                {option.disabledReason ? <span className="mt-1 block text-xs leading-5 text-[var(--sc-ink-soft)]">{option.disabledReason}</span> : null}
                               </span>
                             </span>
                           </label>
@@ -3023,16 +3020,16 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           value={decisionOtherText[selected.id] ?? ''}
                           onChange={(event) => setDecisionOtherText((current) => ({ ...current, [selected.id]: event.target.value }))}
                           placeholder="Describe the custom keyword/theme direction..."
-                        />
+                         aria-label="Describe the custom keyword/theme direction..."/>
                       </label>
                     ) : null}
                     <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                      <p><span className="font-semibold text-[var(--color-pib-text)]">After submit:</span> {selected.afterSubmit.consequence}</p>
+                      <p><span className="text-[var(--color-pib-text)]">After submit:</span> {selected.afterSubmit.consequence}</p>
                       {selected.afterSubmit.releasesAgentId ? <p className="mt-1">Handoff: unblocks/continues {selected.afterSubmit.releasesAgentId} with source {selected.agentHandoff?.sourceTaskId ?? selected.inputTarget.resourceId}.</p> : null}
                       <p className="mt-1">No publish, send, spend, deploy, finance, secret/config, or destructive action is performed.</p>
                     </div>
                     <button className="pib-btn-primary mt-3 w-full justify-center text-xs" type="button" onClick={() => submitInlineDecision(selected)} disabled={!!busyAction || !selectedDecisionOption(selected) || (selectedDecisionOptionId(selected) === 'other' && !decisionOtherText[selected.id]?.trim())}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">rule_settings</span>
+                      <Icon name="rule_settings" />
                       Submit choice
                     </button>
                   </div>
@@ -3040,17 +3037,17 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Safe moves</p>
-                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">No external side effects</span>
+                    <p className="text-xs uppercase tracking-[0.16em] text-brand">Safe moves</p>
+                    <span className="rounded border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">No external side effects</span>
                   </div>
                   {selected.disabledReason && !isBoilerplateDisabledReason(selected.disabledReason) ? (
-                    <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
-                      <p><span className="font-semibold">Disabled action reason:</span> {selected.disabledReason}</p>
+                    <div className="mt-3 rounded-lg border border-amber-300/25 bg-[var(--sc-surface)]/10 p-3 text-xs leading-5 text-[var(--sc-ink-soft)]">
+                      <p><span>Disabled action reason:</span> {selected.disabledReason}</p>
                     </div>
                   ) : null}
                   {contractNearestValidActions(selected).length ? (
                     <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                      <p className="font-semibold text-[var(--color-pib-text)]">Useful next steps</p>
+                      <p className="text-[var(--color-pib-text)]">Useful next steps</p>
                       <ul className="mt-1 space-y-1">
                         {contractNearestValidActions(selected).map((action) => (
                           <li key={`${action.action}-${action.label}`}>
@@ -3068,59 +3065,59 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Internal review action controls">
                     {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">verified</span>
+                        <Icon name="verified" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Approve</ActionControlLabel>
                       </button>
                     ) : null}
                     {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) || (canSocialPostAct(selected) && !!socialActionStage(selected)) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Send back">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">assignment_return</span>
+                        <Icon name="assignment_return" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Send back</ActionControlLabel>
                       </button>
                     ) : null}
                     <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">snooze</span>
+                      <Icon name="snooze" className={ACTION_CONTROL_ICON_CLASS} />
                       <ActionControlLabel>Snooze 24h</ActionControlLabel>
                     </button>
                     {selected.context.projectId ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_task</span>
+                        <Icon name="add_task" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Create follow-up</ActionControlLabel>
                       </button>
                     ) : null}
                     {selected.context.projectId ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} aria-label={`Ask ${phase2AgentLabel(selected)} to triage`}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">support_agent</span>
+                        <Icon name="support_agent" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Ask {phase2AgentLabel(selected)} to triage</ActionControlLabel>
                       </button>
                     ) : null}
                     {selected.context.projectId ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} aria-label={`Create routed ${phase2AgentLabel(selected)} task`}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">route</span>
+                        <Icon name="route" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Create routed {phase2AgentLabel(selected)} task</ActionControlLabel>
                       </button>
                     ) : null}
                     {selected.context.projectId ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} aria-label="Link existing task">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_link</span>
+                        <Icon name="add_link" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Link existing task</ActionControlLabel>
                       </button>
                     ) : null}
                     {canTaskAct(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">smart_toy</span>
+                        <Icon name="smart_toy" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Assign {phase2AgentId(selected)}</ActionControlLabel>
                       </button>
                     ) : null}
                     {evidenceHref(selected, mode, portalScope) ? (
                       <a className={ACTION_CONTROL_LINK_CLASS} href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
+                        <Icon name="fact_check" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>View evidence</ActionControlLabel>
                       </a>
                     ) : null}
                     {canConvertToCrmActivity(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
+                        <Icon name="add_notes" className={ACTION_CONTROL_ICON_CLASS} />
                         <ActionControlLabel>Log to CRM</ActionControlLabel>
                       </button>
                     ) : null}
@@ -3132,23 +3129,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Copy or ask an agent</p>
                         <div className={ACTION_CONTEXT_GRID_CLASS} aria-label="Copy or ask an agent controls">
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">content_copy</span>
+                            <Icon name="content_copy" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy ask</ActionControlLabel>
                           </button>
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'full-briefing')} disabled={!!busyAction}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">description</span>
+                            <Icon name="description" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy brief</ActionControlLabel>
                           </button>
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'agent-handoff')} disabled={!!busyAction}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">quick_reference</span>
+                            <Icon name="quick_reference" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy handoff</ActionControlLabel>
                           </button>
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'blocker-summary')} disabled={!!busyAction}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">front_hand</span>
+                            <Icon name="front_hand" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy blocker</ActionControlLabel>
                           </button>
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'evidence-links')} disabled={!!busyAction}>
-                            <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">link</span>
+                            <Icon name="link" className={ACTION_CONTROL_ICON_CLASS} />
                             <ActionControlLabel>Copy evidence</ActionControlLabel>
                           </button>
                           {/* Chat link removed — docked chat in CockpitShell replaces this */}
@@ -3160,361 +3157,361 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Source action controls">
                   <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'handled')} disabled={!!busyAction}>
-                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
+                    <Icon name="done_all" />
                     Mark reviewed
                   </button>
                   <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
-                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
+                    <Icon name="snooze" />
                     Snooze 24h
                   </button>
                   {canTaskUnblock(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => unblockTask(selected)} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_arrow</span>
+                      <Icon name="play_arrow" />
                       Unblock
                     </button>
                   ) : null}
                   {reviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => taskPatch(selected, { reviewStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approved and moved to done.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Approve
                     </button>
                   ) : null}
                   {reviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      <Icon name="assignment_return" />
                       Send back to agent
                     </button>
                   ) : null}
                   {approvalGateReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => taskPatch(selected, { reviewStatus: 'approved', approvalStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approval gate approved.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Approve approval
                     </button>
                   ) : null}
                   {approvalGateReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', approvalStatus: 'rejected', agentStatus: 'pending', columnId: 'todo' }, 'Approval gate rejected and sent back.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      <Icon name="assignment_return" />
                       Reject approval
                     </button>
                   ) : null}
                   {documentReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => approveDocument(selected)} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">approval</span>
+                      <Icon name="approval" />
                       Approve document
                     </button>
                   ) : null}
                   {documentReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => requestDocumentChanges(selected)} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_note</span>
+                      <Icon name="edit_note" />
                       Request changes
                     </button>
                   ) : null}
                   {canDocumentCommentResolveAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => resolveDocumentComment(selected)} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">task_alt</span>
+                      <Icon name="task_alt" />
                       Resolve document comment
                     </button>
                   ) : null}
                   {canSocialPostAct(selected) && socialActionStage(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => socialPostAction(selected, 'approve')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">thumb_up</span>
+                      <Icon name="thumb_up" />
                       Approve social post
                     </button>
                   ) : null}
                   {canSocialPostAct(selected) && socialActionStage(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => socialPostAction(selected, 'reject')} disabled={!socialChangeText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">thumb_down</span>
+                      <Icon name="thumb_down" />
                       Request social changes
                     </button>
                   ) : null}
                   {canSocialInboxAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => socialInboxAction(selected, 'read')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_chat_read</span>
+                      <Icon name="mark_chat_read" />
                       Mark engagement read
                     </button>
                   ) : null}
                   {canSocialInboxAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => socialInboxAction(selected, 'replied')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">forum</span>
+                      <Icon name="forum" />
                       Mark engagement replied
                     </button>
                   ) : null}
                   {canSocialInboxAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => socialInboxAction(selected, 'archived')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive engagement
                     </button>
                   ) : null}
                   {canMailboxAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => mailboxPatch(selected, { read: true }, 'Email marked read.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      <Icon name="mark_email_read" />
                       Mark email read
                     </button>
                   ) : null}
                   {canMailboxAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => mailboxPatch(selected, { folder: 'archive' }, 'Email archived.')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive email
                     </button>
                   ) : null}
                   {canAgentRunApprove(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => agentRunApprovalAction(selected, 'once')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_circle</span>
+                      <Icon name="play_circle" />
                       Approve run once
                     </button>
                   ) : null}
                   {canAgentRunApprove(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => agentRunApprovalAction(selected, 'deny')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Deny run
                     </button>
                   ) : null}
                   {canWorkspaceBrokerAct(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => workspaceBrokerAction(selected, 'approve')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Approve workspace job
                     </button>
                   ) : null}
                   {canWorkspaceBrokerAct(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => workspaceBrokerAction(selected, 'reject')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Reject workspace job
                     </button>
                   ) : null}
                   {canCalendarRsvpAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => calendarRsvpAction(selected, 'accepted')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_available</span>
+                      <Icon name="event_available" />
                       Accept meeting
                     </button>
                   ) : null}
                   {canCalendarRsvpAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => calendarRsvpAction(selected, 'declined')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_busy</span>
+                      <Icon name="event_busy" />
                       Decline meeting
                     </button>
                   ) : null}
                   {canNotificationAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      <Icon name="mark_email_read" />
                       Mark notification read
                     </button>
                   ) : null}
                   {canNotificationAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => notificationAction(selected, 'archived')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive notification
                     </button>
                   ) : null}
                   {invoiceSendable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => sendInvoice(selected)} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">send</span>
+                      <Icon name="send" />
                       Send invoice
                     </button>
                   ) : null}
                   {invoicePaymentProofReviewable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => paymentProofAction(selected, 'confirm')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">price_check</span>
+                      <Icon name="price_check" />
                       Confirm payment proof
                     </button>
                   ) : null}
                   {invoicePaymentProofReviewable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => paymentProofAction(selected, 'reject')} disabled={!paymentProofRejectReason.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Reject payment proof
                     </button>
                   ) : null}
                   {quoteDecisionable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => quoteAction(selected, 'accept')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Accept quote
                     </button>
                   ) : null}
                   {quoteDecisionable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => quoteAction(selected, 'decline')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Decline quote
                     </button>
                   ) : null}
                   {quoteConvertible(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => quoteAction(selected, 'convert')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">receipt_long</span>
+                      <Icon name="receipt_long" />
                       Convert to invoice
                     </button>
                   ) : null}
                   {orderActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => orderAction(selected, 'in_progress')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_arrow</span>
+                      <Icon name="play_arrow" />
                       Mark order in progress
                     </button>
                   ) : null}
                   {orderActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => orderAction(selected, 'fulfilled')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">task_alt</span>
+                      <Icon name="task_alt" />
                       Mark order fulfilled
                     </button>
                   ) : null}
                   {orderActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => orderAction(selected, 'cancelled')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Cancel order
                     </button>
                   ) : null}
                   {inventoryActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => inventoryAction(selected, 'active')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">inventory_2</span>
+                      <Icon name="inventory_2" />
                       Mark inventory restocked
                     </button>
                   ) : null}
                   {inventoryActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => inventoryAction(selected, 'archived')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive inventory item
                     </button>
                   ) : null}
                   {shipmentActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => shipmentAction(selected, 'delivered')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">inventory_2</span>
+                      <Icon name="inventory_2" />
                       Mark delivered
                     </button>
                   ) : null}
                   {shipmentActive(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => shipmentAction(selected, 'failed')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">report</span>
+                      <Icon name="report" />
                       Mark shipment failed
                     </button>
                   ) : null}
                   {expenseReviewable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => expenseAction(selected, 'approve')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Approve expense
                     </button>
                   ) : null}
                   {expenseReviewable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => expenseAction(selected, 'reject')} disabled={!expenseReviewText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      <Icon name="block" />
                       Reject expense
                     </button>
                   ) : null}
                   {seoContentReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => seoContentAction(selected, 'approve')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">published_with_changes</span>
+                      <Icon name="published_with_changes" />
                       Approve SEO content
                     </button>
                   ) : null}
                   {seoContentReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => seoContentAction(selected, 'changes')} disabled={!seoChangeText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_note</span>
+                      <Icon name="edit_note" />
                       Request SEO changes
                     </button>
                   ) : null}
                   {seoTaskSkippable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => seoTaskAction(selected, 'execute')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_arrow</span>
+                      <Icon name="play_arrow" />
                       Execute SEO task
                     </button>
                   ) : null}
                   {seoTaskSkippable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => seoTaskAction(selected, 'complete')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">task_alt</span>
+                      <Icon name="task_alt" />
                       Complete SEO task
                     </button>
                   ) : null}
                   {seoTaskSkippable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => seoTaskAction(selected, 'skip')} disabled={!seoTaskSkipReason.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">skip_next</span>
+                      <Icon name="skip_next" />
                       Skip SEO task
                     </button>
                   ) : null}
                   {adCampaignReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => adCampaignAction(selected, 'approve')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      <Icon name="verified" />
                       Approve ad campaign
                     </button>
                   ) : null}
                   {adCampaignReviewable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => adCampaignAction(selected, 'reject')} disabled={!adCampaignChangeText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      <Icon name="assignment_return" />
                       Request ad campaign changes
                     </button>
                   ) : null}
                   {broadcastSendable(selected) ? (
-                    <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                    <div className="rounded-lg border border-amber-300/25 bg-[var(--sc-surface)]/10 p-3">
                       <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Send broadcast requires approval">
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
+                        <Icon name="lock" />
                         Send broadcast requires approval
                       </button>
-                      <p className="mt-2 text-xs leading-5 text-amber-100">External broadcast sending requires a separate explicit approval gate before any recipient-visible email is queued.</p>
+                      <p className="mt-2 text-xs leading-5 text-[var(--sc-ink-soft)]">External broadcast sending requires a separate explicit approval gate before any recipient-visible email is queued.</p>
                     </div>
                   ) : null}
                   {broadcastPausable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => broadcastAction(selected, 'pause')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">pause_circle</span>
+                      <Icon name="pause_circle" />
                       Pause broadcast
                     </button>
                   ) : null}
                   {broadcastResumable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => broadcastAction(selected, 'resume')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_circle</span>
+                      <Icon name="play_circle" />
                       Resume broadcast
                     </button>
                   ) : null}
                   {canCampaignAct(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => campaignAction(selected, 'approve-all')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
+                      <Icon name="done_all" />
                       Approve campaign assets
                     </button>
                   ) : null}
                   {campaignLaunchable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => campaignAction(selected, 'launch')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">rocket_launch</span>
+                      <Icon name="rocket_launch" />
                       Launch campaign
                     </button>
                   ) : null}
                   {campaignArchivable(selected) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => campaignAction(selected, 'archive')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive campaign
                     </button>
                   ) : null}
                   {enquiryActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => enquiryAction(selected, 'reviewing')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">pageview</span>
+                      <Icon name="pageview" />
                       Mark enquiry reviewing
                     </button>
                   ) : null}
                   {enquiryActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => enquiryAction(selected, 'active')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">person_check</span>
+                      <Icon name="person_check" />
                       Mark enquiry active
                     </button>
                   ) : null}
                   {enquiryActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => enquiryAction(selected, 'closed')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">check_circle</span>
+                      <Icon name="check_circle" />
                       Close enquiry
                     </button>
                   ) : null}
                   {bookingActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => bookingAction(selected, 'completed')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_available</span>
+                      <Icon name="event_available" />
                       Mark booking completed
                     </button>
                   ) : null}
                   {bookingActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => bookingAction(selected, 'cancelled')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_busy</span>
+                      <Icon name="event_busy" />
                       Cancel booking
                     </button>
                   ) : null}
                   {formSubmissionActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => formSubmissionAction(selected, 'read')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      <Icon name="mark_email_read" />
                       Mark submission read
                     </button>
                   ) : null}
                   {formSubmissionActionable(selected, mode) ? (
                     <button className={SOURCE_ACTION_CONTROL_CLASS} type="button" onClick={() => formSubmissionAction(selected, 'archived')} disabled={!!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      <Icon name="archive" />
                       Archive submission
                     </button>
                   ) : null}
@@ -3531,7 +3528,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={socialChangeText}
                       onChange={(event) => setSocialChangeText(event.target.value)}
                       placeholder="Describe what the agent should change before approval..."
-                    />
+                     aria-label="Describe what the agent should change before approval..."/>
                   </div>
                 ) : null}
 
@@ -3546,9 +3543,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={mailboxReplyText}
                       onChange={(event) => setMailboxReplyText(event.target.value)}
                       placeholder="Draft a reply without sending it yet..."
-                    />
+                     aria-label="Draft a reply without sending it yet..."/>
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => draftMailboxReply(selected)} disabled={!mailboxReplyText.trim() || mailboxReplyTo(selected).length === 0 || !selected.metadata?.accountId || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">draft</span>
+                      <Icon name="draft" />
                       Draft email reply
                     </button>
                   </div>
@@ -3565,9 +3562,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={replyText}
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply with a decision, note, or instruction..."
-                    />
+                     aria-label="Reply with a decision, note, or instruction..."/>
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">reply</span>
+                      <Icon name="reply" />
                       {canDocumentCommentReplyAct(selected) ? 'Reply to document comment' : canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
                     </button>
                   </div>
@@ -3588,7 +3585,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           ? `Log the call, decision, or next step for ${[selected.context.contactName, selected.context.dealTitle].filter(Boolean).join(' · ')}...`
                           : 'Log the call, decision, blocker, or next step against this CRM contact...'
                       }
-                    />
+                     aria-label="Input"/>
                     <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
                       <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task">
                         Next follow-up task
@@ -3598,7 +3595,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           value={nextFollowUpTaskTitle}
                           onChange={(event) => setNextFollowUpTaskTitle(event.target.value)}
                           placeholder={selected.context.dealTitle ? `Follow up on ${selected.context.dealTitle}` : 'Optional next step'}
-                        />
+                         aria-label="Input"/>
                       </label>
                       <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task-due">
                         Next task due date
@@ -3608,16 +3605,16 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           type="date"
                           value={nextFollowUpTaskDueDate}
                           onChange={(event) => setNextFollowUpTaskDueDate(event.target.value)}
-                        />
+                         aria-label="Input"/>
                       </label>
                     </div>
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => canContactFollowUpComplete(selected) ? completeContactFollowUp(selected) : logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                      <Icon name="add_notes" />
                       {nextFollowUpTaskTitle.trim() ? 'Log note and schedule task' : 'Log follow-up note'}
                     </button>
                     {canContactFollowUpComplete(selected) ? (
                       <button className="pib-btn-secondary mt-2 w-full justify-center text-xs" type="button" onClick={() => completeContactFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
-                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
+                        <Icon name="done_all" />
                         {nextFollowUpTaskTitle.trim() ? 'Mark followed up and schedule task' : 'Mark contact followed up'}
                       </button>
                     ) : null}
@@ -3635,9 +3632,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={reportRecipients}
                       onChange={(event) => setReportRecipients(event.target.value)}
                       placeholder="client@example.com, team@example.com"
-                    />
+                     aria-label="client@example.com, team@example.com"/>
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => sendReport(selected)} disabled={!reportRecipients.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">send</span>
+                      <Icon name="send" />
                       Send report
                     </button>
                   </div>
@@ -3654,9 +3651,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={replyText}
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply to the client and keep the support thread moving..."
-                    />
+                     aria-label="Reply to the client and keep the support thread moving..."/>
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSupportTicket(selected, replyText)} disabled={!replyText.trim() || !!busyAction}>
-                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
+                      <Icon name="support_agent" />
                       Reply to support ticket
                     </button>
                   </div>
@@ -3672,7 +3669,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       className="pib-input mt-2 w-full"
                       value={paymentMethod}
                       onChange={(event) => setPaymentMethod(event.target.value)}
-                    >
+                     aria-label="Input">
                       <option value="eft">EFT</option>
                       <option value="paypal">PayPal</option>
                       <option value="cash">Cash</option>
@@ -3688,7 +3685,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={paymentReference}
                       onChange={(event) => setPaymentReference(event.target.value)}
                       placeholder="Bank reference or transaction id..."
-                    />
+                     aria-label="Bank reference or transaction id..."/>
                     <label className="mt-3 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-payment-proof-rejection">
                       Payment proof rejection reason
                     </label>
@@ -3698,7 +3695,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={paymentProofRejectReason}
                       onChange={(event) => setPaymentProofRejectReason(event.target.value)}
                       placeholder="Required only when rejecting this proof..."
-                    />
+                     aria-label="Required only when rejecting this proof..."/>
                   </div>
                 ) : null}
 
@@ -3713,7 +3710,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={expenseReviewText}
                       onChange={(event) => setExpenseReviewText(event.target.value)}
                       placeholder="Required only when rejecting this expense..."
-                    />
+                     aria-label="Required only when rejecting this expense..."/>
                   </div>
                 ) : null}
 
@@ -3728,7 +3725,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={seoChangeText}
                       onChange={(event) => setSeoChangeText(event.target.value)}
                       placeholder="Tell the writer what must change before this goes live..."
-                    />
+                     aria-label="Tell the writer what must change before this goes live..."/>
                   </div>
                 ) : null}
 
@@ -3743,7 +3740,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={seoTaskSkipReason}
                       onChange={(event) => setSeoTaskSkipReason(event.target.value)}
                       placeholder="Explain why this sprint task should be skipped..."
-                    />
+                     aria-label="Explain why this sprint task should be skipped..."/>
                   </div>
                 ) : null}
 
@@ -3758,18 +3755,18 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       value={adCampaignChangeText}
                       onChange={(event) => setAdCampaignChangeText(event.target.value)}
                       placeholder="Tell the ads team what must change before launch..."
-                    />
+                     aria-label="Tell the ads team what must change before launch..."/>
                   </div>
                 ) : null}
 
                 {selectedLearningReview ? (
-                  <div className="rounded-lg border border-violet-300/25 bg-violet-400/10 p-3" aria-label="Agent Learning Review">
+                  <div className="rounded-lg border border-violet-300/25 bg-[var(--sc-surface)]/10 p-3" aria-label="Agent Learning Review">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-medium text-violet-100">Weekly Agent Learning Review</p>
+                        <p className="text-xs font-medium text-[var(--sc-ink-soft)]">Weekly Agent Learning Review</p>
                         <p className="mt-2 text-sm text-[var(--color-pib-text)]">{selectedLearningReview.automationGuard}</p>
                       </div>
-                      <span className="rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
+                      <span className="rounded border border-amber-300/35 bg-[var(--sc-surface)]/10 px-2 py-1 text-[11px] text-[var(--sc-ink-soft)]">
                         Review before rewrite
                       </span>
                     </div>
@@ -3816,7 +3813,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         <p className="text-xs font-medium text-sky-100">Structured review card</p>
                         <p className="mt-2 text-sm text-[var(--color-pib-text)]">{selectedReviewCard.summary}</p>
                       </div>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                      <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Internal review
                       </span>
                     </div>
@@ -3893,7 +3890,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       {softwareBuildEvidenceRows(selected).map((row) => (
                         <div key={`${row.kind}:${row.label}:${row.value}`}>
                           <dt className="text-[var(--color-pib-text-muted)]">{row.label}</dt>
-                          <dd className={row.kind === 'blocker' ? 'text-amber-100' : 'text-[var(--color-pib-text)]'}>
+                          <dd className={row.kind === 'blocker' ? 'text-[var(--sc-ink-soft)]' : 'text-[var(--color-pib-text)]'}>
                             {row.href ? (
                               <a className="break-all underline-offset-2 hover:underline" href={row.href} target="_blank" rel="noopener noreferrer">{row.value}</a>
                             ) : (
@@ -3950,7 +3947,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
                   <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
+                    <Icon name="open_in_new" />
                     Open source
                   </a>
                 ) : null}

@@ -6,6 +6,7 @@ import { TrendChart } from '@/components/seo/TrendChart'
 import { fetchSeo, downloadText } from '@/components/seo/seoToolClient'
 import { toCsv } from '@/lib/seo/csv'
 import type { SeoKeyword, KeywordPosition } from '@/lib/seo/types'
+import { Icon } from '@/components/studio'
 
 type SerializableKeyword = Omit<SeoKeyword, 'createdAt'> & { createdAt: string }
 type AuditAnnotation = { id: string; snapshotDay: number; capturedAt: string }
@@ -132,11 +133,11 @@ export function KeywordHistoryClient({
       <header className="flex flex-col gap-4 border-b border-[var(--color-pib-line)] pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <a href={buildBackHref()} className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] mb-2">
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            <Icon name="arrow_back" />
             Back to keywords
           </a>
-          <p className="eyebrow">Keyword history</p>
-          <h1 className="mt-2 text-lg font-semibold">{keyword.keyword}</h1>
+          <p className="sc-tiny">Keyword history</p>
+          <h1 className="mt-2 text-lg">{keyword.keyword}</h1>
           {keyword.targetPageUrl && (
             <a
               href={keyword.targetPageUrl}
@@ -144,24 +145,24 @@ export function KeywordHistoryClient({
               rel="noreferrer"
               className="mt-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] flex items-center gap-1"
             >
-              <span className="material-symbols-outlined text-[12px]">link</span>
+              <Icon name="link" />
               {keyword.targetPageUrl.replace(/^https?:\/\//, '')}
             </a>
           )}
         </div>
-        <button onClick={handleExportCsv} disabled={(keyword.positions ?? []).length === 0} className="pib-btn-secondary text-sm self-start sm:self-auto disabled:opacity-40">
-          <span className="material-symbols-outlined text-[18px]">download</span>
+        <button name="keywordhistoryclient-action-66" onClick={handleExportCsv} disabled={(keyword.positions ?? []).length === 0} className="pib-btn-secondary text-sm self-start sm:self-auto disabled:opacity-40">
+          <Icon name="download" />
           Export CSV
         </button>
       </header>
 
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Current position" value={currentPos != null ? `#${currentPos.toFixed(1)}` : '—'} icon="format_list_numbered" />
-        <StatCard label="Best position" value={bestPos != null ? `#${bestPos.toFixed(1)}` : '—'} icon="emoji_events" />
+        <StatCard label="Current position" value={currentPos != null ? `#${currentPos.toFixed(1)}` : ' - '} icon="format_list_numbered" />
+        <StatCard label="Best position" value={bestPos != null ? `#${bestPos.toFixed(1)}` : ' - '} icon="emoji_events" />
         <StatCard
           label="6-month change"
-          value={periodChangePct != null ? `${periodChangePct > 0 ? '+' : ''}${periodChangePct.toFixed(1)}%` : '—'}
+          value={periodChangePct != null ? `${periodChangePct > 0 ? '+' : ''}${periodChangePct.toFixed(1)}%` : ' - '}
           icon="trending_up"
           highlight={periodChangePct != null ? (periodChangePct > 0 ? 'good' : 'bad') : undefined}
         />
@@ -172,32 +173,32 @@ export function KeywordHistoryClient({
       <section className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h3 className="text-sm font-semibold">Position history — last 6 months</h3>
+            <h2 className="st-title text-sm">Position history, last 6 months</h2>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Lower position = higher on Google. Chart is flipped so improvements go up.</p>
           </div>
           <div className="flex items-center gap-2">
             {siblings.length > 0 && (
               <div className="flex items-center gap-2">
                 <label className="pib-label !mb-0 text-xs">Compare to</label>
-                <select
+                <select name="keywordhistoryclient-select-67"
                   value={compareId}
                   onChange={(e) => setCompareId(e.target.value)}
                   className="pib-select !w-auto text-xs"
                   disabled={loadingCompare}
                 >
-                  <option value="">— none —</option>
+                  <option value=""> -  none  - </option>
                   {siblings.map((s) => (
                     <option key={s.id} value={s.id}>{s.keyword}</option>
                   ))}
                 </select>
-                {loadingCompare && <span className="material-symbols-outlined animate-spin text-[16px] text-[var(--color-pib-text-muted)]">autorenew</span>}
+                {loadingCompare && <Icon name="autorenew" className="animate-spin" />}
               </div>
             )}
           </div>
         </div>
         <div className="p-4">
           {chartLabels.length < 2 ? (
-            <div className="flex items-center justify-center rounded-xl border border-[var(--color-pib-line)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]" style={{ height: 240 }}>
+            <div className="flex items-center justify-center border border-[var(--color-pib-line)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]" style={{ height: 240 }}>
               Not enough position data yet. Data appears after Search Console pulls.
             </div>
           ) : (
@@ -217,7 +218,7 @@ export function KeywordHistoryClient({
       {audits.length > 0 && (
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">Sprint audit snapshots</h3>
+            <h3 className="text-sm">Sprint audit snapshots</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Dates when audit snapshots were captured for this sprint.</p>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
@@ -236,7 +237,7 @@ export function KeywordHistoryClient({
       {/* Position history table */}
       <section className="pib-card-section overflow-hidden">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold">Full position history</h3>
+          <h3 className="text-sm">Full position history</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">All recorded position data points from Search Console pulls.</p>
         </div>
         {(keyword.positions ?? []).length === 0 ? (
@@ -246,12 +247,12 @@ export function KeywordHistoryClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Date</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Position</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Impressions</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Clicks</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">CTR</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Source</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Date</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Position</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Impressions</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Clicks</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">CTR</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Source</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-pib-line)]">
@@ -261,9 +262,9 @@ export function KeywordHistoryClient({
                     <tr key={i} className="hover:bg-[var(--color-pib-surface-2)]">
                       <td className="px-5 py-3 tabular-nums">{p.pulledAt.slice(0, 10)}</td>
                       <td className="px-5 py-3 text-right tabular-nums">#{p.position.toFixed(1)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{p.impressions?.toLocaleString('en-ZA') ?? '—'}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{p.clicks?.toLocaleString('en-ZA') ?? '—'}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">{p.ctr != null ? `${(p.ctr * 100).toFixed(2)}%` : '—'}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{p.impressions?.toLocaleString('en-ZA') ?? ' - '}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{p.clicks?.toLocaleString('en-ZA') ?? ' - '}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{p.ctr != null ? `${(p.ctr * 100).toFixed(2)}%` : ' - '}</td>
                       <td className="px-5 py-3">
                         <span className="pib-pill pib-pill-success text-[10px]">{p.source}</span>
                       </td>
@@ -276,7 +277,7 @@ export function KeywordHistoryClient({
       </section>
 
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm">
           {toast}
         </div>
       )}
@@ -298,13 +299,13 @@ function StatCard({
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
       <p
-        className={`mt-3 text-xl font-semibold tabular-nums tracking-tight ${
-          highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''
-        }`}
+        className={`mt-3 text-xl tabular-nums tracking-tight ${
+ highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''
+ }`}
       >
         {value}
       </p>

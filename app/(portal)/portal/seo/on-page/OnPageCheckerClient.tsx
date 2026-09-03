@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
 import { fetchSeo } from '@/components/seo/seoToolClient'
 import type { OnPageCheckResult, OnPageCheckItem } from '@/lib/seo/onpage-check'
+import { Icon } from '@/components/studio'
 
 type Props = {
   sprints: SprintOption[]
@@ -64,14 +65,12 @@ function ScoreRing({ score }: { score: number }) {
 
 function StatusIcon({ status }: { status: 'pass' | 'warn' | 'fail' }) {
   const map: Record<string, { icon: string; color: string }> = {
-    pass: { icon: 'check_circle', color: 'text-emerald-400' },
-    warn: { icon: 'warning', color: 'text-amber-400' },
-    fail: { icon: 'cancel', color: 'text-red-400' },
+    pass: { icon: 'check_circle', color: 'text-[var(--st-success)]' },
+    warn: { icon: 'warning', color: 'text-[var(--st-warning)]' },
+    fail: { icon: 'cancel', color: 'text-[var(--st-danger)]' },
   }
   const { icon, color } = map[status]
-  return (
-    <span className={`material-symbols-outlined text-[20px] flex-shrink-0 ${color}`}>{icon}</span>
-  )
+  return <Icon name={icon} className={`flex-shrink-0 ${color}`} />
 }
 
 function ChecklistRow({ item }: { item: OnPageCheckItem }) {
@@ -136,11 +135,11 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
         activeSprintId={activeSprintId}
       />
 
-      <div className="pib-card p-6 space-y-4">
+      <div className="st-panel p-6 space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="pib-label">Page URL</label>
-            <input
+            <input name="https-example-com-page"
               type="url"
               className="pib-input w-full"
               placeholder="https://example.com/page"
@@ -151,7 +150,7 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
           </div>
           <div className="space-y-1.5">
             <label className="pib-label">Focus keyword</label>
-            <input
+            <input name="e-g-business-coaching"
               type="text"
               className="pib-input w-full"
               placeholder="e.g. business coaching"
@@ -163,15 +162,13 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button name="onpagecheckerclient-action-68"
             onClick={check}
             disabled={!url || !keyword || loading}
             className="pib-btn-primary text-sm disabled:opacity-50"
           >
-            <span
-              className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}
-            >
-              {loading ? 'autorenew' : 'pageview'}
+            <span className={`inline-flex ${loading ? 'animate-spin' : ''}`}>
+              <Icon name={loading ? 'autorenew' : 'pageview'} />
             </span>
             {loading ? 'Checking…' : 'Check page'}
           </button>
@@ -182,38 +179,38 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <span className="material-symbols-outlined text-[16px] align-middle mr-1.5">error</span>
+        <div className="border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <Icon name="error" />
           {error}
         </div>
       )}
 
       {result && (
         <>
-          <div className="pib-card p-5 flex flex-col items-center gap-4">
+          <div className="st-panel p-5 flex flex-col items-center gap-4">
             <ScoreRing score={result.score} />
             <p className="text-xs text-[var(--color-pib-text-muted)] text-center max-w-xs">
               Overall score based on {result.checklist.length} checks across {totalWeight} weighted
               points.
             </p>
             <div className="flex flex-wrap gap-3 justify-center text-xs">
-              <span className="text-emerald-300 font-semibold">
+              <span className="text-emerald-300">
                 {result.checklist.filter((i) => i.status === 'pass').length} passed
               </span>
-              <span className="text-amber-300 font-semibold">
+              <span className="text-[var(--sc-ink-soft)]">
                 {result.checklist.filter((i) => i.status === 'warn').length} warnings
               </span>
-              <span className="text-red-300 font-semibold">
+              <span className="text-red-300">
                 {result.checklist.filter((i) => i.status === 'fail').length} failed
               </span>
             </div>
           </div>
 
-          <div className="pib-card overflow-hidden">
+          <div className="st-panel overflow-hidden">
             <div className="pib-card-section-header">
-              <h3 className="text-sm font-semibold">Checklist</h3>
+              <h3 className="text-sm">Checklist</h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
-                Issues sorted by severity — fix failures first.
+                Issues sorted by severity  -  fix failures first.
               </p>
             </div>
             <div>

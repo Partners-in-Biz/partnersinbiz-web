@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import { EMPTY_STATS, type Campaign, type CampaignStats, type CampaignStatus } from '@/lib/campaigns/types'
@@ -112,7 +113,7 @@ export function EmailCampaignDetailWorkspace({
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" />
           {backLabel}
         </Link>
 
@@ -136,31 +137,31 @@ export function EmailCampaignDetailWorkspace({
             )}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-label uppercase tracking-wide"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-label uppercase tracking-wide"
                 style={{
                   background: tone.bg,
                   border: `1px solid ${tone.border}`,
                   color: tone.text,
                 }}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: tone.dot }} />
+                <span className="w-1.5 h-1.5 rounded" style={{ background: tone.dot }} />
                 {STATUS_LABEL[status] ?? status}
               </span>
               {sequence && (
                 <span className="pill">
-                  <span className="material-symbols-outlined text-[14px]">route</span>
+                  <Icon name="route" />
                   {sequence.steps?.length ?? 0}-step sequence
                 </span>
               )}
               {(campaign.contactIds?.length ?? 0) > 0 && !campaign.segmentId && (
                 <span className="pill">
-                  <span className="material-symbols-outlined text-[14px]">group</span>
+                  <Icon name="group" />
                   {campaign.contactIds.length} contacts
                 </span>
               )}
               {campaign.segmentId && segment && (
                 <span className="pill">
-                  <span className="material-symbols-outlined text-[14px]">filter_alt</span>
+                  <Icon name="filter_alt" />
                   Segment: {segment.name}
                 </span>
               )}
@@ -170,7 +171,7 @@ export function EmailCampaignDetailWorkspace({
           <div className="flex flex-col gap-3 min-w-[260px] max-w-sm">
             {editHref && (
               <Link href={editHref} className="btn-pib-primary btn-pib-sm justify-center">
-                <span className="material-symbols-outlined text-base">edit</span>
+                <Icon name="edit" />
                 Edit content
               </Link>
             )}
@@ -179,7 +180,7 @@ export function EmailCampaignDetailWorkspace({
               className="pib-card !p-4"
               style={{ borderColor: 'var(--color-pib-line)' }}
             >
-              <p className="eyebrow !text-[10px] mb-2">Sender</p>
+              <p className="sc-tiny !text-[10px] mb-2">Sender</p>
               <p className="font-headline text-base leading-tight truncate">
                 {fromName || fromLocal}
               </p>
@@ -253,12 +254,7 @@ export function EmailCampaignDetailWorkspace({
           {campaign.segmentId ? (
             <>
               <div className="flex items-start gap-3">
-                <span
-                  className="material-symbols-outlined text-2xl mt-0.5"
-                  style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}
-                >
-                  filter_alt
-                </span>
+                <Icon name="filter_alt" />
                 <div className="flex-1 min-w-0">
                   <p className="font-headline text-lg">{segment?.name ?? 'Segment'}</p>
                   <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
@@ -274,12 +270,7 @@ export function EmailCampaignDetailWorkspace({
             </>
           ) : (campaign.contactIds?.length ?? 0) > 0 ? (
             <div className="flex items-start gap-3">
-              <span
-                className="material-symbols-outlined text-2xl mt-0.5"
-                style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}
-              >
-                group
-              </span>
+              <Icon name="group" />
               <div>
                 <p className="font-headline text-lg">
                   {campaign.contactIds.length.toLocaleString()} contact
@@ -300,18 +291,18 @@ export function EmailCampaignDetailWorkspace({
             <>
               <div className="hairline" />
               <div className="space-y-2">
-                <p className="eyebrow !text-[10px]">Auto-enrollment triggers</p>
+                <p className="sc-tiny !text-[10px]">Auto-enrollment triggers</p>
                 <div className="flex flex-wrap gap-1.5">
                   {triggerSourceCount > 0 && (
                     <span className="pill">
-                      <span className="material-symbols-outlined text-[14px]">capture</span>
+                      <Icon name="capture" />
                       {triggerSourceCount} capture source
                       {triggerSourceCount === 1 ? '' : 's'}
                     </span>
                   )}
                   {(campaign.triggers?.tags ?? []).map((t) => (
                     <span key={t} className="pill">
-                      <span className="material-symbols-outlined text-[14px]">sell</span>
+                      <Icon name="sell" />
                       {t}
                     </span>
                   ))}
@@ -329,7 +320,7 @@ export function EmailCampaignDetailWorkspace({
       >
         <div className="pib-card space-y-5">
           <div>
-            <p className="eyebrow !text-[10px] mb-2">From</p>
+            <p className="sc-tiny !text-[10px] mb-2">From</p>
             <p className="font-mono text-base md:text-lg break-all">
               {fromName ? <span className="text-[var(--color-pib-text)]">{fromName} </span> : null}
               <span className="text-[var(--color-pib-text-muted)]">&lt;{fromAddress}&gt;</span>
@@ -346,27 +337,27 @@ export function EmailCampaignDetailWorkspace({
           <div className="flex flex-wrap gap-2 items-center">
             {!campaign.fromDomainId ? (
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs"
                 style={{
                   background: 'rgba(124,92,255,0.10)',
                   border: '1px solid rgba(124,92,255,0.35)',
                   color: '#C4B5FD',
                 }}
               >
-                <span className="material-symbols-outlined text-[14px]">cloud</span>
+                <Icon name="cloud" />
                 Sending via shared {SHARED_DOMAIN}
               </span>
             ) : domain?.status === 'verified' ? (
               <>
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs"
                   style={{
                     background: 'rgba(74,222,128,0.10)',
                     border: '1px solid rgba(74,222,128,0.35)',
                     color: '#86EFAC',
                   }}
                 >
-                  <span className="material-symbols-outlined text-[14px]">verified</span>
+                  <Icon name="verified" />
                   Verified - {domain.name}
                 </span>
                 <span className="text-xs text-[#86EFAC]/90 font-mono">
@@ -375,14 +366,14 @@ export function EmailCampaignDetailWorkspace({
               </>
             ) : (
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs"
                 style={{
                   background: 'rgba(251,191,36,0.10)',
                   border: '1px solid rgba(251,191,36,0.35)',
                   color: '#FCD34D',
                 }}
               >
-                <span className="material-symbols-outlined text-[14px]">pending</span>
+                <Icon name="pending" />
                 Domain pending verification
               </span>
             )}
@@ -441,7 +432,7 @@ export function EmailCampaignDetailWorkspace({
               }}
             >
               View full report
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
+              <Icon name="arrow_forward" />
             </Link>
           )}
         </div>
@@ -483,7 +474,7 @@ function Section({
   return (
     <section className="space-y-4">
       <div className="space-y-1.5">
-        {eyebrow && <p className="eyebrow !text-[10px]">{eyebrow}</p>}
+        {eyebrow && <p className="sc-tiny !text-[10px]">{eyebrow}</p>}
         <h2 className="font-headline text-2xl tracking-tight">{title}</h2>
         {description && (
           <p className="text-sm text-[var(--color-pib-text-muted)] max-w-2xl">
@@ -509,9 +500,9 @@ function KpiTile({
 }) {
   return (
     <div className="pib-stat-card">
-      <p className="eyebrow !text-[10px]">{label}</p>
+      <p className="sc-tiny !text-[10px]">{label}</p>
       <p
-        className="font-display text-2xl md:text-3xl tabular-nums mt-1.5 leading-none"
+        className="text-2xl md:text-3xl tabular-nums mt-1.5 leading-none"
         style={accent ? { color: 'var(--org-accent, var(--color-pib-accent))' } : undefined}
       >
         {big}
@@ -535,7 +526,7 @@ function StepRow({ step, index }: { step: SequenceStep; index: number }) {
   return (
     <li className="grid grid-cols-[auto_1fr_auto] gap-4 items-start px-5 py-5 border-b border-[var(--color-pib-line)] last:border-b-0">
       <div
-        className="w-9 h-9 rounded-full flex items-center justify-center font-headline text-sm"
+        className="w-9 h-9 rounded flex items-center justify-center font-headline text-sm"
         style={{
           background: 'var(--color-pib-surface-2)',
           border: '1px solid var(--color-pib-line)',
@@ -550,7 +541,7 @@ function StepRow({ step, index }: { step: SequenceStep; index: number }) {
             {subject}
           </p>
           <span
-            className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+            className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded"
             style={{
               background: isSms
                 ? 'rgba(56,189,248,0.10)'
@@ -561,21 +552,19 @@ function StepRow({ step, index }: { step: SequenceStep; index: number }) {
               color: isSms ? '#7DD3FC' : '#FCD34D',
             }}
           >
-            <span className="material-symbols-outlined text-[12px]">
-              {isSms ? 'sms' : 'mail'}
-            </span>
+            <Icon name={isSms ? 'sms' : 'mail'} />
             {isSms ? 'SMS' : 'Email'}
           </span>
           {step.ab?.enabled && (
             <span
-              className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+              className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded"
               style={{
                 background: 'rgba(168,85,247,0.10)',
                 border: '1px solid rgba(168,85,247,0.35)',
                 color: '#D8B4FE',
               }}
             >
-              <span className="material-symbols-outlined text-[12px]">science</span>
+              <Icon name="science" />
               A/B {step.ab.variants?.length ?? 0} variants
             </span>
           )}
@@ -615,28 +604,28 @@ function AbCard({
     <div className="pib-card space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="eyebrow !text-[10px]">Step {stepNumber}</p>
+          <p className="sc-tiny !text-[10px]">Step {stepNumber}</p>
           <p className="font-headline text-lg mt-1">{subject || '(no subject)'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs"
             style={{
               background: 'rgba(168,85,247,0.10)',
               border: '1px solid rgba(168,85,247,0.35)',
               color: '#D8B4FE',
             }}
           >
-            <span className="material-symbols-outlined text-[14px]">science</span>
+            <Icon name="science" />
             {AB_STATUS_LABEL[status] ?? status}
           </span>
           <span className="pill">
-            <span className="material-symbols-outlined text-[14px]">flag</span>
+            <Icon name="flag" />
             Winner by {metric.replace('-', ' ')}
           </span>
           {testDurationMinutes > 0 && (
             <span className="pill">
-              <span className="material-symbols-outlined text-[14px]">timer</span>
+              <Icon name="timer" />
               {testDurationMinutes >= 60
                 ? `${Math.round(testDurationMinutes / 60)}h test window`
                 : `${testDurationMinutes}m test window`}
@@ -649,12 +638,12 @@ function AbCard({
         <table className="w-full text-sm min-w-[520px]">
           <thead>
             <tr className="text-left">
-              <th className="eyebrow !text-[10px] py-2 px-2">Variant</th>
-              <th className="eyebrow !text-[10px] py-2 px-2 text-right">Sent</th>
-              <th className="eyebrow !text-[10px] py-2 px-2 text-right">Opens</th>
-              <th className="eyebrow !text-[10px] py-2 px-2 text-right">Open rate</th>
-              <th className="eyebrow !text-[10px] py-2 px-2 text-right">Clicks</th>
-              <th className="eyebrow !text-[10px] py-2 px-2 text-right">Click rate</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2">Variant</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2 text-right">Sent</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2 text-right">Opens</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2 text-right">Open rate</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2 text-right">Clicks</th>
+              <th className="sc-tiny !text-[10px] py-2 px-2 text-right">Click rate</th>
             </tr>
           </thead>
           <tbody>
@@ -674,14 +663,14 @@ function AbCard({
                     <div className="flex items-center gap-2">
                       {isWinner && (
                         <span
-                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded"
                           style={{
                             background: 'rgba(74,222,128,0.15)',
                             border: '1px solid rgba(74,222,128,0.4)',
                             color: '#86EFAC',
                           }}
                         >
-                          <span className="material-symbols-outlined text-[12px]">star</span>
+                          <Icon name="star" />
                           Winner
                         </span>
                       )}
@@ -722,14 +711,9 @@ function NextCard({
 }) {
   return (
     <div className="pib-card flex items-start gap-3">
-      <span
-        className="material-symbols-outlined text-2xl mt-0.5"
-        style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}
-      >
-        {icon}
-      </span>
+      <Icon name="icon" />
       <div className="space-y-1">
-        <p className="eyebrow !text-[10px]">{label}</p>
+        <p className="sc-tiny !text-[10px]">{label}</p>
         <p className="font-headline text-lg">{value}</p>
         {hint && <p className="text-xs text-[var(--color-pib-text-muted)]">{hint}</p>}
       </div>
@@ -748,12 +732,7 @@ function EmptyCard({
 }) {
   return (
     <div className="pib-card text-center py-8">
-      <span
-        className="material-symbols-outlined text-2xl"
-        style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}
-      >
-        {icon}
-      </span>
+      <Icon name="icon" />
       <p className="font-headline text-lg mt-3">{label}</p>
       {hint && <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{hint}</p>}
     </div>

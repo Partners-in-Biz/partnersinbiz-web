@@ -1,7 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import {
+  Button,
+  ButtonLink,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Title,
+} from '@/components/studio'
 
 interface PartnerInvoice {
   id: string
@@ -29,14 +39,12 @@ function money(v: number, c: string): string {
   catch { return `${c} ${(v ?? 0).toFixed(2)}` }
 }
 
-const STATE: Record<PartnerInvoice['paymentState'], { text: string; cls: string }> = {
-  unpaid: { text: 'Outstanding', cls: 'pib-pill-warn' },
-  pending_verification: { text: 'Awaiting verification', cls: 'pib-pill-info' },
-  paid: { text: 'Settled', cls: 'pib-pill-success' },
-  rejected: { text: 'Payment rejected', cls: 'pib-pill-danger' },
+const STATE: Record<PartnerInvoice['paymentState'], { text: string; tone?: 'warning' | 'info' | 'success' | 'danger' }> = {
+  unpaid: { text: 'Outstanding', tone: 'warning' },
+  pending_verification: { text: 'Awaiting verification', tone: 'info' },
+  paid: { text: 'Settled', tone: 'success' },
+  rejected: { text: 'Payment rejected', tone: 'danger' },
 }
-
-const CARD = 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]'
 
 export default function PartnerSettlementsPage() {
   const [receivable, setReceivable] = useState<PartnerInvoice[]>([])
@@ -87,7 +95,7 @@ export default function PartnerSettlementsPage() {
 
   async function pay(invoice: PartnerInvoice) {
     const reference = window.prompt(
-      `Payment reference for ${invoice.invoiceNumber || 'this invoice'}\n\n${money(invoice.total, invoice.currency)} — enter the EFT reference you used.`,
+      `Payment reference for ${invoice.invoiceNumber || 'this invoice'}\n\n${money(invoice.total, invoice.currency)}. Enter the EFT reference you used.`,
     )
     if (!reference?.trim()) return
     await post(invoice, { action: 'pay', reference: reference.trim(), amount: invoice.total },
@@ -104,46 +112,42 @@ export default function PartnerSettlementsPage() {
     const state = STATE[invoice.paymentState]
     const p = invoice.partnerPayment
     return (
-      <li key={invoice.id} className="rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+      <li key={invoice.id} className="st-panel st-panel--flat p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/portal/invoicing/${invoice.id}`} className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]">
+          <ButtonLink href={`/portal/invoicing/${invoice.id}`} variant="ghost" size="sm" className="min-w-0 flex-1 truncate !justify-start !px-0">
             {invoice.invoiceNumber || invoice.id}
-          </Link>
-          <span className={`pib-pill px-2 py-0.5 text-[10px] ${state.cls}`}>{state.text}</span>
-          <span className="font-mono text-sm text-[var(--color-pib-text)]">{money(invoice.total, invoice.currency)}</span>
+          </ButtonLink>
+          <Status tone={state.tone}>{state.text}</Status>
+          <span className="st-num text-[var(--sc-ink)]">{money(invoice.total, invoice.currency)}</span>
         </div>
 
         {p?.reference ? (
-          <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+          <p className="mt-2 sc-tiny text-[var(--sc-ink-soft)]">
             Ref {p.reference}{p.note ? ` · ${p.note}` : ''}
           </p>
         ) : null}
         {invoice.paymentState === 'rejected' && p?.decisionNote ? (
-          <p className="mt-1 rounded border-l-2 border-rose-500 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-300">
-            {p.decisionNote}
-          </p>
+          <Notice tone="danger">{p.decisionNote}</Notice>
         ) : null}
 
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           {side === 'payable' && (invoice.paymentState === 'unpaid' || invoice.paymentState === 'rejected') ? (
-            <button type="button" onClick={() => void pay(invoice)} disabled={busyId === invoice.id}
-              className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50">
-              {busyId === invoice.id ? 'Working…' : 'I have paid this'}
-            </button>
+            <Button type="button" size="sm" onClick={() => void pay(invoice)} disabled={busyId === invoice.id} loading={busyId === invoice.id}>
+              I have paid this
+            </Button>
           ) : null}
 
           {side === 'receivable' && invoice.paymentState === 'pending_verification' ? (
             <>
-              <button type="button"
+              <Button type="button" size="sm"
                 onClick={() => void post(invoice, { action: 'confirm' }, 'Payment confirmed. Invoice settled.')}
                 disabled={busyId === invoice.id}
-                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50">
+                loading={busyId === invoice.id}>
                 Confirm receipt
-              </button>
-              <button type="button" onClick={() => void reject(invoice)} disabled={busyId === invoice.id}
-                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50">
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => void reject(invoice)} disabled={busyId === invoice.id}>
                 Cannot verify
-              </button>
+              </Button>
             </>
           ) : null}
         </div>
@@ -158,58 +162,50 @@ export default function PartnerSettlementsPage() {
   const currency = receivable[0]?.currency ?? payable[0]?.currency ?? 'ZAR'
 
   return (
-    <div className="space-y-5 p-4">
-      <header>
-        <Link href="/portal/partners" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-          ← Back to partners
-        </Link>
-        <p className="eyebrow mt-2">CRM</p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-[var(--color-pib-text)]">Partner settlements</h1>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Invoices raised from partner orders. Payment is EFT — the payer records the reference, and the org
-          that issued the invoice confirms receipt. Only they can mark it settled.
-        </p>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Partners"
+        title="Partner settlements."
+        description="Invoices raised from partner orders. Payment is EFT: the payer records the reference, and the org that issued the invoice confirms receipt. Only they can mark it settled."
+        actions={<ButtonLink href="/portal/partners" variant="ghost" size="sm">Back to partners</ButtonLink>}
+      />
 
-      {error ? <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
-      {notice ? <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{notice}</p> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
 
       {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+        <div className="space-y-4">
+          <Skeleton height="5rem" />
+          <Skeleton height="8rem" />
+        </div>
       ) : (
         <>
-          <section className={`${CARD} grid gap-4 p-4 sm:grid-cols-2`}>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Owed to you</p>
-              <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">{money(owedToYou, currency)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">You owe</p>
-              <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">{money(youOwe, currency)}</p>
-            </div>
-          </section>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatCard label="Owed to you" value={money(owedToYou, currency)} />
+            <StatCard label="You owe" value={money(youOwe, currency)} />
+          </div>
 
-          <section className={`${CARD} p-4`}>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               Owed to you {receivable.length > 0 ? `(${receivable.length})` : ''}
-            </h2>
+            </Title>
             {receivable.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No partner invoices raised yet.</p>
+              <p className="mt-4 sc-body">No partner invoices raised yet.</p>
             ) : (
-              <ul className="space-y-2">{receivable.map((i) => row(i, 'receivable'))}</ul>
+              <ul className="mt-4 space-y-4">{receivable.map((i) => row(i, 'receivable'))}</ul>
             )}
-          </section>
+          </Panel>
 
-          <section className={`${CARD} p-4`}>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               You owe {payable.length > 0 ? `(${payable.length})` : ''}
-            </h2>
+            </Title>
             {payable.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">Nothing outstanding to partners.</p>
+              <p className="mt-4 sc-body">Nothing outstanding to partners.</p>
             ) : (
-              <ul className="space-y-2">{payable.map((i) => row(i, 'payable'))}</ul>
+              <ul className="mt-4 space-y-4">{payable.map((i) => row(i, 'payable'))}</ul>
             )}
-          </section>
+          </Panel>
         </>
       )}
     </div>

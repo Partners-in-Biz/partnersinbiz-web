@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Button } from '@/components/studio'
 
 interface SessionDetail {
   session: {
@@ -30,7 +32,7 @@ interface SessionDetail {
 }
 
 function formatTs(ts: any): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
   return d.toLocaleString()
 }
@@ -55,25 +57,24 @@ export default function SessionDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6" data-module-accent="violet">
-      <header>
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/portal/analytics/sessions')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-sm">
-            ← Sessions
-          </button>
-          <span className="text-[var(--color-pib-text-muted)]">/</span>
-        </div>
-        <p className="eyebrow mt-4">Analytics · Session</p>
-        <h1 className="pib-page-title mt-2 font-mono">{id.slice(0, 16)}…</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Session"
+        title={`${id.slice(0, 16)}.`}
+        actions={(
+          <Button variant="ghost" size="sm" onClick={() => router.push('/portal/analytics/sessions')}>
+            Sessions
+          </Button>
+        )}
+      />
 
-      <div className="pib-card grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+      <div className="st-panel grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
         {[
           ['User', session.distinctId.slice(0, 16) + '…'],
           ['Events', session.eventCount],
           ['Pages', session.pageCount],
-          ['Device', session.device ?? '—'],
-          ['Country', session.country ?? '—'],
-          ['UTM Source', session.utmSource ?? '—'],
+          ['Device', session.device ?? ' - '],
+          ['Country', session.country ?? ' - '],
+          ['UTM Source', session.utmSource ?? ' - '],
           ['Started', formatTs(session.startedAt)],
           ['Last Active', formatTs(session.lastActivityAt)],
         ].map(([label, value]) => (

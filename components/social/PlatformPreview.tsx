@@ -56,15 +56,15 @@ const TwitterPreview = ({ content, mediaItems, charLimit, userName = 'Your Name'
   const charPercent = (content.length / charLimit) * 100
 
   return (
-    <div className="bg-black rounded-2xl p-4 text-white w-full max-w-sm border border-gray-700">
+    <div className="bg-black rounded-[6px] p-4 text-white w-full max-w-sm border border-gray-700">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
+        <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center text-xs flex-shrink-0">
+          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-1">
-            <span className="font-bold text-sm">{userName}</span>
+            <span className="text-sm">{userName}</span>
             <span className="text-gray-500 text-sm">{userHandle}</span>
           </div>
           <span className="text-gray-500 text-xs">· now</span>
@@ -87,15 +87,15 @@ const TwitterPreview = ({ content, mediaItems, charLimit, userName = 'Your Name'
       {/* Character count */}
       {content.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
+          <div className="flex-1 h-1 bg-gray-700 rounded overflow-hidden">
             <div
               className={`h-full transition-colors ${
-                isOverLimit ? 'bg-red-500' : charPercent > 80 ? 'bg-amber-500' : 'bg-gray-600'
+                isOverLimit ? 'bg-red-500' : charPercent > 80 ? 'bg-[var(--sc-surface)]' : 'bg-gray-600'
               }`}
               style={{ width: `${Math.min(charPercent, 100)}%` }}
             />
           </div>
-          <span className={`text-xs font-medium ${isOverLimit ? 'text-red-400' : charPercent > 80 ? 'text-amber-400' : 'text-gray-500'}`}>
+          <span className={`text-xs font-medium ${isOverLimit ? 'text-[var(--st-danger)]' : charPercent > 80 ? 'text-[var(--sc-ink-soft)]' : 'text-gray-500'}`}>
             {content.length}/{charLimit}
           </span>
         </div>
@@ -103,7 +103,7 @@ const TwitterPreview = ({ content, mediaItems, charLimit, userName = 'Your Name'
 
       {/* Media */}
       {mediaItems.length > 0 && (
-        <div className="mb-3 rounded-2xl overflow-hidden border border-gray-700">
+        <div className="mb-3 rounded-[6px] overflow-hidden border border-gray-700">
           {mediaItems.length === 1 && (
             <img src={mediaItems[0].url} alt="media" className="w-full h-48 object-cover" />
           )}
@@ -143,7 +143,7 @@ const TwitterPreview = ({ content, mediaItems, charLimit, userName = 'Your Name'
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 bg-black border border-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white">
+      <div className="absolute top-2 right-2 bg-black border border-gray-700 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         𝕏
       </div>
     </div>
@@ -156,16 +156,16 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
   const truncateAt = 210
 
   return (
-    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-[6px] p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
+        <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs flex-shrink-0">
+          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-sm">{userName}</span>
-            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">1st</span>
+            <span className="text-sm">{userName}</span>
+            <span className="bg-[var(--sc-surface)] text-[var(--sc-ink-soft)] text-[10px] px-1.5 py-0.5 rounded">1st</span>
           </div>
           <p className="text-[var(--color-pib-text-muted)] text-xs">Professional Title (placeholder)</p>
           <span className="text-[var(--color-pib-text-muted)] text-xs">now · 🌐</span>
@@ -186,7 +186,7 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
 
       {/* Media */}
       {mediaItems.length > 0 && (
-        <div className="mb-3 rounded-xl overflow-hidden">
+        <div className="mb-3 rounded-[6px] overflow-hidden">
           <img src={mediaItems[0].url} alt="media" className="w-full h-40 object-cover" />
         </div>
       )}
@@ -200,7 +200,7 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 bg-blue-700 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white">
+      <div className="absolute top-2 right-2 bg-blue-700 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         in
       </div>
     </div>
@@ -210,14 +210,14 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
 // Instagram Preview
 const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname', userHandle = '@yourname', userAvatar }: any) => {
   return (
-    <div className="bg-black rounded-2xl overflow-hidden text-white w-full max-w-sm">
+    <div className="bg-black rounded-[6px] overflow-hidden text-white w-full max-w-sm">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-pink-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-            {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
+          <div className="w-8 h-8 rounded -br from-amber-400 to-pink-600 flex items-center justify-center text-xs flex-shrink-0">
+            {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
           </div>
-          <span className="font-semibold text-sm">{userName}</span>
+          <span className="text-sm">{userName}</span>
         </div>
         <span className="text-xl">•••</span>
       </div>
@@ -228,7 +228,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
           <img src={mediaItems[0].url} alt="media" className="w-full h-full object-cover" />
         ) : (
           <div className="border-2 border-dashed border-amber-500 rounded-lg p-8 text-center">
-            <p className="text-amber-500 text-sm font-medium">Add an image</p>
+            <p className="text-[var(--sc-ink-soft)] text-sm font-medium">Add an image</p>
           </div>
         )}
       </div>
@@ -236,7 +236,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
       {/* Caption */}
       <div className="p-3 border-b border-gray-700">
         <div className="text-sm text-white mb-2">
-          <span className="font-semibold">{userName} </span>
+          <span>{userName} </span>
           {content.length > 0 ? (
             <>
               {renderFormattedText(content.slice(0, 300))}
@@ -259,7 +259,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white">
+      <div className="absolute top-2 right-2 -br from-pink-500 to-purple-600 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         Ig
       </div>
     </div>
@@ -269,14 +269,14 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
 // Facebook Preview
 const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name', userHandle = '@yourhandle', userAvatar }: any) => {
   return (
-    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-[6px] p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
-          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
+        <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs flex-shrink-0">
+          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
         </div>
         <div className="flex-1">
-          <div className="font-semibold text-sm">{userName}</div>
+          <div className="text-sm">{userName}</div>
           <span className="text-[var(--color-pib-text-muted)] text-xs">Just now · 🌐</span>
         </div>
       </div>
@@ -292,7 +292,7 @@ const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
 
       {/* Media */}
       {mediaItems.length > 0 && (
-        <div className="mb-3 rounded-xl overflow-hidden">
+        <div className="mb-3 rounded-[6px] overflow-hidden">
           <img src={mediaItems[0].url} alt="media" className="w-full h-48 object-cover" />
         </div>
       )}
@@ -305,7 +305,7 @@ const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white">
+      <div className="absolute top-2 right-2 bg-blue-600 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         f
       </div>
     </div>
@@ -318,7 +318,7 @@ const YouTubePreview = ({ content, mediaItems, charLimit, userName = 'Your Chann
   const description = content.split('\n').slice(1).join('\n') || ''
 
   return (
-    <div className="bg-black rounded-2xl overflow-hidden text-white w-full max-w-sm">
+    <div className="bg-black rounded-[6px] overflow-hidden text-white w-full max-w-sm">
       {/* Thumbnail */}
       <div className="bg-gray-800 w-full h-48 flex items-center justify-center relative">
         {mediaItems.length > 0 ? (
@@ -328,12 +328,12 @@ const YouTubePreview = ({ content, mediaItems, charLimit, userName = 'Your Chann
             <div className="text-4xl">▶</div>
           </div>
         )}
-        <div className="absolute bottom-2 right-2 bg-red-600 px-1.5 py-0.5 rounded text-xs font-bold">HD</div>
+        <div className="absolute bottom-2 right-2 bg-red-600 px-1.5 py-0.5 rounded text-xs">HD</div>
       </div>
 
       {/* Title & Description */}
       <div className="p-3 space-y-2">
-        <h3 className="font-bold text-sm">{title}</h3>
+        <h3 className="text-sm">{title}</h3>
         {description && (
           <p className="text-gray-400 text-xs leading-relaxed">{description.slice(0, 100)}{description.length > 100 ? '...' : ''}</p>
         )}
@@ -344,7 +344,7 @@ const YouTubePreview = ({ content, mediaItems, charLimit, userName = 'Your Chann
       </div>
 
       {/* Badge */}
-      <div className="absolute top-2 right-2 bg-red-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white">
+      <div className="absolute top-2 right-2 bg-red-600 rounded w-6 h-6 flex items-center justify-center text-xs text-white">
         YT
       </div>
     </div>
@@ -377,14 +377,14 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
   const charPercent = (content.length / charLimit) * 100
 
   return (
-    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-[6px] p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0 text-white">
-          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded-full object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
+        <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs flex-shrink-0 text-white">
+          {userAvatar ? <img src={userAvatar} alt="avatar" className="w-full h-full rounded object-cover" /> : (userName[0]?.toUpperCase() || 'Y')}
         </div>
         <div className="flex-1">
-          <span className="font-semibold text-sm">{userName}</span>
+          <span className="text-sm">{userName}</span>
           <p className="text-[var(--color-pib-text-muted)] text-xs capitalize">{platform}</p>
         </div>
       </div>
@@ -401,16 +401,16 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
       {/* Character count bar */}
       {content.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-[var(--color-pib-surface)] rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-[var(--color-pib-surface)] rounded overflow-hidden">
             <div
               className={`h-full transition-colors ${
-                content.length > charLimit ? 'bg-red-500' : charPercent > 80 ? 'bg-amber-500' : 'bg-gray-500'
+                content.length > charLimit ? 'bg-red-500' : charPercent > 80 ? 'bg-[var(--sc-surface)]' : 'bg-gray-500'
               }`}
               style={{ width: `${Math.min(charPercent, 100)}%` }}
             />
           </div>
           <span className={`text-xs font-medium ${
-            content.length > charLimit ? 'text-red-400' : charPercent > 80 ? 'text-amber-400' : 'text-[var(--color-pib-text-muted)]'
+            content.length > charLimit ? 'text-[var(--st-danger)]' : charPercent > 80 ? 'text-[var(--sc-ink-soft)]' : 'text-[var(--color-pib-text-muted)]'
           }`}>
             {content.length}/{charLimit}
           </span>
@@ -425,7 +425,7 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
       )}
 
       {/* Badge */}
-      <div className={`absolute top-2 right-2 ${bgColor} rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white`}>
+      <div className={`absolute top-2 right-2 ${bgColor} rounded w-6 h-6 flex items-center justify-center text-xs  text-white`}>
         {platformLabels[platform] || '?'}
       </div>
     </div>

@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-import {
 import { Icon } from '@/components/studio'
+import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'

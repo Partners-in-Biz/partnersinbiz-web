@@ -1555,8 +1555,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       <section aria-label="YouTube admin command center" className="pib-card-section space-y-5 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">Internal command center</p>
-            <h2 className="font-headline text-2xl font-semibold text-[var(--color-pib-text)]">YouTube production command center</h2>
+            <p className="sc-tiny">Internal command center</p>
+            <h2 className="font-headline text-2xl text-[var(--color-pib-text)]">YouTube production command center</h2>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Filter by organisation channel, risk, and urgency before drilling into channel and video work.</p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -1618,9 +1618,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const readinessLabel = readiness?.readiness ?? legacyPolicy?.publishingReadiness ?? channel.status
           return (
             <section key={key} id={`youtube-channel-${key}`} aria-label={`${channel.title} channel detail`} className="pib-card-section space-y-4 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">{channel.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={readinessLabel} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="sc-tiny">Channel detail</p><h2 className="font-headline text-xl text-[var(--color-pib-text)]">{channel.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={readinessLabel} /></div>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${channel.title} channel detail tabs`}>{channelDetailTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setChannelTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
+              <div className="rounded-[6px] border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
                 {activeTab === 'strategy' ? <div className="space-y-2"><p>{channel.audienceNotes ?? 'No audience notes captured yet.'}</p><div className="flex flex-wrap gap-2">{channel.contentPillars?.map((pillar) => <StatusPill key={pillar} status={pillar} />)}</div></div> : null}
                 {activeTab === 'pipeline' ? <DetailList items={channelVideos.map((video) => ({ id: video.id ?? video.title, label: video.title, detail: formatToken(video.status) }))} empty="No videos in this channel." /> : null}
                 {activeTab === 'series' ? <DetailList items={channelSeries.map((item) => ({ id: item.id ?? seriesTitle(item), label: seriesTitle(item), detail: formatToken(item.status ?? 'series') }))} empty="No series defined." /> : null}
@@ -1646,9 +1646,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const videoActivity = (video as YouTubeVideoProject & { activity?: Array<{ type?: string; summary?: string; at?: unknown }> }).activity ?? []
           return (
             <section key={key} id={`youtube-video-${key}`} aria-label={`${video.title} video cockpit`} className="pib-card-section space-y-4 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Video cockpit</p><h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">{video.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="sc-tiny">Video cockpit</p><h2 className="font-headline text-xl text-[var(--color-pib-text)]">{video.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${video.title} video cockpit tabs`}>{videoCockpitTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setVideoTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
+              <div className="rounded-[6px] border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
                 {activeTab === 'brief' ? <p>{video.objective ?? 'No brief captured.'}</p> : null}
                 {activeTab === 'script' ? <p>Script and draft workbench.</p> : null}
                 {activeTab === 'clips' ? <p>Clip candidates and shorts packages.</p> : null}
@@ -1676,7 +1676,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           )}
 
           <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Video pipeline</h2>
+            <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Video pipeline</h2>
             {visibleVideos.length === 0 ? (
               <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No YouTube videos yet.</div>
             ) : (
@@ -1696,7 +1696,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         <a
                           href={`/admin/creative-canvas?canvas=${encodeURIComponent(video.creativeCanvasId)}`}
                           aria-label={`Open linked canvas for ${video.title}`}
-                          className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]"
+                          className="rounded bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]"
                         >
                           Canvas ↗
                         </a>
@@ -1710,7 +1710,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Source assets</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Source assets</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleSourceAssets.length} asset{visibleSourceAssets.length === 1 ? '' : 's'}
               </span>
@@ -1723,7 +1723,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{asset.title}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{asset.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{sourceAssetMeta(asset)}</p>
                       </div>
                       <StatusPill status={asset.status} />
@@ -1760,7 +1760,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Clip candidates</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Clip candidates</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleClipCandidates.length} clip{visibleClipCandidates.length === 1 ? '' : 's'}
               </span>
@@ -1773,7 +1773,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{clip.title}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{clip.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{clipMeta(clip)}</p>
                       </div>
                       <StatusPill status={clip.status} />
@@ -1815,7 +1815,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Production drafts</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Production drafts</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleProductionDrafts.length} draft{visibleProductionDrafts.length === 1 ? '' : 's'}
               </span>
@@ -1828,7 +1828,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{draft.title}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{draft.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{productionDraftMeta(draft)}</p>
                       </div>
                       <StatusPill status={draft.status} />
@@ -1918,7 +1918,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Render jobs</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Render jobs</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleRenderJobs.length} render{visibleRenderJobs.length === 1 ? '' : 's'}
               </span>
@@ -1931,7 +1931,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{job.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{renderJobMeta(job)}</p>
                       </div>
                       <StatusPill status={job.status} />
@@ -2021,7 +2021,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Publishing packets</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Publishing packets</h2>
               <span className="pib-pill pib-pill-rose">
                 {visiblePackets.length} packet{visiblePackets.length === 1 ? '' : 's'}
               </span>
@@ -2034,7 +2034,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{packetTitle(packet)} packet</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{packetTitle(packet)} packet</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                           Version {packet.versionNumber || 1} / {formatToken(packet.visibility)} / {packet.chapters?.length ?? 0} chapters
                         </p>
@@ -2112,7 +2112,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Release plans</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Release plans</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleReleasePlans.length} plan{visibleReleasePlans.length === 1 ? '' : 's'}
               </span>
@@ -2125,7 +2125,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">
+                        <h3 className="break-words text-[var(--color-pib-text)]">
                           {plan.publicSummary || releasePlanTitle(plan, packets)}
                         </h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
@@ -2155,7 +2155,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Hermes production jobs</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Hermes production jobs</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleJobs.length} job packet{visibleJobs.length === 1 ? '' : 's'}
               </span>
@@ -2168,7 +2168,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={job.id ?? `${job.skillKey}-${job.title}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{job.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{skillLabel(job.skillKey)}</p>
                       </div>
                       <span className="pib-pill pib-pill-rose shrink-0">
@@ -2189,7 +2189,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Analytics feedback</h2>
+              <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Analytics feedback</h2>
               <span className="pib-pill pib-pill-rose">
                 {visibleAnalytics.length} snapshot{visibleAnalytics.length === 1 ? '' : 's'}
               </span>
@@ -2202,7 +2202,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                   <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{snapshot.clientSummary || 'Analytics snapshot'}</h3>
+                        <h3 className="break-words text-[var(--color-pib-text)]">{snapshot.clientSummary || 'Analytics snapshot'}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                           {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
                         </p>
@@ -2258,23 +2258,23 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
         <aside className="space-y-4 lg:sticky lg:top-6">
           <form onSubmit={saveChannel} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Add channel</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Add channel</h2>
             <Field label="Channel title" value={form.channelTitle} onChange={(value) => update('channelTitle', value)} required />
             <Field label="YouTube handle" value={form.youtubeHandle} onChange={(value) => update('youtubeHandle', value)} />
-            <TextArea
+            <LabeledTextArea
               label="Content pillars"
               value={form.contentPillars}
               onChange={(value) => update('contentPillars', value)}
               placeholder="One per line or comma-separated"
             />
-            <TextArea label="Audience notes" value={form.audienceNotes} onChange={(value) => update('audienceNotes', value)} />
+            <LabeledTextArea label="Audience notes" value={form.audienceNotes} onChange={(value) => update('audienceNotes', value)} />
             <button type="submit" disabled={saving || !form.channelTitle.trim()} className="pib-btn-primary w-full">
               {saving ? 'Saving...' : 'Save channel'}
             </button>
           </form>
 
           <form onSubmit={savePublishingReadiness} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Publishing readiness</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Publishing readiness</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
@@ -2293,25 +2293,25 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               value={form.readinessConnectedAccountId}
               onChange={(value) => update('readinessConnectedAccountId', value)}
             />
-            <Select
+            <LabeledSelect
               label="Account status"
               value={form.readinessAccountStatus}
               onChange={(value) => update('readinessAccountStatus', value as YouTubeConnectedAccountStatus)}
               options={connectedAccountStatuses}
             />
-            <Select
+            <LabeledSelect
               label="API project"
               value={form.readinessApiProjectStatus}
               onChange={(value) => update('readinessApiProjectStatus', value as YouTubeApiProjectStatus)}
               options={apiProjectStatuses}
             />
-            <Select
+            <LabeledSelect
               label="Readiness"
               value={form.readinessLevel}
               onChange={(value) => update('readinessLevel', value as YouTubePublishingReadinessLevel)}
               options={publishingReadinessLevels}
             />
-            <Select
+            <LabeledSelect
               label="Default privacy"
               value={form.readinessDefaultPrivacy}
               onChange={(value) => update('readinessDefaultPrivacy', value as YouTubePublishingPolicy['defaultVisibility'])}
@@ -2331,14 +2331,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 type="number"
               />
             </div>
-            <TextArea label="Readiness notes" value={form.readinessNotes} onChange={(value) => update('readinessNotes', value)} />
+            <LabeledTextArea label="Readiness notes" value={form.readinessNotes} onChange={(value) => update('readinessNotes', value)} />
             <button type="submit" disabled={savingReadiness || !form.readinessChannelId} className="pib-btn-primary w-full">
               {savingReadiness ? 'Saving...' : 'Save readiness'}
             </button>
           </form>
 
           <form onSubmit={saveVideo} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Start video</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Start video</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
@@ -2353,8 +2353,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <Field label="Video title" value={form.videoTitle} onChange={(value) => update('videoTitle', value)} required />
-            <TextArea label="Objective" value={form.objective} onChange={(value) => update('objective', value)} />
-            <Select
+            <LabeledTextArea label="Objective" value={form.objective} onChange={(value) => update('objective', value)} />
+            <LabeledSelect
               label="Video type"
               value={form.videoType}
               onChange={(value) => update('videoType', value as YouTubeVideoType)}
@@ -2367,7 +2367,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createSourceAsset} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Add source asset</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Add source asset</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Asset channel</span>
               <select
@@ -2395,7 +2395,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <Field label="Asset title" value={form.assetTitle} onChange={(value) => update('assetTitle', value)} required />
-            <Select
+            <LabeledSelect
               label="Asset type"
               value={form.assetType}
               onChange={(value) => update('assetType', value as YouTubeSourceAssetType)}
@@ -2408,7 +2408,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               onChange={(value) => update('assetDurationSeconds', value)}
               type="number"
             />
-            <TextArea label="Client asset notes" value={form.assetClientNotes} onChange={(value) => update('assetClientNotes', value)} />
+            <LabeledTextArea label="Client asset notes" value={form.assetClientNotes} onChange={(value) => update('assetClientNotes', value)} />
             <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
@@ -2424,7 +2424,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createClipCandidate} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create clip</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Create clip</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Clip source asset</span>
               <select
@@ -2456,15 +2456,15 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               <Field label="Start" value={form.clipStart} onChange={(value) => update('clipStart', value)} placeholder="02:00" />
               <Field label="End" value={form.clipEnd} onChange={(value) => update('clipEnd', value)} placeholder="02:58" />
             </div>
-            <Select
+            <LabeledSelect
               label="Target format"
               value={form.clipTargetFormat}
               onChange={(value) => update('clipTargetFormat', value as YouTubeClipTargetFormat)}
               options={clipTargetFormats}
             />
-            <TextArea label="Clip summary" value={form.clipSummary} onChange={(value) => update('clipSummary', value)} />
+            <LabeledTextArea label="Clip summary" value={form.clipSummary} onChange={(value) => update('clipSummary', value)} />
             <Field label="Clip hook" value={form.clipHook} onChange={(value) => update('clipHook', value)} />
-            <TextArea
+            <LabeledTextArea
               label="Clip transcript excerpt"
               value={form.clipTranscriptExcerpt}
               onChange={(value) => update('clipTranscriptExcerpt', value)}
@@ -2484,7 +2484,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createProductionDraft} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create production draft</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Create production draft</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Draft video</span>
               <select
@@ -2499,21 +2499,21 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <Field label="Draft title" value={form.draftTitle} onChange={(value) => update('draftTitle', value)} required />
-            <Select
+            <LabeledSelect
               label="Draft type"
               value={form.draftType}
               onChange={(value) => update('draftType', value as YouTubeProductionDraftType)}
               options={productionDraftTypes}
             />
-            <TextArea label="Draft summary" value={form.draftSummary} onChange={(value) => update('draftSummary', value)} />
+            <LabeledTextArea label="Draft summary" value={form.draftSummary} onChange={(value) => update('draftSummary', value)} />
             <Field label="Draft hook" value={form.draftHook} onChange={(value) => update('draftHook', value)} />
-            <TextArea
+            <LabeledTextArea
               label="Draft outline"
               value={form.draftOutline}
               onChange={(value) => update('draftOutline', value)}
               placeholder="One section per line"
             />
-            <TextArea label="Draft script" value={form.draftScript} onChange={(value) => update('draftScript', value)} />
+            <LabeledTextArea label="Draft script" value={form.draftScript} onChange={(value) => update('draftScript', value)} />
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Draft source assets</span>
               <select
@@ -2540,7 +2540,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 ))}
               </select>
             </label>
-            <TextArea
+            <LabeledTextArea
               label="Draft scenes"
               value={form.draftScenes}
               onChange={(value) => update('draftScenes', value)}
@@ -2579,7 +2579,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createRenderJob} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create render job</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Create render job</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Render video</span>
               <select
@@ -2607,19 +2607,19 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <Field label="Render title" value={form.renderTitle} onChange={(value) => update('renderTitle', value)} required />
-            <Select
+            <LabeledSelect
               label="Render type"
               value={form.renderType}
               onChange={(value) => update('renderType', value as YouTubeRenderJobType)}
               options={renderJobTypes}
             />
-            <Select
+            <LabeledSelect
               label="Target format"
               value={form.renderTargetFormat}
               onChange={(value) => update('renderTargetFormat', value as YouTubeRenderTargetFormat)}
               options={renderTargetFormats}
             />
-            <TextArea label="Edit brief" value={form.renderEditBrief} onChange={(value) => update('renderEditBrief', value)} />
+            <LabeledTextArea label="Edit brief" value={form.renderEditBrief} onChange={(value) => update('renderEditBrief', value)} />
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Render source assets</span>
               <select
@@ -2646,7 +2646,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 ))}
               </select>
             </label>
-            <TextArea
+            <LabeledTextArea
               label="Render timeline"
               value={form.renderTimeline}
               onChange={(value) => update('renderTimeline', value)}
@@ -2685,7 +2685,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Queue Hermes job</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Queue Hermes job</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Video</span>
               <select
@@ -2711,7 +2711,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 ))}
               </select>
             </label>
-            <TextArea
+            <LabeledTextArea
               label="Input summary"
               value={form.jobInputSummary}
               onChange={(value) => update('jobInputSummary', value)}
@@ -2722,7 +2722,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createPublishingPacket} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create packet</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Create packet</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Video</span>
               <select
@@ -2737,14 +2737,14 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <Field label="Primary title" value={form.packetTitle} onChange={(value) => update('packetTitle', value)} />
-            <TextArea label="Description" value={form.packetDescription} onChange={(value) => update('packetDescription', value)} />
-            <TextArea
+            <LabeledTextArea label="Description" value={form.packetDescription} onChange={(value) => update('packetDescription', value)} />
+            <LabeledTextArea
               label="Tags"
               value={form.packetTags}
               onChange={(value) => update('packetTags', value)}
               placeholder="One per line or comma-separated"
             />
-            <TextArea
+            <LabeledTextArea
               label="Chapters"
               value={form.packetChapters}
               onChange={(value) => update('packetChapters', value)}
@@ -2768,7 +2768,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Contains altered or synthetic media
             </label>
-            <TextArea
+            <LabeledTextArea
               label="AI disclosure notes"
               value={form.packetAiDisclosureNotes}
               onChange={(value) => update('packetAiDisclosureNotes', value)}
@@ -2779,7 +2779,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createReleasePlan} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Plan release</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Plan release</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Approved packet</span>
               <select
@@ -2793,13 +2793,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 ))}
               </select>
             </label>
-            <Select
+            <LabeledSelect
               label="Release mode"
               value={form.releaseMode}
               onChange={(value) => update('releaseMode', value as YouTubeReleaseMode)}
               options={releaseModes}
             />
-            <Select
+            <LabeledSelect
               label="Target visibility"
               value={form.releaseTargetVisibility}
               onChange={(value) => update('releaseTargetVisibility', value as YouTubePublishingPolicy['defaultVisibility'])}
@@ -2811,12 +2811,12 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               onChange={(value) => update('releaseScheduledPublishAt', value)}
               placeholder="2026-06-20T10:00:00Z"
             />
-            <TextArea
+            <LabeledTextArea
               label="Public summary"
               value={form.releasePublicSummary}
               onChange={(value) => update('releasePublicSummary', value)}
             />
-            <TextArea
+            <LabeledTextArea
               label="Internal release notes"
               value={form.releaseInternalNotes}
               onChange={(value) => update('releaseInternalNotes', value)}
@@ -2827,7 +2827,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={importAnalytics} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Import analytics</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Import analytics</h2>
             <label className="block text-sm">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
@@ -2870,13 +2870,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                 type="date"
               />
             </div>
-            <Select
+            <LabeledSelect
               label="Source"
               value={form.analyticsSource}
               onChange={(value) => update('analyticsSource', value as YouTubeAnalyticsSource)}
               options={analyticsSources}
             />
-            <Select
+            <LabeledSelect
               label="Freshness"
               value={form.analyticsFreshness}
               onChange={(value) => update('analyticsFreshness', value as YouTubeAnalyticsFreshness)}
@@ -2898,20 +2898,20 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               <Field label="CTR %" value={form.analyticsImpressionsCtr} onChange={(value) => update('analyticsImpressionsCtr', value)} type="number" />
             </div>
-            <TextArea label="Client summary" value={form.analyticsClientSummary} onChange={(value) => update('analyticsClientSummary', value)} />
-            <Select
+            <LabeledTextArea label="Client summary" value={form.analyticsClientSummary} onChange={(value) => update('analyticsClientSummary', value)} />
+            <LabeledSelect
               label="Recommendation type"
               value={form.analyticsRecommendationType}
               onChange={(value) => update('analyticsRecommendationType', value as YouTubeAnalyticsRecommendationType)}
               options={analyticsRecommendationTypes}
             />
-            <Select
+            <LabeledSelect
               label="Confidence"
               value={form.analyticsRecommendationConfidence}
               onChange={(value) => update('analyticsRecommendationConfidence', value as YouTubeAnalyticsRecommendationConfidence)}
               options={analyticsRecommendationConfidences}
             />
-            <TextArea
+            <LabeledTextArea
               label="Recommendation"
               value={form.analyticsRecommendationSummary}
               onChange={(value) => update('analyticsRecommendationSummary', value)}
@@ -2949,9 +2949,9 @@ function Metric({ label, value, suffix = '' }: { label: string; value?: number; 
 
 function CommandSummaryCard({ title, value, detail }: { title: string; value: number; detail: string }) {
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
+    <div className="rounded-[6px] border border-[var(--color-pib-line)] p-3 text-sm">
       <p className="font-medium text-[var(--color-pib-text)]">{title}</p>
-      <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-2xl text-[var(--color-pib-text)]">{value}</p>
       <p className="text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
@@ -2959,7 +2959,7 @@ function CommandSummaryCard({ title, value, detail }: { title: string; value: nu
 
 function QueuePanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; label: string; detail?: string }> }) {
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
+    <div className="rounded-[6px] border border-[var(--color-pib-line)] p-3 text-sm">
       <p className="font-medium text-[var(--color-pib-text)]">{title}</p>
       {items.length === 0 ? <p className="mt-2 text-[var(--color-pib-text-muted)]">{empty}</p> : (
         <ul className="mt-2 space-y-1">
@@ -3123,7 +3123,7 @@ function Field({
   )
 }
 
-function TextArea({
+function LabeledTextArea({
   label,
   value,
   onChange,
@@ -3148,7 +3148,7 @@ function TextArea({
   )
 }
 
-function Select({
+function LabeledSelect({
   label,
   value,
   onChange,

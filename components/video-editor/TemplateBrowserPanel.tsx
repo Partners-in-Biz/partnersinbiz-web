@@ -106,21 +106,21 @@ export function TemplateBrowserPanel({
   return (
     <section className="pib-card-section space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Templates</h2>
+        <h2 className="font-headline text-lg text-[var(--color-pib-text)]">Templates</h2>
         {canSaveSelection ? (
           <button type="button" className="pib-btn-ghost text-sm" onClick={() => void saveSelection()}>
             Save selection
           </button>
         ) : null}
       </div>
-      <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+      <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
         Category
         <select
           className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-2 text-sm normal-case text-[var(--color-pib-text)]"
           value={category}
           onChange={(event) => setCategory(event.target.value as VideoEditorTemplateCategory | '')}
           disabled={!orgId}
-        >
+         aria-label="Input">
           <option value="">All templates</option>
           {VIDEO_EDITOR_TEMPLATE_CATEGORIES.map((item) => (
             <option key={item} value={item}>{categoryLabel(item)}</option>
@@ -134,7 +134,7 @@ export function TemplateBrowserPanel({
           <article key={template.id} className="rounded-lg border border-[var(--color-pib-line)] p-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.title}</h3>
+                <h3 className="text-sm text-[var(--color-pib-text)]">{template.title}</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">
                   {categoryLabel(template.category)}
                   {template.orgId === PLATFORM_TEMPLATE_ORG ? ' - platform' : ''}

@@ -102,7 +102,7 @@ export function VideoEditorProjectList({
     <section className={compact ? 'space-y-3' : 'pib-card-section space-y-3 p-4'} data-module-accent="cyan">
       <GlassBar className="flex-wrap items-center justify-between gap-2 p-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Video Editor projects</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">Video Editor projects</h2>
           <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
             {channelChoices.length > 0
               ? 'Create channel-linked edits here, render an MP4, then send the output back into YouTube review.'
@@ -118,7 +118,7 @@ export function VideoEditorProjectList({
             value={effectiveChannelWorkspaceId ?? ''}
             onChange={(event) => setSelectedChannelWorkspaceId(event.target.value)}
             className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-3 py-2 text-[var(--color-pib-text)]"
-          >
+           aria-label="Input">
             {channelChoices.map((channel) => (
               <option key={channel.id} value={channel.id}>
                 {channel.title || channel.youtubeHandle || 'YouTube channel'}
@@ -139,7 +139,7 @@ export function VideoEditorProjectList({
           onChange={(event) => setTitle(event.target.value)}
           placeholder="New edit title"
           className="min-w-0 flex-1 rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-        />
+         aria-label="New edit title"/>
         <button type="button" className="btn-pib-primary btn-pib-sm justify-center font-label" disabled={!orgId || !title.trim() || (channelChoices.length > 0 && !effectiveChannelWorkspaceId)} onClick={() => void createProject()}>
           Create edit
         </button>
@@ -157,7 +157,7 @@ export function VideoEditorProjectList({
             <article key={project.id} className="rounded-lg border border-[var(--color-pib-line)] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{project.title}</h3>
+                  <h3 className="break-words text-[var(--color-pib-text)]">{project.title}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                     {project.status} / {project.settings?.width ?? 1920}x{project.settings?.height ?? 1080} / {project.timeline?.tracks?.length ?? 0} tracks
                   </p>

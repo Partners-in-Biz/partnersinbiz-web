@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
+import { Icon } from '@/components/studio'
 
 type Sections = { traffic: boolean; rankings: boolean; backlinks: boolean }
 
@@ -55,7 +56,7 @@ export function ReportsClient({
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 500_000) {
-      showToast('Logo too large — use an image under 500KB')
+      showToast('Logo too large  -  use an image under 500KB')
       return
     }
     const reader = new FileReader()
@@ -165,39 +166,39 @@ export function ReportsClient({
       <SeoToolHeader
         eyebrow="Reporting"
         title="Branded SEO reports"
-        description="Build a white-labelled SEO report — pick a date range, add your client's logo and brand colour, choose sections, and export a branded PDF or share a public link."
+        description="Build a white-labelled SEO report  -  pick a date range, add your client's logo and brand colour, choose sections, and export a branded PDF or share a public link."
         sprints={sprints}
         activeSprintId={activeSprintId}
       />
 
       {!activeSprintId ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No active SEO sprint. Create a sprint to build reports.
         </div>
       ) : (
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">Report builder</h3>
+            <h3 className="text-sm">Report builder</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Configure the report, then preview the PDF or save it to history.</p>
           </div>
           <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="pib-label" htmlFor="cn">Client name</label>
-              <input id="cn" value={clientName} onChange={(e) => setClientName(e.target.value)} className="pib-input" placeholder="Acme Pty Ltd" />
+              <input name="reportsclient-field-69" id="cn" value={clientName} onChange={(e) => setClientName(e.target.value)} className="pib-input" placeholder="Acme Pty Ltd" />
             </div>
             <div>
               <label className="pib-label" htmlFor="from">From</label>
-              <input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="pib-input" />
+              <input name="date" id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="pib-input" />
             </div>
             <div>
               <label className="pib-label" htmlFor="to">To</label>
-              <input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="pib-input" />
+              <input name="date" id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="pib-input" />
             </div>
             <div>
               <label className="pib-label" htmlFor="bc">Brand colour</label>
               <div className="flex items-center gap-2">
-                <input id="bc" type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="h-9 w-12 rounded-lg border border-[var(--color-pib-line)] bg-transparent" />
-                <input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="pib-input !w-auto flex-1 text-xs" />
+                <input name="color" id="bc" type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="h-9 w-12 rounded-lg border border-[var(--color-pib-line)] bg-transparent" />
+                <input name="reportsclient-field-70" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="pib-input !w-auto flex-1 text-xs" />
               </div>
             </div>
           </div>
@@ -206,8 +207,8 @@ export function ReportsClient({
             <div>
               <label className="pib-label">Logo</label>
               <div className="flex items-center gap-3">
-                <button type="button" onClick={() => fileRef.current?.click()} className="pib-btn-secondary text-xs">
-                  <span className="material-symbols-outlined text-[16px]">upload</span>
+                <button name="reportsclient-action-71" type="button" onClick={() => fileRef.current?.click()} className="pib-btn-secondary text-xs">
+                  <Icon name="upload" />
                   {logoDataUrl ? 'Replace logo' : 'Upload logo'}
                 </button>
                 {logoDataUrl && (
@@ -215,9 +216,9 @@ export function ReportsClient({
                   <img src={logoDataUrl} alt="Logo preview" className="h-9 w-9 rounded-md border border-[var(--color-pib-line)] object-contain bg-white" />
                 )}
                 {logoDataUrl && (
-                  <button type="button" onClick={() => setLogoDataUrl(null)} className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-300">Remove</button>
+                  <button name="reportsclient-action-72" type="button" onClick={() => setLogoDataUrl(null)} className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-300">Remove</button>
                 )}
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onLogo} />
+                <input name="logo-upload" ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-impeccable-disable="content-invisible-at-rest" onChange={onLogo} />
               </div>
             </div>
             <div>
@@ -225,7 +226,7 @@ export function ReportsClient({
               <div className="flex flex-wrap gap-4 pt-1.5">
                 {(['traffic', 'rankings', 'backlinks'] as const).map((sec) => (
                   <label key={sec} className="inline-flex items-center gap-2 text-xs capitalize">
-                    <input
+                    <input name="reportsclient-field-74"
                       type="checkbox"
                       checked={sections[sec]}
                       onChange={(e) => setSections((s) => ({ ...s, [sec]: e.target.checked }))}
@@ -239,15 +240,15 @@ export function ReportsClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 p-4">
-            <button onClick={preview} disabled={busy} className="pib-btn-primary text-sm disabled:opacity-40">
+            <button name="reportsclient-action-75" onClick={preview} disabled={busy} className="pib-btn-primary text-sm disabled:opacity-40">
               {busy ? (
-                <><span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>Building…</>
+                <><Icon name="autorenew" className="animate-spin" />Building…</>
               ) : (
-                <><span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>Preview PDF</>
+                <><Icon name="picture_as_pdf" />Preview PDF</>
               )}
             </button>
-            <button onClick={save} disabled={busy} className="pib-btn-secondary text-sm disabled:opacity-40">
-              <span className="material-symbols-outlined text-[18px]">save</span>
+            <button name="reportsclient-action-76" onClick={save} disabled={busy} className="pib-btn-secondary text-sm disabled:opacity-40">
+              <Icon name="save" />
               Save to history
             </button>
           </div>
@@ -257,7 +258,7 @@ export function ReportsClient({
       {/* History */}
       <section className="pib-card-section overflow-hidden">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold">Report history</h3>
+          <h3 className="text-sm">Report history</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Saved reports. Toggle a public share link (expires in 30 days) or re-download.</p>
         </div>
         {rows.length === 0 ? (
@@ -267,17 +268,17 @@ export function ReportsClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Client</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Range</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Created</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Share</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Actions</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Client</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Range</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Created</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Share</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-pib-line)]">
                 {rows.map((r) => (
                   <tr key={r.id} className="hover:bg-[var(--color-pib-surface-2)]">
-                    <td className="px-5 py-3 font-medium">{r.clientName || '—'}</td>
+                    <td className="px-5 py-3 font-medium">{r.clientName || ' - '}</td>
                     <td className="px-5 py-3 tabular-nums text-xs text-[var(--color-pib-text-muted)]">{r.from} → {r.to}</td>
                     <td className="px-5 py-3 tabular-nums text-xs text-[var(--color-pib-text-muted)]">{r.createdAt.slice(0, 10)}</td>
                     <td className="px-5 py-3">
@@ -291,12 +292,12 @@ export function ReportsClient({
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => toggleShare(r)} className="pib-btn-secondary text-xs !py-1.5">
-                          <span className="material-symbols-outlined text-[14px]">{r.shareToken ? 'link_off' : 'link'}</span>
+                        <button name="reportsclient-action-77" onClick={() => toggleShare(r)} className="pib-btn-secondary text-xs !py-1.5">
+                          <Icon name={r.shareToken ? 'link_off' : 'link'} />
                           {r.shareToken ? 'Unshare' : 'Share'}
                         </button>
-                        <button onClick={() => remove(r)} className="inline-flex items-center gap-1 rounded-full border border-red-500/35 px-2.5 py-1.5 text-xs text-red-300 hover:bg-red-500/10">
-                          <span className="material-symbols-outlined text-[14px]">delete</span>
+                        <button name="reportsclient-action-78" onClick={() => remove(r)} className="inline-flex items-center gap-1 rounded border border-red-500/35 px-2.5 py-1.5 text-xs text-red-300 hover:bg-red-500/10">
+                          <Icon name="delete" />
                         </button>
                       </div>
                     </td>
@@ -309,7 +310,7 @@ export function ReportsClient({
       </section>
 
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm">
           {toast}
         </div>
       )}

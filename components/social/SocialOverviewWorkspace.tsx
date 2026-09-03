@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
@@ -79,7 +81,7 @@ const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
   x: { bg: 'bg-black', label: 'X' },
   linkedin: { bg: 'bg-[#0A66C2]', label: 'LI' },
   facebook: { bg: 'bg-[#1877F2]', label: 'FB' },
-  instagram: { bg: 'bg-gradient-to-br from-[#FFDC80] via-[#E1306C] to-[#5851DB]', label: 'IG' },
+  instagram: { bg: '-br from-[#FFDC80] via-[#E1306C] to-[#5851DB]', label: 'IG' },
   reddit: { bg: 'bg-[#FF4500]', label: 'RD' },
   tiktok: { bg: 'bg-black', label: 'TT' },
   pinterest: { bg: 'bg-[#E60023]', label: 'PI' },
@@ -120,7 +122,7 @@ function PlatformBadge({ platform }: { platform: string }) {
     label: platform.slice(0, 2).toUpperCase(),
   }
   return (
-    <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider`}>
+    <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded-md  tracking-wider`}>
       {config.label}
     </span>
   )
@@ -243,10 +245,10 @@ function ActionLink({
 
   return (
     <Link href={action.href} className={`relative ${className}`}>
-      {action.icon && <span className="material-symbols-outlined text-base">{action.icon}</span>}
+      {action.icon && <Icon name={action.icon} />}
       {action.label}
       {typeof badge === 'number' && badge > 0 && (
-        <span className="absolute top-0 right-0 flex h-4 w-4 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+        <span className="absolute top-0 right-0 flex h-4 w-4 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded bg-red-500 text-[9px] text-white">
           {badge}
         </span>
       )}
@@ -267,7 +269,7 @@ function ConnectedAccounts({
 
   return (
     <section>
-      <h2 className="eyebrow mb-4">Connected accounts</h2>
+      <h2 className="sc-tiny mb-4">Connected accounts</h2>
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[...Array(2)].map((_, i) => (
@@ -279,7 +281,7 @@ function ConnectedAccounts({
           <p className="text-[var(--color-pib-text-muted)] mb-4 text-sm">No accounts connected yet.</p>
           <Link href={accountsHref} className="btn-pib-accent btn-pib-sm">
             Connect an account
-            <span className="material-symbols-outlined text-base">arrow_outward</span>
+            <Icon name="arrow_outward" />
           </Link>
         </div>
       ) : (
@@ -290,10 +292,10 @@ function ConnectedAccounts({
                 <img
                   src={account.avatarUrl}
                   alt=""
-                  className="h-10 w-10 shrink-0 rounded-full border border-[var(--color-pib-line)] object-cover"
+                  className="h-10 w-10 shrink-0 rounded border border-[var(--color-pib-line)] object-cover"
                 />
               ) : (
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--color-pib-surface-2)] text-xs font-bold text-[var(--color-pib-text)]">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-[var(--color-pib-surface-2)] text-xs text-[var(--color-pib-text)]">
                   {(account.displayName || '?').slice(0, 2).toUpperCase()}
                 </span>
               )}
@@ -328,7 +330,7 @@ function RecentPostsList({
 
   return (
     <section>
-      <h2 className="eyebrow mb-4">Recent posts</h2>
+      <h2 className="sc-tiny mb-4">Recent posts</h2>
       {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
@@ -416,7 +418,7 @@ function ReviewPostCard({
 
       {post.scheduledAt && (
         <p className="text-xs text-[var(--color-pib-text-muted)] font-mono">
-          <span className="material-symbols-outlined text-sm align-middle mr-1">schedule</span>
+          <Icon name="schedule" />
           Scheduled - {fmtDate(post.scheduledAt)}
         </p>
       )}
@@ -428,7 +430,7 @@ function ReviewPostCard({
             disabled={loading}
             className="flex-1 pib-btn-primary !py-2 !text-xs disabled:opacity-50 disabled:cursor-not-allowed justify-center"
           >
-            <span className="material-symbols-outlined text-base">check</span>
+            <Icon name="check" />
             {loading ? 'Saving...' : 'Approve'}
           </button>
           <button
@@ -436,7 +438,7 @@ function ReviewPostCard({
             disabled={loading}
             className="flex-1 pib-btn-secondary !py-2 !text-xs disabled:opacity-50 disabled:cursor-not-allowed justify-center hover:!border-[#FCA5A5]/40 hover:!text-[#FCA5A5]"
           >
-            <span className="material-symbols-outlined text-base">close</span>
+            <Icon name="close" />
             Reject
           </button>
         </div>
@@ -446,9 +448,9 @@ function ReviewPostCard({
         onClick={onToggleExpand}
         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors inline-flex items-center gap-1 self-start"
       >
-        <span className="material-symbols-outlined text-sm">forum</span>
+        <Icon name="forum" />
         Comments ({comments.length})
-        <span className="material-symbols-outlined text-sm">{isExpanded ? 'expand_less' : 'expand_more'}</span>
+        <Icon name={isExpanded ? 'expand_less' : 'expand_more'} />
       </button>
 
       {isExpanded && (
@@ -456,7 +458,7 @@ function ReviewPostCard({
           {comments.map((comment) => (
             <div key={comment.id} className="flex gap-2.5 text-xs">
               <div
-                className={`${roleClass(comment.userRole)} rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-[11px] font-bold`}
+                className={`${roleClass(comment.userRole)} rounded w-6 h-6 flex items-center justify-center flex-shrink-0 text-[11px] `}
               >
                 {comment.userName.charAt(0).toUpperCase()}
               </div>
@@ -480,7 +482,7 @@ function ReviewPostCard({
               onChange={(event) => onCommentTextChange(event.target.value)}
               placeholder="Add a comment..."
               aria-label="Add a comment"
-              className="pib-input !rounded-full !py-1.5 !text-xs"
+              className="pib-input !rounded !py-1.5 !text-xs"
               disabled={commentLoading}
             />
             <button
@@ -532,7 +534,7 @@ function ApprovalPosts({
 
   return (
     <section>
-      <h2 className="eyebrow mb-4">Posts</h2>
+      <h2 className="sc-tiny mb-4">Posts</h2>
 
       <PageTabs
         className="mb-6"
@@ -560,9 +562,7 @@ function ApprovalPosts({
         </div>
       ) : displayPosts.length === 0 ? (
         <div className="bento-card p-10 text-center">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">
-            {tab === 'pending' ? 'check_circle' : tab === 'scheduled' ? 'schedule' : 'rocket_launch'}
-          </span></span>
+          <span aria-hidden="true" className="mx-auto"><Icon name={tab === 'pending' ? 'check_circle' : tab === 'scheduled' ? 'schedule' : 'rocket_launch'} /></span>
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {tab === 'pending'
               ? 'All caught up - no posts waiting for your approval.'
@@ -815,7 +815,7 @@ export default function SocialOverviewWorkspace({
       )}
 
       <section>
-        <h2 className="eyebrow mb-3">Quick actions</h2>
+        <h2 className="sc-tiny mb-3">Quick actions</h2>
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <ActionLink

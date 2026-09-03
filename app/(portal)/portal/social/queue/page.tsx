@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -109,7 +111,7 @@ function StatusBadge({ status }: { status: SocialPostStatus }) {
 function PlatformBadge({ platform }: { platform: string }) {
   const config = PLATFORM_COLORS[platform] ?? { bg: 'bg-[var(--color-pib-line-strong)]', label: platform.slice(0, 2).toUpperCase() }
   return (
-    <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+    <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded `}>
       {config.label}
     </span>
   )
@@ -194,7 +196,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
       <div className="relative z-50 w-96 h-full bg-[var(--color-pib-bg)] border-l border-[var(--color-pib-line)] flex flex-col overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-pib-line)]">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Edit Post</h2>
+            <h2 className="text-sm text-[var(--color-pib-text)]">Edit Post</h2>
             <div className="flex gap-1">
               {platforms.map((p) => (
                 <PlatformBadge key={p} platform={p} />
@@ -221,7 +223,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="pib-textarea w-full resize-none"
-            />
+             aria-label="Input"/>
           </div>
 
           <div>
@@ -231,7 +233,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
               value={scheduledFor}
               onChange={(e) => setScheduledFor(e.target.value)}
               className="pib-input w-full"
-            />
+             aria-label="Date and time"/>
           </div>
 
           <div>
@@ -240,7 +242,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
               value={category}
               onChange={(e) => setCategory(e.target.value as SocialPostCategory)}
               className="pib-select w-full capitalize"
-            >
+             aria-label="Input">
               {CATEGORIES.map((c) => (
                 <option key={c} value={c} className="capitalize">{c}</option>
               ))}
@@ -256,7 +258,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
               onKeyDown={handleTagKeyDown}
               placeholder="Type tag + Enter…"
               className="pib-input w-full"
-            />
+             aria-label="Type tag + Enter…"/>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {tags.map((tag) => (
@@ -404,7 +406,7 @@ export default function QueuePage() {
       )}
 
       <header>
-        <p className="eyebrow">Social · Queue</p>
+        <p className="sc-tiny">Social · Queue</p>
         <h1 className="pib-page-title mt-2">Post Queue</h1>
         <p className="pib-page-sub">Manage drafts, scheduled, and failed posts</p>
       </header>
@@ -444,7 +446,7 @@ export default function QueuePage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">pending_actions</span>
+          <Icon name="pending_actions" />
           <h2 className="pib-empty-state-title">No posts found.</h2>
         </div>
       ) : (

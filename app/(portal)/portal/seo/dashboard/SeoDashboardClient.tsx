@@ -7,6 +7,7 @@ import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader
 import { StatCard } from '@/components/ui/StatCard'
 import { fetchSeo } from '@/components/seo/seoToolClient'
 import type { SeoDashboard } from '@/lib/seo/dashboard'
+import { Icon } from '@/components/studio'
 
 function pct(v: number) {
   return `${(v * 100).toFixed(1)}%`
@@ -17,8 +18,8 @@ function DeltaPill({ value, invert }: { value: number | undefined; invert?: bool
   const good = invert ? value > 0 : value > 0
   const sign = value > 0 ? '+' : ''
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${good ? 'text-emerald-300' : 'text-red-300'}`}>
-      <span className="material-symbols-outlined text-[14px]">{value > 0 ? 'trending_up' : 'trending_down'}</span>
+    <span className={`inline-flex items-center gap-0.5 text-[11px] ${good ? 'text-emerald-300' : 'text-red-300'}`}>
+      <Icon name={value > 0 ? 'trending_up' : 'trending_down'} />
       {sign}{value.toLocaleString('en-ZA', { maximumFractionDigits: 1 })}
     </span>
   )
@@ -67,9 +68,9 @@ export function SeoDashboardClient({
         sprints={sprints}
         activeSprintId={activeSprintId}
         action={
-          <button onClick={runAudit} disabled={running || !d.sprintId} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
-            <span className={`material-symbols-outlined text-[16px] ${running ? 'animate-spin' : ''}`}>
-              {running ? 'autorenew' : 'radar'}
+          <button onClick={runAudit} disabled={running || !d.sprintId} className="st-btn st-btn--primary st-btn--sm disabled:opacity-50">
+            <span className={`inline-flex ${running ? 'animate-spin' : ''}`}>
+              <Icon name={running ? 'autorenew' : 'radar'} />
             </span>
             {running ? 'Running' : 'Run new audit'}
           </button>
@@ -77,7 +78,7 @@ export function SeoDashboardClient({
       />
 
       {!d.sprintId && (
-        <div className="pib-card p-5 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-5 text-center text-sm text-[var(--color-pib-text-muted)]">
           No active SEO sprint yet. Once your sprint is set up, this dashboard will populate from Search Console.
         </div>
       )}
@@ -90,7 +91,7 @@ export function SeoDashboardClient({
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard accent="green" label="Domain authority" value={d.domainAuthority !== null ? String(d.domainAuthority) : '—'} icon="shield" />
+        <StatCard accent="green" label="Domain authority" value={d.domainAuthority !== null ? String(d.domainAuthority) : ' - '} icon="shield" />
         <StatCard accent="green" label="Backlinks" value={d.backlinks.total.toLocaleString('en-ZA')} icon="link" detail={`${d.backlinks.referringDomains} referring domains`} />
         <StatCard accent="green" label="Keywords tracked" value={String(d.keywords.tracked)} icon="key" detail={`${d.keywords.top10} in top 10`} />
         <StatCard accent="green" label="Top 3 rankings" value={String(d.keywords.top3)} icon="emoji_events" />
@@ -99,7 +100,7 @@ export function SeoDashboardClient({
       <section className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold">90-day traffic trend</h3>
+            <h3 className="text-sm">90-day traffic trend</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Impressions and clicks from Search Console pulls.</p>
           </div>
           {d.lastUpdatedAt && <span className="pib-pill pib-pill-success text-[10px]">Updated {d.lastUpdatedAt}</span>}
@@ -118,7 +119,7 @@ export function SeoDashboardClient({
 
       <section className="pib-card-section overflow-hidden">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold">Top pages</h3>
+          <h3 className="text-sm">Top pages</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Highest-traffic pages across tracked keywords.</p>
         </div>
         {d.topPages.length === 0 ? (
@@ -128,11 +129,11 @@ export function SeoDashboardClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                  <th className="px-5 py-3 eyebrow !text-[10px]">Page</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Impressions</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Clicks</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">CTR</th>
-                  <th className="px-5 py-3 eyebrow !text-[10px] text-right">Avg pos</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px]">Page</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Impressions</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Clicks</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">CTR</th>
+                  <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Avg pos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-pib-line)]">
@@ -156,7 +157,7 @@ export function SeoDashboardClient({
       </section>
 
       {msg && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm shadow-lg">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm">
           {msg}
         </div>
       )}

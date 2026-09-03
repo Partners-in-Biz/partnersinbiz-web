@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 import { useEffect, useState } from 'react'
 import type { Meeting } from './useTodayMeetings'
@@ -43,9 +44,7 @@ export function TodayBand({ status, meetings, loading, mode }: Props) {
       status === 'needs_reconnect' ? 'Reconnect Google Calendar' : 'Connect Google Calendar'
     return (
       <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-4 py-2 text-xs text-[var(--color-pib-text-muted)]">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[14px]">
-          calendar_today
-        </span></span>
+        <span aria-hidden="true"><Icon name="calendar_today" /></span>
         <a href={href} className="text-[var(--color-pib-accent)] hover:underline">
           {label}
         </a>
@@ -74,7 +73,7 @@ export function TodayBand({ status, meetings, loading, mode }: Props) {
           style={{ minWidth: 110 }}
         >
           <span
-            className={`font-bold ${i === nextIdx ? 'text-green-400' : 'text-[var(--color-pib-text)]'}`}
+            className={` ${i === nextIdx ? 'text-green-400' : 'text-[var(--color-pib-text)]'}`}
           >
             {m.allDay ? 'All day' : formatTime(m.start)}
           </span>

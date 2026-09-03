@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
 import type { EmailDomain, EmailDomainStatus, EmailDomainDnsRecord } from '@/lib/email/domains'
@@ -42,7 +44,7 @@ function StatusBadge({ status }: { status: EmailDomainStatus }) {
   const label = STATUS_LABEL[status] ?? status
   return (
     <span className={cls}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span className="w-1.5 h-1.5 rounded bg-current" />
       {label}
     </span>
   )
@@ -82,11 +84,11 @@ function DnsRecordsTable({ records }: { records: EmailDomainDnsRecord[] }) {
       <table className="w-full text-sm">
         <thead className="bg-white/[0.02]">
           <tr className="text-left">
-            <th className="px-3 py-2 eyebrow !text-[10px]">Type</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Host / Name</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Value</th>
-            <th className="px-3 py-2 eyebrow !text-[10px]">Status</th>
-            <th className="px-3 py-2 eyebrow !text-[10px] w-16"></th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Type</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Host / Name</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Value</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px]">Status</th>
+            <th className="px-3 py-2 sc-tiny !text-[10px] w-16"></th>
           </tr>
         </thead>
         <tbody>
@@ -182,7 +184,7 @@ function DomainCard({
     <div className="bento-card !p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="pib-icon-tint pib-icon-tint-blue text-[18px]">dns</span>
+          <span className="text-[18px]">dns</span>
           <div className="min-w-0">
             <p className="font-medium truncate">{domain.name}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)] font-mono">
@@ -235,12 +237,10 @@ function DomainCard({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
-                warning
-              </span>
+              <Icon name="warning" />
               <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Sender domain removal</p>
-                <h3 id={`delete-domain-title-${domain.id}`} className="mt-1 font-display text-lg text-red-50">
+                <p className="sc-tiny !text-[10px] !text-red-100/80">Sender domain removal</p>
+                <h3 id={`delete-domain-title-${domain.id}`} className="mt-1 text-lg text-red-50">
                   Remove sender domain &quot;{domain.name}&quot;?
                 </h3>
                 <p id={`delete-domain-description-${domain.id}`} className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -266,9 +266,9 @@ function DomainCard({
                 onClick={handleDelete}
                 disabled={deleting}
                 aria-label={`Confirm remove sender domain ${domain.name}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                <Icon name="delete" />
                 {deleting ? 'Removing...' : 'Remove domain'}
               </button>
             </div>
@@ -379,7 +379,7 @@ export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
             disabled={submitting}
             autoComplete="off"
             spellCheck={false}
-          />
+           aria-label="yourdomain.co.za"/>
           <button
             type="submit"
             disabled={submitting || !newName.trim()}

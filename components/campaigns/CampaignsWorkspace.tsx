@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
@@ -77,20 +78,20 @@ type CampaignsWorkspaceProps = {
 const STATUS_PILL: Record<string, string> = {
   draft: 'bg-gray-700/30 text-gray-300 border border-gray-600/30',
   scheduled: 'bg-blue-700/30 text-blue-200 border border-blue-600/30',
-  sending: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
+  sending: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-violet-600/30',
   active: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
   sent: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  in_review: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  in_review: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   approved: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  shipping: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
-  paused: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  shipping: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-violet-600/30',
+  paused: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   completed: 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30',
   failed: 'bg-red-700/30 text-red-200 border border-red-600/30',
   canceled: 'bg-zinc-700/30 text-zinc-400 border border-zinc-700',
   archived: 'bg-zinc-800 text-zinc-400 border border-zinc-700',
   DRAFT: 'bg-gray-700/30 text-gray-300 border border-gray-600/30',
   ACTIVE: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  PAUSED: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  PAUSED: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   PENDING_REVIEW: 'bg-sky-700/30 text-sky-200 border border-sky-600/30',
   ARCHIVED: 'bg-zinc-800 text-zinc-400 border border-zinc-700',
 }
@@ -271,12 +272,12 @@ export function CampaignsWorkspace({
           ) : (
             <div className="pib-card-section">
               <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-                <p className="col-span-5 eyebrow !text-[10px]">Subject</p>
-                <p className="col-span-2 eyebrow !text-[10px]">Status</p>
-                <p className="col-span-2 eyebrow !text-[10px]">Sent</p>
-                <p className="col-span-1 eyebrow !text-[10px] text-right">Audience</p>
-                <p className="col-span-1 eyebrow !text-[10px] text-right">Open</p>
-                <p className="col-span-1 eyebrow !text-[10px] text-right">Click</p>
+                <p className="col-span-5 sc-tiny !text-[10px]">Subject</p>
+                <p className="col-span-2 sc-tiny !text-[10px]">Status</p>
+                <p className="col-span-2 sc-tiny !text-[10px]">Sent</p>
+                <p className="col-span-1 sc-tiny !text-[10px] text-right">Audience</p>
+                <p className="col-span-1 sc-tiny !text-[10px] text-right">Open</p>
+                <p className="col-span-1 sc-tiny !text-[10px] text-right">Click</p>
               </div>
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {broadcasts.map((broadcast) => (
@@ -296,8 +297,8 @@ function CampaignSection({ title, subhead, children }: { title: string; subhead:
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-pib-line)] pb-3">
         <div>
-          <p className="eyebrow">Campaign workspace</p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight md:text-xl">{title}</h2>
+          <p className="sc-tiny">Campaign workspace</p>
+          <h2 className="mt-1 text-lg tracking-tight md:text-xl">{title}</h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">{subhead}</p>
         </div>
       </div>
@@ -315,11 +316,11 @@ function CampaignRequests({ requests }: { requests: CampaignWorkspaceRecord[] })
     return (
       <section className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
-          <p className="eyebrow">Client requests</p>
-          <h2 className="mt-1 text-base font-semibold">No campaign requests waiting</h2>
+          <p className="sc-tiny">Client requests</p>
+          <h2 className="mt-1 text-base">No campaign requests waiting</h2>
         </div>
-        <span className="pib-icon-tint pib-icon-tint-rose !h-8 !w-8" aria-hidden="true">
-          <span className="material-symbols-outlined text-[16px]">task_alt</span>
+        <span className="!h-8 !w-8" aria-hidden="true">
+          <Icon name="task_alt" />
         </span>
       </section>
     )
@@ -328,8 +329,8 @@ function CampaignRequests({ requests }: { requests: CampaignWorkspaceRecord[] })
   return (
     <section className="space-y-4">
       <div>
-        <p className="eyebrow">Client requests</p>
-        <h2 className="font-headline text-2xl font-semibold mt-2">Campaign briefs to turn into work</h2>
+        <p className="sc-tiny">Client requests</p>
+        <h2 className="font-headline text-2xl mt-2">Campaign briefs to turn into work</h2>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {requests.map((request) => (
@@ -339,7 +340,7 @@ function CampaignRequests({ requests }: { requests: CampaignWorkspaceRecord[] })
                 <span className="text-[10px] px-2 py-1 rounded uppercase tracking-wide bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
                   {request.campaignType ?? 'campaign'}
                 </span>
-                <h3 className="font-headline text-lg font-semibold mt-3">{request.title ?? request.name ?? 'Campaign request'}</h3>
+                <h3 className="font-headline text-lg mt-3">{request.title ?? request.name ?? 'Campaign request'}</h3>
               </div>
               <span className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${statusPill(request.status)}`}>
                 {request.status ?? 'new'}
@@ -367,7 +368,7 @@ function CampaignRequests({ requests }: { requests: CampaignWorkspaceRecord[] })
 function BriefItem({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <dt className="eyebrow !text-[9px]">{label}</dt>
+      <dt className="sc-tiny !text-[9px]">{label}</dt>
       <dd className="mt-1 text-[var(--color-pib-text)]">{value || '-'}</dd>
     </div>
   )
@@ -385,7 +386,7 @@ function AdCampaignRow({ campaign, href }: { campaign: CampaignWorkspaceRecord; 
       className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4 border-b last:border-b-0 border-[var(--color-pib-line)] hover:bg-[var(--color-pib-surface-2)] transition-colors"
     >
       <div className="md:col-span-6">
-        <p className="font-semibold">{campaignTitle(campaign)}</p>
+        <p>{campaignTitle(campaign)}</p>
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
           {objective} {adAccount ? `- ${adAccount}` : ''}
         </p>
@@ -419,16 +420,14 @@ function BroadcastRow({ broadcast, href }: { broadcast: CampaignWorkspaceRecord;
       className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
     >
       <div className="col-span-2 md:col-span-5 min-w-0 flex items-center gap-3">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-8 !w-8 shrink-0">
-          <span className="material-symbols-outlined text-[16px]">
-            {channel === 'sms' ? 'sms' : 'mail'}
-          </span>
+        <span aria-hidden="true" className="!h-8 !w-8 shrink-0">
+          <Icon name={channel === 'sms' ? 'sms' : 'mail'} />
         </span>
         <div className="min-w-0">
-          <p className="font-semibold text-[var(--color-pib-text)] truncate flex items-center gap-2">
+          <p className="text-[var(--color-pib-text)] truncate flex items-center gap-2">
             {subject}
             {abEnabled && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)] uppercase tracking-wide font-bold shrink-0">
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)] uppercase tracking-wide shrink-0">
                 A/B
               </span>
             )}
@@ -447,26 +446,26 @@ function BroadcastRow({ broadcast, href }: { broadcast: CampaignWorkspaceRecord;
 
       <div className="md:col-span-2">
         <p className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
-          <span className="md:hidden eyebrow !text-[10px] mr-2">Sent</span>
+          <span className="md:hidden sc-tiny !text-[10px] mr-2">Sent</span>
           {formatDate(sentAt)}
         </p>
       </div>
 
       <div className="md:col-span-1 text-right">
         <p className="text-sm tabular-nums">
-          <span className="md:hidden eyebrow !text-[10px] mr-2">Audience</span>
+          <span className="md:hidden sc-tiny !text-[10px] mr-2">Audience</span>
           {audience.toLocaleString('en-ZA')}
         </p>
       </div>
       <div className="md:col-span-1 text-right">
         <p className="text-sm tabular-nums text-[var(--color-pib-text-muted)]">
-          <span className="md:hidden eyebrow !text-[10px] mr-2">Open</span>
+          <span className="md:hidden sc-tiny !text-[10px] mr-2">Open</span>
           {pct(opened, delivered)}
         </p>
       </div>
       <div className="md:col-span-1 text-right">
         <p className="text-sm tabular-nums text-[var(--color-pib-text-muted)]">
-          <span className="md:hidden eyebrow !text-[10px] mr-2">Click</span>
+          <span className="md:hidden sc-tiny !text-[10px] mr-2">Click</span>
           {pct(clicked, delivered)}
         </p>
       </div>
@@ -477,7 +476,7 @@ function BroadcastRow({ broadcast, href }: { broadcast: CampaignWorkspaceRecord;
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="eyebrow !text-[9px]">{label}</p>
+      <p className="sc-tiny !text-[9px]">{label}</p>
       <p className="font-medium text-sm tabular-nums mt-0.5">{value}</p>
     </div>
   )

@@ -27,7 +27,7 @@ export function ExportDialog({
       : ''
   return (
     <section className="pib-card-section space-y-3 p-4">
-      <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Export</h2>
+      <h2 className="font-headline text-lg text-[var(--color-pib-text)]">Export</h2>
       <div className="grid grid-cols-3 gap-2 text-center text-xs text-[var(--color-pib-text-muted)]">
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.outputSeconds}s</span>
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.billedMinutes} min</span>

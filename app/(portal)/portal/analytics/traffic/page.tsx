@@ -9,6 +9,8 @@ import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components
 import { SegmentFilter, EMPTY_SEGMENT, segmentToParams, loadPersistedSegment, type SegmentValue } from '@/components/analytics/SegmentFilter'
 import { DonutChart } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface TrafficData {
   totals: { sessions: number; bounceRate: number; avgDurationSec: number }
@@ -68,22 +70,19 @@ export default function TrafficPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="traffic" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Traffic</p>
-        <h1 className="pib-page-title mt-2">Traffic</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Traffic"
+        title="Traffic."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
         {propertyId && <SegmentFilter value={seg} onChange={setSeg} orgId={orgId} />}
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">traffic</span>
-          <p className="pib-empty-state-description">Select a client and property to see traffic.</p>
-        </div>
+        <EmptyState title="Select a client and property to see traffic." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
@@ -97,16 +96,16 @@ export default function TrafficPage() {
           </div>
 
           <div className="grid lg:grid-cols-2 gap-4">
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">devices</span></span>
+                <Icon name="devices" />
                 <h2 className="pib-label mb-0">Devices</h2>
               </div>
               <DonutChart data={data.devices} />
             </div>
-            <div className="pib-card">
+            <div className="st-panel">
               <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">alt_route</span></span>
+                <Icon name="alt_route" />
                 <h2 className="pib-label mb-0">Traffic sources</h2>
               </div>
               <DonutChart data={data.sources} />

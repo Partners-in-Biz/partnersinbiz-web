@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 // US-105 — Review + send/schedule panel. Surfaced as a slide-over from the
 // editor. Shows computed recipient count (real API), a deliverability score,
 // unsubscribe-link presence, a "Send now" action (launch endpoint), and a
@@ -254,9 +256,7 @@ export function CampaignReviewPanel({
       >
         <div className="sticky top-0 bg-[var(--color-pib-surface)] border-b border-[var(--color-pib-line)] px-5 py-4 flex items-center justify-between z-10">
           <h2 className="font-headline text-xl">Review &amp; send</h2>
-          <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined">close</span>
-          </button>
+          <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" aria-label="close"><Icon name="close" /></button>
         </div>
 
         <div className="p-5 space-y-6">
@@ -273,12 +273,12 @@ export function CampaignReviewPanel({
 
           {/* Recipients */}
           <section className="pib-card space-y-2">
-            <p className="eyebrow !text-[10px]">Recipients</p>
+            <p className="sc-tiny !text-[10px]">Recipients</p>
             {loadingRecipients ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">Resolving audience…</p>
             ) : recipients ? (
               <>
-                <p className="font-display text-4xl tabular-nums leading-none">{recipients.count.toLocaleString()}</p>
+                <p className="text-4xl tabular-nums leading-none">{recipients.count.toLocaleString()}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">
                   From {recipients.source}
                   {recipients.excluded > 0 ? ` · ${recipients.excluded} excluded` : ''}
@@ -292,28 +292,23 @@ export function CampaignReviewPanel({
           {/* Deliverability */}
           <section className="pib-card space-y-3">
             <div className="flex items-center justify-between">
-              <p className="eyebrow !text-[10px]">Deliverability score</p>
-              <span className="font-display text-2xl tabular-nums" style={{ color: scoreColor }}>
+              <p className="sc-tiny !text-[10px]">Deliverability score</p>
+              <span className="text-2xl tabular-nums" style={{ color: scoreColor }}>
                 {deliverability.score}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-[var(--color-pib-surface-2)] overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${deliverability.score}%`, background: scoreColor }} />
+            <div className="h-2 rounded bg-[var(--color-pib-surface-2)] overflow-hidden">
+              <div className="h-full rounded" style={{ width: `${deliverability.score}%`, background: scoreColor }} />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-sm">
-                <span
-                  className="material-symbols-outlined text-[18px]"
-                  style={{ color: unsub ? '#4ADE80' : '#F87171' }}
-                >
-                  {unsub ? 'check_circle' : 'cancel'}
-                </span>
+                <Icon name={unsub ? 'check_circle' : 'cancel'} />
                 <span className="text-[var(--color-pib-text-muted)]">
                   {unsub ? 'Unsubscribe link present' : 'No unsubscribe link (required)'}
                 </span>
               </div>
               {deliverability.issues.map((issue, i) => (
-                <p key={i} className="text-xs text-amber-300/90 pl-6">• {issue}</p>
+                <p key={i} className="text-xs text-[var(--sc-ink-soft)]/90 pl-6">• {issue}</p>
               ))}
               {deliverability.issues.length === 0 && (
                 <p className="text-xs text-emerald-300/90 pl-6">Looks great — no issues found.</p>
@@ -323,7 +318,7 @@ export function CampaignReviewPanel({
 
           {/* Send now */}
           <section className="pib-card space-y-3">
-            <p className="eyebrow !text-[10px]">Send now</p>
+            <p className="sc-tiny !text-[10px]">Send now</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
               Launches immediately and enrols every recipient.
             </p>
@@ -332,7 +327,7 @@ export function CampaignReviewPanel({
               disabled={busy || status === 'active' || status === 'completed' || !unsub}
               className="btn-pib-primary w-full justify-center disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-base">send</span>
+              <Icon name="send" />
               {status === 'active' ? 'Already sent' : 'Send now'}
             </button>
             {!unsub && (
@@ -342,14 +337,14 @@ export function CampaignReviewPanel({
 
           {/* Schedule */}
           <section className="pib-card space-y-3">
-            <p className="eyebrow !text-[10px]">Schedule</p>
+            <p className="sc-tiny !text-[10px]">Schedule</p>
             {status === 'scheduled' && scheduledAtIso ? (
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-[var(--color-pib-text)]">
                     Scheduled for {new Date(scheduledAtIso).toLocaleString()}
                   </p>
-                  <p className="font-display text-2xl tabular-nums mt-1" style={{ color: 'var(--color-pib-accent)' }}>
+                  <p className="text-2xl tabular-nums mt-1" style={{ color: 'var(--color-pib-accent)' }}>
                     {countdown}
                   </p>
                 </div>
@@ -364,12 +359,12 @@ export function CampaignReviewPanel({
                   value={scheduleLocal}
                   onChange={(e) => setScheduleLocal(e.target.value)}
                   className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-md px-3 py-2 text-sm text-[var(--color-pib-text)]"
-                />
+                 aria-label="Date and time"/>
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-md px-3 py-2 text-sm text-[var(--color-pib-text)]"
-                >
+                 aria-label="Input">
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>{tz}</option>
                   ))}
@@ -379,7 +374,7 @@ export function CampaignReviewPanel({
                   disabled={busy || !unsub}
                   className="btn-pib-secondary w-full justify-center disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-base">schedule_send</span>
+                  <Icon name="schedule_send" />
                   Schedule send
                 </button>
               </div>

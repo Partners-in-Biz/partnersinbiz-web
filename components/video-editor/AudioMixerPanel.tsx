@@ -37,7 +37,7 @@ export function AudioMixerPanel({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Mixer</h2>
+        <h2 className="font-headline text-lg text-[var(--color-pib-text)]">Mixer</h2>
         <span className="text-xs text-[var(--color-pib-text-muted)]">{tracks.length} tracks</span>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1">
@@ -51,7 +51,7 @@ export function AudioMixerPanel({
                   <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{track.label ?? track.id}</p>
                   <p className="text-[10px] uppercase text-[var(--color-pib-text-muted)]">{track.kind}</p>
                 </div>
-                {track.solo ? <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-pib-text)]">Solo</span> : null}
+                {track.solo ? <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text)]">Solo</span> : null}
               </div>
 
               <label className="mt-3 block text-xs text-[var(--color-pib-text-muted)]">

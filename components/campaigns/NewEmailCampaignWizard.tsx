@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 // US-102 — Step 1 "Settings" of the new email campaign wizard.
 //
 // Collects name / subject / preview text / sender / recipient selector, creates
@@ -272,10 +274,10 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" />
           Campaigns
         </Link>
-        <p className="eyebrow !text-[10px]">New email campaign · Step 1 of 2 · Settings</p>
+        <p className="sc-tiny !text-[10px]">New email campaign · Step 1 of 2 · Settings</p>
         <h1 className="font-headline text-3xl md:text-4xl tracking-tight">Set up your campaign</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] max-w-2xl">
           Name it, choose your sender and audience. Next you&apos;ll design the email and review before sending.
@@ -290,14 +292,14 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
 
       {/* Basics */}
       <section className="pib-card space-y-4">
-        <p className="eyebrow !text-[10px]">Basics</p>
+        <p className="sc-tiny !text-[10px]">Basics</p>
         <FieldRow label="Campaign name" required>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Spring product launch"
             className="pib-input"
-          />
+           aria-label="Spring product launch"/>
         </FieldRow>
         <FieldRow label="Subject line" required>
           <input
@@ -305,7 +307,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Meet the new collection"
             className="pib-input"
-          />
+           aria-label="Meet the new collection"/>
         </FieldRow>
         <FieldRow label="Preview text" hint="Shown after the subject in most inboxes.">
           <input
@@ -313,7 +315,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             onChange={(e) => setPreviewText(e.target.value)}
             placeholder="A first look, just for you."
             className="pib-input"
-          />
+           aria-label="A first look, just for you."/>
         </FieldRow>
         <FieldRow label="Internal description" hint="Only your team sees this.">
           <input
@@ -321,20 +323,20 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Q2 launch blast"
             className="pib-input"
-          />
+           aria-label="Q2 launch blast"/>
         </FieldRow>
       </section>
 
       {/* Sender */}
       <section className="pib-card space-y-4">
-        <p className="eyebrow !text-[10px]">Sender</p>
+        <p className="sc-tiny !text-[10px]">Sender</p>
         <FieldRow label="From name">
           <input
             value={fromName}
             onChange={(e) => setFromName(e.target.value)}
             placeholder="Your Brand"
             className="pib-input"
-          />
+           aria-label="Your Brand"/>
         </FieldRow>
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
           <FieldRow label="From address">
@@ -344,14 +346,14 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
                 onChange={(e) => setFromLocal(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
                 placeholder="campaigns"
                 className="pib-input !w-36"
-              />
+               aria-label="campaigns"/>
               <span className="text-[var(--color-pib-text-muted)]">@</span>
               <span className="font-mono text-sm text-[var(--color-pib-text)] truncate">{fromDomainName}</span>
             </div>
           </FieldRow>
         </div>
         <FieldRow label="Sending domain">
-          <select value={fromDomainId} onChange={(e) => setFromDomainId(e.target.value)} className="pib-input">
+          <select value={fromDomainId} onChange={(e) => setFromDomainId(e.target.value)} className="pib-input" aria-label="Input">
             <option value="">Shared — {SHARED_DOMAIN} (always available)</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id} disabled={d.status !== 'verified'}>
@@ -361,7 +363,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
           </select>
         </FieldRow>
         {fromDomainId && domains.find((d) => d.id === fromDomainId)?.status !== 'verified' && (
-          <p className="text-xs text-amber-300">
+          <p className="text-xs text-[var(--sc-ink-soft)]">
             This domain isn&apos;t verified yet — sends will fall back to the shared domain until DNS is confirmed.
           </p>
         )}
@@ -371,13 +373,13 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             onChange={(e) => setReplyTo(e.target.value)}
             placeholder="hello@yourbrand.com"
             className="pib-input"
-          />
+           aria-label="hello@yourbrand.com"/>
         </FieldRow>
       </section>
 
       {/* Recipients */}
       <section className="pib-card space-y-4">
-        <p className="eyebrow !text-[10px]">Recipients</p>
+        <p className="sc-tiny !text-[10px]">Recipients</p>
         <div className="flex flex-wrap gap-2">
           {(['segment', 'tag', 'contacts'] as RecipientMode[]).map((m) => (
             <button
@@ -385,7 +387,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
               type="button"
               onClick={() => setRecipientMode(m)}
               className={[
-                'px-3 py-1.5 rounded-full text-sm border transition-colors',
+                'px-3 py-1.5 rounded text-sm border transition-colors',
                 recipientMode === m
                   ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)] border-[var(--color-pib-accent)]'
                   : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
@@ -403,7 +405,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             {segments.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">No segments found. Create one in CRM, or pick a tag / contacts.</p>
             ) : (
-              <select value={segmentId} onChange={(e) => setSegmentId(e.target.value)} className="pib-input">
+              <select value={segmentId} onChange={(e) => setSegmentId(e.target.value)} className="pib-input" aria-label="Input">
                 <option value="">Select a segment…</option>
                 {segments.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
@@ -418,7 +420,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             {tags.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">No tags found. Tag contacts in CRM first.</p>
             ) : (
-              <select value={tagId} onChange={(e) => setTagId(e.target.value)} className="pib-input">
+              <select value={tagId} onChange={(e) => setTagId(e.target.value)} className="pib-input" aria-label="Input">
                 <option value="">Select a tag…</option>
                 {tags.map((t) => (
                   <option key={t.tag} value={t.tag}>{t.tag} ({t.count})</option>
@@ -435,7 +437,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
               onChange={(e) => setContactQuery(e.target.value)}
               placeholder="Search contacts by name or email…"
               className="pib-input"
-            />
+             aria-label="Search contacts by name or email…"/>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{contactIds.length} selected</p>
             <div className="max-h-56 overflow-y-auto border border-[var(--color-pib-line)] rounded-md divide-y divide-[var(--color-pib-line)]">
               {filteredContacts.length === 0 ? (
@@ -443,7 +445,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
               ) : (
                 filteredContacts.map((c) => (
                   <label key={c.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[var(--color-pib-surface-2)]">
-                    <input type="checkbox" checked={contactIds.includes(c.id)} onChange={() => toggleContact(c.id)} />
+                    <input type="checkbox" checked={contactIds.includes(c.id)} onChange={() => toggleContact(c.id)}  aria-label="Toggle"/>
                     <span className="text-sm text-[var(--color-pib-text)]">{c.name}</span>
                     <span className="text-xs text-[var(--color-pib-text-muted)] ml-auto truncate">{c.email}</span>
                   </label>
@@ -461,7 +463,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
           <div className="mt-3 max-h-48 overflow-y-auto border border-[var(--color-pib-line)] rounded-md divide-y divide-[var(--color-pib-line)]">
             {contacts.slice(0, 80).map((c) => (
               <label key={c.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[var(--color-pib-surface-2)]">
-                <input type="checkbox" checked={exclusionContactIds.includes(c.id)} onChange={() => toggleExclusion(c.id)} />
+                <input type="checkbox" checked={exclusionContactIds.includes(c.id)} onChange={() => toggleExclusion(c.id)}  aria-label="Toggle"/>
                 <span className="text-sm text-[var(--color-pib-text)]">{c.name}</span>
                 <span className="text-xs text-[var(--color-pib-text-muted)] ml-auto truncate">{c.email}</span>
               </label>
@@ -479,7 +481,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
           className="btn-pib-primary disabled:opacity-50"
         >
           {submitting ? 'Creating…' : 'Continue to design'}
-          <span className="material-symbols-outlined text-base">arrow_forward</span>
+          <Icon name="arrow_forward" />
         </button>
         <Link href={backHref} className="btn-pib-secondary">Cancel</Link>
       </div>

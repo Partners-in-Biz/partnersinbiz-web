@@ -73,7 +73,7 @@ export default function VideoSplitDialog({ open, videoUrl, nodeTitle, onClose, o
         value={value}
         onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
         style={{ width: 84, background: canvasTheme.bg, border: `1px solid ${canvasTheme.border}`, borderRadius: 7, color: canvasTheme.text, fontSize: 13, padding: '5px 8px' }}
-      />
+       aria-label="Number"/>
     </label>
   )
 

@@ -892,22 +892,22 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
               className="mb-2 h-20 w-full rounded-md"
             />
           ) : null}
-          <p className="text-[10px] font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">
+          <p className="text-[10px] uppercase tracking-normal text-[var(--color-pib-text-muted)]">
             {nodeTypeLabels[node.type]}
           </p>
-          <p className="text-sm font-semibold text-[var(--color-pib-text)]">{node.title}</p>
+          <p className="text-sm text-[var(--color-pib-text)]">{node.title}</p>
           {collaborators.length ? (
             <div className="mt-2 flex flex-wrap gap-1" aria-label={`${collaborators.length} collaborator${collaborators.length === 1 ? '' : 's'} active on ${node.title}`}>
               {collaborators.slice(0, 3).map((collaborator) => (
                 <span
                   key={collaborator.id}
-                  className="rounded-full border border-[var(--color-pib-primary)] bg-white px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-pib-primary)]"
+                  className="rounded border border-[var(--color-pib-primary)] bg-white px-1.5 py-0.5 text-[9px] text-[var(--color-pib-primary)]"
                 >
                   {collaborator.displayName ?? collaborator.actorUid}
                 </span>
               ))}
               {collaborators.length > 3 ? (
-                <span className="rounded-full border border-[var(--color-pib-line)] bg-white px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-pib-text-muted)]">
+                <span className="rounded border border-[var(--color-pib-line)] bg-white px-1.5 py-0.5 text-[9px] text-[var(--color-pib-text-muted)]">
                   +{collaborators.length - 3}
                 </span>
               ) : null}
@@ -4833,14 +4833,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           onClick={() => setTopBarPanel('')}
         >
           <div
-            className={`w-full ${topBarPanel === 'spend' ? 'max-w-lg' : 'max-w-md'} max-h-[85vh] overflow-y-auto rounded-xl p-5 shadow-xl`}
+            className={`w-full ${topBarPanel === 'spend' ? 'max-w-lg' : 'max-w-md'} max-h-[85vh] overflow-y-auto rounded-[6px] p-5 `}
             style={{ background: canvasTheme.surface, border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             onClick={(event) => event.stopPropagation()}
           >
             {topBarPanel === 'spend' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Spend breakdown</h2>
+                  <h2 className="text-lg" style={{ color: canvasTheme.text }}>Spend breakdown</h2>
                   <button type="button" aria-label="Close spend breakdown" data-tip="Close" onClick={() => setTopBarPanel('')} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 18 }}>×</button>
                 </div>
                 <CanvasSpendPanel
@@ -4853,7 +4853,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             ) : null}
             {topBarPanel === 'share' ? (
               <div className="space-y-3">
-                <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Share canvas</h2>
+                <h2 className="text-lg" style={{ color: canvasTheme.text }}>Share canvas</h2>
                 <p className="text-sm" style={{ color: canvasTheme.textMuted }}>
                   Visibility: {activeCanvas?.visibility === 'admin_agents_clients' ? 'Admins, agents & clients' : 'Admins & agents'}
                 </p>
@@ -4873,7 +4873,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         setActivityMessage('Canvas link copied')
                       }
                     }}
-                    className="rounded-md px-3 py-2 text-xs font-semibold"
+                    className="rounded-md px-3 py-2 text-xs"
                     style={{ background: canvasTheme.accent, color: canvasTheme.accentText }}
                   >
                     Copy
@@ -4882,7 +4882,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               </div>
             ) : (
               <div className="space-y-3">
-                <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Team chat</h2>
+                <h2 className="text-lg" style={{ color: canvasTheme.text }}>Team chat</h2>
                 <p className="text-sm" style={{ color: canvasTheme.textMuted }}>
                   {(presence?.length ?? 0) > 0
                     ? `${presence.length} collaborator${presence.length === 1 ? '' : 's'} present`
@@ -4896,7 +4896,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <button
               type="button"
               onClick={() => setTopBarPanel('')}
-              className="mt-4 w-full rounded-md px-3 py-2 text-sm font-semibold"
+              className="mt-4 w-full rounded-md px-3 py-2 text-sm"
               style={{ border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             >
               Close
@@ -4916,7 +4916,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           void handleReferenceFileSelected(event.target.files)
           event.currentTarget.value = ''
         }}
-      />
+       aria-label="Upload file"/>
 
       {createMenu ? (
         <CreateMenu
@@ -5008,18 +5008,18 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Previewing version {versionPreview.version}</p>
+              <p>Previewing version {versionPreview.version}</p>
               <p className="mt-1">
                 This is a read-only version preview. Return to the current graph before saving or running new edits.
               </p>
               {versionPreview.reason ? (
-                <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-sky-700">{versionPreview.reason}</p>
+                <p className="mt-1 text-xs uppercase tracking-normal text-sky-700">{versionPreview.reason}</p>
               ) : null}
             </div>
             <button
               type="button"
               onClick={exitVersionPreview}
-              className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs font-semibold text-sky-900"
+              className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs text-sky-900"
             >
               Return to current graph
             </button>
@@ -5028,10 +5028,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       ) : null}
 
       {remoteCanvasUpdate ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-200 bg-[var(--sc-surface)] px-4 py-3 text-sm text-[var(--sc-ink-soft)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Live graph update available</p>
+              <p>Live graph update available</p>
               <p className="mt-1">
                 Another collaborator saved v{remoteCanvasUpdate.activeVersion}. Local edits are active, so review before replacing the graph currently shown in this workspace.
               </p>
@@ -5039,7 +5039,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <button
               type="button"
               onClick={() => { void applyRemoteCanvasUpdate() }}
-              className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900"
+              className="rounded-md border border-amber-300 bg-white px-3 py-2 text-xs text-[var(--sc-ink-soft)]"
             >
               Apply latest graph
             </button>
@@ -5051,7 +5051,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-semibold">Local conflict draft preserved</p>
+              <p>Local conflict draft preserved</p>
               <p className="mt-1">
                 Your unsaved graph has {conflictDraft.nodes.length} nodes and {conflictDraft.edges.length} links. Fork it into a new canvas branch before applying the remote graph.
               </p>
@@ -5064,7 +5064,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             <button
               type="button"
               onClick={() => { void forkConflictDraft() }}
-              className="rounded-md border border-orange-300 bg-white px-3 py-2 text-xs font-semibold text-orange-900"
+              className="rounded-md border border-orange-300 bg-white px-3 py-2 text-xs text-orange-900"
             >
               Fork local draft
             </button>
@@ -5086,7 +5086,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             type="button"
             aria-pressed={mobilePanel === panel}
             onClick={() => setMobilePanel(panel)}
-            className={`rounded-md px-2 py-2 text-xs font-semibold ${
+            className={`rounded-md px-2 py-2 text-xs  ${
               mobilePanel === panel
                 ? 'bg-[var(--color-pib-primary)] text-white'
                 : 'text-[var(--color-pib-text-muted)]'
@@ -5103,7 +5103,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           className={`${immersiveCanvas ? 'sr-only' : ''} ${mobilePanelClass('sources')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Canvases</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Canvases</p>
             <div className="mt-3 space-y-2">
               {canvases.map((canvas) => (
                 <button
@@ -5113,7 +5113,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onClick={() => { void openCanvas(canvas) }}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-sm text-[var(--color-pib-text)] transition hover:bg-[var(--color-pib-surface)]"
                 >
-                  <span className="block font-semibold">Canvas: {canvas.title}</span>
+                  <span className="block">Canvas: {canvas.title}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{canvas.purpose}</span>
                 </button>
               ))}
@@ -5121,7 +5121,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Palette</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Palette</p>
             <div className="mt-3 space-y-2">
               {palette.map((item) => (
                 <button
@@ -5131,7 +5131,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onClick={() => addCanvasNode(item.type)}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
                 >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</span>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{item.label}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{item.description}</span>
                 </button>
               ))}
@@ -5139,7 +5139,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Board actions</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Board actions</p>
             <div className="mt-3 space-y-2">
               <button
                 type="button"
@@ -5147,7 +5147,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 disabled={autoFillBusy}
                 className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{autoFillBusy ? 'Auto-filling…' : '✨ Auto-fill board'}</span>
+                <span className="block text-sm text-[var(--color-pib-text)]">{autoFillBusy ? 'Auto-filling…' : '✨ Auto-fill board'}</span>
                 <span className="block text-xs text-[var(--color-pib-text-muted)]">Agent writes every empty text card, following the links for context.</span>
               </button>
               {canvasHasChapters ? (
@@ -5157,7 +5157,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   disabled={compileBusy}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{compileBusy ? 'Compiling…' : '📖 Compile manuscript'}</span>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{compileBusy ? 'Compiling…' : '📖 Compile manuscript'}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">Walk the chapter chain into a single Book Studio draft.</span>
                 </button>
               ) : null}
@@ -5167,14 +5167,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 disabled={!nodes.length}
                 className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">🧹 Tidy layout</span>
+                <span className="block text-sm text-[var(--color-pib-text)]">🧹 Tidy layout</span>
                 <span className="block text-xs text-[var(--color-pib-text-muted)]">Re-arrange nodes into clean left-to-right columns by link depth.</span>
               </button>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Workflow presets</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Workflow presets</p>
             <div className="mt-3 space-y-2">
               {workflowPresets.map((preset) => (
                 <button
@@ -5184,7 +5184,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onClick={() => applyWorkflowPreset(preset)}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
                 >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{preset.label}</span>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{preset.label}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{preset.description}</span>
                 </button>
               ))}
@@ -5192,7 +5192,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Saved templates</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Saved templates</p>
             <div className="mt-3 space-y-2 rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white p-3">
               <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-title">
                 Template name
@@ -5202,7 +5202,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onChange={(event) => setTemplateTitle(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                   placeholder={activeCanvas ? `${activeCanvas.title} template` : 'Reusable campaign flow'}
-                />
+                 aria-label="Input"/>
               </label>
               <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-description">
                 Template notes
@@ -5212,13 +5212,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onChange={(event) => setTemplateDescription(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                   placeholder="Reusable social, blog, video, or book pipeline"
-                />
+                 aria-label="Reusable social, blog, video, or book pipeline"/>
               </label>
               <button
                 type="button"
                 onClick={saveCurrentGraphAsTemplate}
                 disabled={!activeCanvas?.id || !nodes.length}
-                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save current graph as template
               </button>
@@ -5232,13 +5232,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                     placeholder="https://example.com/template.json"
                     inputMode="url"
-                  />
+                   aria-label="https://example.com/template.json"/>
                 </label>
                 <button
                   type="button"
                   onClick={() => { void importTemplateFromUrl() }}
                   disabled={!templateImportUrl.trim() || templateImporting}
-                  className="mt-2 w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-2 w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {templateImporting ? 'Importing…' : 'Import third-party template'}
                 </button>
@@ -5256,7 +5256,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onClick={() => applySavedTemplate(template)}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
                 >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{template.title}</span>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{template.title}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">
                     {template.nodes.length} nodes / {template.edges.length} links{template.description ? ` / ${template.description}` : ''}
                   </span>
@@ -5270,7 +5270,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Source library</p>
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Source library</p>
             <div className="mt-3 space-y-2">
               <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-search">
                 Search sources
@@ -5280,7 +5280,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onChange={(event) => setSourceQuery(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                   placeholder="Product, UGC, founder, cover..."
-                />
+                 aria-label="Product, UGC, founder, cover..."/>
               </label>
               <div className="grid grid-cols-1 gap-2">
                 <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-source-kind">
@@ -5290,7 +5290,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     value={sourceKindFilter}
                     onChange={(event) => setSourceKindFilter(event.target.value)}
                     className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                  >
+                   aria-label="Input">
                     <option value="">All sources</option>
                     <option value="upload">Uploads</option>
                     <option value="workspace_artifact">Workspace artifacts</option>
@@ -5307,7 +5307,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     value={sourceRoleFilter}
                     onChange={(event) => setSourceRoleFilter(event.target.value)}
                     className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                  >
+                   aria-label="Input">
                     <option value="">All roles</option>
                     <option value="product">Product</option>
                     <option value="person">Person</option>
@@ -5325,7 +5325,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     value={sourceMediaFilter}
                     onChange={(event) => setSourceMediaFilter(event.target.value)}
                     className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                  >
+                   aria-label="Input">
                     <option value="">All media</option>
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
@@ -5335,7 +5335,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 </label>
               </div>
               <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white p-3">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Upload source</p>
+                <p className="text-xs text-[var(--color-pib-text)]">Upload source</p>
                 <div className="mt-2 space-y-2">
                   <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-upload-role">
                     Upload role
@@ -5344,7 +5344,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={sourceUploadRole}
                       onChange={(event) => setSourceUploadRole(event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    >
+                     aria-label="Input">
                       <option value="product">Product</option>
                       <option value="person">Person</option>
                       <option value="style">Style</option>
@@ -5362,9 +5362,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       onChange={(event) => setSourceUploadAltText(event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                       placeholder="Product bottle front angle"
-                    />
+                     aria-label="Product bottle front angle"/>
                   </label>
-                  <label className="block cursor-pointer rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]" htmlFor="creative-canvas-source-upload">
+                  <label className="block cursor-pointer rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)]" htmlFor="creative-canvas-source-upload">
                     {sourceUploading ? 'Uploading source...' : 'Choose media or PDF'}
                     <input
                       id="creative-canvas-source-upload"
@@ -5377,7 +5377,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         event.currentTarget.value = ''
                       }}
                       className="sr-only"
-                    />
+                     aria-label="Upload file"/>
                   </label>
                 </div>
               </div>
@@ -5391,7 +5391,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onClick={() => importSourceItem(item)}
                   className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)]"
                 >
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</span>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{item.title}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">
                     {item.source.kind}{item.source.referenceRole ? ` / ${item.source.referenceRole}` : ''}
                   </span>
@@ -5411,7 +5411,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         >
           <div className={`${immersiveCanvas ? 'hidden' : 'flex'} flex-col gap-2 border-b border-[var(--color-pib-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between`}>
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Graph</h2>
+              <h2 className="text-sm uppercase tracking-normal text-[var(--color-pib-text-muted)]">Graph</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {nodes.length} nodes / {edges.length} links / v{activeCanvas?.activeVersion ?? 1}
               </p>
@@ -5500,21 +5500,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           className={`${immersiveCanvas ? 'sr-only' : ''} ${mobilePanelClass('inspector')} space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4`}
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Inspector</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">
+            <p className="text-xs uppercase tracking-normal text-[var(--color-pib-text-muted)]">Inspector</p>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">
               {activeCanvas ? `Selected: ${activeCanvas.title}` : 'No canvas selected'}
             </h2>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               {activeCanvas?.purpose ?? 'Create a canvas to start an agent-assisted creative workflow.'}
             </p>
             {selectedNodeId ? (
-              <p className="mt-2 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+              <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
                 Node {selectedNodeId} · {commentCountByNodeId[selectedNodeId] ?? 0} comment{(commentCountByNodeId[selectedNodeId] ?? 0) === 1 ? '' : 's'}
               </p>
             ) : null}
             {selectedNodeLockedByCollaborator ? (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                <p className="font-semibold">
+              <div className="mt-3 rounded-lg border border-amber-200 bg-[var(--sc-surface)] px-3 py-2 text-xs text-[var(--sc-ink-soft)]">
+                <p>
                   {selectedNodeCollaborators.map((collaborator) => collaborator.displayName ?? collaborator.actorUid).join(', ')} {selectedNodeCollaborators.length === 1 ? 'is' : 'are'} editing this node
                 </p>
                 <p className="mt-1">
@@ -5525,7 +5525,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Agent controls</p>
+            <p className="text-sm text-[var(--color-pib-text)]">Agent controls</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Queue generation, copy, document, and review work from prompt/model nodes while keeping approval gates intact.
             </p>
@@ -5544,7 +5544,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onChange={(event) => setRunModel(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                   placeholder="nano_banana_flash"
-                />
+                 aria-label="nano_banana_flash"/>
                 <datalist id="creative-canvas-model-suggestions">
                   {higgsfieldModelSuggestions.map((model) => (
                     <option key={model.id} value={model.id}>{model.label}</option>
@@ -5558,7 +5558,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runOutputKind}
                   onChange={(event) => setRunOutputKind(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                >
+                 aria-label="Input">
                   <option value="image">Image</option>
                   <option value="video">Video</option>
                   <option value="campaign_asset">Campaign asset</option>
@@ -5574,7 +5574,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runAspectRatio}
                   onChange={(event) => setRunAspectRatio(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                >
+                 aria-label="Input">
                   <option value="1:1">1:1</option>
                   <option value="4:5">4:5</option>
                   <option value="9:16">9:16</option>
@@ -5591,7 +5591,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runDurationSeconds}
                   onChange={(event) => setRunDurationSeconds(Math.max(0, Number(event.target.value) || 0))}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                />
+                 aria-label="Number"/>
               </label>
               <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-variants">
                 Variants
@@ -5603,7 +5603,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runVariantCount}
                   onChange={(event) => setRunVariantCount(Math.min(8, Math.max(1, Number(event.target.value) || 1)))}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                />
+                 aria-label="Number"/>
               </label>
               <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-style-preset">
                 Style preset
@@ -5612,7 +5612,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runStylePreset}
                   onChange={(event) => setRunStylePreset(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                >
+                 aria-label="Input">
                   <option value="cinematic_product">Cinematic product</option>
                   <option value="ugc_social">UGC social</option>
                   <option value="editorial">Editorial</option>
@@ -5627,7 +5627,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   value={runCameraMotion}
                   onChange={(event) => setRunCameraMotion(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                >
+                 aria-label="Input">
                   <option value="none">None</option>
                   <option value="camera_push">Camera push</option>
                   <option value="camera_pull">Camera pull</option>
@@ -5645,7 +5645,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   onChange={(event) => setRunNegativePrompt(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                   placeholder="Avoid blur, distortion, off-brand elements"
-                />
+                 aria-label="Avoid blur, distortion, off-brand elements"/>
               </label>
             </div>
             {mode === 'admin' ? (
@@ -5654,7 +5654,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={queueRun}
                   disabled={!selectedNodeId}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Queue run
                 </button>
@@ -5662,7 +5662,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={applyGenerationSettingsToSelectedNode}
                   disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Apply settings to node
                 </button>
@@ -5670,7 +5670,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={duplicateSelectedNode}
                   disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Duplicate selected node
                 </button>
@@ -5678,7 +5678,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={createInpaintEditBranch}
                   disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create inpaint edit branch
                 </button>
@@ -5686,7 +5686,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={createFormatVariantBranches}
                   disabled={!selectedNodeId || selectedNodeLockedByCollaborator}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create format variants
                 </button>
@@ -5694,7 +5694,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={() => ingestRunOutput()}
                   disabled={!latestRun?.id}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Ingest latest run output
                 </button>
@@ -5702,7 +5702,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={refreshLatestRunStatus}
                   disabled={!latestRun?.id}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Refresh provider status
                 </button>
@@ -5711,19 +5711,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Agent orchestration</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Agent orchestration</h3>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Graph-derived handoffs for source, strategy, prompt, generation, review, and export work.
             </p>
             <div className="mt-2 space-y-2">
               {orchestrationPlan.agents.length ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Active agents</p>
+                  <p className="text-[var(--color-pib-text)]">Active agents</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {orchestrationPlan.agents.map((agent) => (
                       <span
                         key={agent.agentId}
-                        className="pib-pill-rose rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                        className="pib-pill-rose rounded border px-2 py-0.5 text-[11px]"
                       >
                         {agent.agentId} · {agent.stepCount}
                       </span>
@@ -5733,14 +5733,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {orchestrationPlan.steps.length ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Handoff chain</p>
+                  <p className="text-[var(--color-pib-text)]">Handoff chain</p>
                   <p className="mt-1 break-words">{orchestrationPlan.handoffSummary}</p>
                   <div className="mt-2 space-y-1.5">
                     {orchestrationPlan.steps.slice(0, 6).map((step) => (
                       <div key={step.id} className="border-t border-[var(--color-pib-line)] pt-1.5 first:border-t-0 first:pt-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-[var(--color-pib-text)]">{step.title}</span>
-                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                          <span className="text-[var(--color-pib-text)]">{step.title}</span>
+                          <span className="rounded border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
                             {step.status}
                           </span>
                         </div>
@@ -5757,7 +5757,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               )}
               {orchestrationPlan.approvalGates.length ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Approval gates</p>
+                  <p className="text-[var(--color-pib-text)]">Approval gates</p>
                   {orchestrationPlan.approvalGates.map((gate) => (
                     <p key={gate.nodeId} className="mt-1">
                       {gate.title}: {gate.reviewerAgentId} · rights {gate.rightsStatus} · brand {gate.brandStatus}
@@ -5767,7 +5767,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {orchestrationPlan.blockers.length ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  <p className="font-semibold">Orchestration blockers</p>
+                  <p>Orchestration blockers</p>
                   {orchestrationPlan.blockers.map((blocker) => <p key={blocker}>{blocker}</p>)}
                 </div>
               ) : null}
@@ -5776,7 +5776,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={createOrchestrationTasks}
                   disabled={!activeCanvas?.id || !activeCanvas.linked?.projectId || !orchestrationPlan.steps.length || Boolean(orchestrationPlan.blockers.length)}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {activeCanvas?.linked?.projectId ? 'Create agent tasks' : 'Link project to create tasks'}
                 </button>
@@ -5786,9 +5786,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           {selectedCanvasNode?.edit ? (
             <div>
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Edit controls</h3>
+              <h3 className="text-sm text-[var(--color-pib-text)]">Edit controls</h3>
               <div className="mt-2 space-y-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-                <p className="font-semibold text-[var(--color-pib-text)]">
+                <p className="text-[var(--color-pib-text)]">
                   {selectedCanvasNode.edit.operation} / {selectedCanvasNode.edit.outputKind ?? 'image'}
                 </p>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-2">
@@ -5821,7 +5821,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   </div>
                   <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {blendControlOptions.map((option) => (
-                      <label key={option.key} className="flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)]">
+                      <label key={option.key} className="flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] text-[var(--color-pib-text)]">
                         <input
                           type="checkbox"
                           aria-label={option.label}
@@ -5857,7 +5857,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       <div
                         key={`${stroke.id}-${pointIndex}`}
                         aria-label={`Brush mask point ${selectedMaskBrushStrokes.slice(0, selectedMaskBrushStrokes.indexOf(stroke)).reduce((total, item) => total + item.points.length, 0) + pointIndex + 1}`}
-                        className={`absolute rounded-full border ${
+                        className={`absolute rounded border ${
                           stroke.mode === 'erase'
                             ? 'border-red-300 bg-white/80'
                             : 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/50'
@@ -5872,7 +5872,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         }}
                       />
                     )))}
-                    <div className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)]">
+                    <div className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-1 text-[11px] text-[var(--color-pib-text)]">
                       {maskRegion.width}x{maskRegion.height}% · feather {maskRegion.feather} · {selectedMaskBrushStrokes.length} brush
                     </div>
                   </div>
@@ -5882,7 +5882,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         key={preset.key}
                         type="button"
                         onClick={() => applyMaskQuickRegion(preset.region)}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-left text-[11px] font-semibold text-[var(--color-pib-text)]"
+                        className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-left text-[11px] text-[var(--color-pib-text)]"
                       >
                         {preset.label}
                       </button>
@@ -5899,7 +5899,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         value={maskBrushSize}
                         onChange={(event) => setMaskBrushSize(Math.min(25, Math.max(2, Number(event.target.value) || 8)))}
                         className="mt-1 w-full"
-                      />
+                       aria-label="Value"/>
                     </label>
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-brush-mode">
                       Brush mode
@@ -5908,7 +5908,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         value={maskBrushMode}
                         onChange={(event) => setMaskBrushMode(event.target.value === 'erase' ? 'erase' : 'paint')}
                         className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                      >
+                       aria-label="Input">
                         <option value="paint">Paint</option>
                         <option value="erase">Erase</option>
                       </select>
@@ -5919,7 +5919,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       type="button"
                       onClick={undoBrushStroke}
                       disabled={!selectedMaskBrushStrokes.length}
-                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Undo brush stroke
                     </button>
@@ -5927,7 +5927,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       type="button"
                       onClick={clearBrushMask}
                       disabled={!selectedMaskBrushStrokes.length}
-                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Clear brush mask
                     </button>
@@ -5959,7 +5959,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={maskRegion.x}
                       onChange={(event) => updateMaskRegionValue('x', event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    />
+                     aria-label="Number"/>
                   </label>
                   <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-y">
                     Mask y
@@ -5971,7 +5971,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={maskRegion.y}
                       onChange={(event) => updateMaskRegionValue('y', event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    />
+                     aria-label="Number"/>
                   </label>
                   <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-width">
                     Mask width
@@ -5983,7 +5983,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={maskRegion.width}
                       onChange={(event) => updateMaskRegionValue('width', event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    />
+                     aria-label="Number"/>
                   </label>
                   <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-height">
                     Mask height
@@ -5995,7 +5995,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={maskRegion.height}
                       onChange={(event) => updateMaskRegionValue('height', event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    />
+                     aria-label="Number"/>
                   </label>
                   <label className="col-span-2 text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-mask-feather">
                     Mask feather
@@ -6007,13 +6007,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       value={maskRegion.feather}
                       onChange={(event) => updateMaskRegionValue('feather', event.target.value)}
                       className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                    />
+                     aria-label="Number"/>
                   </label>
                 </div>
                 <button
                   type="button"
                   onClick={applyMaskRegion}
-                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]"
+                  className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)]"
                 >
                   Apply mask region
                 </button>
@@ -6027,13 +6027,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           ) : null}
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Run history</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Run history</h3>
             <div className="mt-2 space-y-2">
               {runOperations ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-[var(--color-pib-text)]">Provider operations</p>
-                    <span className="pib-pill-rose rounded-full border px-2 py-0.5">
+                    <p className="text-[var(--color-pib-text)]">Provider operations</p>
+                    <span className="pib-pill-rose rounded border px-2 py-0.5">
                       {runOperations.active} active / {runOperations.total} total
                     </span>
                   </div>
@@ -6046,11 +6046,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   {runtimeReadiness ? (
                     <div className={`mt-2 rounded-md border px-2 py-1 ${
                       runtimeReadiness.blockers.length
-                        ? 'border-amber-200 bg-amber-50 text-amber-800'
+                        ? 'border-amber-200 bg-[var(--sc-surface)] text-[var(--sc-ink-soft)]'
                         : 'border-green-200 bg-green-50 text-green-800'
                     }`}>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold">Runtime readiness</p>
+                        <p>Runtime readiness</p>
                         <span>{runtimeReadiness.runtimeConfigured ? 'configured' : 'not configured'}</span>
                       </div>
                       <p className="mt-1">
@@ -6064,19 +6064,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     </div>
                   ) : null}
                   {runOperations.staleActiveRuns ? (
-                    <p className="mt-2 font-semibold text-amber-700">
+                    <p className="mt-2 text-[var(--sc-ink-soft)]">
                       {runOperations.staleActiveRuns} active provider run{runOperations.staleActiveRuns === 1 ? '' : 's'} older than {runOperations.staleThresholdMinutes} min
                       {runOperations.oldestActiveRunAgeMinutes !== undefined ? ` · oldest ${runOperations.oldestActiveRunAgeMinutes} min` : ''}
                     </p>
                   ) : null}
                   {runOperations.retryableFailures ? (
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
+                      <p className="text-red-700">{runOperations.retryableFailures} retryable provider failure{runOperations.retryableFailures === 1 ? '' : 's'}</p>
                       {mode === 'admin' ? (
                         <button
                           type="button"
                           onClick={retryAllProviderRuns}
-                          className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                          className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 text-[var(--color-pib-text)]"
                         >
                           Retry all retryable
                         </button>
@@ -6088,11 +6088,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       {runOperations.providers.map((provider) => (
                         <div key={provider.providerKey} className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-[var(--color-pib-text)]">{provider.providerKey}</span>
+                            <span className="text-[var(--color-pib-text)]">{provider.providerKey}</span>
                             <span>{provider.active} active · {provider.completed} completed · {provider.failed} failed</span>
                           </div>
                           {provider.staleActiveRuns ? (
-                            <p className="mt-1 font-semibold text-amber-700">
+                            <p className="mt-1 text-[var(--sc-ink-soft)]">
                               {provider.staleActiveRuns} stale active{provider.oldestActiveRunAgeMinutes !== undefined ? ` · oldest ${provider.oldestActiveRunAgeMinutes} min` : ''}
                             </p>
                           ) : null}
@@ -6109,7 +6109,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {latestExecution?.command ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Provider execution</p>
+                  <p className="text-[var(--color-pib-text)]">Provider execution</p>
                   <code className="mt-2 block break-words rounded-md bg-[var(--color-pib-surface)] p-2 text-[11px] text-[var(--color-pib-text)]">
                     {latestExecution.command}
                   </code>
@@ -6130,8 +6130,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-[var(--color-pib-text)]">{run.providerKey}</span>
-                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
+                    <span className="text-[var(--color-pib-text)]">{run.providerKey}</span>
+                    <span className="rounded border border-[var(--color-pib-line)] px-2 py-0.5 uppercase tracking-normal">
                       {run.status}
                     </span>
                   </div>
@@ -6144,7 +6144,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <button
                       type="button"
                       onClick={() => ingestRunOutput(run)}
-                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)]"
                     >
                       Ingest output for {run.id}
                     </button>
@@ -6153,7 +6153,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <button
                       type="button"
                       onClick={() => retryProviderRun(run)}
-                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                      className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)]"
                     >
                       Retry provider run
                     </button>
@@ -6169,9 +6169,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Live collaborators</h3>
+              <h3 className="text-sm text-[var(--color-pib-text)]">Live collaborators</h3>
               <div className="flex items-center gap-2">
-                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal ${
+                <span className={`rounded border px-2 py-0.5 text-[11px]  uppercase tracking-normal ${
                   collaborationStreamConnected
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                     : 'border-[var(--color-pib-line)] bg-white text-[var(--color-pib-text-muted)]'
@@ -6182,28 +6182,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   type="button"
                   onClick={() => activeCanvas?.id ? refreshCollaborationState(activeCanvas.id, resolvedOrgId || activeCanvas.orgId, activeCanvas.activeVersion) : undefined}
                   disabled={!activeCanvas?.id}
-                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Refresh
                 </button>
               </div>
             </div>
-            <label className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]">
+            <label className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]">
               <input
                 type="checkbox"
                 checked={autoFollowLiveDrafts}
                 onChange={(event) => setAutoFollowLiveDrafts(event.target.checked)}
                 className="h-4 w-4 rounded border-[var(--color-pib-line)]"
-              />
+               aria-label="Toggle"/>
               Auto-follow live drafts
             </label>
             {autoFollowLiveDrafts && hasCollaboratorLiveDraft ? (
-              <p className="mt-1 text-xs font-semibold text-amber-800">
+              <p className="mt-1 text-xs text-[var(--sc-ink-soft)]">
                 Watching {latestCollaboratorDraft?.displayName ?? latestCollaboratorDraft?.actorUid} live draft while your graph is clean.
               </p>
             ) : null}
             <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
-              <p className="text-xs font-semibold text-[var(--color-pib-text)]">Canvas link</p>
+              <p className="text-xs text-[var(--color-pib-text)]">Canvas link</p>
               <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">
                 {collaborationLink || 'Open a canvas to create a collaboration link.'}
               </p>
@@ -6211,19 +6211,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 type="button"
                 onClick={() => { void copyCollaborationLink() }}
                 disabled={!collaborationLink}
-                className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-2 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {collaborationLinkCopied ? 'Copied link' : 'Copy canvas link'}
               </button>
             </div>
             <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Public share</p>
+                <p className="text-xs text-[var(--color-pib-text)]">Public share</p>
                 <button
                   type="button"
                   onClick={() => { void toggleCanvasShare() }}
                   disabled={shareBusy || !activeCanvas?.id}
-                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {shareBusy ? 'Updating…' : shareEnabled ? 'Disable link' : 'Enable link'}
                 </button>
@@ -6241,8 +6241,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               aria-label="Live collaboration activity"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Live activity</p>
-                <span className="pib-pill-rose rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal">
+                <p className="text-xs text-[var(--color-pib-text)]">Live activity</p>
+                <span className="pib-pill-rose rounded border px-2 py-0.5 text-[11px] uppercase tracking-normal">
                   {collaborationActivity.length} recent
                 </span>
               </div>
@@ -6253,10 +6253,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-[var(--color-pib-text)]">{event.actorLabel}</span>
+                      <span className="text-[var(--color-pib-text)]">{event.actorLabel}</span>
                       <span className="uppercase tracking-normal">{new Date(event.atMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <p className="mt-0.5 font-semibold text-[var(--color-pib-text)]">{event.action}</p>
+                    <p className="mt-0.5 text-[var(--color-pib-text)]">{event.action}</p>
                     <p className="mt-0.5">{event.detail}</p>
                   </div>
                 )) : (
@@ -6273,14 +6273,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-[var(--color-pib-text)]">{item.displayName ?? item.actorUid}</span>
+                    <span className="text-[var(--color-pib-text)]">{item.displayName ?? item.actorUid}</span>
                     <div className="flex flex-wrap justify-end gap-1">
                       {item.hasUnsavedGraphChanges ? (
-                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">
+                        <span className="rounded border border-amber-300 bg-[var(--sc-surface)] px-2 py-0.5 text-[var(--sc-ink-soft)]">
                           Live draft
                         </span>
                       ) : null}
-                      <span className="pib-pill-rose rounded-full border px-2 py-0.5 uppercase tracking-normal">
+                      <span className="pib-pill-rose rounded border px-2 py-0.5 uppercase tracking-normal">
                         {item.actorType}
                       </span>
                     </div>
@@ -6292,7 +6292,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     {typeof item.activeVersion === 'number' ? ` / v${item.activeVersion}` : ''}
                   </p>
                   {item.hasUnsavedGraphChanges ? (
-                    <p className="mt-1 font-semibold text-amber-800">
+                    <p className="mt-1 text-[var(--sc-ink-soft)]">
                       Unsaved graph edits are active in this collaborator workspace.
                     </p>
                   ) : null}
@@ -6300,7 +6300,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     <button
                       type="button"
                       onClick={() => applyCollaboratorDraft(item)}
-                      className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900"
+                      className="mt-2 rounded-md border border-amber-300 bg-[var(--sc-surface)] px-2 py-1 text-xs text-[var(--sc-ink-soft)]"
                     >
                       Apply live draft
                     </button>
@@ -6315,9 +6315,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Versions</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Versions</h3>
             {graphHasUnsavedChanges && !versionPreview ? (
-              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800">
+              <p className="mt-2 rounded-md border border-amber-200 bg-[var(--sc-surface)] px-2 py-1.5 text-xs text-[var(--sc-ink-soft)]">
                 Save or clear local graph edits before restoring or forking a saved version.
               </p>
             ) : null}
@@ -6335,10 +6335,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="font-semibold text-[var(--color-pib-text)]">Version {version.version}</span>
+                        <span className="text-[var(--color-pib-text)]">Version {version.version}</span>
                         <span className="block">{version.reason ?? 'graph snapshot'}</span>
                       </div>
-                      <span className="pib-pill-rose rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-normal">
+                      <span className="pib-pill-rose rounded border px-2 py-0.5 text-[11px] uppercase tracking-normal">
                         {summary.nodeCount} nodes
                       </span>
                     </div>
@@ -6369,7 +6369,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           type="button"
                           onClick={() => previewVersionGraph(version)}
                           disabled={!summary.hasSnapshotGraph || graphHasUnsavedChanges}
-                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Preview
                         </button>
@@ -6377,7 +6377,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           type="button"
                           onClick={() => runVersionAction(version, 'restore')}
                           disabled={!version.id || (graphHasUnsavedChanges && !versionPreview)}
-                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Restore
                         </button>
@@ -6385,7 +6385,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           type="button"
                           onClick={() => runVersionAction(version, 'fork')}
                           disabled={!version.id || (graphHasUnsavedChanges && !versionPreview)}
-                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Fork
                         </button>
@@ -6402,17 +6402,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Comments</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Comments</h3>
             <div className="mt-2 space-y-2">
               {selectedNodeId && selectedNodeComments.length ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Selected node thread</p>
+                  <p className="text-[var(--color-pib-text)]">Selected node thread</p>
                   <div className="mt-2 space-y-2">
                     {selectedNodeComments.map((comment) => (
                       <div key={comment.id} className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</span>
-                          <span className="pib-pill-rose rounded-full border px-2 py-0.5 uppercase tracking-normal">{comment.visibility}</span>
+                          <span className="text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</span>
+                          <span className="pib-pill-rose rounded border px-2 py-0.5 uppercase tracking-normal">{comment.visibility}</span>
                         </div>
                         <p className="mt-1 text-[var(--color-pib-text)]">{comment.body}</p>
                       </div>
@@ -6422,11 +6422,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               ) : null}
               {canvasLevelComments.length ? (
                 <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Canvas thread</p>
+                  <p className="text-[var(--color-pib-text)]">Canvas thread</p>
                   <div className="mt-2 space-y-2">
                     {canvasLevelComments.slice(0, 4).map((comment) => (
                       <div key={comment.id} className="rounded-md bg-[var(--color-pib-surface)] px-2 py-1.5">
-                        <p className="font-semibold text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</p>
+                        <p className="text-[var(--color-pib-text)]">{comment.createdByType}:{comment.createdBy}</p>
                         <p className="mt-1 text-[var(--color-pib-text)]">{comment.body}</p>
                       </div>
                     ))}
@@ -6449,12 +6449,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               rows={3}
               className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-sm text-[var(--color-pib-text)]"
               placeholder="Add a note for agents, reviewers, or the client"
-            />
+             aria-label="Add a note for agents, reviewers, or the client"/>
             <button
               type="button"
               onClick={postComment}
               disabled={!activeCanvas?.id || !commentBody.trim()}
-              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Add comment
             </button>
@@ -6462,8 +6462,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
           <div>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Asset gallery</h3>
-              <span className="pib-pill-rose rounded-full border px-2 py-0.5 text-xs">
+              <h3 className="text-sm text-[var(--color-pib-text)]">Asset gallery</h3>
+              <span className="pib-pill-rose rounded border px-2 py-0.5 text-xs">
                 {filteredCanvasAssets.length} / {canvasAssets.length}
               </span>
             </div>
@@ -6475,7 +6475,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               value={assetOriginFilter}
               onChange={(event) => setAssetOriginFilter(event.target.value as 'all' | CreativeCanvasAssetOrigin)}
               className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]"
-            >
+             aria-label="Input">
               <option value="all">All assets</option>
               <option value="source_node">Sources</option>
               <option value="output_node">Outputs</option>
@@ -6489,7 +6489,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               value={assetReadinessFilter}
               onChange={(event) => setAssetReadinessFilter(event.target.value as typeof assetReadinessFilter)}
               className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]"
-            >
+             aria-label="Input">
               <option value="all">All readiness states</option>
               <option value="ready">Ready for export</option>
               <option value="draft_exportable">Draft exportable</option>
@@ -6499,8 +6499,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             {selectedCanvasAsset ? (
               <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-xs text-[var(--color-pib-text-muted)]">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-[var(--color-pib-text)]">{selectedCanvasAsset.title}</p>
-                  <span className="pib-pill-rose rounded-full border px-2 py-0.5">
+                  <p className="text-[var(--color-pib-text)]">{selectedCanvasAsset.title}</p>
+                  <span className="pib-pill-rose rounded border px-2 py-0.5">
                     {assetOriginLabels[selectedCanvasAsset.origin]}
                   </span>
                 </div>
@@ -6511,7 +6511,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 {selectedCanvasAsset.runId ? <p>Run {selectedCanvasAsset.runId}</p> : null}
                 {selectedCanvasAsset.suggestedExportTarget ? <p>Target {selectedCanvasAsset.suggestedExportTarget.replaceAll('_', ' ')}</p> : null}
                 {selectedCanvasAsset.textPreview ? <p className="mt-1 line-clamp-3">{selectedCanvasAsset.textPreview}</p> : null}
-                <p className={selectedCanvasAsset.canDraftExport ? 'mt-1 font-semibold text-green-700' : 'mt-1 text-[var(--color-pib-text-muted)]'}>
+                <p className={selectedCanvasAsset.canDraftExport ? 'mt-1  text-green-700' : 'mt-1 text-[var(--color-pib-text-muted)]'}>
                   {selectedCanvasAsset.canDraftExport
                     ? 'Draft export available'
                     : selectedCanvasAsset.exportBlockedReason ?? 'Draft export unavailable'}
@@ -6525,7 +6525,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         value={selectedCanvasAsset.title}
                         onChange={(event) => updateSelectedAssetTitle(event.target.value)}
                         className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                      />
+                       aria-label="Input"/>
                     </label>
                     {selectedCanvasAsset.origin === 'source_node' ? (
                       <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-reference-role">
@@ -6535,7 +6535,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           value={selectedCanvasAsset.referenceRole ?? 'general'}
                           onChange={(event) => updateSelectedAssetReferenceRole(event.target.value)}
                           className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                        >
+                         aria-label="Input">
                           <option value="general">General</option>
                           <option value="product">Product</option>
                           <option value="person">Person</option>
@@ -6556,7 +6556,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                         onChange={(event) => updateSelectedAssetTextPreview(event.target.value)}
                         rows={2}
                         className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                      />
+                       aria-label="Input"/>
                     </label>
                     {selectedCanvasAsset.origin === 'output_node' ? (
                       <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-asset-export-target">
@@ -6566,7 +6566,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           value={selectedCanvasAsset.suggestedExportTarget ?? exportTarget}
                           onChange={(event) => updateSelectedAssetExportTarget(event.target.value as CreativeCanvasExport['target'])}
                           className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-                        >
+                         aria-label="Input">
                           <option value="social_draft">Social draft</option>
                           <option value="campaign_asset">Campaign asset</option>
                           <option value="client_document">Client document</option>
@@ -6586,14 +6586,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       type="button"
                       onClick={exportSelectedAssetDraft}
                       disabled={!selectedCanvasAsset.canDraftExport || !selectedCanvasAsset.nodeId}
-                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Export selected asset draft
                     </button>
                     <button
                       type="button"
                       onClick={toggleSelectedAssetCompare}
-                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                      className="rounded-md border border-[var(--color-pib-line)] bg-white px-2 py-1 text-[var(--color-pib-text)]"
                     >
                       {compareAssetIds.includes(selectedCanvasAsset.id) ? 'Remove from compare' : 'Add to compare'}
                     </button>
@@ -6604,7 +6604,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             {comparedCanvasAssets.length ? (
               <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-[var(--color-pib-text)]">Compare assets</p>
+                  <p className="text-[var(--color-pib-text)]">Compare assets</p>
                   <span>{comparedCanvasAssets.length} selected</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -6623,7 +6623,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                             {asset.outputKind ?? asset.sourceKind ?? 'asset'}
                           </div>
                         )}
-                        <p className="mt-1 truncate font-semibold text-[var(--color-pib-text)]">{asset.title}</p>
+                        <p className="mt-1 truncate text-[var(--color-pib-text)]">{asset.title}</p>
                         <p>{asset.readyForExport ? 'ready' : asset.canDraftExport ? 'draftable' : asset.reviewStatus ?? 'internal'}</p>
                       </div>
                     )
@@ -6635,7 +6635,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white p-3 text-xs text-[var(--color-pib-text-muted)]">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-[var(--color-pib-text)]">Export package</p>
+                    <p className="text-[var(--color-pib-text)]">Export package</p>
                     <p>
                       {comparedCanvasAssets.length
                         ? `${comparedCanvasAssets.filter((asset) => asset.origin === 'output_node' && asset.canDraftExport).length} compared output assets ready`
@@ -6645,7 +6645,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <button
                     type="button"
                     onClick={exportAssetPackage}
-                    className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-semibold text-[var(--color-pib-text)]"
+                    className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text)]"
                   >
                     Prepare package
                   </button>
@@ -6698,8 +6698,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate font-semibold text-[var(--color-pib-text)]">{asset.title}</p>
-                          <span className="pib-pill-rose shrink-0 rounded-full border px-2 py-0.5">
+                          <p className="truncate text-[var(--color-pib-text)]">{asset.title}</p>
+                          <span className="pib-pill-rose shrink-0 rounded border px-2 py-0.5">
                             {assetOriginLabels[asset.origin]}
                           </span>
                         </div>
@@ -6708,7 +6708,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                           {asset.nodeId ? ` · ${asset.nodeId}` : ''}
                         </p>
                         {asset.textPreview ? <p className="mt-1 line-clamp-2">{asset.textPreview}</p> : null}
-                        <p className={asset.readyForExport ? 'mt-1 font-semibold text-green-700' : 'mt-1 text-[var(--color-pib-text-muted)]'}>
+                        <p className={asset.readyForExport ? 'mt-1  text-green-700' : 'mt-1 text-[var(--color-pib-text-muted)]'}>
                           {asset.readyForExport ? 'Ready for export' : asset.reviewStatus ? `Review ${asset.reviewStatus}` : 'Internal asset'}
                         </p>
                       </div>
@@ -6724,7 +6724,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Output attachment</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Output attachment</h3>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Attach generated media, copy, blog blocks, book artifacts, or campaign assets back onto the selected node.
             </p>
@@ -6732,14 +6732,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               type="button"
               onClick={attachSampleOutput}
               disabled={!selectedNodeId}
-              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Attach output
             </button>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Review gate</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Review gate</h3>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Rights, brand, and synthetic-media disclosure must pass before client-visible or downstream export use.
             </p>
@@ -6747,14 +6747,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               type="button"
               onClick={markReviewPassed}
               disabled={!selectedNodeId}
-              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Mark review passed
             </button>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Exports</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Exports</h3>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Draft adapters route reviewed outputs into social, documents, campaigns, YouTube Studio, Book Studio, and artifacts.
             </p>
@@ -6766,7 +6766,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               value={exportTarget}
               onChange={(event) => setExportTarget(event.target.value as CreativeCanvasExport['target'])}
               className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2 text-xs text-[var(--color-pib-text)]"
-            >
+             aria-label="Input">
               <option value="campaign_asset">Campaign asset</option>
               <option value="social_draft">Social draft</option>
               <option value="client_document">Client document / blog</option>
@@ -6780,7 +6780,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               type="button"
               onClick={() => { void exportDraft() }}
               disabled={!selectedNodeId}
-              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Prepare draft export
             </button>
@@ -6793,7 +6793,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           ) : null}
 
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Nodes</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Nodes</h3>
             <div className="mt-2 space-y-2">
               {nodes.length ? nodes.map((node) => {
                 const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
@@ -6803,7 +6803,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                     key={node.id}
                     className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]"
                   >
-                    <span className="block font-semibold text-[var(--color-pib-text)]">
+                    <span className="block text-[var(--color-pib-text)]">
                       {canvasNode?.title ?? node.id}
                     </span>
                     <span>{canvasNode?.type ?? 'source'}</span>

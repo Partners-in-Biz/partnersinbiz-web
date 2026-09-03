@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 // US-101 — interactive Email Programs section: status filter, "New campaign"
 // button, recipients badge, and delete-draft with confirmation.
 //
@@ -16,8 +18,8 @@ const STATUS_PILL: Record<string, string> = {
   draft: 'bg-gray-700/30 text-gray-300 border border-gray-600/30',
   scheduled: 'bg-blue-700/30 text-blue-200 border border-blue-600/30',
   active: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  sending: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
-  paused: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  sending: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-violet-600/30',
+  paused: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   completed: 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30',
 }
 
@@ -119,15 +121,15 @@ export function EmailProgramsSection({
     <section className="space-y-3" data-module-accent="blue">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-pib-line)] pb-3">
         <div>
-          <p className="eyebrow">Campaign workspace</p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight md:text-xl">Email Programs</h2>
+          <p className="sc-tiny">Campaign workspace</p>
+          <h2 className="mt-1 text-lg tracking-tight md:text-xl">Email Programs</h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Sequence-backed campaigns linked to CRM segments and contacts.
           </p>
         </div>
         {newEmailCampaignHref && (
           <Link href={newEmailCampaignHref} className="btn-pib-primary btn-pib-sm whitespace-nowrap">
-            <span className="material-symbols-outlined text-base">add</span>
+            <Icon name="add" />
             New campaign
           </Link>
         )}
@@ -140,7 +142,7 @@ export function EmailProgramsSection({
             type="button"
             onClick={() => setStatusFilter(f.value)}
             className={[
-              'px-3 py-1.5 rounded-full text-xs border transition-colors',
+              'px-3 py-1.5 rounded text-xs border transition-colors',
               statusFilter === f.value
                 ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)] border-[var(--color-pib-accent)]'
                 : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
@@ -153,8 +155,8 @@ export function EmailProgramsSection({
 
       {filtered.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">forward_to_inbox</span></span>
-          <h3 className="font-headline text-lg font-semibold mt-3">
+          <span aria-hidden="true" className="mx-auto"><Icon name="forward_to_inbox" /></span>
+          <h3 className="font-headline text-lg mt-3">
             {items.length === 0 ? 'No email programs yet' : 'Nothing matches this filter'}
           </h3>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">
@@ -221,9 +223,9 @@ function EmailCampaignCard({
           <span className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${statusPill(campaign.status)}`}>
             {campaign.status ?? 'draft'}
           </span>
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose"><span className="material-symbols-outlined text-[15px]">forward_to_inbox</span></span>
+          <span aria-hidden="true"><Icon name="forward_to_inbox" /></span>
         </div>
-        <h3 className="font-headline text-lg font-semibold mt-4 leading-tight">{campaignTitle(campaign)}</h3>
+        <h3 className="font-headline text-lg mt-4 leading-tight">{campaignTitle(campaign)}</h3>
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
           {campaign.description || 'Sequence-driven email program'}
         </p>
@@ -261,7 +263,7 @@ function EmailCampaignCard({
               onClick={onRequestDelete}
               className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-rose-300"
             >
-              <span className="material-symbols-outlined text-[16px]">delete</span>
+              <Icon name="delete" />
               Delete draft
             </button>
           )}
@@ -274,7 +276,7 @@ function EmailCampaignCard({
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="eyebrow !text-[9px]">{label}</p>
+      <p className="sc-tiny !text-[9px]">{label}</p>
       <p className="font-medium text-sm tabular-nums mt-0.5">{value}</p>
     </div>
   )

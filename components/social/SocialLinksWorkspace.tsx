@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { copyToClipboard as copyTextToClipboard } from '@/lib/utils/clipboard'
 
@@ -206,7 +208,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4" data-module-accent="rose">
       <div>
-        <p className="eyebrow">Social · Links</p>
+        <p className="sc-tiny">Social · Links</p>
         <h1 className="pib-page-title mt-1.5">Link Shortener</h1>
         <p className="pib-page-sub">
           Create and manage shortened links with UTM tracking.
@@ -216,7 +218,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <section className="pib-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">Create Shortened Link</h2>
+            <h2 className="mb-3 text-sm">Create Shortened Link</h2>
 
             {error && (
               <div className="mb-4 rounded border border-red-400/50 bg-red-900/30 p-3 text-sm text-red-200">
@@ -245,7 +247,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
               </div>
 
               <div className="border-t border-[var(--color-pib-line)] pt-4">
-                <h3 className="text-sm font-semibold mb-3 text-[var(--color-accent-v2)]">UTM Parameters (Optional)</h3>
+                <h3 className="text-sm mb-3 text-[var(--color-accent-v2)]">UTM Parameters (Optional)</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-source">
@@ -336,21 +338,21 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
         {selectedLink && (
           <section className="pib-card h-fit p-4">
             <div className="mb-3 flex items-start justify-between">
-              <h2 className="text-sm font-semibold">Stats</h2>
+              <h2 className="text-sm">Stats</h2>
               <button
                 type="button"
                 onClick={() => setSelectedLink(null)}
                 aria-label={`Close stats for ${selectedLink.shortCode}`}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
               >
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+                <Icon name="close" />
               </button>
             </div>
 
             <div className="space-y-4 text-sm">
               <div className="rounded bg-[var(--color-pib-surface-2)] p-3">
                 <p className="text-[var(--color-pib-text-muted)]">Total Clicks</p>
-                <p className="text-2xl font-bold text-[var(--color-accent-v2)]">{selectedLink.stats.totalClicks}</p>
+                <p className="text-2xl text-[var(--color-accent-v2)]">{selectedLink.stats.totalClicks}</p>
               </div>
 
               {selectedLink.stats.topReferrers.length > 0 && (
@@ -395,12 +397,10 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="flex gap-3">
-                <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
-                  link_off
-                </span>
+                <Icon name="link_off" />
                 <div>
-                  <p className="eyebrow !text-[10px] !text-red-100/80">Tracked link delete</p>
-                  <h2 id="tracked-link-delete-title" className="mt-1 font-display text-lg text-red-50">
+                  <p className="sc-tiny !text-[10px] !text-red-100/80">Tracked link delete</p>
+                  <h2 id="tracked-link-delete-title" className="mt-1 text-lg text-red-50">
                     Delete tracked link &quot;{pendingDeleteLink.shortCode}&quot;?
                   </h2>
                   <p id="tracked-link-delete-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -426,9 +426,9 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                   onClick={() => handleDeleteLink(pendingDeleteLink)}
                   disabled={deletingLinkId === pendingDeleteLink.id}
                   aria-label={`Confirm delete tracked link ${pendingDeleteLink.shortCode}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                  <Icon name="delete" />
                   {deletingLinkId === pendingDeleteLink.id ? 'Deleting...' : 'Delete link'}
                 </button>
               </div>
@@ -440,11 +440,11 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]">
-                <th className="px-4 py-3 text-left font-semibold">Short URL</th>
-                <th className="px-4 py-3 text-left font-semibold">Original URL</th>
-                <th className="px-4 py-3 text-right font-semibold">Clicks</th>
-                <th className="px-4 py-3 text-left font-semibold">Created</th>
-                <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                <th className="px-4 py-3 text-left">Short URL</th>
+                <th className="px-4 py-3 text-left">Original URL</th>
+                <th className="px-4 py-3 text-right">Clicks</th>
+                <th className="px-4 py-3 text-left">Created</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -483,7 +483,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                           aria-label={`Copy tracked link ${link.shortCode}`}
                           className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">content_copy</span>
+                          <Icon name="content_copy" />
                         </button>
                       </div>
                     </td>
@@ -499,7 +499,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                         {link.originalUrl.length > 50 ? '...' : ''}
                       </a>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[var(--color-accent-v2)]">
+                    <td className="px-4 py-3 text-right text-[var(--color-accent-v2)]">
                       {link.clickCount}
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">
@@ -514,7 +514,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                           setPendingDeleteLink(link)
                         }}
                         aria-label={`Delete tracked link ${link.shortCode}`}
-                        className="text-xs font-medium text-red-400 hover:text-red-300"
+                        className="text-xs font-medium text-[var(--st-danger)] hover:text-red-300"
                       >
                         Delete
                       </button>

@@ -6,8 +6,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import type { CaptureSource } from '@/lib/crm/captureSources'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-import {
 import { Icon } from '@/components/studio'
+import {
   parseCsv,
   autoMapHeaders,
   rowsFromGridWithMapping,

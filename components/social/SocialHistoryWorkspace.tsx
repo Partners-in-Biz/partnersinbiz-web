@@ -113,7 +113,7 @@ function platformPostUrl(platform: string | undefined, externalId: string | null
 function PlatformPill({ platform }: { platform: string }) {
   const cfg = PLATFORM_CONFIG[platform] ?? { bg: 'bg-gray-600', label: platform.slice(0, 2).toUpperCase() }
   return (
-    <span className={`${cfg.bg} rounded px-2 py-0.5 text-[10px] font-bold text-white`}>
+    <span className={`${cfg.bg} rounded px-2 py-0.5 text-[10px]  text-white`}>
       {cfg.label}
     </span>
   )
@@ -192,7 +192,7 @@ export default function SocialHistoryWorkspace({
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4" data-module-accent="rose">
       <div>
-        <p className="eyebrow">Social · History</p>
+        <p className="sc-tiny">Social · History</p>
         <h1 className="pib-page-title mt-1.5">{title}</h1>
         <p className="pib-page-sub">{description}</p>
       </div>

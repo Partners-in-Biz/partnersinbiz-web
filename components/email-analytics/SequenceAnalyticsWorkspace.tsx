@@ -86,12 +86,12 @@ export function SequenceAnalyticsWorkspace({
 
   const shellClass =
     surface === 'portal'
-      ? 'mx-auto max-w-5xl space-y-4 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3'
+      ? 'mx-auto max-w-5xl space-y-4 overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3'
       : 'mx-auto max-w-5xl space-y-6 p-4 md:p-6'
 
   if (loading) {
     return (
-      <div className={surface === 'portal' ? 'pib-skeleton h-40 rounded-xl' : 'p-6 h-40 rounded-xl bg-[var(--color-pib-surface-2)] animate-pulse'} />
+      <div className={surface === 'portal' ? 'pib-skeleton h-40 rounded-[6px]' : 'p-6 h-40 rounded-[6px] bg-[var(--color-pib-surface-2)] '} />
     )
   }
 
@@ -150,8 +150,8 @@ export function SequenceAnalyticsWorkspace({
                 <span
                   className={
                     surface === 'portal'
-                      ? 'mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary'
-                      : 'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500'
+                      ? 'mt-1 h-1.5 w-1.5 shrink-0 rounded bg-primary'
+                      : 'mt-1.5 h-1.5 w-1.5 shrink-0 rounded bg-[var(--sc-surface)]'
                   }
                 />
                 <span>{action}</span>
@@ -226,7 +226,7 @@ function BackLink({ href, surface }: { href: string; surface: 'admin' | 'portal'
   return (
     <Link
       href={href}
-      className={surface === 'portal' ? 'text-sm text-primary hover:underline' : 'text-sm text-amber-500 hover:underline'}
+      className={surface === 'portal' ? 'text-sm text-primary hover:underline' : 'text-sm text-[var(--sc-ink-soft)] hover:underline'}
     >
       Back to email analytics
     </Link>
@@ -246,11 +246,11 @@ function Kpi({
 }) {
   const displayValue = typeof value === 'number' ? value.toLocaleString() : value
   return (
-    <div className={surface === 'portal' ? 'rounded-md border border-[var(--color-card-border)] bg-black/10 p-2' : 'rounded-xl bg-[var(--color-pib-surface-2)] p-4'}>
+    <div className={surface === 'portal' ? 'rounded-md border border-[var(--color-card-border)] bg-black/10 p-2' : 'rounded-[6px] bg-[var(--color-pib-surface-2)] p-4'}>
       <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)]'}>
         {label}
       </div>
-      <div className={surface === 'portal' ? 'text-lg font-semibold text-[var(--color-pib-text)]' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
+      <div className={surface === 'portal' ? 'text-lg  text-[var(--color-pib-text)]' : 'text-2xl  text-[var(--color-pib-text)]'}>
         {displayValue}
       </div>
       {sub && (
@@ -276,7 +276,7 @@ function Section({
       <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]' : 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]'}>
         {title}
       </h2>
-      <div className={surface === 'portal' ? 'border-t border-[var(--color-card-border)] p-3' : 'rounded-xl bg-[var(--color-pib-surface-2)] p-4'}>
+      <div className={surface === 'portal' ? 'border-t border-[var(--color-card-border)] p-3' : 'rounded-[6px] bg-[var(--color-pib-surface-2)] p-4'}>
         {children}
       </div>
     </section>

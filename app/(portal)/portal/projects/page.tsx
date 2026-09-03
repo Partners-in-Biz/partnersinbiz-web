@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ProjectsWorkspace } from '@/components/projects/ProjectsWorkspace'
 import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
+import { Skeleton } from '@/components/studio'
 import { scopeFromSearchParams, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 /**
@@ -53,8 +54,8 @@ export default function ProjectsPage() {
 
   if (resolvingTask && deepTaskId) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center p-8 text-sm text-[var(--color-pib-text-muted)]">
-        Opening task…
+      <div className="flex min-h-[40vh] items-center justify-center p-8">
+        <Skeleton height="2rem" width="12rem" />
       </div>
     )
   }

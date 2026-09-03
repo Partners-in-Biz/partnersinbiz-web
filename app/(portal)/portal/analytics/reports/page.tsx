@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface Report {
   id: string
@@ -163,15 +165,15 @@ export default function ReportsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="reports" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Reports</p>
-        <h1 className="pib-page-title mt-2">Scheduled Reports</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Reports"
+        title="Scheduled Reports."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex justify-end">
-          <button onClick={fetchReports} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
+          <button name="page-action-21" onClick={fetchReports} disabled={!propertyId || loading} className="st-btn st-btn--primary text-sm">
             {loading ? 'Loading…' : 'Load Reports'}
           </button>
         </div>
@@ -179,18 +181,18 @@ export default function ReportsPage() {
 
       {/* Create report form */}
       {propertyId && (
-        <div className="pib-card space-y-4">
+        <div className="st-panel space-y-4">
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">lab_profile</span></span>
+            <Icon name="lab_profile" />
             <h2 className="pib-label mb-0">Create Report</h2>
           </div>
           <div>
             <label className="pib-label mb-1">Name</label>
-            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Weekly Summary" className="pib-input text-sm w-72" />
+            <input name="text" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Weekly Summary" className="pib-input text-sm w-72" />
           </div>
           <div>
             <label className="pib-label mb-1">Frequency</label>
-            <select value={newFrequency} onChange={e => setNewFrequency(e.target.value as 'weekly' | 'monthly')} className="pib-select text-sm w-40">
+            <select name="page-select-22" value={newFrequency} onChange={e => setNewFrequency(e.target.value as 'weekly' | 'monthly')} className="pib-select text-sm w-40">
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
@@ -200,7 +202,7 @@ export default function ReportsPage() {
             <div className="flex flex-wrap gap-3">
               {METRIC_OPTIONS.map(m => (
                 <label key={m} className="flex items-center gap-1.5 text-sm text-[var(--color-pib-text)] cursor-pointer">
-                  <input type="checkbox" checked={newMetrics.includes(m)} onChange={() => toggleMetric(m)} />
+                  <input name="page-field-23" type="checkbox" checked={newMetrics.includes(m)} onChange={() => toggleMetric(m)} />
                   {m}
                 </label>
               ))}
@@ -208,10 +210,10 @@ export default function ReportsPage() {
           </div>
           <div>
             <label className="pib-label mb-1">Recipients (comma-separated emails)</label>
-            <input type="text" value={newRecipients} onChange={e => setNewRecipients(e.target.value)} placeholder="a@x.com, b@y.com" className="pib-input text-sm w-96 max-w-full" />
+            <input name="text" type="text" value={newRecipients} onChange={e => setNewRecipients(e.target.value)} placeholder="a@x.com, b@y.com" className="pib-input text-sm w-96 max-w-full" />
           </div>
           {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
-          <button onClick={createReport} disabled={creating || !newName.trim()} className="btn-pib-primary text-sm">
+          <button name="page-action-24" onClick={createReport} disabled={creating || !newName.trim()} className="st-btn st-btn--primary text-sm">
             {creating ? 'Creating…' : 'Create Report'}
           </button>
         </div>
@@ -221,10 +223,10 @@ export default function ReportsPage() {
       {reports.length > 0 && (
         <div className="space-y-4">
           {reports.map(r => (
-            <div key={r.id} className="pib-card space-y-3">
+            <div key={r.id} className="st-panel space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-3">
-                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">lab_profile</span></span>
+                  <Icon name="lab_profile" />
                   <div className="min-w-0">
                     <h3 className="text-sm font-medium text-[var(--color-pib-text)] flex items-center gap-2">
                       {r.name}
@@ -239,19 +241,19 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap justify-end">
-                  <button onClick={() => runNow(r.id)} disabled={running === r.id} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-25" onClick={() => runNow(r.id)} disabled={running === r.id} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     {running === r.id ? 'Running…' : 'Run now'}
                   </button>
-                  <a href={`/api/v1/analytics/reports/${r.id}/pdf`} download className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <a href={`/api/v1/analytics/reports/${r.id}/pdf`} download className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     PDF
                   </a>
-                  <button onClick={() => toggleActive(r)} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-26" onClick={() => toggleActive(r)} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     {r.active ? 'Pause' : 'Activate'}
                   </button>
-                  <button onClick={() => toggleExpand(r.id)} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-27" onClick={() => toggleExpand(r.id)} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     {expanded === r.id ? 'Hide history' : 'History'}
                   </button>
-                  <button onClick={() => deleteReport(r.id)} className="btn-pib-ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
+                  <button name="page-action-28" onClick={() => deleteReport(r.id)} className="st-btn st-btn--ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
                     Delete
                   </button>
                 </div>
@@ -278,7 +280,7 @@ export default function ReportsPage() {
                         ranAt: new Date(h.ranAt).toLocaleString(),
                         range: `${h.rangeFrom} → ${h.rangeTo}`,
                         status: h.status,
-                        recipients: h.recipients?.join(', ') ?? '—',
+                        recipients: h.recipients?.join(', ') ?? ' - ',
                       }))}
                       empty="No runs yet."
                     />
@@ -291,10 +293,7 @@ export default function ReportsPage() {
       )}
 
       {!loading && reports.length === 0 && propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">lab_profile</span>
-          <p className="pib-empty-state-description">No reports yet — create one above.</p>
-        </div>
+        <EmptyState title="No reports yet  -  create one above." />
       )}
     </div>
   )

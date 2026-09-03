@@ -13,8 +13,8 @@ const STOCK_AVATAR =
 
 export const sampleBrand: PreviewBrand = {
   palette: {
-    bg: '#0A0A0B',
-    accent: '#F5A623',
+    bg: 'var(--sc-ink)',
+    accent: 'var(--sc-accent)',
     alert: '#FF5A5F',
     text: '#EDEDED',
     muted: '#8B8B92',

@@ -78,7 +78,7 @@ export default function NodeEditChat({ nodeTitle, mediaKind, busy = false, error
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submit()
           }}
-        />
+         aria-label="Input"/>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div role="radiogroup" aria-label="Result placement" style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${canvasTheme.border}` }}>

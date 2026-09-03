@@ -24,7 +24,7 @@ export function MergeFieldBrowser({
   return (
     <div className="space-y-3">
       <div>
-        <p className="eyebrow !text-[10px]">Personalisation</p>
+        <p className="sc-tiny !text-[10px]">Personalisation</p>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Every optional field needs safe fallback copy.</p>
       </div>
       <input
@@ -32,7 +32,7 @@ export function MergeFieldBrowser({
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Find a merge field…"
         className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
-      />
+       aria-label="Find a merge field…"/>
       <div className="max-h-64 divide-y divide-[var(--color-pib-line)] overflow-y-auto border-y border-[var(--color-pib-line)]">
         {visible.map((field) => (
           <div key={field.key} className="py-2.5">

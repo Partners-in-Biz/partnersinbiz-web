@@ -22,13 +22,13 @@ type CampaignProgramCardProps = {
 const STATUS_PILL: Record<string, string> = {
   draft: 'bg-gray-700/30 text-gray-300 border border-gray-600/30',
   scheduled: 'bg-blue-700/30 text-blue-200 border border-blue-600/30',
-  sending: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
+  sending: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-violet-600/30',
   active: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
   sent: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  in_review: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  in_review: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   approved: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  shipping: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
-  paused: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
+  shipping: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-violet-600/30',
+  paused: 'bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)] border border-amber-600/30',
   completed: 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30',
   failed: 'bg-red-700/30 text-red-200 border border-red-600/30',
   canceled: 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30',
@@ -76,26 +76,26 @@ export function CampaignProgramCard({ campaign, href, meta }: CampaignProgramCar
             className="w-full h-full"
             style={{
               background:
-                'linear-gradient(135deg, var(--brand-accent, var(--color-pib-accent)) 0%, var(--brand-primary, var(--color-pib-accent-hover)) 50%, var(--brand-secondary, #0A0A0B) 100%)',
+                'linear-gradient(135deg, var(--brand-accent, var(--color-pib-accent)) 0%, var(--brand-primary, var(--color-pib-accent-hover)) 50%, var(--brand-secondary, var(--sc-ink)) 100%)',
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+        <div className="absolute inset-0 -t from-black/60 via-black/0 to-black/0" />
 
         {isAwaiting && (
-          <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/90 text-amber-950 font-semibold backdrop-blur">
+          <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded bg-[var(--sc-surface)]/90 text-[var(--sc-ink-soft)]">
             Awaiting review
           </span>
         )}
         <span
-          className={`absolute top-3 right-3 text-[10px] px-2 py-1 rounded uppercase tracking-wide backdrop-blur-sm ${statusPill(status)}`}
+          className={`absolute top-3 right-3 text-[10px] px-2 py-1 rounded uppercase tracking-wide  ${statusPill(status)}`}
         >
           {status}
         </span>
       </div>
 
       <div className="p-5">
-        <h3 className="font-headline text-base font-semibold leading-tight line-clamp-2">
+        <h3 className="font-headline text-base leading-tight line-clamp-2">
           {campaign.name ?? 'Untitled campaign'}
         </h3>
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-1.5">{formatMonth(campaign.createdAt)}</p>

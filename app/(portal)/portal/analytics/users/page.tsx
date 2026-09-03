@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface UserRow {
   distinctId: string
@@ -34,15 +36,15 @@ export default function AnalyticsUsersPage() {
   return (
     <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="users" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Users</p>
-        <h1 className="pib-page-title mt-2">Users</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Users"
+        title="Users."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex justify-end">
-          <button className="btn-pib-primary" onClick={load} disabled={!propertyId || loading}>
+          <button className="st-btn st-btn--primary" onClick={load} disabled={!propertyId || loading}>
             {loading ? 'Loading…' : 'Load'}
           </button>
         </div>
@@ -75,7 +77,7 @@ export default function AnalyticsUsersPage() {
                       {u.distinctId.slice(0, 16)}…
                     </Link>
                   </td>
-                  <td className="p-3 text-[var(--color-pib-text-muted)]">{u.userId ?? '—'}</td>
+                  <td className="p-3 text-[var(--color-pib-text-muted)]">{u.userId ?? ' - '}</td>
                   <td className="p-3 text-right font-mono">{u.eventCount.toLocaleString()}</td>
                   <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">{new Date(u.firstSeen).toLocaleString()}</td>
                   <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">{new Date(u.lastSeen).toLocaleString()}</td>
@@ -87,10 +89,7 @@ export default function AnalyticsUsersPage() {
       )}
 
       {!loading && users.length === 0 && propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">group</span>
-          <p className="pib-empty-state-description">No users found for this property.</p>
-        </div>
+        <EmptyState title="No users found for this property." />
       )}
     </div>
   )

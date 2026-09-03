@@ -114,9 +114,9 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
 
   return (
     <div role="dialog" aria-label="New book" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/50 p-2 sm:items-center sm:p-4">
-      <div data-testid="new-book-panel" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] shadow-xl sm:max-h-[calc(100dvh-2rem)]">
+      <div data-testid="new-book-panel" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[6px] border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-pib-border)] px-4 py-3 sm:px-6 sm:py-4">
-          <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">New book</h2>
+          <h2 className="text-lg text-[var(--color-pib-text)]">New book</h2>
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
@@ -127,7 +127,7 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
           <div className="space-y-6">
             {FORMAT_GROUPS.map((group) => (
               <div key={group.label}>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <h3 className="mb-2 text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {group.label}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -139,9 +139,9 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
                         key={id}
                         type="button"
                         onClick={() => pickFormat(id)}
-                        className="rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4 text-left transition hover:border-[var(--color-pib-brand)]"
+                        className="rounded-[6px] border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4 text-left transition hover:border-[var(--color-pib-brand)]"
                       >
-                        <div className="text-sm font-semibold text-[var(--color-pib-text)]">{entry.label}</div>
+                        <div className="text-sm text-[var(--color-pib-text)]">{entry.label}</div>
                         <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                           {entry.layout === 'reflowable' ? 'Text chapters' : 'Fixed pages'} · {entry.defaultTrim} · {assemblyLabel(entry)}
                         </div>
@@ -154,13 +154,13 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
           </div>
         ) : (
           <div className="space-y-4">
-            <button type="button" onClick={changeFormat} className="text-xs font-semibold text-[var(--color-pib-brand)] underline">
+            <button type="button" onClick={changeFormat} className="text-xs text-[var(--color-pib-brand)] underline">
               Change format
             </button>
 
             {templates.length > 0 && (
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Template
                 </span>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -170,7 +170,7 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
                       type="button"
                       aria-pressed={templateId === preset.id}
                       onClick={() => setTemplateId(preset.id === templateId ? null : preset.id)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      className={`rounded border px-3 py-1 text-xs  transition ${
                         templateId === preset.id
                           ? 'border-[var(--color-pib-brand)] bg-[var(--color-pib-brand)] text-white'
                           : 'border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]'
@@ -184,30 +184,30 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
             )}
 
             <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
               <input
                 className="input-field w-full"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-              />
+               aria-label="Input"/>
             </label>
 
             <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Audience</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Audience</span>
               <input
                 className="input-field w-full"
                 value={audience}
                 onChange={(event) => setAudience(event.target.value)}
-              />
+               aria-label="Input"/>
             </label>
 
             <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Trim size</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Trim size</span>
               <select
                 className="input-field w-full"
                 value={trimId}
                 onChange={(event) => setTrimId(event.target.value)}
-              >
+               aria-label="Input">
                 {format.supportedTrims.map((trim) => (
                   <option key={trim} value={trim}>
                     {trim}
@@ -217,7 +217,7 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
             </label>
 
             {error && (
-              <p role="alert" className="text-sm font-semibold text-[var(--color-pib-danger,#dc2626)]">
+              <p role="alert" className="text-sm text-[var(--color-pib-danger,#dc2626)]">
                 {error}
               </p>
             )}

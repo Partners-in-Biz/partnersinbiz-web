@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import BroadcastEditor from '@/components/admin/broadcasts/BroadcastEditor'
+import { EmptyState } from '@/components/ui/AppFoundation'
+import { Skeleton } from '@/components/studio'
 import type { Broadcast } from '@/lib/broadcasts/types'
 
 export default function BroadcastDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,14 +24,10 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
     })
   }, [params])
 
-  if (loading) return <div className="pib-skeleton h-40" />
-  if (!broadcast || !id)
-    return (
-      <div className="pib-empty-state">
-        <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">campaign</span>
-        <h2 className="pib-empty-state-title">Broadcast not found.</h2>
-      </div>
-    )
+  if (loading) return <Skeleton height={160} />
+  if (!broadcast || !id) {
+    return <EmptyState title="Broadcast not found." />
+  }
 
   return (
     <BroadcastEditor

@@ -152,7 +152,7 @@ export function CampaignCockpitClient({
         </p>
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-3xl md:text-5xl font-headline font-bold">
+            <h1 className="text-3xl md:text-5xl font-headline">
               {orgName ? `${orgName} — ` : ''}Marketing Preview
               {monthLabel && <span className="text-[var(--org-text-muted,var(--color-pib-text-muted))]"> · {monthLabel}</span>}
             </h1>
@@ -165,7 +165,7 @@ export function CampaignCockpitClient({
           <div className="flex items-center gap-2">
             {totalAwaiting > 0 && (
               <span
-                className="text-[10px] font-label uppercase tracking-wide px-3 py-1 rounded-full"
+                className="text-[10px] font-label uppercase tracking-wide px-3 py-1 rounded"
                 style={{
                   background: 'var(--org-accent, var(--color-pib-accent))',
                   color: '#000',
@@ -188,7 +188,7 @@ export function CampaignCockpitClient({
               <button
                 type="button"
                 disabled
-                className="rounded-md border border-amber-400/40 px-4 py-2 text-sm font-label text-amber-700 opacity-80"
+                className="rounded-md border border-amber-400/40 px-4 py-2 text-sm font-label text-[var(--sc-ink-soft)] opacity-80"
               >
                 Approval gate required
               </button>
@@ -225,7 +225,7 @@ export function CampaignCockpitClient({
                 role="alertdialog"
                 aria-modal="true"
                 aria-label={`Approve ${totalAwaiting} campaign assets?`}
-                className="rounded-lg border border-[var(--org-border,var(--color-pib-line))] bg-[var(--org-surface,var(--color-pib-card))] p-4 shadow-xl"
+                className="rounded-lg border border-[var(--org-border,var(--color-pib-line))] bg-[var(--org-surface,var(--color-pib-card))] p-4"
               >
                 <p className="font-label text-sm">Approve {totalAwaiting} campaign assets?</p>
                 <p className="mt-2 text-xs leading-5 text-[var(--org-text-muted,var(--color-pib-text-muted))]">
@@ -465,7 +465,7 @@ function SmallStat({
         {label}
       </p>
       <p
-        className="text-3xl font-headline font-bold"
+        className="text-3xl font-headline"
         style={
           accent && value > 0
             ? { color: 'var(--org-accent, var(--color-pib-accent))' }
@@ -490,7 +490,7 @@ function ResearchPanel({ research }: { research: AnyObj }) {
     <div className="space-y-6">
       {research.taglines && (
         <section className="pib-card p-6 space-y-3">
-          <h2 className="text-lg font-headline font-semibold">Taglines</h2>
+          <h2 className="text-lg font-headline">Taglines</h2>
           {research.taglines.master && (
             <div>
               <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Master</p>
@@ -514,11 +514,11 @@ function ResearchPanel({ research }: { research: AnyObj }) {
 
       {research.audiences && research.audiences.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-headline font-semibold">Audiences</h2>
+          <h2 className="text-lg font-headline">Audiences</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {research.audiences.map((a: AnyObj) => (
               <div key={a.id ?? a.label} className="pib-card p-5 space-y-3">
-                <h3 className="font-semibold">
+                <h3>
                   {a.id ? (
                     <span style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}>
                       {a.id}.
@@ -557,13 +557,13 @@ function ResearchPanel({ research }: { research: AnyObj }) {
 
       {research.voice && (
         <section className="pib-card p-6 space-y-3">
-          <h2 className="text-lg font-headline font-semibold">Voice</h2>
+          <h2 className="text-lg font-headline">Voice</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             {research.voice.do?.length > 0 && (
               <Bullets label="Do" items={research.voice.do} labelColor="text-emerald-400" />
             )}
             {research.voice.dont?.length > 0 && (
-              <Bullets label="Don't" items={research.voice.dont} labelColor="text-red-400" />
+              <Bullets label="Don't" items={research.voice.dont} labelColor="text-[var(--st-danger)]" />
             )}
           </div>
           {research.voice.sampleParagraph && (
@@ -579,7 +579,7 @@ function ResearchPanel({ research }: { research: AnyObj }) {
 
       {research.citations && research.citations.length > 0 && (
         <section className="pib-card p-6 space-y-3">
-          <h2 className="text-lg font-headline font-semibold">Citations</h2>
+          <h2 className="text-lg font-headline">Citations</h2>
           <ul className="space-y-3 text-sm">
             {research.citations.map((c: AnyObj, i: number) => (
               <li
@@ -737,7 +737,7 @@ function BlogApproveButton({
   return (
     <div className="px-5 pb-5 pt-0" onClick={e => e.preventDefault()}>
       {error && (
-        <p className="text-xs text-red-400 mb-2">{error}</p>
+        <p className="text-xs text-[var(--st-danger)] mb-2">{error}</p>
       )}
       <button
         type="button"

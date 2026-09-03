@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import Link from 'next/link'
 import { useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
@@ -108,10 +110,10 @@ function isVideoMedia(media: NonNullable<SocialCalendarPost['media']>[number]): 
 
 const STATUS_STYLES: Record<SocialCalendarPostStatus, string> = {
   draft: 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
-  qa_review: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
+  qa_review: 'border-amber-500/40 bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)]',
   regenerating: 'border-purple-500/40 bg-purple-900/30 text-purple-300',
-  client_review: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
-  pending_approval: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
+  client_review: 'border-amber-500/40 bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)]',
+  pending_approval: 'border-amber-500/40 bg-[var(--sc-surface)]/30 text-[var(--sc-ink-soft)]',
   approved: 'border-teal-500/40 bg-teal-900/30 text-teal-300',
   vaulted: 'border-purple-500/40 bg-purple-900/30 text-purple-300',
   scheduled: 'border-blue-500/40 bg-blue-900/40 text-blue-300',
@@ -215,7 +217,7 @@ function PlatformIcon({ platform }: { platform: string }) {
   if (!cfg) return null
   return (
     <span
-      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[8px] font-bold leading-none text-white"
+      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[8px] leading-none text-white"
       style={{ backgroundColor: cfg.color }}
       title={cfg.label}
     >
@@ -366,7 +368,7 @@ function PostPanel({
       <button className="absolute inset-0 bg-black/40" type="button" aria-label="Close post details" onClick={onClose} />
       <aside className="relative z-50 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-5 py-4">
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Scheduled post</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">Scheduled post</h2>
           <button type="button" onClick={onClose} className="text-xl leading-none text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
             x
           </button>
@@ -393,7 +395,7 @@ function PostPanel({
                       value={rescheduleValue}
                       onChange={(event) => setRescheduleValue(event.target.value)}
                       className="pib-input w-full"
-                    />
+                     aria-label="Date and time"/>
                   </label>
                 )}
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -404,7 +406,7 @@ function PostPanel({
                       disabled={busyAction !== null || !rescheduleValue}
                       className="btn-pib-secondary btn-pib-sm justify-center disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-base">event_repeat</span>
+                      <Icon name="event_repeat" />
                       {busyAction === 'reschedule' ? 'Rescheduling...' : 'Reschedule'}
                     </button>
                   )}
@@ -415,13 +417,13 @@ function PostPanel({
                       disabled={busyAction !== null}
                       className="btn-pib-accent btn-pib-sm justify-center disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-base">send</span>
+                      <Icon name="send" />
                       {busyAction === 'publish' ? 'Posting...' : 'Post now'}
                     </button>
                   )}
                   {editUrl && (
                     <Link href={editUrl} className="btn-pib-secondary btn-pib-sm justify-center">
-                      <span className="material-symbols-outlined text-base">edit</span>
+                      <Icon name="edit" />
                       Edit
                     </Link>
                   )}
@@ -672,7 +674,7 @@ export function SocialCalendarWorkspace({
         description={description}
         actions={
           <Link href={composeHref} className="btn-pib-accent btn-pib-sm">
-            <span className="material-symbols-outlined text-base">edit</span>
+            <Icon name="edit" />
             {composeLabel}
           </Link>
         }
@@ -681,15 +683,15 @@ export function SocialCalendarWorkspace({
       <section className="bento-card !p-3" data-module-accent="rose">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={goPrev} className="btn-pib-secondary btn-pib-sm">
-            <span className="material-symbols-outlined text-base">chevron_left</span>
+            <Icon name="chevron_left" />
             Prev
           </button>
-          <h2 className="min-w-[170px] text-center text-sm font-semibold text-[var(--color-pib-text)]">
+          <h2 className="min-w-[170px] text-center text-sm text-[var(--color-pib-text)]">
             {viewMode === 'month' ? `${MONTH_NAMES[month]} ${year}` : weekRangeLabel}
           </h2>
           <button type="button" onClick={goNext} className="btn-pib-secondary btn-pib-sm">
             Next
-            <span className="material-symbols-outlined text-base">chevron_right</span>
+            <Icon name="chevron_right" />
           </button>
           <button type="button" onClick={goToday} className="btn-pib-secondary btn-pib-sm">
             Today
@@ -736,7 +738,7 @@ export function SocialCalendarWorkspace({
         ))}
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]/50 bg-[var(--color-pib-surface)]">
+      <section className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]/50 bg-[var(--color-pib-surface)]">
         <div className="grid grid-cols-7 border-b border-[var(--color-pib-line)]">
           {DAY_HEADERS.map((day) => (
             <div key={day} className="py-2 text-center text-[10px] font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -767,7 +769,7 @@ export function SocialCalendarWorkspace({
                 onDoubleClick={allowDayCreate && onCreateForDay ? () => onCreateForDay(day) : undefined}
               >
                 <span
-                  className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                  className={`mb-1 flex h-6 w-6 items-center justify-center rounded text-xs font-medium ${
                     !isCurrentMonth ? 'text-[var(--color-pib-text-muted)]/25' : isSameDay(day, today) ? 'bg-white text-black' : 'text-[var(--color-pib-text)]'
                   }`}
                 >

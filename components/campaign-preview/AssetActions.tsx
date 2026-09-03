@@ -46,7 +46,7 @@ export function AssetActions({
           onClick={handleApprove}
           disabled={busy || submitting || isApproved}
           className={[
-            'flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all',
+            'flex-1 px-3 py-2.5 rounded-lg text-sm  whitespace-nowrap transition-all',
             isApproved
               ? 'bg-emerald-600/20 text-emerald-400 cursor-default'
               : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white',
@@ -60,8 +60,8 @@ export function AssetActions({
           onClick={() => setModalOpen(true)}
           disabled={busy || submitting}
           className={[
-            'flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all',
-            'border border-amber-500/60 text-amber-400 hover:bg-amber-500/10 active:scale-[0.98]',
+            'flex-1 px-3 py-2.5 rounded-lg text-sm  whitespace-nowrap transition-all',
+            'border border-amber-500/60 text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/10 active:scale-[0.98]',
             busy || submitting ? 'opacity-50 cursor-not-allowed' : '',
           ].join(' ')}
         >
@@ -94,7 +94,7 @@ export function AssetActions({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl p-6 space-y-4"
+            className="w-full max-w-lg rounded-[6px] p-6 space-y-4"
             style={{
               background: '#141416',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -103,7 +103,7 @@ export function AssetActions({
             }}
           >
             <div>
-              <p className="text-base font-semibold">Request changes</p>
+              <p className="text-base">Request changes</p>
               <p className="text-sm mt-1" style={{ color: '#8B8B92' }}>
                 What needs to change? The team will see this feedback.
               </p>
@@ -117,13 +117,13 @@ export function AssetActions({
               rows={5}
               className="w-full rounded-lg text-sm resize-y focus:outline-none focus:ring-1 focus:ring-amber-500/60 p-3"
               style={{
-                background: '#0A0A0B',
+                background: 'var(--sc-ink)',
                 color: '#EDEDED',
                 border: '1px solid rgba(255,255,255,0.12)',
                 fontFamily: 'inherit',
                 boxSizing: 'border-box',
               }}
-            />
+             aria-label="e.g. Tighten the hook in the first sentence, swap the hero image…"/>
 
             <div className="flex gap-2 justify-end pt-1">
               <button
@@ -137,8 +137,8 @@ export function AssetActions({
                 onClick={handleSubmitFeedback}
                 disabled={submitting || !feedback.trim()}
                 className={[
-                  'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-                  'bg-amber-500 text-[#1F1F1F] hover:bg-amber-400 active:scale-[0.98]',
+                  'px-4 py-2 rounded-lg text-sm  transition-all',
+                  'bg-[var(--sc-surface)] text-[#1F1F1F] hover:bg-[var(--sc-surface)] active:scale-[0.98]',
                   submitting || !feedback.trim() ? 'opacity-50 cursor-not-allowed' : '',
                 ].join(' ')}
               >

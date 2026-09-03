@@ -199,7 +199,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               fontSize: 13,
               padding: 10,
             }}
-          />
+           aria-label="Describe what you want to create…"/>
           {onAddReference ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {references.map((url, index) => (

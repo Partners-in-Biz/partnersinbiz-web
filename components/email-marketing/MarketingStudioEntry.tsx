@@ -13,7 +13,7 @@ export function MarketingStudioEntry({ scope }: { scope: PortalOrgRouteScope }) 
   const inCompanyWorkspace = Boolean(scope.sourceCompanyId?.trim())
 
   if (loading) {
-    return <div className="pib-card min-h-40 animate-pulse" role="status" aria-label="Loading marketing workspace" />
+    return <div className="pib-card min-h-40" role="status" aria-label="Loading marketing workspace" />
   }
 
   if (enabled) return <MarketingStudioDashboard scope={scope} />

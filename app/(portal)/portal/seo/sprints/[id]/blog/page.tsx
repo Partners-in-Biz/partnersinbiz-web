@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +22,8 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
     <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
-          <p className="eyebrow">Published content</p>
-          <h2 className="text-lg font-semibold mt-1">Blog</h2>
+          <p className="sc-tiny">Published content</p>
+          <h2 className="text-lg mt-1">Blog</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Live SEO posts and the early performance signals attached to each post.
           </p>
@@ -41,11 +42,11 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {live.map((item) => (
-            <article key={item.id} className="pib-card p-5">
+            <article key={item.id} className="st-panel p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="eyebrow !text-[10px]">{item.type ?? 'Blog post'}</p>
-                  <h3 className="font-headline text-lg font-semibold mt-2 leading-tight">{item.title}</h3>
+                  <p className="sc-tiny !text-[10px]">{item.type ?? 'Blog post'}</p>
+                  <h3 className="font-headline text-lg mt-2 leading-tight">{item.title}</h3>
                   <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
                     {item.publishDate ? new Date(item.publishDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date TBD'}
                   </p>
@@ -61,7 +62,7 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
               <div className="mt-5 flex flex-wrap gap-2">
                 {item.targetUrl && (
                   <a href={item.targetUrl} target="_blank" rel="noopener" className="pib-btn-secondary">
-                    <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                    <Icon name="open_in_new" />
                     View post
                   </a>
                 )}
@@ -80,10 +81,10 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }
@@ -91,7 +92,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
-      <p className="eyebrow !text-[9px]">{label}</p>
+      <p className="sc-tiny !text-[9px]">{label}</p>
       <p className="font-medium text-sm tabular-nums mt-1">{value}</p>
     </div>
   )
@@ -99,9 +100,9 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-6 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
+    <div className="st-panel p-6 text-center">
+      <Icon name={icon} />
+      <h3 className="font-headline text-lg mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
     </div>
   )

@@ -22,7 +22,7 @@ import {
   ParagraphBlockForm,
   SpacerBlockForm,
 } from '@/components/admin/email-builder/blocks/forms'
-import { Field, Select, TextInput } from '@/components/admin/email-builder/blocks/shared'
+import { Field, Select as FontSelect, TextInput } from '@/components/admin/email-builder/blocks/shared'
 import {
   DEFAULT_THEME,
   makeBlockId,
@@ -98,13 +98,13 @@ function defaultBlock(type: BlockType, ctx: { orgName: string; address: string }
   const id = makeBlockId()
   switch (type) {
     case 'hero':
-      return { id, type: 'hero', props: { backgroundColor: '#0A0A0B', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
+      return { id, type: 'hero', props: { backgroundColor: '#1a1714', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
     case 'heading':
       return { id, type: 'heading', props: { text: 'New heading', level: 2, align: 'left' } }
     case 'paragraph':
       return { id, type: 'paragraph', props: { html: 'Write something here.', align: 'left' } }
     case 'button':
-      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: '#F5A623', textColor: '#0A0A0B', align: 'center', fullWidth: false } }
+      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: '#e4572e', textColor: '#1a1714', align: 'center', fullWidth: false } }
     case 'image':
       return { id, type: 'image', props: { src: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200', alt: 'Image', width: 552, align: 'center' } }
     case 'divider':
@@ -344,7 +344,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             Overview
           </Link>
           <div className="min-w-0">
-            <p className="eyebrow !text-[10px]">Designing email · {status}</p>
+            <p className="sc-tiny !text-[10px]">Designing email · {status}</p>
             <h1 className="font-headline text-2xl tracking-tight truncate">{campaign.name}</h1>
           </div>
         </div>
@@ -368,7 +368,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
       </header>
 
       {readOnly && (
-        <div className="pib-card !p-3 border border-amber-500/30 bg-amber-500/5 text-sm text-amber-200">
+        <div className="pib-card !p-3 border border-amber-500/30 bg-[var(--sc-surface)]/5 text-sm text-[var(--sc-ink-soft)]">
           This campaign is {status} and can no longer be edited.
         </div>
       )}
@@ -381,14 +381,14 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             <Field label="Preview text"><TextInput value={previewText} onChange={setPreviewText} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Primary">
-                <input type="color" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
+                <input type="color" aria-label="Primary" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
               </Field>
               <Field label="Background">
-                <input type="color" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
+                <input type="color" aria-label="Background" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
               </Field>
             </div>
             <Field label="Font">
-              <Select value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
+              <FontSelect value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
             </Field>
           </div>
 
@@ -414,7 +414,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </div>
 
           <div className="pib-card">
-            <p className="eyebrow !text-[10px] mb-2">Blocks · drag to reorder</p>
+            <p className="sc-tiny !text-[10px] mb-2">Blocks · drag to reorder</p>
             <ul className="space-y-1">
               {doc.blocks.map((b, i) => (
                 <li
@@ -467,7 +467,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </div>
 
           <div className="pib-card">
-            <p className="eyebrow !text-[10px] mb-3">
+            <p className="sc-tiny !text-[10px] mb-3">
               {selectedBlock ? `${blockLabel(selectedBlock.type)} properties` : 'Select a block to edit'}
             </p>
             {selectedBlock && !readOnly && (
@@ -637,7 +637,7 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
           >
             {r.label}
             {r.hasOutlookIssues && (
-              <span className="material-symbols-outlined text-[14px] text-amber-400" title="Rendering issues">warning</span>
+              <span className="material-symbols-outlined text-[14px] text-[var(--sc-ink-soft)]" title="Rendering issues">warning</span>
             )}
           </button>
         ))}
@@ -649,8 +649,8 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
       {active && (
         <>
           {active.client === 'outlook' && outlookIssueCount > 0 && (
-            <div className="mx-4 mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-              <span className="font-semibold">{outlookIssueCount} Outlook rendering issue{outlookIssueCount === 1 ? '' : 's'} detected.</span>{' '}
+            <div className="mx-4 mt-3 rounded-md border border-amber-500/30 bg-[var(--sc-surface)]/10 px-3 py-2 text-xs text-[var(--sc-ink-soft)]">
+              <span className="">{outlookIssueCount} Outlook rendering issue{outlookIssueCount === 1 ? '' : 's'} detected.</span>{' '}
               Outlook (Windows) uses the Word engine — review the notes below.
             </div>
           )}
@@ -670,7 +670,7 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
           </div>
           {active.issues.length > 0 && (
             <div className="px-4 pb-4">
-              <p className="eyebrow !text-[10px] mb-2">{active.label} rendering notes</p>
+              <p className="sc-tiny !text-[10px] mb-2">{active.label} rendering notes</p>
               <ul className="space-y-1">
                 {active.issues.map((issue, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-pib-text-muted)]">
@@ -759,6 +759,7 @@ function TestSendModal({
           value={recipients}
           onChange={(e) => setRecipients(e.target.value)}
           placeholder="you@example.com, teammate@example.com"
+          aria-label="Test send recipients"
           className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-md px-3 py-2 text-sm text-[var(--color-pib-text)]"
         />
         {error && <p className="text-sm text-rose-300">{error}</p>}

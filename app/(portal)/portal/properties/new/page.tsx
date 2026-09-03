@@ -3,6 +3,15 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+} from '@/components/studio'
 import type { PropertyType, PropertyStatus } from '@/lib/properties/types'
 
 export default function PortalNewPropertyPage() {
@@ -46,56 +55,60 @@ export default function PortalNewPropertyPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-8">
-      <header>
-        <button onClick={() => router.push('/portal/properties')} className="btn-pib-ghost text-sm">
-          ← Properties
-        </button>
-        <p className="eyebrow mt-4">CRM · Properties</p>
-        <h1 className="pib-page-title mt-2">New Property</h1>
-      </header>
+    <div className="mx-auto max-w-xl space-y-8">
+      <PageHeader
+        eyebrow="Properties"
+        title="New property."
+        description="Add a web or app property for a client organisation."
+        actions={
+          <Button type="button" variant="ghost" size="sm" onClick={() => router.push('/portal/properties')}>
+            Back to properties
+          </Button>
+        }
+      />
 
-      <form className="pib-card space-y-4" onSubmit={e => { e.preventDefault(); handleCreate() }}>
-        <div>
-          <label className="pib-label">Client *</label>
-          <select value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-select text-sm w-full">
-            <option value="">Select a client…</option>
-            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="pib-label">Name *</label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Scrolled Brain" className="pib-input text-sm w-full" />
-        </div>
-        <div>
-          <label className="pib-label">Domain *</label>
-          <input type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="scrolledbrain.com" className="pib-input text-sm w-full" />
-        </div>
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="pib-label">Type</label>
-            <select value={type} onChange={e => setType(e.target.value as PropertyType)} className="pib-select text-sm w-full">
-              <option value="web">Web</option>
-              <option value="ios">iOS</option>
-              <option value="android">Android</option>
-              <option value="universal">Universal</option>
-            </select>
+      <Panel>
+        <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleCreate() }}>
+          <Field id="prop-org" label="Client">
+            <Select id="prop-org" aria-label="Client" value={orgId} onChange={e => setOrgId(e.target.value)}>
+              <option value="">Select a client…</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </Field>
+          <Field id="prop-name" label="Name">
+            <Input id="prop-name" aria-label="Name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Scrolled Brain" />
+          </Field>
+          <Field id="prop-domain" label="Domain">
+            <Input id="prop-domain" aria-label="Domain" type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="scrolledbrain.com" />
+          </Field>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Field id="prop-type" label="Type">
+                <Select id="prop-type" aria-label="Type" value={type} onChange={e => setType(e.target.value as PropertyType)}>
+                  <option value="web">Web</option>
+                  <option value="ios">iOS</option>
+                  <option value="android">Android</option>
+                  <option value="universal">Universal</option>
+                </Select>
+              </Field>
+            </div>
+            <div className="flex-1">
+              <Field id="prop-status" label="Status">
+                <Select id="prop-status" aria-label="Status" value={status} onChange={e => setStatus(e.target.value as PropertyStatus)}>
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="archived">Archived</option>
+                </Select>
+              </Field>
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="pib-label">Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value as PropertyStatus)} className="pib-select text-sm w-full">
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-        </div>
-        {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
-        <button type="submit" disabled={saving} className="btn-pib-primary text-sm w-full">
-          {saving ? 'Creating…' : 'Create Property'}
-        </button>
-      </form>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          <Button type="submit" disabled={saving} loading={saving} block>
+            Create property
+          </Button>
+        </form>
+      </Panel>
     </div>
   )
 }
