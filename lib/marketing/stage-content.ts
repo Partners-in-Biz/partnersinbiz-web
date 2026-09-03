@@ -20,5 +20,3 @@ export const WORK_SHOTS = {
   lumen: { src: '/images/shot-lumen.jpg', alt: 'The Lumen site: "Train reading in any language" above a live 600 words-per-minute demo' },
   scrolledBrain: { src: '/images/shot-scrolledbrain.jpg', alt: 'The Scrolled Brain landing page: "How cooked is your attention span?" with a take-the-test button' },
 } as const satisfies Record<string, StageStill>
-
-export const CTA_TEXT = 'Book a 20-min call'

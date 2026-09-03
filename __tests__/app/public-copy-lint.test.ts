@@ -24,10 +24,8 @@ const COPY_FILES = ['lib/seo/site.ts', 'lib/seo/market-offers.ts']
 
 const EXCLUDE = [
   /Form\.tsx$/,
-  /Widget\.tsx$/,
   /\/seo-audit\//,
   /\/start-a-project\//,
-  /\/book-a-call\//,
   /\/gauteng-growth-audit\//,
   /\/tools\//,
   /\/insights\//,
@@ -66,6 +64,8 @@ describe('public copy lint', () => {
         'app/(public)/page.tsx',
         'app/(public)/pricing/page.tsx',
         'app/(public)/services/page.tsx',
+        'app/(public)/book-a-call/page.tsx',
+        'app/(public)/book-a-call/BookingWidget.tsx',
         'lib/marketing/stage-content.ts',
         'lib/seo/site.ts',
       ])

@@ -1,7 +1,17 @@
 import type { Metadata } from 'next'
-import { SITE } from '@/lib/seo/site'
+import Link from 'next/link'
+import { SITE, TECH_STACK } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import { Article, ArticleHead, ArticleRow, CtaSentence } from '@/components/marketing/paper/Article'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
+import {
+  Article,
+  ArticleHead,
+  ArticleList,
+  ArticleRow,
+  CtaSentence,
+  Plate,
+  Proof,
+} from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
 
 const DESCRIPTION =
@@ -99,14 +109,14 @@ const PRICING_FAQ = [
   },
 ]
 
-const ALL_SECTIONS = [
-  { title: 'The basics', items: GENERAL_FAQ },
-  { title: 'How we work', items: PROCESS_FAQ },
-  { title: 'What we build with', items: TECH_FAQ },
-  { title: 'What it costs', items: PRICING_FAQ },
-]
-
 const ALL_FAQ = [...GENERAL_FAQ, ...PROCESS_FAQ, ...TECH_FAQ, ...PRICING_FAQ]
+
+const WEEKLY = [
+  'A preview link for every pull request.',
+  'A board you can read, with every ticket and blocker.',
+  'A short video of what shipped and what is next.',
+  'A WhatsApp channel for the things that do not need a meeting.',
+] as const
 
 export default function FaqPage() {
   const breadcrumb = breadcrumbSchema([
@@ -131,15 +141,95 @@ export default function FaqPage() {
             and you will hear back from a person.
           </>
         }
+        plate={
+          <Plate
+            src={WORK_SHOTS.ahsLaw.src}
+            alt={WORK_SHOTS.ahsLaw.alt}
+            caption="AHS Law. Number one on Google in eight weeks."
+            wide
+            priority
+          />
+        }
       />
 
-      {ALL_SECTIONS.map((section) => (
-        <ArticleRow key={section.title} title={section.title}>
-          <FAQ items={section.items} />
-        </ArticleRow>
-      ))}
+      <ArticleRow
+        title="The basics"
+        aside={
+          <Proof
+            line="One person scopes the work, writes the code, sends the invoice and answers the WhatsApp. You own everything the day it ships."
+            credit="How the studio works"
+            href="/about"
+          />
+        }
+      >
+        <FAQ items={GENERAL_FAQ} />
+      </ArticleRow>
 
-      <ArticleRow>
+      <ArticleRow
+        title="How we work"
+        flip
+        aside={
+          <>
+            <p className="sc-tiny">Every week, without asking</p>
+            <ArticleList items={WEEKLY} />
+          </>
+        }
+      >
+        <FAQ items={PROCESS_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="What we build with"
+        aside={
+          <>
+            <p className="sc-tiny">Tools we trust</p>
+            <p className="sc-body">
+              {TECH_STACK.join(', ')}. Picked for what they look like in five years, not for what is on Hacker News this week.
+            </p>
+            <p className="sc-body">
+              <Link href="/services" prefetch={false} className="sc-link">
+                Everything we do
+              </Link>
+            </p>
+          </>
+        }
+      >
+        <FAQ items={TECH_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="What it costs"
+        flip
+        aside={
+          <>
+            <p className="sc-article__price">From R35,000</p>
+            <p className="sc-body">
+              A marketing site, fixed scope and fixed price, live in 2 to 4 weeks. Every number is on the{' '}
+              <Link href="/pricing" prefetch={false} className="sc-link">
+                pricing page
+              </Link>
+              .
+            </p>
+          </>
+        }
+      >
+        <FAQ items={PRICING_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="Still not sure?"
+        aside={
+          <Proof
+            line="AHS Law. Number one on Google in eight weeks. Athleet. Club platform live for three clubs in under four weeks."
+            credit="See the work"
+            href="/work"
+          />
+        }
+      >
+        <p>
+          Twenty minutes is enough to know if this is the right shape for you. No discovery retainer, no deck, no
+          follow-up sequence. If we are not the right fit, we will say so and point you to someone who is.
+        </p>
         <CtaSentence lead="Tell us what you are building and we will tell you honestly if we are the right fit." />
       </ArticleRow>
     </Article>

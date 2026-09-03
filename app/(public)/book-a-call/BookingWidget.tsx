@@ -97,7 +97,7 @@ export default function BookingWidget() {
       setBookingId(data.id)
       setStep('confirmed')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong — please try again.')
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
     }

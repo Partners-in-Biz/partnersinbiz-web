@@ -3,7 +3,16 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SITE, TECH_STACK } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { Article, ArticleHead, ArticleList, ArticleRow, CtaSentence, Quote } from '@/components/marketing/paper/Article'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
+import {
+  Article,
+  ArticleHead,
+  ArticleList,
+  ArticleRow,
+  CtaSentence,
+  Plate,
+  Quote,
+} from '@/components/marketing/paper/Article'
 
 const DESCRIPTION =
   'Partners in Biz is a Pretoria studio led by Peet Stander. One person scopes the work, writes the code, sends the invoice and answers the WhatsApp. Sites, web apps, mobile and AI that you own outright.'
@@ -69,6 +78,15 @@ export default function AboutPage() {
         kicker={`About. Pretoria, since ${SITE.founded}.`}
         title="Software the way it should be built. Boring, on time, and yours."
         lede="Partners in Biz is a Pretoria studio led by Peet Stander. We make websites, web apps, mobile apps and AI integrations that ship and keep working."
+        plate={
+          <Plate
+            src={WORK_SHOTS.scrolledBrain.src}
+            alt={WORK_SHOTS.scrolledBrain.alt}
+            caption="Scrolled Brain. A 38% sign-up rate on the new landing page."
+            wide
+            priority
+          />
+        }
       />
 
       <ArticleRow
@@ -81,7 +99,6 @@ export default function AboutPage() {
                 alt="Peet Stander, founder of Partners in Biz"
                 fill
                 sizes="(max-width: 900px) 90vw, 26rem"
-                priority
               />
             </div>
             <p className="sc-tiny">

@@ -142,13 +142,17 @@ export function marketBookHref(market: MarketId): string {
   return `/book-a-call?market=${market}`
 }
 
+/**
+ * Market nav links. The CTA is not in this list: the Navbar renders it once
+ * as `CTA_LABEL` next to these links, so a "Book" entry here would be a
+ * second spelling of the same call.
+ */
 export function marketNav(market: MarketId) {
   const offer = MARKET_OFFERS[market]
   return [
     { href: offer.path, label: 'Offer' },
     { href: '/work', label: 'Work' },
     { href: '/?home=1', label: 'Studio' },
-    { href: marketBookHref(market), label: 'Book' },
   ] as const
 }
 
