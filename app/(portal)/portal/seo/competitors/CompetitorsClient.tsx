@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
 import type { CompetitorComparison, TrackedCompetitor } from '@/lib/seo/competitors'
+import { Icon } from '@/components/studio'
 
 const MAX = 5
 const BARS = ['var(--color-pib-accent)', '#60a5fa', '#34d399', '#f472b6', '#fbbf24']
@@ -46,7 +47,7 @@ export function CompetitorsClient({
         { id: json.data.id, domain: domain.trim().replace(/^https?:\/\//, '').replace(/^www\./, ''), metrics: { domainAuthority: null, estimatedKeywords: 0, referringDomains: 0, overlapKeywords: [] }, lastRefreshedAt: null },
       ])
       setDomain('')
-      showToast('Competitor added — hit Refresh to pull metrics')
+      showToast('Competitor added  -  hit Refresh to pull metrics')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to add competitor')
     } finally {
@@ -98,15 +99,17 @@ export function CompetitorsClient({
         sprints={sprints}
         activeSprintId={activeSprintId}
         action={
-          <button onClick={refresh} disabled={refreshing || competitors.length === 0 || !activeSprintId} className="pib-btn-secondary text-sm disabled:opacity-40">
-            <span className={`material-symbols-outlined text-[18px] ${refreshing ? 'animate-spin' : ''}`}>{refreshing ? 'autorenew' : 'refresh'}</span>
+          <button name="competitorsclient-action-53" onClick={refresh} disabled={refreshing || competitors.length === 0 || !activeSprintId} className="pib-btn-secondary text-sm disabled:opacity-40">
+            <span className={`inline-flex ${refreshing ? 'animate-spin' : ''}`}>
+              <Icon name={refreshing ? 'autorenew' : 'refresh'} />
+            </span>
             {refreshing ? 'Refreshing…' : 'Refresh metrics'}
           </button>
         }
       />
 
       {!activeSprintId ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No active SEO sprint. Create a sprint to track competitors.
         </div>
       ) : (
@@ -114,13 +117,13 @@ export function CompetitorsClient({
           {/* Add competitor */}
           <section className="pib-card-section">
             <div className="pib-card-section-header">
-              <h3 className="text-sm font-semibold">Tracked competitors ({competitors.length}/{MAX})</h3>
+              <h3 className="text-sm">Tracked competitors ({competitors.length}/{MAX})</h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">Add a competitor domain. Metrics populate when you refresh.</p>
             </div>
             <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label className="pib-label" htmlFor="dom">Competitor domain</label>
-                <input
+                <input name="competitorsclient-field-54"
                   id="dom"
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
@@ -130,18 +133,18 @@ export function CompetitorsClient({
                   disabled={adding || competitors.length >= MAX}
                 />
               </div>
-              <button onClick={add} disabled={adding || !domain.trim() || competitors.length >= MAX} className="pib-btn-primary text-sm disabled:opacity-40">
-                <span className="material-symbols-outlined text-[18px]">add</span>
+              <button name="competitorsclient-action-55" onClick={add} disabled={adding || !domain.trim() || competitors.length >= MAX} className="pib-btn-primary text-sm disabled:opacity-40">
+                <Icon name="add" />
                 Add
               </button>
             </div>
             {competitors.length > 0 && (
               <div className="flex flex-wrap gap-2 px-4 pb-4">
                 {competitors.map((c) => (
-                  <span key={c.id} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-1.5 text-xs">
+                  <span key={c.id} className="inline-flex items-center gap-2 rounded border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-1.5 text-xs">
                     {c.domain}
-                    <button onClick={() => remove(c.id)} className="text-[var(--color-pib-text-muted)] hover:text-red-300" aria-label={`Remove ${c.domain}`}>
-                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    <button name="competitorsclient-action-56" onClick={() => remove(c.id)} className="text-[var(--color-pib-text-muted)] hover:text-red-300" aria-label={`Remove ${c.domain}`}>
+                      <Icon name="close" />
                     </button>
                   </span>
                 ))}
@@ -153,39 +156,39 @@ export function CompetitorsClient({
           {competitors.length > 0 && (
             <section className="pib-card-section overflow-hidden">
               <div className="pib-card-section-header">
-                <h3 className="text-sm font-semibold">Metrics comparison</h3>
+                <h3 className="text-sm">Metrics comparison</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Domain authority, on-page keyword footprint and referring domains per competitor.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Domain</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">DA</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Keywords</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Ref. domains</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Overlap</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Last refreshed</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Domain</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">DA</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Keywords</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Ref. domains</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Overlap</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Last refreshed</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-pib-line)]">
                     {comparison && (
                       <tr className="bg-[var(--color-pib-accent-soft)]">
-                        <td className="px-5 py-3 font-semibold">{comparison.clientDomain} <span className="pib-pill pib-pill-accent text-[10px] ml-1">You</span></td>
-                        <td className="px-5 py-3 text-right tabular-nums">{comparison.clientDomainAuthority != null ? comparison.clientDomainAuthority.toFixed(0) : '—'}</td>
+                        <td className="px-5 py-3">{comparison.clientDomain} <span className="pib-pill pib-pill-accent text-[10px] ml-1">You</span></td>
+                        <td className="px-5 py-3 text-right tabular-nums">{comparison.clientDomainAuthority != null ? comparison.clientDomainAuthority.toFixed(0) : ' - '}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{comparison.clientKeywordCount}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">—</td>
-                        <td className="px-5 py-3 text-right tabular-nums">—</td>
-                        <td className="px-5 py-3 text-xs text-[var(--color-pib-text-muted)]">—</td>
+                        <td className="px-5 py-3 text-right tabular-nums"> - </td>
+                        <td className="px-5 py-3 text-right tabular-nums"> - </td>
+                        <td className="px-5 py-3 text-xs text-[var(--color-pib-text-muted)]"> - </td>
                       </tr>
                     )}
                     {competitors.map((c) => (
                       <tr key={c.id} className="hover:bg-[var(--color-pib-surface-2)]">
                         <td className="px-5 py-3 font-medium">{c.domain}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.domainAuthority != null ? c.metrics.domainAuthority.toFixed(0) : '—'}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.estimatedKeywords || '—'}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.referringDomains || '—'}</td>
-                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.overlapKeywords.length || '—'}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.domainAuthority != null ? c.metrics.domainAuthority.toFixed(0) : ' - '}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.estimatedKeywords || ' - '}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.referringDomains || ' - '}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{c.metrics.overlapKeywords.length || ' - '}</td>
                         <td className="px-5 py-3 text-xs text-[var(--color-pib-text-muted)]">{c.lastRefreshedAt ? c.lastRefreshedAt.slice(0, 10) : 'Not yet'}</td>
                       </tr>
                     ))}
@@ -199,15 +202,15 @@ export function CompetitorsClient({
           {competitors.some((c) => c.metrics.estimatedKeywords > 0) && (
             <section className="pib-card-section">
               <div className="pib-card-section-header">
-                <h3 className="text-sm font-semibold">Keyword footprint</h3>
+                <h3 className="text-sm">Keyword footprint</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Relative on-page keyword coverage per competitor.</p>
               </div>
               <div className="space-y-3 p-4">
                 {competitors.map((c, i) => (
                   <div key={c.id} className="flex items-center gap-3">
                     <span className="w-40 truncate text-xs">{c.domain}</span>
-                    <span className="flex-1 h-3 rounded-full bg-white/10 overflow-hidden">
-                      <span className="block h-full rounded-full" style={{ width: `${(c.metrics.estimatedKeywords / maxKeywords) * 100}%`, background: BARS[i % BARS.length] }} />
+                    <span className="flex-1 h-3 rounded bg-white/10 overflow-hidden">
+                      <span className="block h-full rounded" style={{ width: `${(c.metrics.estimatedKeywords / maxKeywords) * 100}%`, background: BARS[i % BARS.length] }} />
                     </span>
                     <span className="w-12 text-right text-xs tabular-nums">{c.metrics.estimatedKeywords}</span>
                   </div>
@@ -220,17 +223,17 @@ export function CompetitorsClient({
           {comparison && comparison.overlapMatrix.length > 0 && (
             <section className="pib-card-section overflow-hidden">
               <div className="pib-card-section-header">
-                <h3 className="text-sm font-semibold">Keyword overlap & rank comparison</h3>
+                <h3 className="text-sm">Keyword overlap & rank comparison</h3>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Your tracked keywords also covered by competitors. ✓ = competitor targets this term.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left">
-                      <th className="px-5 py-3 eyebrow !text-[10px]">Keyword</th>
-                      <th className="px-5 py-3 eyebrow !text-[10px] text-right">Your position</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px]">Keyword</th>
+                      <th className="px-5 py-3 sc-tiny !text-[10px] text-right">Your position</th>
                       {allOverlapDomains.map((d) => (
-                        <th key={d} className="px-5 py-3 eyebrow !text-[10px] text-center max-w-[120px] truncate">{d}</th>
+                        <th key={d} className="px-5 py-3 sc-tiny !text-[10px] text-center max-w-[120px] truncate">{d}</th>
                       ))}
                     </tr>
                   </thead>
@@ -241,7 +244,7 @@ export function CompetitorsClient({
                         <td className="px-5 py-3 text-right tabular-nums">{row.clientPosition != null ? `#${row.clientPosition.toFixed(0)}` : 'Not ranking'}</td>
                         {allOverlapDomains.map((d) => (
                           <td key={d} className="px-5 py-3 text-center">
-                            {row.coveredBy.includes(d) ? <span className="material-symbols-outlined text-[16px] text-emerald-300">check</span> : <span className="text-[var(--color-pib-text-muted)]">—</span>}
+                            {row.coveredBy.includes(d) ? <Icon name="check" /> : <span className="text-[var(--color-pib-text-muted)]"> - </span>}
                           </td>
                         ))}
                       </tr>
@@ -255,7 +258,7 @@ export function CompetitorsClient({
       )}
 
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm">
           {toast}
         </div>
       )}

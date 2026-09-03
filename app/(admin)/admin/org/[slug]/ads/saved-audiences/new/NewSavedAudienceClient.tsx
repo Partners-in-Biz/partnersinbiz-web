@@ -79,7 +79,7 @@ export function NewSavedAudienceClient({ orgId, orgSlug }: Props) {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">{error}</div>
+        <div className="rounded-md border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">{error}</div>
       )}
 
       <div className="flex justify-end gap-2">

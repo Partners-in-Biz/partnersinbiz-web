@@ -1,0 +1,242 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Work index, pinned plates. Tokens come from .sc-stage (stage.css). One sticky
+   frame inside the article column, one slide per case keyed off --sc-p (written
+   by ScrollCraft onto [data-sc-rebuild]). Copy left, real screenshot right.
+   Motion is opacity, clip-path and small translates. Below 860px and under
+   reduced motion the frame unsticks and the cases stack in order.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.wp-root {
+  --sc-p: 0;
+  --wp-fade: 0.04;
+  --wp-span: 390svh;
+  position: relative;
+  height: calc(100svh + var(--wp-span));
+}
+
+.wp-frame {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── Slide window: 0..1 while --sc-p sits inside [--s0, --s1]. ─────────── */
+
+.wp-rail__item,
+.wp-slide {
+  --on: calc(
+    clamp(0, calc((var(--sc-p) - var(--s0)) / var(--wp-fade)), 1) *
+      clamp(0, calc((var(--s1) - var(--sc-p)) / var(--wp-fade)), 1)
+  );
+}
+
+/* ── Rail: the case names, current one in terracotta. Fixed nav is 56px. ── */
+
+.wp-rail {
+  position: absolute;
+  top: calc(var(--sc-u) * 17);
+  right: 12px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 5);
+  max-width: 62%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wp-rail__item {
+  color: color-mix(
+    in srgb,
+    var(--sc-accent) calc(var(--on) * 100%),
+    color-mix(in srgb, var(--sc-ink-soft) 55%, transparent)
+  );
+  border-bottom: 2px solid color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), transparent);
+  padding-bottom: calc(var(--sc-u) * 1);
+  white-space: nowrap;
+}
+.wp-rail__n {
+  display: inline-block;
+  min-width: 2.2em;
+}
+
+/* ── Slides share the frame. ────────────────────────────────────────────── */
+
+.wp-slide {
+  position: absolute;
+  inset: 0;
+  /* Right pad keeps the plate's drop shadow inside the clipped frame. */
+  padding: calc(var(--sc-u) * 26) 12px calc(var(--sc-u) * 10) 0;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 8);
+  align-items: center;
+  /* Plates crossfade through the whole window; copy swaps in the middle of
+     it (off below --on 0.5) so two headlines never sit on top of each other. */
+  --copy-on: clamp(0, calc(var(--on) * 2 - 1), 1);
+  /* The aperture: nothing is hit-testable while a slide is off. It only
+     closes over the last twelfth of the fade, so a crossfading plate is never
+     cropped and cannot peek through as a grey box. */
+  clip-path: inset(calc(clamp(0, 1 - var(--on) * 12, 1) * 50%));
+}
+.wp-copy {
+  grid-column: 1 / 6;
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+  align-content: center;
+  opacity: var(--copy-on);
+  transform: translateY(calc((1 - var(--copy-on)) * 18px));
+}
+.wp-meta {
+  margin: 0;
+  color: var(--sc-accent);
+}
+.wp-meta__n {
+  display: inline-block;
+  min-width: 2.2em;
+}
+.wp-h2 {
+  font-size: clamp(1.625rem, 0.8rem + 2.2vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.032em;
+  font-weight: 500;
+  text-wrap: balance;
+  max-width: 18ch;
+  margin: 0;
+}
+.wp-summary {
+  margin: 0;
+  max-width: 42ch;
+}
+.wp-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 4) calc(var(--sc-u) * 8);
+  margin: calc(var(--sc-u) * 2) 0 0;
+  padding: calc(var(--sc-u) * 4) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--sc-line);
+}
+.wp-metric {
+  display: grid;
+  gap: calc(var(--sc-u) * 1);
+}
+.wp-metric__value {
+  font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-ink);
+}
+.wp-metric__label {
+  font-size: 0.875rem;
+  line-height: 1.3;
+  color: var(--sc-ink-soft);
+}
+.wp-more {
+  margin: 0;
+  color: var(--sc-ink);
+}
+
+/* ── Plate: the real screenshot, terracotta drop, hairline inset. ──────── */
+
+.wp-plate {
+  grid-column: 6 / 13;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  background: var(--sc-surface);
+  box-shadow: 12px 12px 0 var(--sc-accent);
+  opacity: var(--on);
+  transform: translateY(calc((1 - var(--on)) * -14px));
+}
+.wp-plate img {
+  object-fit: cover;
+  object-position: top center;
+}
+.wp-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  z-index: 2;
+}
+
+/* ── Short viewports: tighten the frame. ────────────────────────────────── */
+
+@media (max-height: 760px) and (min-width: 861px) {
+  .wp-slide {
+    padding-top: calc(var(--sc-u) * 20);
+  }
+  .wp-copy {
+    gap: calc(var(--sc-u) * 4);
+  }
+  .wp-h2 {
+    font-size: clamp(1.5rem, 0.8rem + 1.8vw, 2.5rem);
+  }
+}
+@media (max-height: 640px) and (min-width: 861px) {
+  .wp-summary {
+    display: none;
+  }
+}
+
+/* ── Stacked: narrow screens and reduced motion. Everything visible, and
+   --sc-gate: 0 tells ScrollCraft not to make any slide inert. ───────────── */
+
+@media (max-width: 860px), (prefers-reduced-motion: reduce) {
+  .wp-root {
+    --sc-gate: 0;
+    height: auto;
+  }
+  .wp-frame {
+    position: relative;
+    height: auto;
+    overflow: visible;
+  }
+  .wp-rail {
+    display: none;
+  }
+  .wp-slide {
+    position: relative;
+    inset: auto;
+    clip-path: none !important;
+    display: grid;
+    grid-template-columns: 1fr;
+    row-gap: calc(var(--sc-u) * 8);
+    padding: calc(var(--sc-u) * 10) 12px calc(var(--sc-u) * 12) 0;
+    border-top: 1px solid var(--sc-line);
+  }
+  .wp-copy,
+  .wp-plate {
+    grid-column: 1 / -1;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .wp-plate {
+    order: -1;
+    margin-bottom: 12px;
+  }
+}
+
+/* Reduced motion on a wide screen: still stacked, but copy and plate side by side. */
+@media (prefers-reduced-motion: reduce) and (min-width: 861px) {
+  .wp-slide {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: calc(var(--sc-u) * 8);
+    align-items: center;
+  }
+  .wp-copy {
+    grid-column: 1 / 6;
+  }
+  .wp-plate {
+    grid-column: 6 / 13;
+    order: 0;
+    margin-bottom: 0;
+  }
+}

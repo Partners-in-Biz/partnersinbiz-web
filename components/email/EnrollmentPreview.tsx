@@ -1,6 +1,6 @@
 // components/email/EnrollmentPreview.tsx
 //
-// "Preview enrollment" — a pure, deterministic client-side simulation of a
+// "Preview enrollment"  -  a pure, deterministic client-side simulation of a
 // contact walking the configured sequence. The operator toggles per-step
 // signals (opened / clicked / replied), contact tags/stage, and wait
 // conditions, then sees exactly which steps + branches they'd hit.
@@ -9,6 +9,8 @@
 import { useMemo, useState } from 'react'
 import type { SequenceStep, SequenceGoal } from '@/lib/sequences/types'
 import {
+import { Icon } from '@/components/studio'
+
   simulateEnrollment,
   emptyScenario,
   type SimulationScenario,
@@ -23,9 +25,9 @@ interface Props {
 const EVENT_META: Record<SimEvent['kind'], { icon: string; tone: string }> = {
   'send-email': { icon: 'mail', tone: 'text-sky-300 border-sky-400/20 bg-sky-400/10' },
   'send-sms': { icon: 'sms', tone: 'text-teal-300 border-teal-400/20 bg-teal-400/10' },
-  wait: { icon: 'hourglass_top', tone: 'text-amber-300 border-amber-400/20 bg-amber-400/10' },
-  'wait-timeout': { icon: 'timer_off', tone: 'text-amber-300 border-amber-400/20 bg-amber-400/10' },
-  branch: { icon: 'account_tree', tone: 'text-violet-300 border-violet-400/20 bg-violet-400/10' },
+  wait: { icon: 'hourglass_top', tone: 'text-[var(--st-warning)] border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' },
+  'wait-timeout': { icon: 'timer_off', tone: 'text-[var(--st-warning)] border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' },
+  branch: { icon: 'account_tree', tone: 'text-[var(--sc-accent)] border-violet-400/20 bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)]' },
   'branch-exit': { icon: 'logout', tone: 'text-rose-300 border-rose-400/20 bg-rose-400/10' },
   'goal-exit': { icon: 'flag', tone: 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10' },
   completed: { icon: 'check_circle', tone: 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10' },
@@ -64,10 +66,10 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold">Preview enrollment</h3>
+        <h3 className="text-sm font-medium">Preview enrollment</h3>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
           Toggle the signals a contact might give and see the exact path they would walk. Fully
-          deterministic — no emails are sent.
+          deterministic  -  no emails are sent.
         </p>
       </div>
 
@@ -77,14 +79,14 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
           <div>
             <p className="eyebrow !text-[10px] mb-2">Contact attributes</p>
             <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Tags (comma-separated)</label>
-            <input
+            <input aria-label="vip, newsletter"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="vip, newsletter"
               className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
             />
             <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1 mt-3">Stage</label>
-            <input
+            <input aria-label="customer"
               value={stageInput}
               onChange={(e) => setStageInput(e.target.value)}
               placeholder="customer"
@@ -107,7 +109,7 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
                         type="button"
                         onClick={() => toggle(k, idx)}
                         className={[
-                          'cursor-pointer rounded-full border px-2.5 py-1 text-[10px] capitalize transition-colors',
+                          'cursor-pointer rounded-md border px-2.5 py-1 text-[10px] capitalize transition-colors',
                           scenario[k][idx]
                             ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-text)]'
                             : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
@@ -121,9 +123,9 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
                         type="button"
                         onClick={() => toggle('waitSatisfied', idx)}
                         className={[
-                          'cursor-pointer rounded-full border px-2.5 py-1 text-[10px] transition-colors',
+                          'cursor-pointer rounded-md border px-2.5 py-1 text-[10px] transition-colors',
                           scenario.waitSatisfied[idx]
-                            ? 'border-amber-400/40 bg-amber-400/15 text-amber-200'
+                            ? 'border-amber-400/40 bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]'
                             : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
                         ].join(' ')}
                       >
@@ -144,7 +146,7 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
         <div className="bento-card !p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="eyebrow !text-[10px]">Simulated path</p>
-            <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+            <span className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
               {result.events.length} event{result.events.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -154,9 +156,9 @@ export default function EnrollmentPreview({ steps, goals }: Props) {
               return (
                 <li key={i} className="flex items-start gap-2.5">
                   <span
-                    className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${meta.tone}`}
+                    className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${meta.tone}`}
                   >
-                    <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+                    <Icon name={meta.icon} className="text-[14px]" />
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs font-medium">{ev.label}</p>

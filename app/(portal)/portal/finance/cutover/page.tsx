@@ -101,7 +101,7 @@ export default function CutoverWizardPage() {
     if (![ar, ap, cash, equity].every((n) => Number.isSafeInteger(n))) {
       throw new Error('Amounts must be safe integers in minor units')
     }
-    if (equity < 0) throw new Error('Derived equity credit is negative — adjust opening amounts')
+    if (equity < 0) throw new Error('Derived equity credit is negative - adjust opening amounts')
     const trialBalanceLines = [
       { accountId: cashAccountId, accountCode: '1000', accountName: 'Cash', debitMinor: cash, creditMinor: 0, controlAccountRole: 'bank' as const },
       { accountId: arAccountId, accountCode: '1100', accountName: 'Trade receivables', debitMinor: ar, creditMinor: 0, controlAccountRole: 'receivables' as const },
@@ -176,7 +176,7 @@ export default function CutoverWizardPage() {
       if (pkg?.status === 'failed') {
         throw new Error((pkg.validationErrors || []).join('; ') || 'Validation failed')
       }
-      setMessage(`Validated ${pkg?.id} — balanced TB and open-item control recon`)
+      setMessage(`Validated ${pkg?.id} - balanced TB and open-item control recon`)
     })
   }
 
@@ -236,9 +236,9 @@ export default function CutoverWizardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="pib-card space-y-3 p-4">
-          <h2 className="text-base font-semibold">New cutover package</h2>
+          <h2 className="text-base">New cutover package</h2>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
-            Scope: entity {scope.legalEntityId || '—'} · book {scope.bookId || '—'} · org {orgId || '—'}
+            Scope: entity {scope.legalEntityId || '-'} · book {scope.bookId || '-'} · org {orgId || '-'}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">Period id<input className="pib-input mt-1 w-full" value={periodId} onChange={(e) => setPeriodId(e.target.value)} /></label>
@@ -261,13 +261,13 @@ export default function CutoverWizardPage() {
         </section>
 
         <section className="pib-card space-y-3 p-4">
-          <h2 className="text-base font-semibold">Approve & activate</h2>
+          <h2 className="text-base">Approve & activate</h2>
           <label className="block text-sm">
             Package
             <select className="pib-input mt-1 w-full" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
               <option value="">Select…</option>
               {packages.map((p) => (
-                <option key={p.id} value={p.id}>{p.id} — {p.status}</option>
+                <option key={p.id} value={p.id}>{p.id} - {p.status}</option>
               ))}
             </select>
           </label>
@@ -287,7 +287,7 @@ export default function CutoverWizardPage() {
               <p><span className="font-medium">TB:</span> Dr {formatMinor(selected.totalDebitMinor, selected.currency)} / Cr {formatMinor(selected.totalCreditMinor, selected.currency)}</p>
               <p><span className="font-medium">AR control vs open items:</span> {selected.receivablesControlTotalMinor} vs {selected.openItemCustomerTotalMinor}</p>
               <p><span className="font-medium">AP control vs open items:</span> {selected.payablesControlTotalMinor} vs {selected.openItemSupplierTotalMinor}</p>
-              <p><span className="font-medium">Journal:</span> {selected.openingJournalEntryId || '—'}</p>
+              <p><span className="font-medium">Journal:</span> {selected.openingJournalEntryId || '-'}</p>
               <p><span className="font-medium">Gates:</span> SARS={String(selected.sarsSubmissionInitiated)} · PayInit={String(selected.externalPaymentInitiated)}</p>
               {selected.validationErrors?.length > 0 && (
                 <ul className="list-disc pl-5 text-red-700">
@@ -300,7 +300,7 @@ export default function CutoverWizardPage() {
       </div>
 
       <section className="pib-card p-4">
-        <h2 className="mb-3 text-base font-semibold">Packages</h2>
+        <h2 className="mb-3 text-base">Packages</h2>
         {packages.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">No cutover packages yet.</p>
         ) : (

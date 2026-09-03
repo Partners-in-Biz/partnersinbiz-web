@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface ContactActivityTimelineActivity {
   id: string
@@ -179,17 +180,12 @@ export function ContactActivityTimeline({
     return (
       <div className="p-3">
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2 text-center">
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined pib-icon-tint grid h-8 w-8 place-items-center rounded-full text-[17px]"
-          >
-            history
-          </span>
+          <Icon name="history" className="grid h-8 w-8 place-items-center rounded-md text-[17px]" />
           <div>
             <p className="pib-label">
               Relationship activity missing
             </p>
-            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+            <h3 className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">
               {`Start ${contactLabel}'s activity trail`}
             </h3>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -203,7 +199,7 @@ export function ContactActivityTimeline({
               aria-label={`Log first activity note for ${contactLabel}`}
               className="btn-pib-primary mt-2 h-8 gap-1.5 px-3 text-xs"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+              <Icon name="edit_note" className="text-[14px]" />
               Start activity trail
             </button>
           )}
@@ -246,10 +242,8 @@ export function ContactActivityTimeline({
         const summary = activitySummary(activity)
         return (
           <div key={activity.id} className="flex gap-2.5 border-b border-[var(--color-pib-line)] py-2 transition hover:bg-[var(--color-row-hover)] last:border-0">
-            <div className="pib-icon-tint grid h-7 w-7 shrink-0 place-items-center rounded-full">
-              <span className="material-symbols-outlined text-[14px]">
-                {ACTIVITY_ICONS[String(activity.type ?? '')] ?? 'circle'}
-              </span>
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-md">
+              <Icon name={ACTIVITY_ICONS[String(activity.type ?? '')] ?? 'circle'} className="text-[14px]" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="pib-label">
@@ -267,7 +261,7 @@ export function ContactActivityTimeline({
                 aria-label={`Continue from activity ${summary} with ${contactLabel}`}
                 className="btn-pib-secondary h-7 shrink-0 gap-1 self-start px-2 text-[11px]"
               >
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                <Icon name="edit_note" className="text-[13px]" />
                 Continue
               </button>
             )}

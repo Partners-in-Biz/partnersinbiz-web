@@ -1,7 +1,7 @@
 // components/email/AbTestingPanel.tsx
 //
 // Reusable A/B testing editor panel. Drops into BroadcastEditor and the
-// SequenceStepEditor — both take an AbConfig value/onChange pair.
+// SequenceStepEditor  -  both take an AbConfig value/onChange pair.
 //
 // What it does:
 //   - toggle A/B on/off
@@ -38,7 +38,7 @@ const NEXT_LETTER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 function nextVariantId(existing: Variant[]): string {
   const used = new Set(existing.map((v) => v.id))
   for (const ltr of NEXT_LETTER) if (!used.has(ltr)) return ltr
-  // Fall through — z, aa, ab… (rare; cap is fine).
+  // Fall through  -  z, aa, ab… (rare; cap is fine).
   return `v${existing.length + 1}`
 }
 
@@ -106,13 +106,13 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-4 text-[var(--color-pib-text)]">
+    <div className="rounded-md border border-white/10 bg-black/40 p-4 space-y-4 text-[var(--color-pib-text)]">
       {/* Header ── enable toggle ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-amber-300">A/B Testing</h3>
+          <h3 className="text-lg font-medium text-[var(--st-warning)]">A/B Testing</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
-            Test variants of subject, body, from-name, or send time.
+            Test variants of subject, body, from name, or send time.
           </p>
         </div>
         <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -209,12 +209,12 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
           {/* Variants ──────────────────────────────────────────────────── */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold">Variants</h4>
+              <h4 className="text-sm font-medium">Variants</h4>
               <div className="flex items-center gap-3">
                 {ab.mode === 'split' && (
                   <span
                     className={`text-xs ${
-                      weightSum === 100 ? 'text-emerald-400' : 'text-amber-400'
+                      weightSum === 100 ? 'text-emerald-400' : 'text-[var(--st-warning)]'
                     }`}
                   >
                     Weights total: {weightSum}%
@@ -224,7 +224,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
                   type="button"
                   onClick={addVariant}
                   disabled={isLocked || ab.variants.length >= NEXT_LETTER.length}
-                  className="px-3 py-1.5 rounded-md bg-amber-500/20 text-amber-200 text-xs hover:bg-amber-500/30 disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-md bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)] text-[var(--st-warning)] text-xs hover:bg-[color-mix(in_srgb,var(--st-warning)_30%,transparent)] disabled:opacity-40"
                 >
                   + Add variant
                 </button>
@@ -257,7 +257,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
 
           {/* Status banner ─────────────────────────────────────────────── */}
           {ab.status !== 'inactive' && (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <div className="rounded-md border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-xs text-[var(--st-warning)]">
               Status: <span className="font-mono">{ab.status}</span>
               {ab.winnerVariantId && (
                 <> · Winner: <span className="font-mono">{ab.winnerVariantId}</span></>
@@ -289,9 +289,9 @@ interface VariantRowProps {
 function VariantRow(props: VariantRowProps) {
   const { variant, isWinner, lockEdits, splitMode, showWinnerAction } = props
   const openRate =
-    variant.sent > 0 ? `${((variant.opened / variant.sent) * 100).toFixed(1)}%` : '—'
+    variant.sent > 0 ? `${((variant.opened / variant.sent) * 100).toFixed(1)}%` : ' - '
   const ctr =
-    variant.opened > 0 ? `${((variant.clicked / variant.opened) * 100).toFixed(1)}%` : '—'
+    variant.opened > 0 ? `${((variant.clicked / variant.opened) * 100).toFixed(1)}%` : ' - '
 
   return (
     <div
@@ -300,11 +300,11 @@ function VariantRow(props: VariantRowProps) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <span className="flex-none mt-2 inline-flex items-center justify-center h-8 w-8 rounded-full bg-amber-500/20 text-amber-200 font-mono text-sm">
+        <span className="flex-none mt-2 inline-flex items-center justify-center h-8 w-8 rounded-md bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)] text-[var(--st-warning)] font-mono text-sm">
           {variant.id.toUpperCase()}
         </span>
         <div className="flex-1 grid grid-cols-3 gap-2">
-          <input
+          <input aria-label="Label"
             value={variant.label}
             disabled={lockEdits}
             onChange={(e) => props.onUpdate({ label: e.target.value })}
@@ -412,7 +412,7 @@ function Stat({ label, value, sub }: { label: string; value: number; sub?: strin
     <div className="rounded bg-black/30 px-2 py-1">
       <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{label}</div>
       <div className="text-sm font-mono">{value}</div>
-      {sub && <div className="text-[10px] text-amber-300">{sub}</div>}
+      {sub && <div className="text-[10px] text-[var(--st-warning)]">{sub}</div>}
     </div>
   )
 }
@@ -430,7 +430,7 @@ function OverrideEditor({ override, disabled, onChange, onRemove }: OverrideProp
   return (
     <div className="rounded-md border border-white/10 bg-black/30 p-2 text-xs space-y-1">
       <div className="flex items-center justify-between">
-        <span className="uppercase tracking-wide text-amber-300 text-[10px]">{override.kind}</span>
+        <span className="uppercase tracking-wide text-[var(--st-warning)] text-[10px]">{override.kind}</span>
         <button
           type="button"
           disabled={disabled}
@@ -441,7 +441,7 @@ function OverrideEditor({ override, disabled, onChange, onRemove }: OverrideProp
         </button>
       </div>
       {override.kind === 'subject' && (
-        <input
+        <input aria-label="Override subject line"
           value={override.subject}
           disabled={disabled}
           onChange={(e) => onChange({ kind: 'subject', subject: e.target.value })}
@@ -450,18 +450,18 @@ function OverrideEditor({ override, disabled, onChange, onRemove }: OverrideProp
         />
       )}
       {override.kind === 'fromName' && (
-        <input
+        <input aria-label="Override from name"
           value={override.fromName}
           disabled={disabled}
           onChange={(e) => onChange({ kind: 'fromName', fromName: e.target.value })}
-          placeholder="Override from-name"
+          placeholder="Override from name"
           className="w-full rounded bg-black/50 border border-white/10 px-2 py-1"
         />
       )}
       {override.kind === 'sendTime' && (
         <div className="flex items-center gap-2">
           <span>Offset (minutes):</span>
-          <input
+          <input aria-label="Override from name"
             type="number"
             value={override.offsetMinutes}
             disabled={disabled}
@@ -474,16 +474,16 @@ function OverrideEditor({ override, disabled, onChange, onRemove }: OverrideProp
       )}
       {override.kind === 'body' && (
         <div className="space-y-1">
-          <input
+          <input aria-label="Subject (optional - paired with body)"
             value={override.subject ?? ''}
             disabled={disabled}
             onChange={(e) =>
               onChange({ ...override, kind: 'body', subject: e.target.value })
             }
-            placeholder="Subject (optional — paired with body)"
+            placeholder="Subject (optional  -  paired with body)"
             className="w-full rounded bg-black/50 border border-white/10 px-2 py-1"
           />
-          <textarea
+          <textarea aria-label="HTML body"
             value={override.bodyHtml}
             disabled={disabled}
             onChange={(e) =>
@@ -493,7 +493,7 @@ function OverrideEditor({ override, disabled, onChange, onRemove }: OverrideProp
             rows={3}
             className="w-full rounded bg-black/50 border border-white/10 px-2 py-1 font-mono"
           />
-          <textarea
+          <textarea aria-label="Plain text body"
             value={override.bodyText}
             disabled={disabled}
             onChange={(e) =>

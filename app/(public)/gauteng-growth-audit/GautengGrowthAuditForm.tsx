@@ -95,7 +95,7 @@ export default function GautengGrowthAuditForm() {
     return (
       <div className="bento-card p-6 md:p-8" role="status" aria-live="polite">
         <p className="eyebrow mb-3">Audit requested</p>
-        <h2 className="font-display text-3xl leading-tight text-[var(--color-pib-text)]">
+        <h2 className="text-3xl leading-tight text-[var(--color-pib-text)]">
           {message}
         </h2>
         <p className="mt-4 text-[var(--color-pib-text-muted)]">
@@ -109,7 +109,7 @@ export default function GautengGrowthAuditForm() {
   return (
     <form onSubmit={handleSubmit} className="bento-card p-6 md:p-8" noValidate>
       <p className="eyebrow mb-3">Free audit</p>
-      <h2 className="font-display text-3xl leading-tight text-[var(--color-pib-text)]">
+      <h2 className="text-3xl leading-tight text-[var(--color-pib-text)]">
         Find the enquiry leaks.
       </h2>
       <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
@@ -149,7 +149,7 @@ export default function GautengGrowthAuditForm() {
             onChange={(event) => update('challenge', event.target.value)}
             rows={4}
             placeholder="What is not turning into leads yet?"
-            className="w-full rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] px-4 py-3 text-base text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-pib-accent)]"
+            className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] px-4 py-3 text-base text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-pib-accent)]"
           />
         </label>
       </div>
@@ -188,7 +188,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProp
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] px-4 py-3 text-base text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-pib-accent)]"
+        className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] px-4 py-3 text-base text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-pib-accent)]"
       />
     </label>
   )

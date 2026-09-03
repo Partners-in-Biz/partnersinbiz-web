@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 
+import { Icon } from '@/components/studio'
+
 interface Props {
   contactId: string
   contactName?: string
@@ -29,13 +31,13 @@ export default function ContactBrief({ contactId, contactName }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-5">
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             Relationship intelligence
           </p>
-          <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+          <h3 className="mt-1 text-base font-medium text-[var(--color-pib-text)]">
             {brief ? `${contactLabel}'s CRM brief` : `Generate ${contactLabel}'s CRM brief`}
           </h3>
         </div>
@@ -46,9 +48,7 @@ export default function ContactBrief({ contactId, contactName }: Props) {
           disabled={loading}
           className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-xs disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
-            {loading ? 'hourglass_top' : brief || error ? 'refresh' : 'psychology'}
-          </span>
+          <Icon name={loading ? 'hourglass_top' : brief || error ? 'refresh' : 'psychology'} className="text-[15px]" />
           {loading ? 'Generating...' : brief || error ? 'Retry brief' : 'Generate brief'}
         </button>
       </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useRef, useState } from 'react'
 
 type SpeechRecognitionResultListLike = SpeechRecognitionResultList
@@ -177,7 +178,7 @@ export default function VoiceInputButton({
   const isDisabled = disabled || !supported
   const title = !supported
     ? 'Voice input is not supported in this browser'
-    : error ?? (locked ? 'Voice recording locked — tap to stop' : listening ? 'Release to lock voice recording' : 'Tap to start voice recording')
+    : error ?? (locked ? 'Voice recording locked - tap to stop' : listening ? 'Release to lock voice recording' : 'Tap to start voice recording')
   const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to lock voice recording' : 'Tap to start voice recording'
 
   return (
@@ -214,7 +215,7 @@ export default function VoiceInputButton({
         if (listening && !locked) stopListening()
       }}
       className={[
-        'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-[var(--color-pib-text-muted)] transition-colors',
+        'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-[4px] text-[var(--color-pib-text-muted)] transition-colors',
         listening
           ? 'bg-primary text-on-primary shadow-[0_0_0_4px_rgba(245,158,11,0.16)]'
           : 'hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]',
@@ -223,16 +224,14 @@ export default function VoiceInputButton({
       ].join(' ')}
     >
       {listening && (
-        <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
+        <span className="absolute inset-0 animate-ping rounded-[4px] bg-primary/30" />
       )}
       {listening && (
-        <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] shadow-lg">
-          {locked ? 'Locked — tap to stop' : 'Release to lock'}
+        <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-[4px] bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)]">
+          {locked ? 'Locked - tap to stop' : 'Release to lock'}
         </span>
       )}
-      <span className="material-symbols-outlined relative select-none text-[20px]" aria-hidden="true">
-        {listening ? (locked ? 'lock' : 'mic') : 'mic_none'}
-      </span>
+      <Icon name={listening ? (locked ? 'lock' : 'mic') : 'mic_none'} className="relative select-none text-[20px]" />
     </button>
   )
 }

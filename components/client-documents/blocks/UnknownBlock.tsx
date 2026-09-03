@@ -5,7 +5,7 @@ export function UnknownBlock({ block, index }: { block: DocumentBlock; index: nu
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-4 text-2xl font-semibold text-[var(--doc-accent)]">{block.title}</h2>
+        <h2 className="mb-4 text-2xl font-medium text-[var(--doc-accent)]">{block.title}</h2>
       )}
       <pre className="overflow-auto rounded bg-[var(--doc-surface)] p-4 text-xs text-[var(--doc-muted)]">
         {JSON.stringify(block.content, null, 2)}

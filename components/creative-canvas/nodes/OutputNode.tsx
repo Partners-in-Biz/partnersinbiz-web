@@ -49,7 +49,7 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
           <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 200, objectFit: 'cover' }} />
         )
       ) : d.textPreview || d.text ? (
-        // Text results (copy edits, agent-llm generations) have no asset URL —
+        // Text results (copy edits, agent-llm generations) have no asset URL  - 
         // show the text itself instead of the empty state.
         <div style={{ padding: 12, fontSize: 12, color: canvasTheme.text, textAlign: 'left', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'hidden' }}>
           {d.textPreview ?? d.text}

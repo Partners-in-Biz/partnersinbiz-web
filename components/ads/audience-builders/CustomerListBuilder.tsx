@@ -58,7 +58,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
     if (!canSubmit() || !file) return
     setState({ kind: 'uploading', step: 'create' })
     try {
-      // Step 1 — create local CA + Meta sync
+      // Step 1 - create local CA + Meta sync
       const createRes = await fetch('/api/v1/ads/custom-audiences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId },
@@ -81,7 +81,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
       if (!createBody.success) throw new Error(createBody.error ?? `Create failed: HTTP ${createRes.status}`)
       const ca = createBody.data as AdCustomAudience
 
-      // Step 2 — upload list
+      // Step 2 - upload list
       setState({ kind: 'uploading', step: 'upload' })
       const columns: string[] = []
       const headerLookup: string[] = []  // for reordering CSV columns to match `columns` order if needed
@@ -138,7 +138,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
         <p className="font-medium text-emerald-300">Custom audience created</p>
         <p className="mt-1 text-xs text-white/60">
-          {state.ca.name} — Meta is matching the approved list. Refresh size after a few minutes.
+          {state.ca.name} - Meta is matching the approved list. Refresh size after a few minutes.
         </p>
         <button className="btn-pib-ghost mt-3 text-xs" onClick={reset}>
           Create another
@@ -199,7 +199,8 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
               ref={inputRef}
               type="file"
               accept=".csv,text/csv"
-              className="hidden"
+              className="sr-only"
+              data-impeccable-disable="content-invisible-at-rest"
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 if (f) handleFile(f)
@@ -233,7 +234,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
                         <tr key={i}>
                           {row.map((cell, j) => (
                             <td key={j} className="border-b border-white/5 px-2 py-1 text-white/40">
-                              {cell || '—'}
+                              {cell || ' - '}
                             </td>
                           ))}
                         </tr>
@@ -259,7 +260,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
               aria-label="Email column"
               disabled={state.kind === 'uploading'}
             >
-              <option value="">— None —</option>
+              <option value=""> -  None - </option>
               {headers.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
@@ -274,7 +275,7 @@ export function CustomerListBuilder({ orgId, onComplete, onCancel }: Props) {
               aria-label="Phone column"
               disabled={state.kind === 'uploading'}
             >
-              <option value="">— None —</option>
+              <option value=""> -  None - </option>
               {headers.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}

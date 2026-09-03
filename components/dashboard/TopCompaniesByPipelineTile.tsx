@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
+import { Icon } from '@/components/studio'
+
 interface CompanySummary {
   id: string
   name: string
@@ -55,8 +57,8 @@ export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipe
     <div className="pib-stat-card" data-module-accent="amber">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="pib-icon-tint" aria-hidden="true">
-            <span className="material-symbols-outlined text-[15px]">apartment</span>
+          <span className="" aria-hidden="true">
+            <Icon name="apartment" className="text-[15px]" />
           </span>
           <p className="eyebrow !text-[10px] mb-0">Recent companies</p>
         </div>
@@ -65,7 +67,7 @@ export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipe
           className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
         >
           View all
-          <span className="material-symbols-outlined text-sm">arrow_outward</span>
+          <Icon name="arrow_outward" className="text-sm" />
         </Link>
       </div>
       <ul className="space-y-0.5">
@@ -80,7 +82,7 @@ export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipe
                 <img src={c.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded object-contain" />
               ) : (
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--color-pib-line-strong)]">
-                  <span className="text-[10px] font-semibold uppercase leading-none text-[var(--color-pib-text-muted)]">
+                  <span className="text-[10px] font-medium uppercase leading-none text-[var(--color-pib-text-muted)]">
                     {c.name[0] ?? '·'}
                   </span>
                 </div>

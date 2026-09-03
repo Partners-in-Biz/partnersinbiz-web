@@ -1,21 +1,19 @@
 'use client'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { NAV } from '@/lib/seo/site'
-import {
-  marketFromPathname,
-  marketNav,
-  marketStartHref,
-} from '@/lib/seo/market-offers'
-import { isStageRoute } from '@/lib/marketing/stage-routes'
+import { NAV, CTA_LABEL } from '@/lib/seo/site'
+import { marketFromPathname, marketNav } from '@/lib/seo/market-offers'
+import { bookACallHref } from '@/lib/marketing/stage-routes'
 
+/**
+ * Stage chrome for the paper pages: a wordmark, four text links, one CTA.
+ * The split stage itself renders no navbar (see PublicShell).
+ */
 export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const onStage = isStageRoute(pathname)
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -29,77 +27,60 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // The split stage carries its own chrome: the divider and tiny ZA / US links.
-  if (onStage) return null
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
 
   const isActive = (href: string) => {
     const path = href.split('?')[0]
     return pathname === path || (path !== '/' && pathname.startsWith(path))
   }
   const market = marketFromPathname(pathname)
-  const startHref = market ? marketStartHref(market.id) : '/start-a-project'
+  const bookHref = bookACallHref(market?.id)
   const homeHref = market ? market.path : '/'
   const links = market ? marketNav(market.id) : NAV
 
   return (
     <>
-      <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? 'bg-[var(--color-pib-bg)]/85 backdrop-blur-xl border-b border-[var(--color-pib-line)]'
-            : 'bg-transparent'
-        }`}
-      >
-        <nav
-          aria-label="Primary"
-          className="container-pib flex items-center justify-between h-16 md:h-20"
-        >
-          <Link href={homeHref} prefetch={false} aria-label="Partners in Biz home" className="flex items-center gap-2.5 group">
-            <Image src="/pib-logo-64.png" alt="Partners in Biz" width={32} height={32} className="rounded-lg object-contain" />
-            <span className="font-display text-xl tracking-tight hidden sm:inline">
-              Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz
-            </span>
+      <header className={`sc-nav${scrolled ? ' sc-nav--scrolled' : ''}`}>
+        <nav aria-label="Primary" className="sc-nav__inner">
+          <Link href={homeHref} prefetch={false} className="sc-nav__wordmark sc-tiny" aria-label="Partners in Biz home">
+            Partners in Biz
           </Link>
 
-          <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+          <ul className="sc-nav__links sc-tiny">
             {links.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                prefetch={false}
-                className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                  isActive(href)
-                    ? 'text-[var(--color-pib-text)] bg-white/[0.06]'
-                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-                }`}
-              >
-                {label}
-              </Link>
+              <li key={href}>
+                <Link
+                  href={href}
+                  prefetch={false}
+                  className="sc-link"
+                  aria-current={isActive(href) ? 'page' : undefined}
+                >
+                  {label}
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
 
-          <div className="flex items-center gap-2">
+          <div className="sc-nav__actions">
             {!market && (
-              <Link
-                href="/login"
-                prefetch={false}
-                className="hidden lg:inline-flex text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 transition-colors"
-              >
+              <Link href="/login" prefetch={false} className="sc-link sc-tiny sc-nav__login">
                 Client login
               </Link>
             )}
-            <Link href={startHref} prefetch={false} className="btn-pib-primary text-sm hidden sm:inline-flex">
-              Start a project
-              <span className="material-symbols-outlined text-base">arrow_outward</span>
+            <Link href={bookHref} prefetch={false} className="sc-cta sc-nav__cta">
+              {CTA_LABEL}
             </Link>
             <button
+              type="button"
               onClick={() => setOpen((v) => !v)}
               aria-label={open ? 'Close menu' : 'Open menu'}
               aria-expanded={open}
-              className="md:hidden flex flex-col justify-center items-center w-10 h-10 gap-[5px] rounded-full hover:bg-white/[0.06] transition-colors"
+              className="sc-nav__burger"
             >
-              <span className={`block w-5 h-px bg-current transition-all duration-300 origin-center ${open ? 'rotate-45 translate-y-[3px]' : ''}`} />
-              <span className={`block w-5 h-px bg-current transition-all duration-300 origin-center ${open ? '-rotate-45 -translate-y-[3px]' : ''}`} />
+              <span className={open ? 'is-open' : ''} />
+              <span className={open ? 'is-open' : ''} />
             </button>
           </div>
         </nav>
@@ -107,48 +88,35 @@ export default function Navbar() {
 
       <div
         onClick={() => setOpen(false)}
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
+        className={`sc-nav__scrim${open ? ' is-open' : ''}`}
+        aria-hidden="true"
       />
-      <aside
-        className={`fixed top-0 right-0 h-full w-[88%] max-w-sm z-50 bg-[var(--color-pib-bg)] border-l border-[var(--color-pib-line)] flex flex-col pt-24 pb-12 px-8 transition-transform duration-300 ease-out md:hidden ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <nav className="flex flex-col gap-1 flex-1">
+      <aside className={`sc-nav__sheet${open ? ' is-open' : ''}`} aria-label="Menu">
+        <nav className="sc-nav__sheet-links">
           {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
               prefetch={false}
               onClick={() => setOpen(false)}
-              className={`font-display text-3xl py-4 border-b border-[var(--color-pib-line)] transition-colors ${
-                isActive(href) ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-              }`}
+              className="sc-nav__sheet-link"
+              aria-current={isActive(href) ? 'page' : undefined}
             >
               {label}
             </Link>
           ))}
           {!market && (
-            <Link
-              href="/login"
-              prefetch={false}
-              onClick={() => setOpen(false)}
-              className="font-display text-3xl py-4 border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-            >
+            <Link href="/login" prefetch={false} onClick={() => setOpen(false)} className="sc-nav__sheet-link">
               Client login
             </Link>
           )}
         </nav>
-
-        <div className="space-y-4">
-          <Link href={startHref} prefetch={false} onClick={() => setOpen(false)} className="btn-pib-primary w-full justify-center">
-            Start a project
-            <span className="material-symbols-outlined text-base">arrow_outward</span>
+        <div className="sc-nav__sheet-foot">
+          <Link href={bookHref} prefetch={false} onClick={() => setOpen(false)} className="sc-cta">
+            {CTA_LABEL}
           </Link>
-          <p className="font-mono text-xs text-[var(--color-pib-text-faint)] tracking-wide">
-            © {new Date().getFullYear()} Partners in Biz{market ? '' : ' · Pretoria'}
+          <p className="sc-tiny">
+            {new Date().getFullYear()} Partners in Biz{market ? '' : '. Pretoria.'}
           </p>
         </div>
       </aside>

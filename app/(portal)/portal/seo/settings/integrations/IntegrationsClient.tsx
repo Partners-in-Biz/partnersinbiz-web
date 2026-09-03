@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 type SprintRow = {
   id: string
@@ -30,16 +31,16 @@ export function IntegrationsClient({
       />
 
       {justConnectedSprintId && (
-        <div className="pib-card border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+        <div className="st-panel border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">check_circle</span>
+            <Icon name="check_circle" />
             <span>Google Search Console connected. Select the matching property below.</span>
           </div>
         </div>
       )}
 
       {sprints.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No SEO sprints yet. Create a sprint first, then connect Search Console here.
         </div>
       ) : (
@@ -139,12 +140,10 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
     <section className="pib-card-section">
       <div className="pib-card-section-row flex-col items-stretch gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 gap-3">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green shrink-0">
-            <span className="material-symbols-outlined text-[18px]">search</span>
-          </span>
+          <Icon name="search" />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{sprint.siteName}</h4>
+              <h4 className="text-sm text-[var(--color-pib-text)]">{sprint.siteName}</h4>
               <span className={connected ? 'pib-pill pib-pill-success' : 'pib-pill pib-pill-warn'}>
                 {connected ? 'Connected' : 'Not connected'}
               </span>
@@ -153,13 +152,13 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          <button type="button" onClick={connect} className="pib-btn-secondary justify-center text-xs font-label">
-            <span className="material-symbols-outlined text-base">sync</span>
+          <button name="integrationsclient-action-79" type="button" onClick={connect} className="pib-btn-secondary justify-center text-xs font-label">
+            <Icon name="sync" />
             {connected ? 'Reconnect' : 'Connect'}
           </button>
           {connected && (
-            <button type="button" onClick={disconnect} disabled={saving} className="inline-flex items-center justify-center gap-1.5 rounded-full border border-red-500/35 px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:opacity-40">
-              <span className="material-symbols-outlined text-base">link_off</span>
+            <button name="integrationsclient-action-80" type="button" onClick={disconnect} disabled={saving} className="inline-flex items-center justify-center gap-1.5 rounded border border-red-500/35 px-3 py-2 text-xs text-red-300 transition hover:bg-red-500/10 disabled:opacity-40">
+              <Icon name="link_off" />
               Disconnect
             </button>
           )}
@@ -168,9 +167,9 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
 
       {connected && (
         <div className="px-4 pb-4 sm:px-5">
-          <div className="rounded-2xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+          <div className="border border-[var(--color-pib-line)] bg-black/10 p-4">
             <label className="pib-label" htmlFor={`gsc-${sprint.id}`}>Search Console property</label>
-            <select
+            <select name="integrationsclient-select-81"
               id={`gsc-${sprint.id}`}
               value={propertyUrl}
               onChange={(e) => selectProperty(e.target.value)}
@@ -180,19 +179,19 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
               <option value="">{loading ? 'Loading properties…' : 'Select property'}</option>
               {properties.map((p) => (
                 <option key={p.siteUrl} value={p.siteUrl}>
-                  {p.siteUrl}{p.permissionLevel ? ` — ${p.permissionLevel}` : ''}
+                  {p.siteUrl}{p.permissionLevel ? `  -  ${p.permissionLevel}` : ''}
                 </option>
               ))}
             </select>
             {error && (
               <p className="mt-2 flex items-center gap-1.5 text-xs text-red-300">
-                <span className="material-symbols-outlined text-sm">error</span>
+                <Icon name="error" />
                 {error}
               </p>
             )}
             {!error && propertyUrl && (
               <p className="mt-2 flex items-center gap-1.5 text-xs text-green-300">
-                <span className="material-symbols-outlined text-sm">verified</span>
+                <Icon name="verified" />
                 {message ?? `This sprint is mapped to ${propertyUrl}.`}
               </p>
             )}
@@ -201,7 +200,7 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
       )}
       {!connected && error && (
         <p className="px-4 pb-4 sm:px-5 flex items-center gap-1.5 text-xs text-red-300">
-          <span className="material-symbols-outlined text-sm">error</span>
+          <Icon name="error" />
           {error}
         </p>
       )}

@@ -1,14 +1,17 @@
 'use client'
 
 import { KnowledgeBrowser } from '@/components/knowledge/KnowledgeBrowser'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
 function AdminStubCard({ icon, title, desc, cta }: { icon: string; title: string; desc: string; cta: string }) {
   return (
-    <div className="flex items-start justify-between p-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70">
+    <div className="flex items-start justify-between p-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70">
       <div className="flex items-start gap-3">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[18px]">{icon}</span></span>
+        <span aria-hidden="true" className="shrink-0 text-[var(--sc-ink-soft)]">
+          <Icon name={icon} />
+        </span>
         <div>
           <p className="text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{desc}</p>
@@ -16,9 +19,10 @@ function AdminStubCard({ icon, title, desc, cta }: { icon: string; title: string
       </div>
       <button
         type="button"
-        className="shrink-0 ml-4 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-2 py-1 rounded hover:bg-[var(--color-pib-surface-2)] transition-colors"
+        className="shrink-0 ml-4 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-2 py-1 rounded-md hover:bg-[var(--color-pib-surface-2)] transition-colors"
+        aria-label={cta}
       >
-        {cta} →
+        {cta}
       </button>
     </div>
   )
@@ -34,11 +38,10 @@ export default function AdminKnowledgePage() {
         description="Internal Markdown knowledge shared across Pip and the wider agent team. These notes are backed by the synced Obsidian vault on the Hermes VPS."
       />
 
-      {/* SEO & Content Management */}
       <section className="space-y-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">SEO &amp; Content</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Content Management</h2>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">SEO and Content</p>
+          <h2 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">Content Management.</h2>
         </div>
         <div className="space-y-2">
           <AdminStubCard
@@ -68,11 +71,10 @@ export default function AdminKnowledgePage() {
         </div>
       </section>
 
-      {/* API & Developer Docs */}
       <section className="space-y-3">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Developer resources</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">API Documentation</h2>
+          <h2 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">API Documentation.</h2>
         </div>
         <AdminStubCard
           icon="api"

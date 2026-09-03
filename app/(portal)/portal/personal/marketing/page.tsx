@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import SocialOverviewWorkspace from '@/components/social/SocialOverviewWorkspace'
 import { useResolvedPortalOrgId } from '@/components/portal/useResolvedPortalOrgId'
 import { PersonalXMcpConnectionCard } from '@/components/workspace-os/PersonalXMcpConnectionCard'
+import { Panel, Skeleton, Title } from '@/components/studio'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
 export const dynamic = 'force-dynamic'
@@ -19,13 +20,13 @@ export default function PersonalMarketingPage() {
     <div className="space-y-8">
       {resolving ? (
         <div className="space-y-4" aria-busy="true" aria-label="Loading personal marketing">
-          <div className="pib-skeleton h-24" />
-          <div className="pib-skeleton h-40" />
+          <Skeleton height={96} />
+          <Skeleton height={160} />
         </div>
       ) : (
         <SocialOverviewWorkspace
           surface="portal"
-          title="Personal marketing"
+          title="Personal marketing."
           eyebrow="Personal workspace"
           description="Your own social accounts, drafts, scheduled posts, content vault, and X intelligence. This is user-owned and stays separate from company or organisation marketing."
           postsLimit={200}
@@ -45,10 +46,15 @@ export default function PersonalMarketingPage() {
         />
       )}
 
-      <section className="pib-card space-y-2" aria-label="Personal marketing scope">
-        <p className="eyebrow !text-[10px]">Personal account scope</p>
-        <h2 className="font-display text-xl text-[var(--color-pib-text)]">User-owned channels</h2>
-        <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">Posts, vault items, calendar entries, campaigns, and connected accounts here belong to your login. Organisation pages and company campaigns stay in the company workspace and cannot be selected from this screen.</p>
+      <section aria-label="Personal marketing scope">
+        <Panel flat className="space-y-2">
+          <p className="sc-tiny">Personal account scope</p>
+          <Title>User-owned channels</Title>
+          <p className="sc-body text-sm leading-6 text-[var(--sc-ink-soft)]">
+            Posts, vault items, calendar entries, campaigns, and connected accounts here belong to your login.
+            Organisation pages and company campaigns stay in the company workspace and cannot be selected from this screen.
+          </p>
+        </Panel>
       </section>
 
       <PersonalXMcpConnectionCard setupSurface="portal_personal_marketing" />

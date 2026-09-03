@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/campaigns/new/page.tsx
-// Sub-3a Phase 2 Batch 4 — platform picker replaces Meta-only gate.
+// Sub-3a Phase 2 Batch 4  -  platform picker replaces Meta-only gate.
 // Meta still needs a connection; Google wizard requires none at this page level
 // (Google connection is validated server-side when the campaign is submitted).
 
@@ -31,7 +31,7 @@ export default async function NewCampaignPage({
       <div className="pib-card">
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           No ad platform connected. Connect Meta or Google Ads first under{' '}
-          <a href={`/admin/org/${slug}/ads/connections`} className="text-[var(--color-pib-rose)] underline">
+          <a href={`/admin/org/${slug}/ads/connections`} className="text-[var(--st-danger)] underline">
             Connections
           </a>
           .

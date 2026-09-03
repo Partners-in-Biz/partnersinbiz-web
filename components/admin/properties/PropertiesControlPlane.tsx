@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { Notice, Icon, Table, THead, TR, TH, TD } from '@/components/studio'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 type FlagType = 'boolean' | 'string' | 'number'
@@ -48,7 +49,7 @@ interface ControlPlaneData {
 const FLAG_TYPES: FlagType[] = ['boolean', 'string', 'number']
 
 function renderValue(value: unknown): string {
-  if (value === null || value === undefined) return '—'
+  if (value === null || value === undefined) return '-'
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   return String(value)
 }
@@ -247,7 +248,7 @@ export function PropertiesControlPlane() {
         )}
       />
 
-      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {loading ? (
         <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading control plane…</div>
@@ -263,13 +264,8 @@ export function PropertiesControlPlane() {
               { label: 'Number', value: metrics.number, icon: 'numbers' },
             ].map((m) => (
               <div key={m.label} className="pib-card p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
-                    <span className="material-symbols-outlined text-[14px]">{m.icon}</span>
-                  </span>
-                </div>
-                <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+                <p className="sc-tiny">{m.label}</p>
+                <p className="st-num mt-2 text-xl text-[var(--color-pib-text)]">{m.value}</p>
               </div>
             ))}
           </section>
@@ -301,7 +297,7 @@ export function PropertiesControlPlane() {
                         <td className="px-4 py-3"><code className="text-sm text-[var(--color-pib-text)]">{flag.key}</code></td>
                         <td className="px-4 py-3"><StatusPill tone="info">{flag.type}</StatusPill></td>
                         <td className="px-4 py-3 text-sm text-[var(--color-pib-text)]"><code>{renderValue(flag.defaultValue)}</code></td>
-                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{flag.description || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{flag.description || '-'}</td>
                         <td className="px-4 py-3">
                           <StatusPill tone={flag.overrideCount > 0 ? 'accent' : 'neutral'}>
                             {flag.overrideCount}
@@ -310,7 +306,7 @@ export function PropertiesControlPlane() {
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <button type="button" className="pib-btn-ghost text-xs" onClick={() => openEdit(flag)}>Edit</button>
-                            <button type="button" className="pib-btn-ghost text-xs text-red-400" onClick={() => { setDeleteTarget(flag); setDeleteError('') }}>Delete</button>
+                            <button type="button" className="pib-btn-ghost text-xs text-[var(--st-danger)]" onClick={() => { setDeleteTarget(flag); setDeleteError('') }}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -323,7 +319,7 @@ export function PropertiesControlPlane() {
 
           {/* Per-org overrides */}
           <Surface header={<span className="font-label">Per-org overrides</span>} className="overflow-hidden">
-            {ovError && <p className="px-4 pt-3 text-sm text-red-400">{ovError}</p>}
+            {ovError && <Notice tone="danger">{ovError}</Notice>}
             {data.orgOverrides.length === 0 ? (
               <div className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">No per-org overrides set.</div>
             ) : (
@@ -352,7 +348,7 @@ export function PropertiesControlPlane() {
                             >
                               Edit
                             </button>
-                            <button type="button" className="pib-btn-ghost text-xs text-red-400" onClick={() => clearOverride(o.flagKey, o.orgId)}>Clear</button>
+                            <button type="button" className="pib-btn-ghost text-xs text-[var(--st-danger)]" onClick={() => clearOverride(o.flagKey, o.orgId)}>Clear</button>
                           </div>
                         </td>
                       </tr>
@@ -365,16 +361,31 @@ export function PropertiesControlPlane() {
             <div className="border-t border-[var(--color-pib-line)] p-4">
               <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Add / edit override</p>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
-                <select className="pib-input" value={ovFlag} onChange={(e) => { setOvFlag(e.target.value); setOvValue('') }}>
+                <select
+                  className="pib-input"
+                  aria-label="Flag"
+                  value={ovFlag}
+                  onChange={(e) => { setOvFlag(e.target.value); setOvValue('') }}
+                >
                   <option value="">Select flag…</option>
                   {data.flags.map((f) => <option key={f.key} value={f.key}>{f.key}</option>)}
                 </select>
-                <select className="pib-input" value={ovOrg} onChange={(e) => setOvOrg(e.target.value)}>
+                <select
+                  className="pib-input"
+                  aria-label="Organisation"
+                  value={ovOrg}
+                  onChange={(e) => setOvOrg(e.target.value)}
+                >
                   <option value="">Select org…</option>
                   {data.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
                 {selectedFlagDef?.type === 'boolean' ? (
-                  <select className="pib-input" value={ovValue || 'true'} onChange={(e) => setOvValue(e.target.value)}>
+                  <select
+                    className="pib-input"
+                    aria-label="Override value"
+                    value={ovValue || 'true'}
+                    onChange={(e) => setOvValue(e.target.value)}
+                  >
                     <option value="true">true</option>
                     <option value="false">false</option>
                   </select>
@@ -383,6 +394,7 @@ export function PropertiesControlPlane() {
                     className="pib-input"
                     type={selectedFlagDef?.type === 'number' ? 'number' : 'text'}
                     placeholder="value"
+                    aria-label="Override value"
                     value={ovValue}
                     onChange={(e) => setOvValue(e.target.value)}
                   />
@@ -405,7 +417,7 @@ export function PropertiesControlPlane() {
                     <div className="min-w-0">
                       <p className="text-sm text-[var(--color-pib-text)]">{a.summary}</p>
                       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                        <code>{a.action}</code> · {a.actorUid || 'unknown'} ({a.actorRole || '—'})
+                        <code>{a.action}</code> · {a.actorUid || 'unknown'} ({a.actorRole || '-'})
                       </p>
                     </div>
                     <span className="shrink-0 text-xs text-[var(--color-pib-text-muted)]">{formatDateTime(a.createdAt)}</span>
@@ -433,7 +445,7 @@ export function PropertiesControlPlane() {
         }
       >
         <div className="space-y-4">
-          {formError && <p className="text-sm text-red-400">{formError}</p>}
+          {formError && <Notice tone="danger">{formError}</Notice>}
           {!editingKey && (
             <label className="block">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Key</span>
@@ -503,7 +515,7 @@ export function PropertiesControlPlane() {
           </div>
         }
       >
-        {deleteError && <p className="mb-3 text-sm text-red-400">{deleteError}</p>}
+        {deleteError && <Notice tone="danger">{deleteError}</Notice>}
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {deleteTarget && deleteTarget.overrideCount > 0 ? (
             <>This flag has <strong className="text-[var(--color-pib-text)]">{deleteTarget.overrideCount}</strong> per-org override{deleteTarget.overrideCount === 1 ? '' : 's'} that will be orphaned.</>

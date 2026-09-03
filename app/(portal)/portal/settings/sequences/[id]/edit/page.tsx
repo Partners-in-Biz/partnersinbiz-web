@@ -1,6 +1,9 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Button, Icon, Notice, Panel, Skeleton, Title } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
+
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SequenceForm } from '@/components/crm/SequenceForm'
@@ -69,74 +72,56 @@ export default function EditSequencePage({
     <div className="max-w-6xl space-y-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
+          <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="mb-4">
+            <Icon name="arrow_back" />
             Sequences
-          </button>
-          <p className="eyebrow">Settings · Journey builder</p>
-          <h1 className="pib-page-title mt-2">Edit sequence</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Tune the journey content, cadence, and launch state while keeping the CRM follow-up path readable.
-          </p>
+          </Button>
+          <PageHeader
+            title="Edit sequence."
+            description="Tune the journey content, cadence, and launch state while keeping the CRM follow-up path readable."
+          />
         </div>
         {sequence && (
-          <div className="pib-card w-full max-w-sm">
-            <p className="text-xs font-medium">{sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <Panel flat className="w-full max-w-sm">
+            <p className="sc-tiny">{sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}</p>
+            <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
               {sequence.steps.length} step{sequence.steps.length === 1 ? '' : 's'} configured for this journey.
             </p>
-          </div>
+          </Panel>
         )}
       </header>
 
       {loading ? (
-        <div className="pib-card space-y-3">
-          <div className="pib-skeleton h-4 w-1/3" />
-          <div className="pib-skeleton h-4 w-2/3" />
-          <div className="pib-skeleton h-4 w-1/2" />
-        </div>
+        <Panel className="space-y-3">
+          <Skeleton height={16} className="w-1/3" />
+          <Skeleton height={16} className="w-2/3" />
+          <Skeleton height={16} className="w-1/2" />
+        </Panel>
       ) : fetchError ? (
-        <section className="pib-card">
+        <Panel as="section" className="space-y-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
-              </span>
+            <div className="flex gap-4">
+              <Icon name="warning" />
               <div>
-                <p className="eyebrow">Source health</p>
-                <h2 className="mt-1 font-display text-xl">
-                  Sequence journey could not load
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="sc-tiny">Source health</p>
+                <Title className="mt-1">Sequence journey could not load</Title>
+                <Notice tone="danger">{fetchError}</Notice>
+                <p className="sc-body mt-3 text-[0.75rem] text-[var(--sc-ink-soft)]">
                   Journey status, steps, and launch controls stay hidden until the sequence source responds, so teams do not edit from stale or partial follow-up data.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => loadSequence()}
-                aria-label="Retry loading sequence journey"
-                className="btn-pib-secondary"
-              >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Button type="button" variant="secondary" size="sm" onClick={() => loadSequence()} aria-label="Retry loading sequence journey">
+                <Icon name="refresh" />
                 Retry
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="btn-pib-ghost"
-              >
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
                 Back to sequences
-              </button>
+              </Button>
             </div>
           </div>
-        </section>
+        </Panel>
       ) : sequence ? (
         <SequenceForm initial={sequence} apiScope={orgScope} onSave={handleSave} onCancel={handleCancel} />
       ) : null}

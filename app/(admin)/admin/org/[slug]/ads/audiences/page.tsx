@@ -32,9 +32,9 @@ export default async function AudiencesPage({ params }: { params: Promise<Params
 
       {cas.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">groups</span>
+          
           <p className="pib-empty-state-description">No custom audiences yet.</p>
-          <Link href={`/admin/org/${slug}/ads/audiences/new`} className="mt-3 inline-block text-sm text-[var(--color-pib-rose)] hover:underline">
+          <Link href={`/admin/org/${slug}/ads/audiences/new`} className="mt-3 inline-block text-sm text-[var(--st-danger)] hover:underline">
             Create an admin audience draft →
           </Link>
         </div>
@@ -44,7 +44,7 @@ export default async function AudiencesPage({ params }: { params: Promise<Params
             {cas.map((ca) => (
               <li key={ca.id} className="flex items-center justify-between px-5 py-4">
                 <div>
-                  <Link href={`/admin/org/${slug}/ads/audiences/${ca.id}`} className="font-medium text-[var(--color-pib-text)] hover:text-[var(--color-pib-rose)]">
+                  <Link href={`/admin/org/${slug}/ads/audiences/${ca.id}`} className="font-medium text-[var(--color-pib-text)] hover:text-[var(--st-danger)]">
                     {ca.name}
                   </Link>
                   <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">

@@ -46,15 +46,15 @@ export function DateRangePicker({
     <div className={`flex flex-wrap items-end gap-2 ${className}`}>
       <div className="flex gap-1">
         {PRESETS.map(p => (
-          <button
+          <button name="daterangepicker-action-86"
             key={p.days}
             type="button"
             onClick={() => onChange({ from: daysAgoIso(p.days), to: todayIso() })}
             className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
-              activePreset === p.days
-                ? 'bg-amber-400/20 text-amber-400'
-                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
-            }`}
+ activePreset === p.days
+ ? 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)]'
+ : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
+ }`}
           >
             {p.label}
           </button>
@@ -62,7 +62,7 @@ export function DateRangePicker({
       </div>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">From</label>
-        <input
+        <input name="date"
           type="date"
           value={value.from}
           max={value.to}
@@ -72,7 +72,7 @@ export function DateRangePicker({
       </div>
       <div>
         <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">To</label>
-        <input
+        <input name="date"
           type="date"
           value={value.to}
           min={value.from}

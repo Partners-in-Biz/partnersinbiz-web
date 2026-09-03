@@ -21,9 +21,9 @@ interface NewKwForm {
 }
 
 const MATCH_COLORS: Record<AdKeywordMatchType | 'NEGATIVE', string> = {
-  EXACT: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
-  PHRASE: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
-  BROAD: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
+  EXACT: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
+  PHRASE: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
+  BROAD: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
   NEGATIVE: 'bg-red-500/15 text-red-300 border-red-500/30',
 }
 
@@ -137,13 +137,13 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
   }
 
   const inputCls =
-    'rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const selectCls =
-    'rounded border border-white/10 bg-[#0a0a0a] px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'rounded border border-white/10 bg-[#0a0a0a] px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Keywords</h2>
+      <h2 className="text-sm font-medium uppercase tracking-wide text-white/40">Keywords</h2>
 
       {/* List */}
       {loading && (
@@ -165,7 +165,7 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
               <div className="flex items-center gap-3 min-w-0">
                 <span className="font-medium truncate">{kw.text}</span>
                 <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${matchPillClass(kw)}`}
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${matchPillClass(kw)}`}
                 >
                   {kw.negativeKeyword ? 'NEG' : kw.matchType}
                 </span>
@@ -178,7 +178,7 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
                 )}
                 <button
                   type="button"
-                  className="text-xs text-white/30 hover:text-red-400 disabled:opacity-40"
+                  className="text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-40"
                   onClick={() => handleRemove(kw.id)}
                   disabled={removingId === kw.id}
                   aria-label={`Remove keyword ${kw.text}`}

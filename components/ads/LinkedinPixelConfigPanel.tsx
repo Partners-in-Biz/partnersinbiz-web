@@ -88,7 +88,7 @@ export function LinkedinPixelConfigPanel({
   return (
     <section className="space-y-4 rounded border border-white/10 p-5">
       <header>
-        <h2 className="text-lg font-semibold">LinkedIn Insight Tag</h2>
+        <h2 className="text-lg font-medium">LinkedIn Insight Tag</h2>
         <p className="text-sm text-white/60 mt-0.5">
           Server-side conversion tracking via rw_conversions CAPI. Token encrypted at rest.
         </p>
@@ -166,7 +166,7 @@ export function LinkedinPixelConfigPanel({
           </span>
         )}
         {saveStatus === 'error' && (
-          <span className="text-sm text-red-400" role="alert">
+          <span className="text-sm text-[var(--st-danger)]" role="alert">
             ✗ {saveError}
           </span>
         )}

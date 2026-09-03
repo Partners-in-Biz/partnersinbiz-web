@@ -63,7 +63,7 @@ export function TiktokPixelConfigPanel({
       setSaveError(body.error ?? 'Unknown error')
     } else {
       setSaveStatus('success')
-      setCapiToken('') // clear after save — never redisplay plaintext
+      setCapiToken('') // clear after save - never redisplay plaintext
     }
   }
 
@@ -77,7 +77,7 @@ export function TiktokPixelConfigPanel({
   return (
     <section className="space-y-4 rounded border border-white/10 p-5">
       <header>
-        <h2 className="text-lg font-semibold">TikTok Pixel &amp; Events API</h2>
+        <h2 className="text-lg font-medium">TikTok Pixel &amp; Events API</h2>
         <p className="text-sm text-white/60 mt-0.5">
           Server-side conversion tracking via TikTok Events API. Token encrypted at rest.
           Use a separate Events API token from TikTok Events Manager → Settings → Generate Token.
@@ -113,7 +113,7 @@ export function TiktokPixelConfigPanel({
           className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm"
           placeholder={
             initial.hasCapiToken
-              ? 'Set ✓ — enter new value to replace'
+              ? 'Set ✓ - enter new value to replace'
               : 'Not set'
           }
           value={capiToken}
@@ -130,7 +130,7 @@ export function TiktokPixelConfigPanel({
       <div className="space-y-1">
         <label className="text-sm text-white/80" htmlFor="tt-test-code">
           Test Event Code{' '}
-          <span className="text-white/40 font-normal">(optional — staging only)</span>
+          <span className="text-white/40 font-normal">(optional - staging only)</span>
         </label>
         <input
           id="tt-test-code"
@@ -161,7 +161,7 @@ export function TiktokPixelConfigPanel({
           </span>
         )}
         {saveStatus === 'error' && (
-          <span className="text-sm text-red-400" role="alert">
+          <span className="text-sm text-[var(--st-danger)]" role="alert">
             ✗ {saveError}
           </span>
         )}
@@ -187,7 +187,7 @@ export function TiktokPixelConfigPanel({
                   Paste inside the <code>&lt;head&gt;</code> of every page. This loads
                   the TikTok browser pixel and fires a page view automatically.
                   Server-side Events API events are sent by PiB and do not require this
-                  snippet — but both together enable deduplication via <code>event_id</code>.
+                  snippet - but both together enable deduplication via <code>event_id</code>.
                 </p>
                 <pre className="rounded bg-black/40 border border-white/10 p-3 text-xs text-white/80 overflow-x-auto whitespace-pre-wrap">
                   {buildSnippet(pixelCode)}

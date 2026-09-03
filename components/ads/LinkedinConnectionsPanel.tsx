@@ -1,17 +1,17 @@
 'use client'
 //
-// LinkedIn Ads connection panel — separate component from `ConnectionsPanel`
+// LinkedIn Ads connection panel - separate component from `ConnectionsPanel`
 // (which owns Meta) and `GoogleConnectionsPanel` so each provider can evolve
 // independently and the Meta/Google paths stay untouched. Rendered alongside
 // `ConnectionsPanel` and `GoogleConnectionsPanel` on
 // `app/(admin)/admin/org/[slug]/ads/connections/page.tsx`.
 //
 // Flow:
-//   - No connection → "Connect LinkedIn Ads" button → POST authorize → redirect
-//   - Connection without selectedAdAccountUrn → fetch ad accounts
-//     (`GET /api/v1/ads/linkedin/accounts`) → render <select> picker →
+// - No connection → "Connect LinkedIn Ads" button → POST authorize → redirect
+// - Connection without selectedAdAccountUrn → fetch ad accounts
+//     (`GET /api/v1/ads/linkedin/accounts`) → render account select picker →
 //     submit PATCHes `selectedAdAccountUrn` then router.refresh()
-//   - Connection with selectedAdAccountUrn → status pill + disconnect button
+// - Connection with selectedAdAccountUrn → status pill + disconnect button
 //
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -181,7 +181,7 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Disconnect LinkedIn Ads connection?</h2>
+              <h2 className="font-medium text-red-100">Disconnect LinkedIn Ads connection?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 This revokes LinkedIn Marketing API ad account access for this workspace. Campaign history stays in PiB.
               </p>
@@ -253,7 +253,7 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
 
       {linkedin && selectedAdAccountUrn && (
         <div className="mt-4">
-          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
+          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
             {displayUrn(selectedAdAccountUrn)}
           </span>
         </div>

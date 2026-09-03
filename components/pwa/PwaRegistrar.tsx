@@ -6,7 +6,7 @@ import { useEffect } from 'react'
  * Registers the PWA service worker (sw.js) once on mount.
  *
  * The FCM service worker (firebase-messaging-sw.js) is registered lazily by
- * `requestPushPermission()` only after the user opts in — that way visitors
+ * `requestPushPermission()` only after the user opts in  -  that way visitors
  * who never grant push permission never pay the cost of loading Firebase.
  *
  * In dev we deliberately unregister so HMR isn't poisoned by a stale cache.

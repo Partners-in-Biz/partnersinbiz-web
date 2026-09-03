@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Icon } from '@/components/studio'
 
 interface CommandPaletteProps {
   open: boolean
@@ -38,7 +39,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Autofocus when opened
   useEffect(() => {
     if (open) {
       setQuery('')
@@ -48,7 +48,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
   }, [open])
 
-  // Escape closes
   useEffect(() => {
     if (!open) return
     function handler(e: KeyboardEvent) {
@@ -79,7 +78,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     onClose()
   }, [router, onClose])
 
-  // Debounced search
   useEffect(() => {
     if (!open) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -153,96 +151,92 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[18vh] bg-black/45 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[18vh] bg-black/40"
       onClick={onClose}
     >
       <div
-        className="pib-glass-strong w-full max-w-xl mx-4 rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-xl mx-4 overflow-hidden rounded-[var(--st-radius-raised)] bg-[var(--sc-surface)] text-[var(--sc-ink)] shadow-[var(--sc-shadow)]"
+        style={{ boxShadow: 'var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light, var(--sc-line))' }}
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-label="Command palette"
       >
-        {/* Search input */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-pib-line)]">
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
+        <div className="flex items-center gap-2 px-3 min-h-11 border-b border-[var(--sc-line)]">
+          <Icon name="search" className="shrink-0 text-[var(--sc-ink-soft)]" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search contacts, documents…"
-            className="flex-1 bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
+            className="flex-1 bg-transparent sc-body text-[var(--sc-ink)] placeholder:text-[var(--sc-ink-soft)] outline-none min-h-11"
             autoComplete="off"
             spellCheck={false}
+            aria-label="Search"
           />
           {loading && (
-            <span className="shrink-0 w-3.5 h-3.5 border-2 border-[var(--color-pib-accent)] border-t-transparent rounded-full animate-spin" />
+            <span
+              className="shrink-0 h-3.5 w-3.5 border-2 border-[var(--sc-accent)] border-t-transparent rounded-md animate-spin"
+              aria-hidden="true"
+            />
           )}
           {!loading && (
-            <kbd className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1 py-0.5">Esc</kbd>
+            <kbd className="sc-tiny shrink-0 text-[var(--sc-ink-soft)] border border-[var(--sc-line)] rounded-[var(--st-radius)] px-1.5 py-0.5">
+              Esc
+            </kbd>
           )}
         </div>
 
-        {/* Body */}
         <div className="max-h-[52vh] overflow-y-auto">
-          {/* Results */}
           {query.trim() && !loading && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 gap-1.5 text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[28px] opacity-40">search_off</span>
-              <p className="text-xs">No results for &ldquo;{query}&rdquo;</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-1.5 text-[var(--sc-ink-soft)]">
+              <Icon name="search_off" className="opacity-50" />
+              <p className="sc-body text-[0.8125rem] m-0">No results for &ldquo;{query}&rdquo;.</p>
             </div>
           )}
 
           {results.length > 0 && (
             <div className="py-1">
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-                Results
-              </p>
+              <p className="sc-tiny px-3 py-1 text-[var(--sc-ink-soft)]">Results</p>
               {results.map((item, idx) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => navigate(item.href)}
                   className={[
-                    'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors',
+                    'w-full flex items-center gap-2 px-3 min-h-11 text-left transition-colors',
                     idx === selectedIndex
-                      ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                      : 'text-[var(--color-pib-text)] hover:bg-white/[0.04]',
+                      ? 'bg-[var(--sc-canvas)] text-[var(--sc-ink)]'
+                      : 'text-[var(--sc-ink)] hover:bg-[var(--sc-canvas)]',
                   ].join(' ')}
                   onMouseEnter={() => setSelectedIndex(idx)}
                 >
-                  <span className={[
-                    'material-symbols-outlined text-[16px] shrink-0',
-                    idx === selectedIndex ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]',
-                  ].join(' ')}>
-                    {item.icon}
-                  </span>
+                  <Icon name={item.icon} className="shrink-0 text-[var(--sc-ink-soft)]" />
                   <span className="flex-1 min-w-0">
-                    <span className="block text-xs font-medium truncate">{item.title}</span>
-                    <span className="block text-[10px] text-[var(--color-pib-text-muted)]">{item.subtitle}</span>
+                    <span className="block sc-body text-[0.875rem] truncate">{item.title}</span>
+                    <span className="block sc-tiny text-[var(--sc-ink-soft)]">{item.subtitle}</span>
                   </span>
-                  <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] opacity-50">arrow_forward</span>
+                  <Icon name="arrow_forward" className="text-[var(--sc-ink-soft)] opacity-50" />
                 </button>
               ))}
             </div>
           )}
 
-          {/* Shortcuts (shown when query is empty) */}
           {!query.trim() && (
             <div className="py-1">
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-                Keyboard shortcuts
-              </p>
+              <p className="sc-tiny px-3 py-1 text-[var(--sc-ink-soft)]">Keyboard shortcuts</p>
               {SHORTCUTS.map((s) => (
                 <div
                   key={s.label}
-                  className="flex items-center gap-2 px-3 py-1.5"
+                  className="flex items-center gap-2 px-3 min-h-11"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] shrink-0">keyboard</span>
-                  <span className="flex-1 text-xs text-[var(--color-pib-text)]">
+                  <Icon name="keyboard" className="shrink-0 text-[var(--sc-ink-soft)]" />
+                  <span className="flex-1 sc-body text-[0.875rem] text-[var(--sc-ink)]">
                     {s.href ? (
                       <button
                         type="button"
                         onClick={() => navigate(s.href!)}
-                        className="hover:text-[var(--color-pib-accent)] transition-colors text-left"
+                        className="hover:underline underline-offset-2 text-left"
                       >
                         {s.label}
                       </button>
@@ -254,7 +248,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     {s.keys.map((k, ki) => (
                       <kbd
                         key={ki}
-                        className="text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1 py-0.5 font-mono"
+                        className="sc-tiny text-[var(--sc-ink-soft)] border border-[var(--sc-line)] rounded-[var(--st-radius)] px-1.5 py-0.5"
                       >
                         {k}
                       </kbd>

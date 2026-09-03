@@ -45,14 +45,14 @@ export default async function PortalEmailAnalyticsPage({
   if (!user) redirect('/login')
   if (user.forbidden) {
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel st-panel--flat p-10 text-center text-sm text-[var(--sc-ink-soft)]">
         You do not have access to this organisation.
       </div>
     )
   }
   if (!user.orgId) {
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel st-panel--flat p-10 text-center text-sm text-[var(--sc-ink-soft)]">
         No organisation linked to this account.
       </div>
     )

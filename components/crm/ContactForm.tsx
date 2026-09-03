@@ -13,7 +13,7 @@ import {
 const STAGES = ['new','contacted','replied','demo','proposal','won','lost'] as const
 const TYPES = ['lead','prospect','client','churned'] as const
 const SOURCES = ['manual','form','import','outreach'] as const
-// Subscription status (US-052) — mapped to subscribedAt/unsubscribedAt/bouncedAt server-side.
+// Subscription status (US-052) - mapped to subscribedAt/unsubscribedAt/bouncedAt server-side.
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'unsubscribed', label: 'Unsubscribed' },
@@ -250,7 +250,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         >
           {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value} className="bg-black">{o.label}</option>)}
         </select>
-        <p className="text-[11px] text-[var(--color-pib-text-muted)]">Sets the subscription state — Unsubscribed and Bounced exclude this contact from marketing sends.</p>
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">Sets the subscription state - Unsubscribed and Bounced exclude this contact from marketing sends.</p>
       </div>
       <div className="flex flex-col gap-1">
         <label htmlFor="admin-crm-contact-tags" className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">

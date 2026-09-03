@@ -18,7 +18,7 @@ export default async function ReportsPage({
     if (ctx.reason === 'unauthenticated') redirect('/login')
     if (ctx.reason === 'forbidden') notFound()
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
         No organisation linked to this account.
       </div>
     )

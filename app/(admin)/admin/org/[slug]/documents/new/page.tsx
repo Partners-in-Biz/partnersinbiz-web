@@ -66,7 +66,7 @@ export default function OrgNewDocumentPage() {
   }
 
   return (
-    <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
+    <OrgThemedFrame orgId={orgId}>
       <div className="mx-auto max-w-xl space-y-6">
         <header className="flex items-center gap-3">
           <Link

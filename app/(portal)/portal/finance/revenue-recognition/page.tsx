@@ -182,7 +182,7 @@ export default function FinanceRevenueRecognitionPage() {
       active="revenue-recognition"
       orgScope={scope.orgScope}
       title="Revenue recognition"
-      description="Lite deferred revenue for SA agency retainers and SaaS-ish contracts — straight-line or milestone. No ASC-606 engine."
+      description="Lite deferred revenue for SA agency retainers and SaaS-ish contracts - straight-line or milestone. No ASC-606 engine."
       loading={scope.loading || busy}
       message={scope.message}
       error={scope.error}
@@ -194,29 +194,29 @@ export default function FinanceRevenueRecognitionPage() {
       <FinanceScopeBar scope={scope} />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
+        <div className="border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
           <div className="text-xs uppercase tracking-wide opacity-70">Deferred balance</div>
-          <div className="mt-1 text-2xl font-semibold">
+          <div className="mt-1 text-2xl">
             {formatMinor(deferred?.totalDeferredMinor ?? 0, deferred?.currency || 'ZAR')}
           </div>
         </div>
-        <div className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
+        <div className="border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
           <div className="text-xs uppercase tracking-wide opacity-70">Recognized</div>
-          <div className="mt-1 text-2xl font-semibold">
+          <div className="mt-1 text-2xl">
             {formatMinor(recognized?.totalRecognizedMinor ?? 0, recognized?.currency || 'ZAR')}
           </div>
         </div>
-        <div className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
+        <div className="border border-[var(--portal-border)] bg-[var(--portal-card)] p-4">
           <div className="text-xs uppercase tracking-wide opacity-70">Recognized vs billed</div>
-          <div className="mt-1 text-2xl font-semibold">
+          <div className="mt-1 text-2xl">
             {((recognized?.recognizedBps ?? 0) / 100).toFixed(1)}%
           </div>
         </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 space-y-3">
-          <h2 className="text-lg font-semibold">New schedule (linked AR / contract)</h2>
+        <section className="border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 space-y-3">
+          <h2 className="text-lg">New schedule (linked AR / contract)</h2>
           <label className="block text-sm">Schedule number
             <input className="mt-1 w-full rounded border px-2 py-1" value={scheduleNumber} onChange={(e) => setScheduleNumber(e.target.value)} />
           </label>
@@ -253,8 +253,8 @@ export default function FinanceRevenueRecognitionPage() {
           </button>
         </section>
 
-        <section className="rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 space-y-3">
-          <h2 className="text-lg font-semibold">Period recognition run</h2>
+        <section className="border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 space-y-3">
+          <h2 className="text-lg">Period recognition run</h2>
           <label className="block text-sm">Period (YYYY-MM)
             <input className="mt-1 w-full rounded border px-2 py-1" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)} />
           </label>
@@ -288,8 +288,8 @@ export default function FinanceRevenueRecognitionPage() {
         </section>
       </div>
 
-      <section className="mt-6 rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 overflow-x-auto">
-        <h2 className="text-lg font-semibold mb-3">Schedules</h2>
+      <section className="mt-6 border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 overflow-x-auto">
+        <h2 className="text-lg mb-3">Schedules</h2>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left opacity-70">
@@ -313,7 +313,7 @@ export default function FinanceRevenueRecognitionPage() {
                 <td className="py-1 pr-3">{formatMinor(s.billedMinor, s.currency)}</td>
                 <td className="py-1 pr-3">{formatMinor(s.recognizedMinor, s.currency)}</td>
                 <td className="py-1 pr-3">{formatMinor(s.deferredBalanceMinor, s.currency)}</td>
-                <td className="py-1 pr-3">{s.arInvoiceId || s.contractRef || '—'}</td>
+                <td className="py-1 pr-3">{s.arInvoiceId || s.contractRef || '-'}</td>
               </tr>
             ))}
             {!bundle?.schedules?.length && (
@@ -323,8 +323,8 @@ export default function FinanceRevenueRecognitionPage() {
         </table>
       </section>
 
-      <section className="mt-6 rounded-xl border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 overflow-x-auto">
-        <h2 className="text-lg font-semibold mb-3">Recognition runs</h2>
+      <section className="mt-6 border border-[var(--portal-border)] bg-[var(--portal-card)] p-4 overflow-x-auto">
+        <h2 className="text-lg mb-3">Recognition runs</h2>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left opacity-70">
@@ -343,8 +343,8 @@ export default function FinanceRevenueRecognitionPage() {
                 <td className="py-1 pr-3">{r.status}</td>
                 <td className="py-1 pr-3">{r.itemCount}</td>
                 <td className="py-1 pr-3">{formatMinor(r.totalRecognizedMinor, 'ZAR')}</td>
-                <td className="py-1 pr-3">{r.journalEntryId || '—'}</td>
-                <td className="py-1 pr-3">{r.reversalJournalEntryId || '—'}</td>
+                <td className="py-1 pr-3">{r.journalEntryId || '-'}</td>
+                <td className="py-1 pr-3">{r.reversalJournalEntryId || '-'}</td>
               </tr>
             ))}
             {!bundle?.recognitionRuns?.length && (

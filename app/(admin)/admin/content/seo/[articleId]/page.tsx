@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -255,15 +256,15 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
     return (
       <div className="max-w-6xl mx-auto space-y-3">
         <div className="pib-skeleton h-10 w-64 rounded-lg" />
-        <div className="pib-skeleton h-96 rounded-xl" />
+        <div className="pib-skeleton h-96 rounded-[6px]" />
       </div>
     )
   }
   if (loadError || !article) {
     return (
-      <div className="max-w-3xl mx-auto pib-card p-8 text-center space-y-3">
+      <div className="max-w-3xl mx-auto st-panel p-8 text-center space-y-3">
         <p className="text-sm text-[var(--color-error)]">{loadError ?? 'Article not found'}</p>
-        <Link href="/admin/content/seo" className="btn-pib-ghost text-sm font-label inline-block">
+        <Link href="/admin/content/seo" className="st-btn st-btn--ghost text-sm font-label inline-block">
           Back to articles
         </Link>
       </div>
@@ -277,15 +278,15 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
     <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/admin/content/seo" className="btn-pib-ghost text-xs font-label shrink-0">
+          <Link href="/admin/content/seo" className="st-btn st-btn--ghost text-xs font-label shrink-0">
             ← Articles
           </Link>
           <span
-            className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
+            className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${
               article.status === 'published'
-                ? 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]'
+                ? 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]'
                 : article.status === 'scheduled'
-                  ? 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]'
+                  ? 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]'
                   : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
             }`}
           >
@@ -295,24 +296,22 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             <span
               className={`text-xs ${saveState === 'error' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text-muted)]'} inline-flex items-center gap-1`}
             >
-              <span className="material-symbols-outlined text-sm">
-                {saveState === 'saving' ? 'sync' : saveState === 'error' ? 'error' : 'cloud_done'}
-              </span>
+              <Icon name={saveState === 'saving' ? 'sync' : saveState === 'error' ? 'error' : 'cloud_done'} className="text-sm" />
               {saveLabel}
             </span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
           {article.status === 'published' ? (
-            <button onClick={unpublish} disabled={busy} className="btn-pib-ghost text-sm font-label">
+            <button onClick={unpublish} disabled={busy} className="st-btn st-btn--ghost text-sm font-label">
               Unpublish
             </button>
           ) : (
-            <button onClick={publish} disabled={busy} className="btn-pib-primary text-sm font-label">
+            <button onClick={publish} disabled={busy} className="st-btn st-btn--primary text-sm font-label">
               {busy ? 'Working…' : 'Publish now'}
             </button>
           )}
-          <button onClick={remove} disabled={busy} className="btn-pib-ghost text-sm font-label text-[var(--color-error)]">
+          <button onClick={remove} disabled={busy} className="st-btn st-btn--ghost text-sm font-label text-[var(--color-error)]">
             Delete
           </button>
         </div>
@@ -321,13 +320,13 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Editor column */}
         <div className="space-y-4">
-          <div className="pib-card p-5 space-y-4">
+          <div className="st-panel p-5 space-y-4">
             <label className="block">
               <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
               <input
                 value={article.title}
                 onChange={(e) => patchLocal({ title: e.target.value })}
-                className="pib-input w-full mt-1 text-lg font-headline"
+                className="st-input w-full mt-1 text-lg font-headline"
                 placeholder="Article title"
               />
             </label>
@@ -339,7 +338,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                 <input
                   value={article.keyword}
                   onChange={(e) => patchLocal({ keyword: e.target.value })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                   placeholder="e.g. social media automation"
                 />
               </label>
@@ -349,7 +348,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                   value={article.slug}
                   onChange={(e) => patchLocal({ slug: e.target.value })}
                   onBlur={() => persist({ slug: article.slug })}
-                  className="pib-input w-full mt-1 font-mono text-sm"
+                  className="st-input w-full mt-1 font-mono text-sm"
                   placeholder="article-slug"
                 />
               </label>
@@ -361,7 +360,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               <input
                 value={article.metaTitle}
                 onChange={(e) => patchLocal({ metaTitle: e.target.value })}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 placeholder="SEO meta title"
               />
             </label>
@@ -372,7 +371,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               <textarea
                 value={article.metaDescription}
                 onChange={(e) => patchLocal({ metaDescription: e.target.value })}
-                className="pib-input w-full mt-1 min-h-[64px]"
+                className="st-input w-full mt-1 min-h-[64px]"
                 rows={2}
                 placeholder="The snippet shown on search engine results pages."
               />
@@ -382,9 +381,9 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
           {/* Blocks */}
           <div className="space-y-3">
             {article.body.map((block, i) => (
-              <div key={block.id} className="pib-card p-4 group">
+              <div key={block.id} className="st-panel p-4 group">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="pib-label">
+                  <span className="sc-tiny">
                     {block.type}
                     {block.type === 'heading' ? ` H${block.level ?? 2}` : ''}
                   </span>
@@ -393,7 +392,8 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                       <select
                         value={block.level ?? 2}
                         onChange={(e) => updateBlock(block.id, { level: Number(e.target.value) === 3 ? 3 : 2 })}
-                        className="pib-input text-xs py-1 px-2"
+                        className="st-input text-xs py-1 px-2"
+                        aria-label="Heading level"
                       >
                         <option value={2}>H2</option>
                         <option value={3}>H3</option>
@@ -402,25 +402,25 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                     <button
                       onClick={() => moveBlock(block.id, -1)}
                       disabled={i === 0}
-                      className="btn-pib-ghost text-xs px-2 py-1 disabled:opacity-30"
+                      className="st-btn st-btn--ghost text-xs px-2 py-1 disabled:opacity-30"
                       title="Move up"
                     >
-                      <span className="material-symbols-outlined text-sm">arrow_upward</span>
+                      <Icon name="arrow_upward" className="text-sm" />
                     </button>
                     <button
                       onClick={() => moveBlock(block.id, 1)}
                       disabled={i === article.body.length - 1}
-                      className="btn-pib-ghost text-xs px-2 py-1 disabled:opacity-30"
+                      className="st-btn st-btn--ghost text-xs px-2 py-1 disabled:opacity-30"
                       title="Move down"
                     >
-                      <span className="material-symbols-outlined text-sm">arrow_downward</span>
+                      <Icon name="arrow_downward" className="text-sm" />
                     </button>
                     <button
                       onClick={() => removeBlock(block.id)}
-                      className="btn-pib-ghost text-xs px-2 py-1 text-[var(--color-error)]"
+                      className="st-btn st-btn--ghost text-xs px-2 py-1 text-[var(--color-error)]"
                       title="Remove"
                     >
-                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <Icon name="delete" className="text-sm" />
                     </button>
                   </div>
                 </div>
@@ -429,10 +429,13 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                   <textarea
                     value={block.text ?? ''}
                     onChange={(e) => updateBlock(block.id, { text: e.target.value })}
-                    className="pib-input w-full min-h-[60px]"
+                    className="st-input w-full min-h-[60px]"
                     rows={block.type === 'paragraph' ? 4 : 2}
                     placeholder={
                       block.type === 'heading' ? 'Subheading' : block.type === 'quote' ? 'Quote text' : 'Paragraph text'
+                    }
+                    aria-label={
+                      block.type === 'heading' ? 'Heading text' : block.type === 'quote' ? 'Quote text' : 'Paragraph text'
                     }
                   />
                 )}
@@ -442,14 +445,16 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                     <input
                       value={block.src ?? ''}
                       onChange={(e) => updateBlock(block.id, { src: e.target.value })}
-                      className="pib-input w-full"
+                      className="st-input w-full"
                       placeholder="Image URL (https://…)"
+                      aria-label="Image URL"
                     />
                     <input
                       value={block.alt ?? ''}
                       onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
-                      className="pib-input w-full"
+                      className="st-input w-full"
                       placeholder="Alt text (required for SEO)"
+                      aria-label="Image alt text"
                     />
                   </div>
                 )}
@@ -474,23 +479,25 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                             items[idx] = e.target.value
                             updateBlock(block.id, { items })
                           }}
-                          className="pib-input w-full"
+                          className="st-input w-full"
                           placeholder={`List item ${idx + 1}`}
+                          aria-label={`List item ${idx + 1}`}
                         />
                         <button
                           onClick={() => {
                             const items = (block.items ?? []).filter((_, j) => j !== idx)
                             updateBlock(block.id, { items: items.length ? items : [''] })
                           }}
-                          className="btn-pib-ghost text-xs px-2 py-1 text-[var(--color-error)] shrink-0"
+                          className="st-btn st-btn--ghost text-xs px-2 py-1 text-[var(--color-error)] shrink-0"
+                          aria-label={`Remove list item ${idx + 1}`}
                         >
-                          <span className="material-symbols-outlined text-sm">close</span>
+                          <Icon name="close" className="text-sm" />
                         </button>
                       </div>
                     ))}
                     <button
                       onClick={() => updateBlock(block.id, { items: [...(block.items ?? []), ''] })}
-                      className="btn-pib-ghost text-xs font-label"
+                      className="st-btn st-btn--ghost text-xs font-label"
                     >
                       + Add item
                     </button>
@@ -500,10 +507,10 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             ))}
           </div>
 
-          <div className="pib-card p-3 flex flex-wrap gap-2">
+          <div className="st-panel p-3 flex flex-wrap gap-2">
             <span className="text-xs text-[var(--color-pib-text-muted)] self-center mr-1">Add block:</span>
             {(['heading', 'paragraph', 'image', 'quote', 'list'] as SeoBlockType[]).map((t) => (
-              <button key={t} onClick={() => addBlock(t)} className="btn-pib-secondary text-xs font-label capitalize">
+              <button key={t} onClick={() => addBlock(t)} className="st-btn st-btn--secondary text-xs font-label capitalize">
                 + {t}
               </button>
             ))}
@@ -512,12 +519,12 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
 
         {/* Sidebar: score, checklist, readability, schedule, preview */}
         <div className="space-y-4">
-          <div className="pib-card p-4">
-            <p className="pib-label">SEO score</p>
+          <div className="st-panel p-4">
+            <p className="sc-tiny">SEO score</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span
-                className="text-3xl font-headline font-bold"
-                style={{ color: score >= 80 ? 'var(--color-pib-green)' : score >= 50 ? 'var(--color-pib-amber)' : 'var(--color-error)' }}
+                className="text-3xl font-headline font-medium"
+                style={{ color: score >= 80 ? 'var(--st-success)' : score >= 50 ? 'var(--sc-accent)' : 'var(--color-error)' }}
               >
                 {score}
               </span>
@@ -527,8 +534,8 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               {checklist.map((c) => (
                 <div key={c.id} className="flex items-start gap-2 text-sm">
                   <span
-                    className="material-symbols-outlined text-base mt-0.5"
-                    style={{ color: c.pass ? 'var(--color-pib-green)' : 'var(--color-error)' }}
+                    className="text-base mt-0.5"
+                    style={{ color: c.pass ? 'var(--st-success)' : 'var(--color-error)' }}
                   >
                     {c.pass ? 'check_circle' : 'cancel'}
                   </span>
@@ -541,32 +548,33 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             </div>
           </div>
 
-          <div className="pib-card p-4">
-            <p className="pib-label">Readability</p>
+          <div className="st-panel p-4">
+            <p className="sc-tiny">Readability</p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{readability}</span>
+              <span className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">{readability}</span>
               <span className="text-sm text-[var(--color-pib-text-muted)]">{readabilityGrade(readability)}</span>
             </div>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Flesch reading-ease (higher is easier to read).</p>
           </div>
 
-          <div className="pib-card p-4 space-y-2">
-            <p className="pib-label">Schedule</p>
+          <div className="st-panel p-4 space-y-2">
+            <p className="sc-tiny">Schedule</p>
             <input
               type="datetime-local"
               value={scheduleAt}
               onChange={(e) => setScheduleAt(e.target.value)}
-              className="pib-input w-full"
+              className="st-input w-full"
+              aria-label="Schedule publish time"
             />
             <button
               onClick={schedule}
               disabled={busy || !scheduleAt}
-              className="btn-pib-secondary text-sm font-label w-full"
+              className="st-btn st-btn--secondary text-sm font-label w-full"
             >
               {article.status === 'scheduled' ? 'Reschedule' : 'Schedule publish'}
             </button>
             {article.status === 'scheduled' && article.scheduledFor && (
-              <p className="text-xs text-[var(--color-pib-amber)]">
+              <p className="text-xs text-[var(--sc-accent)]">
                 Scheduled for {new Date(article.scheduledFor).toLocaleString()}
               </p>
             )}
@@ -575,19 +583,20 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
       </div>
 
       {/* Preview panel */}
-      <div className="pib-card p-6">
-        <p className="pib-label mb-3">Preview</p>
+      <div className="st-panel p-6">
+        <p className="sc-tiny mb-3">Preview</p>
         <article className="prose-content max-w-2xl">
           <h1 className="pib-page-title mb-1">{article.title || "Untitled"}</h1>
           <p className="text-xs text-[var(--color-pib-text-muted)] font-mono mb-4">/{article.slug}</p>
           {article.body.map((b) => {
             if (b.type === 'heading') {
+              // Preview outline: never skip from h1 → h3; keep visual weight via class.
               return b.level === 3 ? (
-                <h3 key={b.id} className="text-base font-semibold text-[var(--color-pib-text)] mt-4 mb-1">
+                <h2 key={b.id} className="text-base font-medium text-[var(--color-pib-text)] mt-4 mb-1">
                   {b.text}
-                </h3>
+                </h2>
               ) : (
-                <h2 key={b.id} className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-5 mb-2">
+                <h2 key={b.id} className="text-lg font-headline font-medium text-[var(--color-pib-text)] mt-5 mb-2">
                   {b.text}
                 </h2>
               )
@@ -617,7 +626,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                   key={b.id}
                   className="my-3 rounded-lg border border-dashed border-[var(--color-pib-line)] p-6 text-center text-xs text-[var(--color-pib-text-muted)]"
                 >
-                  Image placeholder — add a URL
+                  Image placeholder - add a URL
                 </div>
               )
             if (b.type === 'list') {

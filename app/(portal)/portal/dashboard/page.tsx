@@ -10,8 +10,9 @@ import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesB
 import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
-import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { EmptyState, PageHeader, StatusPill, Surface } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
+import { ButtonLink, Icon, Skeleton, Status, Table, THead, TR, TH, TD } from '@/components/studio'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Kpis {
@@ -262,45 +263,56 @@ function getGreeting(): string {
   return 'Good evening'
 }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
+function projectStatusTone(status: string): 'success' | 'warning' | 'info' | 'danger' | undefined {
+  switch (status) {
+    case 'active':
+    case 'live':
+    case 'completed':
+      return 'success'
+    case 'on_hold':
+    case 'review':
+      return 'warning'
+    case 'in_progress':
+    case 'discovery':
+    case 'design':
+    case 'development':
+    case 'maintenance':
+      return 'info'
+    case 'archived':
+      return undefined
+    default:
+      return undefined
+  }
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    active: { label: 'Active', color: 'var(--color-pib-accent)' },
-    on_hold: { label: 'On Hold', color: '#facc15' },
-    completed: { label: 'Completed', color: '#4ade80' },
-    archived: { label: 'Archived', color: 'var(--color-pib-text-muted)' },
-    in_progress: { label: 'In Progress', color: 'var(--color-pib-accent)' },
-    discovery: { label: 'Discovery', color: '#60a5fa' },
-    design: { label: 'Design', color: '#a78bfa' },
-    development: { label: 'Development', color: '#38bdf8' },
-    review: { label: 'Review', color: '#f59e0b' },
-    live: { label: 'Live', color: '#4ade80' },
-    maintenance: { label: 'Maintenance', color: '#22d3ee' },
+function projectStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    active: 'Active',
+    on_hold: 'On hold',
+    completed: 'Completed',
+    archived: 'Archived',
+    in_progress: 'In progress',
+    discovery: 'Discovery',
+    design: 'Design',
+    development: 'Development',
+    review: 'Review',
+    live: 'Live',
+    maintenance: 'Maintenance',
   }
-  const s = map[status] ?? { label: status, color: 'var(--color-pib-text-muted)' }
-  return (
-    <span
-      className="pib-pill"
-      style={{ background: `${s.color}20`, color: s.color, borderColor: `${s.color}40` }}
-    >
-      {s.label}
-    </span>
-  )
+  return map[status] ?? status
 }
 
 function fmtPct(p: number | null) {
-  if (p === null) return '—'
+  if (p === null) return '-'
   const sign = p >= 0 ? '+' : ''
   return `${sign}${p.toFixed(1)}%`
 }
+
 function deltaClass(p: number | null) {
-  if (p === null) return 'text-[var(--color-pib-text-muted)]'
-  if (p > 0) return 'text-[var(--color-pib-success)]'
-  if (p < 0) return 'text-[#FCA5A5]'
-  return 'text-[var(--color-pib-text-muted)]'
+  if (p === null) return 'text-[var(--sc-ink-soft)]'
+  if (p > 0) return 'text-[var(--st-success)]'
+  if (p < 0) return 'text-[var(--st-danger)]'
+  return 'text-[var(--sc-ink-soft)]'
 }
 
 function formatCurrency(value: number, currency = 'ZAR') {
@@ -327,7 +339,6 @@ function Tile({
   delta,
   hint,
   icon,
-  emphasis,
 }: {
   label: string
   value: string
@@ -337,35 +348,22 @@ function Tile({
   emphasis?: boolean
 }) {
   return (
-    <div className="pib-stat-card pib-enter" data-module-accent="amber">
-      <div className="flex items-start justify-between gap-2">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        {icon ? (
-          <span className="pib-icon-tint shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">{icon}</span>
-          </span>
-        ) : null}
-      </div>
-      <p
-        className={[
-          'mt-2 font-display tracking-tight leading-none text-xl md:text-2xl',
-          emphasis ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text)]',
-        ].join(' ')}
-      >
-        {value}
-      </p>
-      {(delta !== undefined || hint) && (
-        <p className="mt-1.5 text-xs">
-          {delta !== undefined && (
+    <StatCard
+      label={label}
+      value={value}
+      icon={icon}
+      detail={(
+        <>
+          {delta !== undefined ? (
             <span className={`font-mono ${deltaClass(delta ?? null)}`}>
               {fmtPct(delta ?? null)}
-              <span className="text-[var(--color-pib-text-muted)] ml-1">vs prior</span>
+              <span className="ml-1 text-[var(--sc-ink-soft)]">vs prior</span>
             </span>
-          )}
-          {hint && <span className="text-[var(--color-pib-text-muted)] ml-2">{hint}</span>}
-        </p>
+          ) : null}
+          {hint ? <span className="ml-2 text-[var(--sc-ink-soft)]">{hint}</span> : null}
+        </>
       )}
-    </div>
+    />
   )
 }
 
@@ -501,16 +499,16 @@ export default function PortalDashboard() {
   const orgName = portalOrg?.name?.trim() || 'your workspace'
   const orgSlug = portalOrg?.slug?.trim() || 'workspace'
   const statusDonut = socialStats ? [
-    { name: 'Published', value: socialStats.byStatus.published, color: '#4ade80' },
-    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: '#60a5fa' },
-    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: '#F59E0B' },
-    { name: 'Draft', value: socialStats.byStatus.draft, color: '#666' },
+    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--st-success)' },
+    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--st-info)' },
+    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--st-warning)' },
+    { name: 'Draft', value: socialStats.byStatus.draft, color: 'var(--sc-ink-soft)' },
   ].filter(d => d.value > 0) : []
   const platformBarData = socialStats
     ? Object.entries(socialStats.byPlatform).map(([platform, count]) => ({
         label: platform.charAt(0).toUpperCase() + platform.slice(1),
         value: count,
-        color: PLATFORM_COLORS[platform.toLowerCase()] ?? '#F59E0B',
+        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--sc-ink)',
       }))
     : []
   const last30DaysData = socialStats?.last30DaysSeries?.length
@@ -519,20 +517,18 @@ export default function PortalDashboard() {
   const hasLast30DaysData = last30DaysData.some(point => point.value > 0)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5" data-module-accent="amber">
+    <div className="mx-auto max-w-6xl space-y-8">
       <ProfileCompleteBanner />
 
-      <div className="pib-card pib-surface-glass flex items-center gap-3 !px-4 !py-3">
-        <span className="pib-icon-tint shrink-0" aria-hidden="true">
-          <span className="material-symbols-outlined text-[16px]">waving_hand</span>
-        </span>
+      <Surface className="flex items-center gap-3 !px-4 !py-3">
+        <Icon name="waving_hand" className="shrink-0 text-[var(--sc-ink-soft)]" />
         <div className="min-w-0">
-          <p className="eyebrow !text-[10px]">{getGreeting()}</p>
-          <p className="mt-0.5 font-display text-lg tracking-tight text-[var(--color-pib-text)] md:text-xl">
+          <p className="sc-tiny">{getGreeting()}</p>
+          <p className="st-title mt-0.5 text-[var(--sc-ink)]">
             {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
           </p>
         </div>
-      </div>
+      </Surface>
 
       {memberRole === 'owner' || memberRole === 'admin' || (memberRole == null && portalUserRole === 'admin') ? (
         <OnboardingChecklist
@@ -544,26 +540,24 @@ export default function PortalDashboard() {
 
       <section className="space-y-4">
         <PageHeader
-          accent="amber"
           eyebrow="Workspace"
-          title={`${getGreeting()} — ${orgName}`}
-          description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
+          title={`${getGreeting()}. ${orgName}.`}
+          description={`${new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}.`}
           actions={(
             <>
-              <Link href={scopedHref('/portal/projects')} className="btn-pib-primary btn-pib-sm">
+              <ButtonLink href={scopedHref('/portal/projects')} size="sm">
                 Request project
-              </Link>
-              <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary btn-pib-sm">
+              </ButtonLink>
+              <ButtonLink href={scopedHref('/portal/properties')} variant="secondary" size="sm">
                 Set properties
-              </Link>
+              </ButtonLink>
             </>
           )}
-          className="capitalize"
         />
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {workspaceLoading ? (
-            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
           ) : (
             <>
               <StatCardWithChart
@@ -571,10 +565,9 @@ export default function PortalDashboard() {
                 value={projectTotal}
                 sub={`${activeProjectTotal} active`}
                 trend={activeProjectTotal > 0 ? 'up' : undefined}
-                accent
               />
               <StatCardWithChart
-                label="Posts Published"
+                label="Posts published"
                 value={socialStats?.byStatus.published ?? 0}
                 sub={`${socialStats?.last30Days ?? 0} last 30d`}
                 trend={hasLast30DaysData ? 'up' : undefined}
@@ -582,13 +575,12 @@ export default function PortalDashboard() {
                 chartType="area"
               />
               <StatCardWithChart
-                label="Pending Approval"
+                label="Pending approval"
                 value={socialStats?.byStatus.pending_approval ?? 0}
-                accent={(socialStats?.byStatus.pending_approval ?? 0) > 0}
               />
               <StatCardWithChart
-                label="Approval Rate"
-                value={socialStats?.approvalRate ? `${Math.round(socialStats.approvalRate)}%` : '—'}
+                label="Approval rate"
+                value={socialStats?.approvalRate ? `${Math.round(socialStats.approvalRate)}%` : '-'}
                 sub="all time"
               />
             </>
@@ -608,30 +600,27 @@ export default function PortalDashboard() {
           )}
         />
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <Surface variant="glass" accentEdge="amber" className="space-y-2.5 lg:col-span-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Surface className="space-y-2.5 lg:col-span-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="pib-icon-tint" aria-hidden="true">
-                  <span className="material-symbols-outlined text-[16px]">folder_managed</span>
-                </span>
-                <p className="pib-label mb-0">Projects</p>
+                <Icon name="folder_managed" className="text-[var(--sc-ink-soft)]" />
+                <p className="sc-tiny mb-0">Projects</p>
               </div>
-              <Link href={scopedHref('/portal/projects')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
-                View all →
+              <Link href={scopedHref('/portal/projects')} className="sc-tiny text-[var(--sc-ink)] hover:underline">
+                View all
               </Link>
             </div>
 
             {projectsLoading ? (
               <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-11" />)}
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}
               </div>
             ) : projects.length === 0 ? (
               <EmptyState
-                icon="rocket_launch"
                 title="No projects yet."
                 description="Project updates will appear here once work has been opened for your workspace."
-                action={<Link href={scopedHref('/portal/projects')} className="btn-pib-secondary btn-pib-sm">Request project</Link>}
+                action={<ButtonLink href={scopedHref('/portal/projects')} variant="secondary" size="sm">Request project</ButtonLink>}
               />
             ) : (
               <div className="-mx-4 space-y-0.5">
@@ -639,91 +628,83 @@ export default function PortalDashboard() {
                   <Link
                     key={project.id}
                     href={scopedHref(`/portal/projects/${project.id}`)}
-                    className="flex items-center gap-3 rounded-lg px-4 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
+                    className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]"
                   >
-                    <span className="pib-icon-tint-cyan shrink-0" aria-hidden="true">
-                      <span className="material-symbols-outlined text-[15px]">view_kanban</span>
-                    </span>
+                    <Icon name="view_kanban" className="shrink-0 text-[var(--sc-ink-soft)]" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{project.name}</p>
-                      {project.description && (
-                        <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">{project.description}</p>
-                      )}
+                      <p className="truncate sc-body text-[var(--sc-ink)]">{project.name}</p>
+                      {project.description ? (
+                        <p className="mt-0.5 truncate sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{project.description}</p>
+                      ) : null}
                     </div>
-                    <StatusBadge status={project.status} />
+                    <Status tone={projectStatusTone(project.status)}>{projectStatusLabel(project.status)}</Status>
                   </Link>
                 ))}
               </div>
             )}
           </Surface>
 
-          <Surface variant="glass" className="space-y-2">
+          <Surface className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="pib-icon-tint" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">donut_large</span>
-              </span>
-              <p className="pib-label mb-0">Post Status</p>
+              <Icon name="donut_large" className="text-[var(--sc-ink-soft)]" />
+              <p className="sc-tiny mb-0">Post status</p>
             </div>
             {socialLoading ? (
-              <Skeleton className="h-[220px]" />
+              <Skeleton className="h-[220px] w-full" />
             ) : statusDonut.length > 0 ? (
               <DonutChart data={statusDonut} centerValue={socialStats?.total ?? 0} centerLabel="Total" />
             ) : (
-              <div className="py-8 text-center text-sm text-[var(--color-pib-text-muted)]">
+              <div className="py-8 text-center sc-body text-[var(--sc-ink-soft)]">
                 No social posts yet.
               </div>
             )}
           </Surface>
         </div>
 
-        {!socialLoading && socialStats && (
-          <div className={`grid grid-cols-1 gap-3 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
-            {platformBarData.length > 0 && (
-              <Surface variant="glass" className="space-y-2.5">
+        {!socialLoading && socialStats ? (
+          <div className={`grid grid-cols-1 gap-4 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+            {platformBarData.length > 0 ? (
+              <Surface className="space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="pib-icon-tint" aria-hidden="true">
-                      <span className="material-symbols-outlined text-[16px]">bar_chart</span>
-                    </span>
-                    <p className="pib-label mb-0">Platform Breakdown</p>
+                    <Icon name="bar_chart" className="text-[var(--sc-ink-soft)]" />
+                    <p className="sc-tiny mb-0">Platform breakdown</p>
                   </div>
-                  <Link href={scopedHref('/portal/social')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
-                    View Social →
+                  <Link href={scopedHref('/portal/social')} className="sc-tiny text-[var(--sc-ink)] hover:underline">
+                    View social
                   </Link>
                 </div>
                 <HorizontalBarChart data={platformBarData} />
               </Surface>
-            )}
+            ) : null}
 
-            <Surface variant="glass" className="space-y-2.5">
+            <Surface className="space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="pib-icon-tint-green" aria-hidden="true">
-                    <span className="material-symbols-outlined text-[16px]">show_chart</span>
-                  </span>
+                  <Icon name="show_chart" className="text-[var(--sc-ink-soft)]" />
                   <div>
-                    <p className="pib-label mb-0">Publishing Trend</p>
-                    <p className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">
+                    <p className="sc-tiny mb-0">Publishing trend</p>
+                    <p className="st-num mt-0.5 text-[1.125rem] text-[var(--sc-ink)]">
                       {socialStats.last30Days} posts
                     </p>
                   </div>
                 </div>
-                <span className="pib-pill">Last 30 days</span>
+                <Status>Last 30 days</Status>
               </div>
               {hasLast30DaysData ? (
-                <TrendAreaChart data={last30DaysData} height={140} color="#4ade80" />
+                <TrendAreaChart data={last30DaysData} height={140} color="var(--sc-ink)" />
               ) : (
-                <div className="flex h-32 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
+                <div className="flex h-32 items-center justify-center sc-body text-[var(--sc-ink-soft)]">
                   No posts in the last 30 days.
                 </div>
               )}
             </Surface>
           </div>
-        )}
+        ) : null}
 
         <Surface variant="quiet">
-          <p className="pib-label mb-2">Quick Actions</p>
-          <div className="flex flex-wrap gap-1.5">
+          <p className="sc-tiny mb-2">Quick actions</p>
+          <div className="flex flex-wrap gap-2">
             {[
               { label: 'Projects', href: scopedHref('/portal/projects') },
               { label: 'Messages', href: scopedHref('/portal/messages') },
@@ -732,7 +713,7 @@ export default function PortalDashboard() {
               { label: 'Marketing', href: scopedHref('/portal/marketing') },
               { label: 'Team', href: scopedHref('/portal/settings/team') },
             ].map(a => (
-              <Link key={a.href} href={a.href} className="btn-pib-secondary btn-pib-sm">{a.label}</Link>
+              <ButtonLink key={a.href} href={a.href} variant="secondary" size="sm">{a.label}</ButtonLink>
             ))}
           </div>
         </Surface>
@@ -741,119 +722,99 @@ export default function PortalDashboard() {
       {/* Campaigns section */}
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="eyebrow">Campaigns</h2>
+          <h2 className="sc-tiny">Campaigns</h2>
           <Link
             href={scopedHref('/portal/campaigns')}
-            className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            className="inline-flex items-center gap-1 sc-tiny text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]"
           >
             All campaigns
-            <span className="material-symbols-outlined text-sm">arrow_outward</span>
+            <Icon name="arrow_outward" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Link href={scopedHref('/portal/contacts')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
-            <div className="flex items-start justify-between gap-2">
-              <p className="eyebrow !text-[10px]">Contacts</p>
-              <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">contacts</span>
-              </span>
-            </div>
-            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
-              {stats.contacts === null ? '—' : fmtNum.format(stats.contacts)}
-            </p>
-            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">total in your audience</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Link href={scopedHref('/portal/contacts')} className="block transition-colors hover:border-[var(--sc-ink)]">
+            <StatCard
+              label="Contacts"
+              value={stats.contacts === null ? '-' : fmtNum.format(stats.contacts)}
+              detail="total in your audience"
+              icon="contacts"
+            />
           </Link>
 
-          <Link href={scopedHref('/portal/campaigns')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
-            <div className="flex items-start justify-between gap-2">
-              <p className="eyebrow !text-[10px]">Active campaigns</p>
-              <span className="pib-icon-tint-rose shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">campaign</span>
-              </span>
-            </div>
-            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
-              {stats.activeCampaigns === null ? '—' : fmtNum.format(stats.activeCampaigns)}
-            </p>
-            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">running right now</p>
+          <Link href={scopedHref('/portal/campaigns')} className="block transition-colors hover:border-[var(--sc-ink)]">
+            <StatCard
+              label="Active campaigns"
+              value={stats.activeCampaigns === null ? '-' : fmtNum.format(stats.activeCampaigns)}
+              detail="running right now"
+              icon="campaign"
+            />
           </Link>
 
-          <Link href={scopedHref('/portal/capture-sources')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
-            <div className="flex items-start justify-between gap-2">
-              <p className="eyebrow !text-[10px]">Capture sources</p>
-              <span className="pib-icon-tint-blue shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-              </span>
-            </div>
-            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
-              {stats.captureSources === null ? '—' : fmtNum.format(stats.captureSources)}
-            </p>
-            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">funneling leads in</p>
+          <Link href={scopedHref('/portal/capture-sources')} className="block transition-colors hover:border-[var(--sc-ink)]">
+            <StatCard
+              label="Capture sources"
+              value={stats.captureSources === null ? '-' : fmtNum.format(stats.captureSources)}
+              detail="funneling leads in"
+              icon="inventory_2"
+            />
           </Link>
         </div>
       </section>
 
-      {/* CRM — Top companies tile (self-hides when no companies exist) */}
       <TopCompaniesByPipelineTile orgScope={orgScope} />
 
-      {/* Pipeline / CRM section */}
-      {!crmLoading && crmData && (
+      {!crmLoading && crmData ? (
         <section>
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="eyebrow">Pipeline</h2>
+            <h2 className="sc-tiny">Pipeline</h2>
             <Link
               href={scopedHref('/portal/deals')}
-              className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+              className="inline-flex items-center gap-1 sc-tiny text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]"
             >
               View deals
-              <span className="material-symbols-outlined text-sm">arrow_outward</span>
+              <Icon name="arrow_outward" />
             </Link>
           </div>
 
-          <div className="mb-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatCard
-              label="Open Deals"
+              label="Open deals"
               value={crmData.openDealsCount}
               detail={formatCurrency(crmData.openDealsValue)}
               icon="handshake"
-              accent="amber"
             />
             <StatCard
-              label="Weighted Pipeline"
+              label="Weighted pipeline"
               value={formatCurrency(crmData.weightedPipelineValue)}
               icon="account_balance_wallet"
-              accent="amber"
             />
             <StatCard
-              label="Won This Month"
+              label="Won this month"
               value={crmData.wonThisMonth.count}
               detail={formatCurrency(crmData.wonThisMonth.value)}
               icon="emoji_events"
-              accent="green"
             />
             <StatCard
-              label="Lost This Month"
+              label="Lost this month"
               value={crmData.lostThisMonth.count}
               icon="trending_down"
-              accent="rose"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Surface variant="glass">
-              <p className="eyebrow !text-[10px] mb-3">Recent Activity</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Surface>
+              <p className="sc-tiny mb-3">Recent activity</p>
               {crmData.recentActivities.length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No recent activity.</p>
+                <p className="sc-body text-[var(--sc-ink-soft)]">No recent activity.</p>
               ) : (
                 crmData.recentActivities.map(a => {
                   const href = crmActivityHref(a)
                   const content = (
                     <>
-                      <span className="pib-icon-tint mt-0.5 shrink-0 !h-7 !w-7" aria-hidden="true">
-                        <span className="material-symbols-outlined text-[14px]">{activityIcon(a.type)}</span>
-                      </span>
+                      <Icon name={activityIcon(a.type)} className="mt-0.5 shrink-0 text-[var(--sc-ink-soft)]" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{a.summary ?? a.type}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">
+                        <p className="truncate sc-body">{a.summary ?? a.type}</p>
+                        <p className="sc-tiny text-[var(--sc-ink-soft)]">
                           {a.createdByRef?.displayName ?? ''}
                           {a.createdByRef?.displayName && a.createdAt ? ' · ' : ''}
                           {fmtTimestamp(a.createdAt)}
@@ -861,13 +822,13 @@ export default function PortalDashboard() {
                       </div>
                     </>
                   )
-                  const className = 'flex items-start gap-2 border-b border-[var(--color-pib-line)] py-1.5 last:border-0 transition-colors hover:text-[var(--color-pib-accent)]'
+                  const className = 'flex items-start gap-2 border-b border-[var(--sc-line)] py-1.5 last:border-0 transition-colors hover:text-[var(--sc-ink)]'
                   return href ? (
                     <Link key={a.id} href={scopedHref(href)} className={className}>
                       {content}
                     </Link>
                   ) : (
-                    <div key={a.id} className="flex items-start gap-2 border-b border-[var(--color-pib-line)] py-1.5 last:border-0">
+                    <div key={a.id} className="flex items-start gap-2 border-b border-[var(--sc-line)] py-1.5 last:border-0">
                       {content}
                     </div>
                   )
@@ -875,71 +836,69 @@ export default function PortalDashboard() {
               )}
             </Surface>
 
-            <Surface variant="glass">
-              <p className="eyebrow !text-[10px] mb-3">Top Open Deals</p>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--color-pib-line)] text-xs text-[var(--color-pib-text-muted)]">
-                    <th className="pb-1.5 text-left">Deal</th>
-                    <th className="pb-1.5 text-right">Value</th>
-                    <th className="pb-1.5 text-right">Prob</th>
-                  </tr>
-                </thead>
+            <Surface>
+              <p className="sc-tiny mb-3">Top open deals</p>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Deal</TH>
+                    <TH className="text-right">Value</TH>
+                    <TH className="text-right">Prob</TH>
+                  </TR>
+                </THead>
                 <tbody>
                   {crmData.topOpenDeals.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="py-3 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
-                    </tr>
+                    <TR>
+                      <TD colSpan={3} className="py-3 text-center text-[var(--sc-ink-soft)]">No open deals</TD>
+                    </TR>
                   ) : (
                     crmData.topOpenDeals.map(d => (
-                      <tr key={d.id} className="border-b border-[var(--color-pib-line)] last:border-0">
-                        <td className="py-1.5">
-                          <Link href={scopedHref(`/portal/deals/${encodeURIComponent(d.id)}`)} className="font-medium hover:text-[var(--color-pib-accent)]">
-                            {d.title ?? '—'}
+                      <TR key={d.id}>
+                        <TD>
+                          <Link href={scopedHref(`/portal/deals/${encodeURIComponent(d.id)}`)} className="hover:underline">
+                            {d.title ?? '-'}
                           </Link>
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums">{formatCurrency(d.value ?? 0, d.currency)}</td>
-                        <td className="py-1.5 text-right text-[var(--color-pib-text-muted)]">{d.probability ?? '—'}%</td>
-                      </tr>
+                        </TD>
+                        <TD className="st-num text-right">{formatCurrency(d.value ?? 0, d.currency)}</TD>
+                        <TD className="text-right text-[var(--sc-ink-soft)]">{d.probability ?? '-'}%</TD>
+                      </TR>
                     ))
                   )}
                 </tbody>
-              </table>
+              </Table>
             </Surface>
           </div>
         </section>
-      )}
+      ) : null}
 
-      {loading && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {loading ? (
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="pib-skeleton h-24" />
+            <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {noData && (
+      {noData ? (
         <EmptyState
-          icon="link"
           title="No data yet."
           description="Once your team connects integrations, KPIs will appear here within 24 hours."
           action={(
-            <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary btn-pib-sm">
+            <ButtonLink href={scopedHref('/portal/properties')} variant="secondary" size="sm">
               Manage properties
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
-            </Link>
+            </ButtonLink>
           )}
         />
-      )}
+      ) : null}
 
-      {!loading && data && data.connections.length > 0 && (
+      {!loading && data && data.connections.length > 0 ? (
         <>
           <section>
             <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="eyebrow">Headline metrics</h2>
-              <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">Month-to-date</span>
+              <h2 className="sc-tiny">Headline metrics</h2>
+              <span className="sc-tiny text-[var(--sc-ink-soft)]">Month to date</span>
             </div>
-            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Tile label="Total revenue" value={fmtZar.format(data.kpis.total_revenue)} delta={data.kpis.deltas.total_revenue} icon="payments" emphasis />
               <Tile label="MRR" value={fmtZar.format(data.kpis.mrr)} delta={data.kpis.deltas.mrr} icon="trending_up" />
               <Tile label="Active subs" value={fmtNum.format(data.kpis.active_subs)} delta={data.kpis.deltas.active_subs} icon="groups" />
@@ -951,78 +910,75 @@ export default function PortalDashboard() {
             </div>
           </section>
 
-          {data.reports.length > 0 && (
+          {data.reports.length > 0 ? (
             <section>
               <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="eyebrow">Latest report</h2>
-                <Link href={scopedHref('/portal/reports')} className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
+                <h2 className="sc-tiny">Latest report</h2>
+                <Link href={scopedHref('/portal/reports')} className="inline-flex items-center gap-1 sc-tiny text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]">
                   All reports
-                  <span className="material-symbols-outlined text-sm">arrow_outward</span>
+                  <Icon name="arrow_outward" />
                 </Link>
               </div>
-              <div className="pib-card pib-surface-glass flex flex-wrap items-center justify-between gap-3">
+              <Surface className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="font-display text-lg md:text-xl">
-                    {data.reports[0].period.start} → {data.reports[0].period.end}
+                  <p className="st-title text-[var(--sc-ink)]">
+                    {data.reports[0].period.start} to {data.reports[0].period.end}
                   </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="pib-pill">{data.reports[0].type}</span>
-                    <span className={`pib-pill ${data.reports[0].status === 'sent' ? 'pib-pill-accent' : ''}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Status>{data.reports[0].type}</Status>
+                    <StatusPill tone={data.reports[0].status === 'sent' ? 'success' : 'neutral'}>
                       {data.reports[0].status}
-                    </span>
-                    <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
+                    </StatusPill>
+                    <span className="sc-tiny text-[var(--sc-ink-soft)]">
                       Total revenue {fmtZar.format(data.reports[0].kpis.total_revenue)} · MRR {fmtZar.format(data.reports[0].kpis.mrr)}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {data.reports[0].publicToken && (
-                    <Link
+                  {data.reports[0].publicToken ? (
+                    <ButtonLink
                       href={`/reports/${data.reports[0].publicToken}`}
-                      target="_blank"
-                      className="btn-pib-primary btn-pib-sm"
+                      size="sm"
                     >
                       Open report
-                      <span className="material-symbols-outlined text-base">arrow_outward</span>
-                    </Link>
-                  )}
+                      <Icon name="arrow_outward" />
+                    </ButtonLink>
+                  ) : null}
                 </div>
-              </div>
+              </Surface>
             </section>
-          )}
+          ) : null}
 
-          {data.properties.length > 0 && (
+          {data.properties.length > 0 ? (
             <section>
               <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="eyebrow">Your properties</h2>
-                <Link href={scopedHref('/portal/properties')} className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
+                <h2 className="sc-tiny">Your properties</h2>
+                <Link href={scopedHref('/portal/properties')} className="inline-flex items-center gap-1 sc-tiny text-[var(--sc-ink-soft)] transition-colors hover:text-[var(--sc-ink)]">
                   Manage
-                  <span className="material-symbols-outlined text-sm">arrow_outward</span>
+                  <Icon name="arrow_outward" />
                 </Link>
               </div>
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {data.properties.slice(0, 3).map((p) => {
                   const conns = data.connections.filter((c) => c.propertyId === p.id)
                   return (
-                    <div key={p.id} className="pib-card pib-enter flex items-start gap-3">
-                      <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                        <span className="material-symbols-outlined text-[16px]">language</span>
-                      </span>
+                    <Surface key={p.id} className="flex items-start gap-3">
+                      <Icon name="language" className="shrink-0 text-[var(--sc-ink-soft)]" />
                       <div className="min-w-0">
-                        <p className="eyebrow !text-[10px]">{p.type}</p>
-                        <p className="mt-1 font-display text-base leading-tight md:text-lg">{p.name}</p>
-                        <p className="mt-1.5 font-mono text-xs text-[var(--color-pib-text-muted)]">
+                        <p className="sc-tiny">{p.type}</p>
+                        <p className="st-title mt-1 text-[var(--sc-ink)]">{p.name}</p>
+                        <p className="mt-1.5 sc-tiny text-[var(--sc-ink-soft)]">
                           {conns.length} connection{conns.length === 1 ? '' : 's'}
                         </p>
                       </div>
-                    </div>
+                    </Surface>
                   )
                 })}
               </div>
             </section>
-          )}
+          ) : null}
         </>
-      )}
+      ) : null}
     </div>
   )
 }

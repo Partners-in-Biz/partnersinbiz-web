@@ -129,7 +129,7 @@ export function MerchantCenterPanel({ orgSlug, orgId }: Props) {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Disconnect Merchant Center account?</h2>
+              <h2 className="font-medium text-red-100">Disconnect Merchant Center account?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 Shopping campaigns using this Merchant Center account will stop syncing. Campaign history stays in PiB.
               </p>
@@ -236,7 +236,7 @@ export function MerchantCenterPanel({ orgSlug, orgId }: Props) {
                   onChange={(e) => updateFeedLabel(binding.id, e.target.value)}
                   aria-label={`Feed label for ${binding.merchantId}`}
                 >
-                  <option value="">— select feed label —</option>
+                  <option value=""> -  select feed label - </option>
                   {binding.feedLabels.map((label) => (
                     <option key={label} value={label}>
                       {label}

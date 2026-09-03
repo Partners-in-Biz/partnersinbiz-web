@@ -56,7 +56,7 @@ export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }:
 
   return (
     <fieldset className="space-y-2" disabled={disabled}>
-      <legend className="eyebrow !text-[10px]">Delivery identity</legend>
+      <legend className="sc-tiny !text-[10px]">Delivery identity</legend>
       <label className="block text-xs text-[var(--color-pib-text-muted)]" htmlFor="campaign-sender-policy">
         Sender policy
       </label>
@@ -65,7 +65,7 @@ export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }:
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-h-10 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 text-sm text-[var(--color-pib-text)]"
-      >
+       aria-label="Input">
         <option value="">Organisation default</option>
         {showPreservedSelection ? (
           <option value={value}>
@@ -77,9 +77,9 @@ export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }:
         ))}
       </select>
       {state === 'loading' ? <p role="status" className="text-xs text-[var(--color-pib-text-muted)]">Loading sender policies…</p> : null}
-      {state === 'error' ? <p role="alert" className="text-xs text-amber-300">Sender policy availability could not be verified. The saved selection is preserved; retry before changing delivery identity.</p> : null}
-      {selectedUnavailable ? <p role="alert" className="text-xs text-amber-300">The saved sender policy is unavailable. Choose an enabled policy or deliberately switch to Organisation default before saving.</p> : null}
-      {state === 'ready' && enabledPolicies.length === 0 ? <p className="text-xs text-amber-300">No enabled sender policies are configured. Delivery will use the established organisation default.</p> : null}
+      {state === 'error' ? <p role="alert" className="text-xs text-[var(--sc-ink-soft)]">Sender policy availability could not be verified. The saved selection is preserved; retry before changing delivery identity.</p> : null}
+      {selectedUnavailable ? <p role="alert" className="text-xs text-[var(--sc-ink-soft)]">The saved sender policy is unavailable. Choose an enabled policy or deliberately switch to Organisation default before saving.</p> : null}
+      {state === 'ready' && enabledPolicies.length === 0 ? <p className="text-xs text-[var(--sc-ink-soft)]">No enabled sender policies are configured. Delivery will use the established organisation default.</p> : null}
       <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Reply routing is assigned by the campaign delivery workflow. A selectable reply policy will appear when the organisation reply-policy registry is available.
       </p>

@@ -16,8 +16,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useEffect, useState } from 'react'
-import { chartPalette } from '@/lib/client-documents/chartPalette'
 
 type SeriesPoint = { name: string; value: number }
 type RingData = { value: number; max: number; label?: string }
@@ -27,30 +25,26 @@ type Content =
   | { kind: 'line'; title?: string; data: SeriesPoint[] }
   | { kind: 'progress_ring'; title?: string; data: RingData }
 
+/** Studio chart series (brand 11.11): terracotta primary, ink-soft rest. */
+function seriesFill(index: number) {
+  return index === 0 ? 'var(--sc-accent)' : 'var(--sc-ink-soft)'
+}
+
+const AXIS_TICK = {
+  className: 'sc-tiny',
+  fill: 'var(--sc-ink-soft)',
+  fontSize: 11,
+} as const
+
 export function ChartBlock({ block, index }: { block: DocumentBlock; index: number }) {
   const content = block.content as Content | undefined
-  const [accent, setAccent] = useState('#F5A623')
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const computed = getComputedStyle(globalThis.document.documentElement)
-      .getPropertyValue('--doc-accent')
-      .trim()
-    if (computed) setAccent(computed)
-  }, [])
 
   if (!content?.kind) return null
-
-  const seriesLength =
-    'data' in content && Array.isArray((content as { data: unknown }).data)
-      ? (content as { data: SeriesPoint[] }).data.length
-      : 5
-  const palette = chartPalette(accent, Math.max(seriesLength, 1))
 
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-6 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-6 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
@@ -68,7 +62,7 @@ export function ChartBlock({ block, index }: { block: DocumentBlock; index: numb
             value={content.data.value}
             max={content.data.max}
             label={content.data.label}
-            color={accent}
+            color="var(--sc-accent)"
           />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -77,28 +71,32 @@ export function ChartBlock({ block, index }: { block: DocumentBlock; index: numb
                 data={content.data}
                 layout={content.options?.horizontal ? 'vertical' : 'horizontal'}
               >
-                <CartesianGrid stroke="var(--doc-border)" strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--sc-line)" strokeWidth={1} />
                 <XAxis
                   dataKey={content.options?.horizontal ? 'value' : 'name'}
-                  stroke="var(--doc-muted)"
-                  fontSize={12}
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
                   type={content.options?.horizontal ? 'number' : 'category'}
                 />
                 <YAxis
                   dataKey={content.options?.horizontal ? 'name' : undefined}
-                  stroke="var(--doc-muted)"
-                  fontSize={12}
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
                   type={content.options?.horizontal ? 'category' : 'number'}
                 />
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--doc-bg)',
-                    border: '1px solid var(--doc-border)',
+                    background: 'var(--sc-surface)',
+                    border: '1px solid var(--sc-line)',
+                    borderRadius: 6,
+                    color: 'var(--sc-ink)',
                   }}
                 />
                 <Bar dataKey="value">
                   {content.data.map((_, i) => (
-                    <Cell key={i} fill={palette[i % palette.length]} />
+                    <Cell key={i} fill={seriesFill(i)} />
                   ))}
                 </Bar>
               </BarChart>
@@ -112,28 +110,37 @@ export function ChartBlock({ block, index }: { block: DocumentBlock; index: numb
                   outerRadius={100}
                 >
                   {content.data.map((_, i) => (
-                    <Cell key={i} fill={palette[i % palette.length]} />
+                    <Cell key={i} fill={seriesFill(i)} />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--doc-bg)',
-                    border: '1px solid var(--doc-border)',
+                    background: 'var(--sc-surface)',
+                    border: '1px solid var(--sc-line)',
+                    borderRadius: 6,
+                    color: 'var(--sc-ink)',
                   }}
                 />
               </PieChart>
             ) : (
               <LineChart data={content.data}>
-                <CartesianGrid stroke="var(--doc-border)" strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="var(--doc-muted)" fontSize={12} />
-                <YAxis stroke="var(--doc-muted)" fontSize={12} />
+                <CartesianGrid stroke="var(--sc-line)" strokeWidth={1} />
+                <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--doc-bg)',
-                    border: '1px solid var(--doc-border)',
+                    background: 'var(--sc-surface)',
+                    border: '1px solid var(--sc-line)',
+                    borderRadius: 6,
+                    color: 'var(--sc-ink)',
                   }}
                 />
-                <Line dataKey="value" stroke={accent} strokeWidth={2} dot={{ fill: accent }} />
+                <Line
+                  dataKey="value"
+                  stroke="var(--sc-accent)"
+                  strokeWidth={2}
+                  dot={{ fill: 'var(--sc-accent)' }}
+                />
               </LineChart>
             )}
           </ResponsiveContainer>
@@ -159,7 +166,7 @@ function ProgressRing({
   const c = 2 * Math.PI * r
   return (
     <svg viewBox="0 0 200 200" className="h-full w-full">
-      <circle cx={100} cy={100} r={r} stroke="var(--doc-border)" strokeWidth={14} fill="none" />
+      <circle cx={100} cy={100} r={r} stroke="var(--sc-line)" strokeWidth={14} fill="none" />
       <circle
         cx={100}
         cy={100}
@@ -178,13 +185,14 @@ function ProgressRing({
         dy="0.3em"
         textAnchor="middle"
         fontSize={28}
-        fontWeight={600}
-        fill="var(--doc-accent)"
+        fontWeight={500}
+        fill="var(--sc-ink)"
+        className="st-num"
       >
         {Math.round(pct * 100)}%
       </text>
       {label && (
-        <text x={100} y={140} textAnchor="middle" fontSize={12} fill="var(--doc-muted)">
+        <text x={100} y={140} textAnchor="middle" className="sc-tiny" fill="var(--sc-ink-soft)">
           {label}
         </text>
       )}

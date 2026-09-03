@@ -25,7 +25,7 @@ export function CatchUpNarrative({ changedCount, changed, riskCount, autoCount, 
             </strong>
           </p>
           {riskCount > 0 && (
-            <p className="text-red-400">
+            <p className="text-[var(--st-danger)]">
               <strong>{riskCount} on fire</strong>
             </p>
           )}

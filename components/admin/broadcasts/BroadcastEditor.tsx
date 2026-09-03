@@ -90,7 +90,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       const b = await r.json()
       if (r.ok && b?.data?.report) setPreflight(b.data.report as PreflightReport)
     } catch {
-      // Non-fatal — UI shows "preflight unavailable" via null state.
+      // Non-fatal  -  UI shows "preflight unavailable" via null state.
     } finally {
       setPreflightLoading(false)
     }
@@ -101,7 +101,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
   // Pre-fill the schedule input from any existing scheduledFor.
   useEffect(() => {
     if (broadcast.scheduledFor) {
-      // scheduledFor comes back as Firestore Timestamp serialized — has _seconds.
+      // scheduledFor comes back as Firestore Timestamp serialized  -  has _seconds.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ts = broadcast.scheduledFor as any
       const millis =
@@ -379,11 +379,11 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       </div>
 
       <div className="space-y-2">
-        <input
+        <input aria-label="Broadcast name"
           value={broadcast.name}
           disabled={readOnly}
           onChange={(e) => setBroadcast({ ...broadcast, name: e.target.value })}
-          className="w-full text-xl font-semibold bg-transparent border-b border-[var(--color-pib-line)] text-[var(--color-pib-text)] outline-none pb-1 disabled:opacity-70"
+          className="w-full text-xl font-medium bg-transparent border-b border-[var(--color-pib-line)] text-[var(--color-pib-text)] outline-none pb-1 disabled:opacity-70"
           placeholder="Broadcast name"
         />
         <p className="text-sm text-[var(--color-pib-text-muted)]">{headerSubtext}</p>
@@ -430,7 +430,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Segment ID</label>
-            <input
+            <input aria-label="(optional) paste a segment id"
               value={broadcast.audience?.segmentId ?? ''}
               disabled={readOnly}
               onChange={(e) => setAudience({ segmentId: e.target.value })}
@@ -445,7 +445,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               {audienceContactIdsArr.map((cid) => (
                 <span
                   key={cid}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]"
                 >
                   {cid}
                   {!readOnly && (
@@ -461,7 +461,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               ))}
             </div>
             <div className="flex gap-2">
-              <input
+              <input aria-label="Contact id, press Enter"
                 value={contactInput}
                 disabled={readOnly}
                 onChange={(e) => setContactInput(e.target.value)}
@@ -486,7 +486,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               {audienceTagsArr.map((t) => (
                 <span
                   key={t}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary-container text-on-primary-container"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-primary-container text-on-primary-container"
                 >
                   {t}
                   {!readOnly && (
@@ -502,7 +502,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               ))}
             </div>
             <div className="flex gap-2">
-              <input
+              <input aria-label="Tag, press Enter"
                 value={tagInput}
                 disabled={readOnly}
                 onChange={(e) => setTagInput(e.target.value)}
@@ -544,7 +544,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
 
           <div className="border-t border-[var(--color-pib-line)] pt-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+              <h3 className="text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Audience preview
               </h3>
               <button
@@ -558,7 +558,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             {preview ? (
               <div className="text-sm">
                 <p className="text-[var(--color-pib-text)] mb-2">
-                  <span className="font-semibold">{preview.audienceSize}</span> contact
+                  <span className="font-medium">{preview.audienceSize}</span> contact
                   {preview.audienceSize === 1 ? '' : 's'} will receive this broadcast.
                 </p>
                 {preview.sampleContacts.length > 0 && (
@@ -566,7 +566,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                     {preview.sampleContacts.map((c, i) => (
                       <li key={i}>
                         {c.email}
-                        {c.name && ` — ${c.name}`}
+                        {c.name && `  -  ${c.name}`}
                         {c.company && ` (${c.company})`}
                       </li>
                     ))}
@@ -585,13 +585,13 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From domain</label>
-              <select
+              <select aria-label="From domain"
                 disabled={readOnly}
                 value={broadcast.fromDomainId}
                 onChange={(e) => setBroadcast({ ...broadcast, fromDomainId: e.target.value })}
                 className="w-full pib-input disabled:opacity-70"
               >
-                <option value="">— Shared PIB domain —</option>
+                <option value=""> -  Shared PIB domain  - </option>
                 {domains.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -601,7 +601,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From local (before @)</label>
-              <input
+              <input aria-label="broadcasts"
                 disabled={readOnly}
                 value={broadcast.fromLocal}
                 onChange={(e) => setBroadcast({ ...broadcast, fromLocal: e.target.value })}
@@ -611,7 +611,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From name</label>
-              <input
+              <input aria-label="Org name"
                 disabled={readOnly}
                 value={broadcast.fromName}
                 onChange={(e) => setBroadcast({ ...broadcast, fromName: e.target.value })}
@@ -621,7 +621,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Reply-to</label>
-              <input
+              <input aria-label="hello@example.com"
                 disabled={readOnly}
                 value={broadcast.replyTo}
                 onChange={(e) => setBroadcast({ ...broadcast, replyTo: e.target.value })}
@@ -633,13 +633,13 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
 
           <div>
             <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Use template</label>
-            <select
+            <select aria-label="Use template"
               disabled={readOnly}
               value={broadcast.content.templateId}
               onChange={(e) => setContent({ templateId: e.target.value })}
               className="w-full pib-input disabled:opacity-70"
             >
-              <option value="">— Inline content (no template) —</option>
+              <option value=""> -  Inline content (no template)  - </option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -661,7 +661,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Subject</label>
-                <input
+                <input aria-label="Subject"
                   disabled={readOnly}
                   value={broadcast.content.subject}
                   onChange={(e) => setContent({ subject: e.target.value })}
@@ -670,7 +670,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Preheader</label>
-                <input
+                <input aria-label="(optional inbox preview text)"
                   disabled={readOnly}
                   value={broadcast.content.preheader}
                   onChange={(e) => setContent({ preheader: e.target.value })}
@@ -680,7 +680,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Body (HTML)</label>
-                <textarea
+                <textarea aria-label="Use {{firstName}}, {{orgName}}, {{unsubscribeUrl}} for personalisation"
                   disabled={readOnly}
                   value={broadcast.content.bodyHtml}
                   onChange={(e) => setContent({ bodyHtml: e.target.value })}
@@ -691,7 +691,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Body (plain text fallback)</label>
-                <textarea
+                <textarea aria-label="Body (plain text fallback)"
                   disabled={readOnly}
                   value={broadcast.content.bodyText}
                   onChange={(e) => setContent({ bodyText: e.target.value })}
@@ -703,11 +703,11 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           )}
 
           <div className="border-t border-[var(--color-pib-line)] pt-4">
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">
+            <h3 className="text-sm font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">
               Send a test
             </h3>
             <div className="flex gap-2">
-              <input
+              <input aria-label="your@email.com"
                 value={testTo}
                 onChange={(e) => setTestTo(e.target.value)}
                 placeholder="your@email.com"
@@ -728,7 +728,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
               SMS body
             </label>
-            <textarea
+            <textarea aria-label="Use {{firstName}}, {{orgName}} for personalisation. Reply STOP to opt out"
               disabled={readOnly}
               value={broadcast.content?.bodyText ?? ''}
               onChange={(e) => setContent({ bodyText: e.target.value })}
@@ -742,7 +742,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 {smsSegInfo.segments === 1 ? '' : 's'} · {smsSegInfo.encoding.toUpperCase()}
               </span>
               {smsSegInfo.segments > 1 && (
-                <span className="text-amber-600 dark:text-amber-400">
+                <span className="text-[var(--st-warning)] dark:text-[var(--st-warning)]">
                   Multi-segment SMS bills per segment.
                 </span>
               )}
@@ -760,7 +760,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Schedule for</label>
-            <input
+            <input aria-label="Schedule for"
               type="datetime-local"
               disabled={readOnly}
               value={scheduledForLocal}
@@ -772,7 +772,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </p>
           </div>
 
-          <div className="rounded-xl border border-[var(--color-pib-line)] p-3 space-y-3">
+          <div className="rounded-md border border-[var(--color-pib-line)] p-3 space-y-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -796,7 +796,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Local delivery window (hours)
                 </label>
-                <input
+                <input aria-label="Local Delivery Window Hours ?? 24"
                   type="number"
                   min={1}
                   max={168}
@@ -819,8 +819,8 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           </div>
 
           {preflightBlocking && (
-            <div className="rounded-xl border border-red-400/40 bg-red-50/60 dark:bg-red-500/10 p-3 text-sm">
-              <div className="font-semibold text-red-700 dark:text-red-300">
+            <div className="rounded-md border border-red-400/40 bg-red-50/60 dark:bg-red-500/10 p-3 text-sm">
+              <div className="font-medium text-red-700 dark:text-red-300">
                 Preflight found {preflight?.errorCount} issue{preflight?.errorCount === 1 ? '' : 's'} that block sending.
               </div>
               <button
@@ -893,7 +893,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       {tab === 'stats' && (
         <div className="space-y-4">
           {!stats ? (
-            <div className="h-20 rounded-xl bg-[var(--color-pib-surface-soft)] animate-pulse" />
+            <div className="h-20 rounded-md bg-[var(--color-pib-surface-soft)] animate-pulse" />
           ) : (
             <>
               <div className="grid grid-cols-4 gap-3">
@@ -923,9 +923,9 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="p-3 rounded-xl bg-[var(--color-pib-surface-soft)]">
+    <div className="p-3 rounded-md bg-[var(--color-pib-surface-soft)]">
       <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="text-xl font-semibold text-[var(--color-pib-text)] tabular-nums">{value}</p>
+      <p className="text-xl font-medium text-[var(--color-pib-text)] tabular-nums">{value}</p>
     </div>
   )
 }

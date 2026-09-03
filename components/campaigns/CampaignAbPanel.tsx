@@ -120,7 +120,7 @@ export default function CampaignAbPanel({ campaignId, orgId, disabled }: Props) 
         }
         const data = unwrap<{ ab: AbConfig }>(body)
         setAb(data.ab ?? ab)
-        setNotice(`Winner ${variantId.toUpperCase()} declared — it will fan out to the remaining audience shortly.`)
+        setNotice(`Winner ${variantId.toUpperCase()} declared  -  it will fan out to the remaining audience shortly.`)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to declare winner')
       } finally {
@@ -131,7 +131,7 @@ export default function CampaignAbPanel({ campaignId, orgId, disabled }: Props) 
   )
 
   if (loading) {
-    return <div className="h-40 rounded-xl bg-white/[0.04] animate-pulse" />
+    return <div className="h-40 rounded-[6px] bg-white/[0.04]" />
   }
 
   return (
@@ -155,12 +155,12 @@ export default function CampaignAbPanel({ campaignId, orgId, disabled }: Props) 
       )}
 
       <div className="flex items-center justify-end gap-3">
-        {dirty && <span className="text-xs text-amber-300">Unsaved changes</span>}
+        {dirty && <span className="text-xs text-[var(--sc-ink-soft)]">Unsaved changes</span>}
         <button
           type="button"
           onClick={handleSave}
           disabled={saving || disabled || !dirty}
-          className="rounded-md bg-amber-500/20 px-4 py-2 text-sm text-amber-100 hover:bg-amber-500/30 disabled:opacity-40"
+          className="rounded-md bg-[var(--sc-surface)]/20 px-4 py-2 text-sm text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/30 disabled:opacity-40"
         >
           {saving ? 'Saving…' : 'Save A/B settings'}
         </button>

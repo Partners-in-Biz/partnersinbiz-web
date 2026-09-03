@@ -46,7 +46,7 @@ function formatCurrency(amount: number, currency: string) {
 }
 
 function formatDate(ts: SerializedDate | undefined) {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   if (ts instanceof Date) {
     return ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
@@ -58,10 +58,10 @@ function formatDate(ts: SerializedDate | undefined) {
     if (typeof seconds === 'number') {
       return new Date(seconds * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     }
-    return '—'
+    return ' - '
   }
   const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return ' - '
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -187,7 +187,7 @@ export default function BillingPage() {
               <p className="pib-label mb-2">
                 Total Billed
               </p>
-              <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>
+              <p className="text-2xl font-headline font-medium" style={{ color: 'var(--color-accent-v2)' }}>
                 {formatCurrency(totalBilled, currency)}
               </p>
             </div>
@@ -195,7 +195,7 @@ export default function BillingPage() {
               <p className="pib-label mb-2">
                 Outstanding
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">
                 {formatCurrency(outstanding, currency)}
               </p>
             </div>
@@ -203,7 +203,7 @@ export default function BillingPage() {
               <p className="pib-label mb-2">
                 Paid
               </p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
+              <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">
                 {formatCurrency(paid, currency)}
               </p>
             </div>

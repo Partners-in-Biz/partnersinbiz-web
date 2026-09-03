@@ -88,7 +88,7 @@ export default async function CreativeDetailPage({
                 <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
                   <Link
                     href={`/admin/org/${slug}/ads/ads/${a.id}`}
-                    className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-rose)]"
+                    className="text-[var(--color-pib-text)] hover:text-[var(--st-danger)]"
                   >
                     {a.name}
                   </Link>

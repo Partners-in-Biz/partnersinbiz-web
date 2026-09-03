@@ -206,8 +206,8 @@ export default function NewOrganizationPage() {
           </p>
         </header>
 
-        <div className="pib-card space-y-3">
-          <p className="pib-label">Summary</p>
+        <div className="st-panel space-y-3">
+          <p className="sc-tiny">Summary</p>
           <ul className="text-sm text-[var(--color-pib-text)] space-y-2">
             <li>✅ Organisation record created{result.slug ? ` (slug: ${result.slug})` : ''}.</li>
             <li>{result.ownerCreated ? '✅' : '⚠️'} Owner login for <strong>{result.ownerEmail}</strong> {result.ownerCreated ? 'created and added as owner.' : 'could not be created.'}</li>
@@ -217,35 +217,36 @@ export default function NewOrganizationPage() {
         </div>
 
         {result.setupLink ? (
-          <div className="pib-card space-y-2">
-            <p className="pib-label">Password-setup link</p>
+          <div className="st-panel space-y-2">
+            <p className="sc-tiny">Password-setup link</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
               {result.welcomeEmailSent
                 ? 'Already emailed to the owner. Copy below if you need to forward it manually.'
-                : 'Welcome email was skipped — forward this link to the owner so they can set their password.'}
+                : 'Welcome email was skipped - forward this link to the owner so they can set their password.'}
             </p>
             <input
               readOnly
               value={result.setupLink}
               onFocus={(e) => e.currentTarget.select()}
-              className="pib-input text-xs"
+              className="st-input text-xs"
+              aria-label="Password setup link"
             />
           </div>
         ) : null}
 
         {result.warnings.length > 0 ? (
-          <div className="pib-card space-y-1">
-            <p className="pib-label text-[var(--color-pib-amber)]">Warnings</p>
+          <div className="st-panel space-y-1">
+            <p className="sc-tiny text-[var(--sc-accent)]">Warnings</p>
             {result.warnings.map((w, i) => (
-              <p key={i} className="text-sm text-[var(--color-pib-amber)]">• {w}</p>
+              <p key={i} className="text-sm text-[var(--sc-accent)]">• {w}</p>
             ))}
           </div>
         ) : null}
 
         <div className="flex gap-3 pt-2">
-          <Link href="/admin/organizations" className="btn-pib-primary">Back to organisations</Link>
+          <Link href="/admin/organizations" className="st-btn st-btn--primary">Back to organisations</Link>
           {result.slug ? (
-            <Link href={`/admin/org/${result.slug}/dashboard`} className="btn-pib-secondary">Open workspace</Link>
+            <Link href={`/admin/org/${result.slug}/dashboard`} className="st-btn st-btn--secondary">Open workspace</Link>
           ) : null}
         </div>
       </div>
@@ -267,39 +268,39 @@ export default function NewOrganizationPage() {
         <h1 className="pib-page-title mt-2">Provision Client Workspace</h1>
         <p className="pib-page-sub">
           Creates a client organisation, an owner login with a password-setup email, an EFT trial window,
-          and optional Cowork/Hermes workspace scaffolding. No card required — EFT billing only.
+          and optional Cowork/Hermes workspace scaffolding. No card required - EFT billing only.
         </p>
       </header>
 
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {error && (
-          <div className="pib-card text-sm text-[var(--color-error)]">
+          <div className="st-panel text-sm text-[var(--color-error)]">
             {error}
           </div>
         )}
 
         {/* Company Details Card */}
-        <div className="pib-card space-y-4">
-          <p className="pib-label">
+        <div className="st-panel space-y-4">
+          <p className="sc-tiny">
             Client Workspace Details
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="name" className="pib-label">Client workspace name *</label>
-              <input id="name" type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Acme Inc" className="pib-input" />
+              <label htmlFor="name" className="sc-tiny">Client workspace name *</label>
+              <input id="name" type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Acme Inc" className="st-input" />
             </div>
             <div>
-              <label htmlFor="website" className="pib-label">Website</label>
-              <input id="website" type="url" name="website" value={formData.website} onChange={handleChange} placeholder="e.g. https://acme.com" className="pib-input" />
+              <label htmlFor="website" className="sc-tiny">Website</label>
+              <input id="website" type="url" name="website" value={formData.website} onChange={handleChange} placeholder="e.g. https://acme.com" className="st-input" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="timezone" className="pib-label">Timezone</label>
-              <select id="timezone" name="timezone" value={formData.timezone} onChange={handleChange} className="pib-select">
+              <label htmlFor="timezone" className="sc-tiny">Timezone</label>
+              <select id="timezone" name="timezone" value={formData.timezone} onChange={handleChange} className="st-select">
                 <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
                 <option value="America/New_York">America/New_York</option>
                 <option value="America/Los_Angeles">America/Los_Angeles</option>
@@ -311,8 +312,8 @@ export default function NewOrganizationPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="currency" className="pib-label">Currency</label>
-              <select id="currency" name="currency" value={formData.currency} onChange={handleChange} className="pib-select">
+              <label htmlFor="currency" className="sc-tiny">Currency</label>
+              <select id="currency" name="currency" value={formData.currency} onChange={handleChange} className="st-select">
                 <option value="ZAR">ZAR (R)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -321,42 +322,42 @@ export default function NewOrganizationPage() {
           </div>
 
           <div>
-            <label htmlFor="industry" className="pib-label">Industry</label>
-            <input id="industry" type="text" name="industry" value={formData.industry} onChange={handleChange} placeholder="e.g. Technology" className="pib-input" />
+            <label htmlFor="industry" className="sc-tiny">Industry</label>
+            <input id="industry" type="text" name="industry" value={formData.industry} onChange={handleChange} placeholder="e.g. Technology" className="st-input" />
           </div>
 
           <div>
-            <label htmlFor="description" className="pib-label">Description</label>
-            <textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="Brief description of the client..." rows={4} className="pib-textarea" />
+            <label htmlFor="description" className="sc-tiny">Description</label>
+            <textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="Brief description of the client..." rows={4} className="st-textarea" />
           </div>
         </div>
 
         {/* Owner & Onboarding Card */}
-        <div className="pib-card space-y-4">
-          <p className="pib-label">
+        <div className="st-panel space-y-4">
+          <p className="sc-tiny">
             Owner & Onboarding
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="ownerName" className="pib-label">Owner name *</label>
-              <input id="ownerName" type="text" name="ownerName" required value={formData.ownerName} onChange={handleChange} placeholder="e.g. Jane Doe" className="pib-input" />
+              <label htmlFor="ownerName" className="sc-tiny">Owner name *</label>
+              <input id="ownerName" type="text" name="ownerName" required value={formData.ownerName} onChange={handleChange} placeholder="e.g. Jane Doe" className="st-input" />
             </div>
             <div>
-              <label htmlFor="ownerEmail" className="pib-label">Owner email *</label>
-              <input id="ownerEmail" type="email" name="ownerEmail" required value={formData.ownerEmail} onChange={handleChange} placeholder="e.g. jane@acme.com" className="pib-input" />
+              <label htmlFor="ownerEmail" className="sc-tiny">Owner email *</label>
+              <input id="ownerEmail" type="email" name="ownerEmail" required value={formData.ownerEmail} onChange={handleChange} placeholder="e.g. jane@acme.com" className="st-input" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="trialDays" className="pib-label">Trial length (days)</label>
-              <input id="trialDays" type="number" name="trialDays" min={0} max={365} value={formData.trialDays} onChange={handleChange} placeholder="14" className="pib-input" />
+              <label htmlFor="trialDays" className="sc-tiny">Trial length (days)</label>
+              <input id="trialDays" type="number" name="trialDays" min={0} max={365} value={formData.trialDays} onChange={handleChange} placeholder="14" className="st-input" />
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Sets an EFT trial window on the org. Use 0 for no trial.</p>
             </div>
             <div>
-              <label htmlFor="plan" className="pib-label">Plan</label>
-              <select id="plan" name="plan" value={formData.plan} onChange={handleChange} className="pib-select">
+              <label htmlFor="plan" className="sc-tiny">Plan</label>
+              <select id="plan" name="plan" value={formData.plan} onChange={handleChange} className="st-select">
                 <option value="">-- Select Plan --</option>
                 <option value="starter">Starter</option>
                 <option value="growth">Growth</option>
@@ -385,8 +386,8 @@ export default function NewOrganizationPage() {
         </div>
 
         {/* Cowork & Hermes Card */}
-        <div className="pib-card space-y-4">
-          <p className="pib-label">
+        <div className="st-panel space-y-4">
+          <p className="sc-tiny">
             Cowork & Hermes Provisioning
           </p>
 
@@ -408,7 +409,7 @@ export default function NewOrganizationPage() {
           </label>
 
           <div>
-            <label htmlFor="agentName" className="pib-label">Agent profile name</label>
+            <label htmlFor="agentName" className="sc-tiny">Agent profile name</label>
             <input
               id="agentName"
               type="text"
@@ -416,17 +417,17 @@ export default function NewOrganizationPage() {
               value={formData.agentName}
               onChange={handleChange}
               placeholder="Defaults to the first word of the organisation name"
-              className="pib-input"
+              className="st-input"
             />
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={loading} className="btn-pib-primary">
+          <button type="submit" disabled={loading} className="st-btn st-btn--primary">
             {loading ? 'Provisioning...' : 'Provision client workspace'}
           </button>
-          <Link href="/admin/organizations" className="btn-pib-secondary">
+          <Link href="/admin/organizations" className="st-btn st-btn--secondary">
             Cancel
           </Link>
         </div>

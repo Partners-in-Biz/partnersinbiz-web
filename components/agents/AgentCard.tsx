@@ -2,6 +2,8 @@
 
 import { HudChip } from '@/components/ui/HudChip'
 
+import { Icon } from '@/components/studio'
+
 export interface AgentTeamDoc {
   agentId: string
   name: string
@@ -62,17 +64,17 @@ const COLOR_BORDER: Record<string, string> = {
 }
 
 const COLOR_ICON_BG: Record<string, string> = {
-  violet:  'bg-violet-500/15 text-violet-400',
+  violet:  'bg-[color-mix(in_srgb,var(--sc-accent)_15%,transparent)] text-[var(--sc-accent)]',
   sky:     'bg-sky-500/15 text-sky-400',
-  amber:   'bg-amber-500/15 text-amber-400',
+  amber:   'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]',
   emerald: 'bg-emerald-500/15 text-emerald-400',
   rose:    'bg-rose-500/15 text-rose-400',
 }
 
 const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = {
   ok:          { label: 'Online',      className: 'bg-emerald-500/15 text-emerald-400' },
-  degraded:    { label: 'Degraded',    className: 'bg-amber-500/15 text-amber-400' },
-  unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-red-400' },
+  degraded:    { label: 'Degraded',    className: 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]' },
+  unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-[var(--st-danger)]' },
   loading:     { label: 'Checking…',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
 }
 
@@ -100,14 +102,14 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       {/* Header row */}
       <div className="flex items-start gap-2.5">
         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
-          <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
+          <Icon name={agent.iconKey} className="text-[18px]" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{agent.name}</span>
+            <span className="text-sm font-medium leading-tight text-[var(--color-pib-text)]">{agent.name}</span>
             <span
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
+              className={`h-1.5 w-1.5 shrink-0  ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
               title={agent.enabled ? 'Enabled' : 'Disabled'}
             />
           </div>
@@ -146,7 +148,7 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
             {modelSourceLabel}
           </HudChip>
           {runtimeModel?.staleRegistry && (
-            <HudChip tone="accent" className="text-amber-300" title={`Stored registry label: ${runtimeModel.registryDefaultModel ?? agent.defaultModel}`}>
+            <HudChip tone="accent" className="text-[var(--st-warning)]" title={`Stored registry label: ${runtimeModel.registryDefaultModel ?? agent.defaultModel}`}>
               Registry stale
             </HudChip>
           )}

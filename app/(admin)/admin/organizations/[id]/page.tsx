@@ -126,7 +126,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
         <p className="text-[var(--color-pib-text-muted)]">Organisation not found.</p>
-        <Link href="/admin/organizations" className="btn-pib-secondary mt-4 inline-block">Back to Organisations</Link>
+        <Link href="/admin/organizations" className="st-btn st-btn--secondary mt-4 inline-block">Back to Organisations</Link>
       </div>
     )
   }
@@ -152,7 +152,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         {org.slug && (
           <Link
             href={`/admin/org/${org.slug}/dashboard`}
-            className="btn-pib-secondary shrink-0"
+            className="st-btn st-btn--secondary shrink-0"
           >
             Open admin workspace ↗
           </Link>
@@ -162,31 +162,31 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Feedback */}
         {error && (
-          <div className="pib-card text-sm text-[var(--color-error)]">{error}</div>
+          <div className="st-panel text-sm text-[var(--color-error)]">{error}</div>
         )}
         {success && (
-          <div className="pib-card !border-green-500/30 !bg-green-500/5 text-sm text-[var(--color-pib-green)]">Changes saved.</div>
+          <div className="st-panel !border-green-500/30 !bg-green-500/5 text-sm text-[var(--st-success)]">Changes saved.</div>
         )}
 
         {/* Details Card */}
-        <div className="pib-card space-y-4">
-          <p className="pib-label">Client Workspace Details</p>
+        <div className="st-panel space-y-4">
+          <p className="sc-tiny">Client Workspace Details</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="name" className="pib-label">Name *</label>
-              <input id="name" type="text" name="name" required value={formData.name} onChange={handleChange} className="pib-input" />
+              <label htmlFor="name" className="sc-tiny">Name *</label>
+              <input id="name" type="text" name="name" required value={formData.name} onChange={handleChange} className="st-input" />
             </div>
             <div>
-              <label htmlFor="website" className="pib-label">Website</label>
-              <input id="website" type="url" name="website" value={formData.website} onChange={handleChange} placeholder="https://" className="pib-input" />
+              <label htmlFor="website" className="sc-tiny">Website</label>
+              <input id="website" type="url" name="website" value={formData.website} onChange={handleChange} placeholder="https://" className="st-input" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="status" className="pib-label">Status</label>
-              <select id="status" name="status" value={formData.status} onChange={handleChange} className="pib-select">
+              <label htmlFor="status" className="sc-tiny">Status</label>
+              <select id="status" name="status" value={formData.status} onChange={handleChange} className="st-select">
                 <option value="onboarding">Onboarding</option>
                 <option value="active">Active</option>
                 <option value="suspended">Suspended</option>
@@ -194,29 +194,29 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
               </select>
             </div>
             <div>
-              <label htmlFor="industry" className="pib-label">Industry</label>
-              <input id="industry" type="text" name="industry" value={formData.industry} onChange={handleChange} placeholder="e.g. Technology" className="pib-input" />
+              <label htmlFor="industry" className="sc-tiny">Industry</label>
+              <input id="industry" type="text" name="industry" value={formData.industry} onChange={handleChange} placeholder="e.g. Technology" className="st-input" />
             </div>
           </div>
 
           <div>
-            <label htmlFor="description" className="pib-label">Description</label>
-            <textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} className="pib-textarea" />
+            <label htmlFor="description" className="sc-tiny">Description</label>
+            <textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} className="st-textarea" />
           </div>
         </div>
 
         {/* Billing & Plan Card */}
-        <div className="pib-card space-y-4">
-          <p className="pib-label">Billing & Plan Controls</p>
+        <div className="st-panel space-y-4">
+          <p className="sc-tiny">Billing & Plan Controls</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="billingEmail" className="pib-label">Billing Email</label>
-              <input id="billingEmail" type="email" name="billingEmail" value={formData.billingEmail} onChange={handleChange} placeholder="billing@example.com" className="pib-input" />
+              <label htmlFor="billingEmail" className="sc-tiny">Billing Email</label>
+              <input id="billingEmail" type="email" name="billingEmail" value={formData.billingEmail} onChange={handleChange} placeholder="billing@example.com" className="st-input" />
             </div>
             <div>
-              <label htmlFor="plan" className="pib-label">Plan</label>
-              <select id="plan" name="plan" value={formData.plan} onChange={handleChange} className="pib-select">
+              <label htmlFor="plan" className="sc-tiny">Plan</label>
+              <select id="plan" name="plan" value={formData.plan} onChange={handleChange} className="st-select">
                 <option value="">-- Select Plan --</option>
                 <option value="starter">Starter</option>
                 <option value="growth">Growth</option>
@@ -228,8 +228,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="timezone" className="pib-label">Timezone</label>
-              <select id="timezone" name="timezone" value={formData.timezone} onChange={handleChange} className="pib-select">
+              <label htmlFor="timezone" className="sc-tiny">Timezone</label>
+              <select id="timezone" name="timezone" value={formData.timezone} onChange={handleChange} className="st-select">
                 <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
                 <option value="America/New_York">America/New_York</option>
                 <option value="America/Los_Angeles">America/Los_Angeles</option>
@@ -241,8 +241,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
               </select>
             </div>
             <div>
-              <label htmlFor="currency" className="pib-label">Currency</label>
-              <select id="currency" name="currency" value={formData.currency} onChange={handleChange} className="pib-select">
+              <label htmlFor="currency" className="sc-tiny">Currency</label>
+              <select id="currency" name="currency" value={formData.currency} onChange={handleChange} className="st-select">
                 <option value="ZAR">ZAR (R)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -253,13 +253,13 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving} className="btn-pib-primary">
+          <button type="submit" disabled={saving} className="st-btn st-btn--primary">
             {saving ? 'Saving...' : 'Save platform record'}
           </button>
           <button
             type="button"
             onClick={() => router.push('/admin/organizations')}
-            className="btn-pib-secondary"
+            className="st-btn st-btn--secondary"
           >
             Cancel
           </button>

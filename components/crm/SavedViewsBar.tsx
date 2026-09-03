@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 interface SavedView {
   id: string
@@ -34,7 +35,7 @@ function viewFiltersToContactsQuery(filters: Record<string, unknown>): string {
   if (filters.minScore !== undefined && filters.minScore !== '' && filters.minScore !== null) {
     params.set('minScore', String(filters.minScore))
   }
-  // Count only — one row is enough to read meta.total.
+  // Count only - one row is enough to read meta.total.
   params.set('limit', '1')
   return params.toString()
 }
@@ -92,7 +93,7 @@ export function SavedViewsBar({
         setViews(raw)
       }
     } catch {
-      // silent — views are non-critical
+      // silent - views are non-critical
     }
   }, [orgScope, resourceKind])
 
@@ -210,11 +211,11 @@ export function SavedViewsBar({
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-2">
+    <div className="space-y-2 rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-2">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-0.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Saved view command center</p>
-          <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Keep repeat CRM lenses one click away.</h2>
+          <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">Keep repeat CRM lenses one click away.</h2>
           <p className="mt-0.5 max-w-2xl text-xs text-[var(--color-pib-text-muted)]">
             Capture the current filters, switch between working lists, and keep the CRM focused on the next action.
           </p>
@@ -228,6 +229,7 @@ export function SavedViewsBar({
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="View name"
+              aria-label="Saved view name"
               className="h-8 w-48 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none"
             />
             <button
@@ -245,7 +247,7 @@ export function SavedViewsBar({
               className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               aria-label="Cancel saved view form"
             >
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <Icon name="close" />
             </button>
           </div>
         ) : (
@@ -253,7 +255,7 @@ export function SavedViewsBar({
             onClick={() => setShowSaveForm(true)}
             className="flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-2.5 text-xs font-medium text-black transition-colors hover:opacity-90"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_add</span>
+            <Icon name="bookmark_add" />
             Save current view
           </button>
         )}
@@ -262,11 +264,11 @@ export function SavedViewsBar({
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Saved views</p>
-          <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{views.length}</p>
+          <p className="mt-1 text-lg leading-none text-[var(--color-pib-text)]">{views.length}</p>
         </div>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Active filters</p>
-          <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">
+          <p className="mt-1 text-lg leading-none text-[var(--color-pib-text)]">
             {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
           </p>
         </div>
@@ -287,12 +289,10 @@ export function SavedViewsBar({
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-red-100" aria-hidden="true">
-                warning
-              </span>
+              <Icon name="warning" className="mt-0.5 text-red-100" />
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-100">Saved view delete confirmation</p>
-                <h3 id="saved-view-delete-title" className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h3 id="saved-view-delete-title" className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   Delete saved view &quot;{pendingDeleteViewName}&quot;?
                 </h3>
                 <p id="saved-view-delete-description" className="mt-1 text-xs text-red-100/90">
@@ -315,9 +315,7 @@ export function SavedViewsBar({
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2.5 text-xs font-medium text-red-100 transition-colors hover:bg-red-400/20"
                 aria-label={`Confirm delete saved view ${pendingDeleteViewName}`}
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                  delete
-                </span>
+                <Icon name="delete" />
                 Delete saved view
               </button>
             </div>
@@ -372,7 +370,7 @@ export function SavedViewsBar({
                     className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                     aria-label="Cancel rename"
                   >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <Icon name="close" />
                   </button>
                 </div>
               )
@@ -402,7 +400,7 @@ export function SavedViewsBar({
                     aria-label={`Edit saved view ${displayName}`}
                     className="rounded-md p-1 text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    <Icon name="edit" />
                   </button>
                   <button
                     onClick={() => deleteView(view)}
@@ -410,7 +408,7 @@ export function SavedViewsBar({
                     aria-label={`Delete saved view ${displayName}`}
                     className="rounded-md p-1 text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/10 hover:text-red-100"
                   >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <Icon name="close" />
                   </button>
                 </div>
               </div>
@@ -421,12 +419,12 @@ export function SavedViewsBar({
         <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-black/10 p-3">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5">
-              <span aria-hidden="true" className="pib-icon-tint">
-                <span className="material-symbols-outlined text-[18px]">saved_search</span>
+              <span aria-hidden="true">
+                <Icon name="saved_search" />
               </span>
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Repeatable workflow</p>
-                <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h3 className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   Create the first reusable contact lens
                 </h3>
                 <p className="mt-0.5 max-w-2xl text-xs text-[var(--color-pib-text-muted)]">
@@ -440,9 +438,7 @@ export function SavedViewsBar({
               onClick={() => setShowSaveForm(true)}
               className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                bookmark_add
-              </span>
+              <Icon name="bookmark_add" />
               Save this working list
             </button>
           </div>
@@ -450,17 +446,17 @@ export function SavedViewsBar({
           <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Ready now</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+              <p className="mt-1 text-sm text-[var(--color-pib-text)]">
                 {activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'} ready to save
               </p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Team value</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">One shared working list</p>
+              <p className="mt-1 text-sm text-[var(--color-pib-text)]">One shared working list</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Best use</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Owner gaps and follow-ups</p>
+              <p className="mt-1 text-sm text-[var(--color-pib-text)]">Owner gaps and follow-ups</p>
             </div>
           </div>
         </div>

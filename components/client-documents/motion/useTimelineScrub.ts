@@ -8,7 +8,7 @@ import { useEffect, type RefObject } from 'react'
  * 0–100% value matching how far the section has scrolled past the
  * top of the viewport. Useful for timeline progress bars.
  *
- * Not yet wired into TimelineBlock — keeping the hook available so
+ * Not yet wired into TimelineBlock - keeping the hook available so
  * a later polish pass can drop a fill element into the timeline rail
  * and call this without further plumbing.
  */

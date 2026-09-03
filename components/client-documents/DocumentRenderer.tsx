@@ -66,13 +66,13 @@ function AgreementSignatureSection({ document }: { document: ClientDocument }) {
     <section className="mt-12 border-t border-[var(--doc-border)] pt-10" aria-labelledby="agreement-signatures">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">Formal acceptance</p>
-        <h2 id="agreement-signatures" className="mt-2 text-2xl font-semibold text-[var(--doc-text)]">
+        <h2 id="agreement-signatures" className="mt-2 text-2xl font-medium text-[var(--doc-text)]">
           Agreement signatures
         </h2>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
+        <div className="rounded-md border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
           <p className="text-xs uppercase tracking-[0.16em] text-[var(--doc-muted)]">For Partners in Biz</p>
           <dl className="mt-4 space-y-3 text-sm">
             <div>
@@ -100,7 +100,7 @@ function AgreementSignatureSection({ document }: { document: ClientDocument }) {
           </dl>
         </div>
 
-        <div className="rounded-xl border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
+        <div className="rounded-md border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
           <p className="text-xs uppercase tracking-[0.16em] text-[var(--doc-muted)]">For Client</p>
           <dl className="mt-4 space-y-3 text-sm">
             <div>
@@ -277,7 +277,7 @@ export function DocumentRenderer({
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">
               {readableType(clientDoc.type)}
             </p>
-            <h1 className="mt-4 max-w-4xl break-words text-5xl font-semibold leading-none md:text-7xl">
+            <h1 className="mt-4 max-w-4xl break-words text-5xl font-medium leading-none md:text-7xl">
               {clientDoc.title}
             </h1>
             <p className="mt-6 text-sm text-[var(--doc-muted)]">
@@ -292,8 +292,8 @@ export function DocumentRenderer({
                 return (
                   <div key={block.id} className="relative min-w-0">
                     {showInternalContextRefs && block.contextRefs && block.contextRefs.length > 0 ? (
-                      <div className="mb-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2" data-testid={`block-context-${block.id}`}>
-                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-amber-200/80">Internal context</p>
+                      <div className="mb-2 rounded-lg border border-amber-400/20 bg-[var(--st-warning)]/10 px-3 py-2" data-testid={`block-context-${block.id}`}>
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[var(--st-warning)]/80">Internal context</p>
                         <ContextReferenceChips refs={block.contextRefs} compact />
                       </div>
                     ) : null}

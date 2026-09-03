@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef, useState } from 'react'
 import {
   sendPasswordResetEmail,
@@ -95,7 +97,7 @@ export default function AccountSettingsPage() {
       .catch(() => {})
       .finally(() => { if (alive) setProfileLoading(false) })
 
-    // Timezone lives on the users doc — exposed via 2fa status? No. Use a light read via update? Use status route only for 2FA.
+    // Timezone lives on the users doc - exposed via 2fa status? No. Use a light read via update? Use status route only for 2FA.
     fetch('/api/v1/account/2fa/status')
       .then(async (res) => unwrap(await res.json().catch(() => ({}))))
       .then((data) => { if (alive) setTwoFactorEnabled(data.enabled === true) })
@@ -220,7 +222,7 @@ export default function AccountSettingsPage() {
         <div className="pib-card-section-header flex items-center justify-between gap-3">
           <div>
             <p className="pib-label">Your profile</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Profile details</h2>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">Profile details</h2>
           </div>
           <span aria-live="polite">
             {savingProfile ? <span className="pib-pill">Saving…</span> : profileSaved ? <span className="pib-pill pib-pill-success">Saved</span> : null}
@@ -229,12 +231,12 @@ export default function AccountSettingsPage() {
 
         <form onSubmit={handleSaveProfile} className="space-y-6 p-5">
           <div className="flex items-center gap-5 max-sm:flex-col max-sm:items-start">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt="Profile picture" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-2xl font-semibold text-[var(--color-pib-text-muted)]">{initials}</span>
+                <span className="text-2xl text-[var(--color-pib-text-muted)]">{initials}</span>
               )}
             </div>
             <div className="space-y-2">
@@ -243,6 +245,8 @@ export default function AccountSettingsPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
+                aria-label="Upload profile picture"
+                data-impeccable-disable="content-invisible-at-rest"
                 onChange={handleAvatarSelected}
               />
               <button
@@ -254,7 +258,7 @@ export default function AccountSettingsPage() {
                 {uploadingAvatar ? 'Uploading…' : 'Upload profile picture'}
               </button>
               <p className="text-xs text-[var(--color-pib-text-muted)]">PNG or JPG, up to 5MB.</p>
-              {avatarError && <p className="text-xs text-red-400" role="alert">{avatarError}</p>}
+              {avatarError && <p className="text-xs text-[var(--st-danger)]" role="alert">{avatarError}</p>}
             </div>
           </div>
 
@@ -281,7 +285,7 @@ export default function AccountSettingsPage() {
             </div>
           </div>
 
-          {profileError && <p className="text-xs text-red-400" role="alert">{profileError}</p>}
+          {profileError && <p className="text-xs text-[var(--st-danger)]" role="alert">{profileError}</p>}
 
           <button type="submit" disabled={savingProfile || profileLoading || !firstName.trim()} className="pib-btn-primary disabled:opacity-60">
             {savingProfile ? 'Saving…' : 'Save profile'}
@@ -295,10 +299,10 @@ export default function AccountSettingsPage() {
           <p className="pib-label">Login identity</p>
         </div>
         <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-          <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">alternate_email</span></span>
+          <Icon name="alternate_email" />
           <div className="min-w-0 flex-1 space-y-2">
-            <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Login email</h2>
-            <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={emailDisplay}>{emailDisplay}</p>
+            <h2 className="text-lg text-[var(--color-pib-text)]">Login email</h2>
+            <p className="truncate text-sm text-[var(--color-pib-text)]" title={emailDisplay}>{emailDisplay}</p>
             <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
               Read-only. Managed by your account provider so CRM ownership remains tied to a verified identity.
             </p>
@@ -313,10 +317,10 @@ export default function AccountSettingsPage() {
             <p className="pib-label">Security</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">shield_lock</span></span>
+            <Icon name="shield_lock" />
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Two-factor authentication</h2>
+                <h2 className="text-lg text-[var(--color-pib-text)]">Two-factor authentication</h2>
                 {twoFactorEnabled === null ? null : twoFactorEnabled ? (
                   <span className="pib-pill pib-pill-success">On</span>
                 ) : (
@@ -338,9 +342,9 @@ export default function AccountSettingsPage() {
             <p className="pib-label">Sessions</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">devices</span></span>
+            <Icon name="devices" />
             <div className="min-w-0 flex-1 space-y-3">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Active sessions</h2>
+              <h2 className="text-lg text-[var(--color-pib-text)]">Active sessions</h2>
               <p className="text-sm text-[var(--color-pib-text-muted)]">
                 Review signed-in devices, revoke individual sessions, or sign out everywhere else.
               </p>
@@ -374,7 +378,7 @@ export default function AccountSettingsPage() {
               <label className="pib-label" htmlFor="acct-confirm-pw">Confirm new password</label>
               <input id="acct-confirm-pw" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pib-input w-full" autoComplete="new-password" />
             </div>
-            {passwordError && <p className="text-xs text-red-400" role="alert">{passwordError}</p>}
+            {passwordError && <p className="text-xs text-[var(--st-danger)]" role="alert">{passwordError}</p>}
             {passwordChanged && <p className="pib-pill pib-pill-success w-fit" role="status">Password updated.</p>}
             <button type="submit" disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword} className="pib-btn-primary disabled:opacity-60">
               {changingPassword ? 'Updating…' : 'Update password'}
@@ -387,10 +391,10 @@ export default function AccountSettingsPage() {
             <p className="pib-label">Credential recovery</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">key</span></span>
+            <Icon name="key" />
             <div className="min-w-0 flex-1 space-y-4">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Password reset email</h2>
+                <h2 className="text-lg text-[var(--color-pib-text)]">Password reset email</h2>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                   Prefer a link? Send a reset email to recover account ownership.
                 </p>
@@ -402,7 +406,7 @@ export default function AccountSettingsPage() {
                   <button type="button" onClick={handlePasswordReset} disabled={resetting || !email} className="btn-pib-secondary">
                     {resetting ? 'Sending...' : 'Send password reset email'}
                   </button>
-                  {resetError && <p className="text-xs text-red-400 mt-1" role="alert">{resetError}</p>}
+                  {resetError && <p className="text-xs text-[var(--st-danger)] mt-1" role="alert">{resetError}</p>}
                 </>
               )}
             </div>
@@ -410,7 +414,7 @@ export default function AccountSettingsPage() {
         </section>
       </div>
 
-      {/* ---- Danger zone (hardened, recoverable deletion — US-217) ---- */}
+      {/* ---- Danger zone (hardened, recoverable deletion - US-217) ---- */}
       <AccountDeletionFlow />
     </div>
   )

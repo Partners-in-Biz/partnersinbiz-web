@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -10,10 +11,10 @@ import { Reveal } from '@/components/marketing/Reveal'
 export const metadata: Metadata = {
   title: 'Insights',
   description:
-    'Build notes, case studies, and the occasional opinion — from the Partners in Biz workshop. Practical writing on Next.js, AI, and shipping South African software.',
+    'Build notes, case studies, and the occasional opinion, from the Partners in Biz workshop. Practical writing on Next.js, AI, and shipping South African software.',
   alternates: { canonical: '/insights' },
   openGraph: {
-    title: 'Insights — Partners in Biz',
+    title: 'Insights',
     description:
       'Build notes, case studies, and the occasional opinion from the Partners in Biz workshop.',
     url: `${SITE.url}/insights`,
@@ -52,7 +53,7 @@ export default async function InsightsIndexPage() {
     '@context': 'https://schema.org',
     '@type': 'Blog',
     '@id': `${SITE.url}/insights#blog`,
-    name: 'Partners in Biz — Insights',
+    name: 'Partners in Biz Insights',
     description: 'Build notes, case studies, and industry opinions.',
     url: `${SITE.url}/insights`,
     publisher: { '@id': `${SITE.url}/#organization` },
@@ -76,7 +77,7 @@ export default async function InsightsIndexPage() {
 
       {/* Hero */}
       <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
+        <div className="absolute inset-0 -z-10 opacity-70" />
         <div className="container-pib">
           <Reveal>
             <p className="eyebrow mb-6">Insights</p>
@@ -88,7 +89,7 @@ export default async function InsightsIndexPage() {
           </Reveal>
           <Reveal delay={160}>
             <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
-              Practical writing from the workshop — what we learned shipping real software for real
+              Practical writing from the workshop, what we learned shipping real software for real
               South African businesses. No thought-leadership, no growth hacks.
             </p>
           </Reveal>
@@ -134,7 +135,7 @@ export default async function InsightsIndexPage() {
                       Featured
                     </span>
                   </div>
-                  <h2 className="font-display text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
+                  <h2 className="text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
                     {featured.title}
                   </h2>
                   <p className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed">
@@ -147,7 +148,7 @@ export default async function InsightsIndexPage() {
                   </div>
                   <span className="pib-link-underline text-[var(--color-pib-accent)] text-sm font-medium inline-flex items-center gap-1.5 mt-2">
                     Read article
-                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    <Icon name="arrow_forward" />
                   </span>
                 </div>
               </Link>
@@ -178,7 +179,7 @@ export default async function InsightsIndexPage() {
                     </div>
                     <div className="p-6 flex flex-col gap-3 flex-1">
                       <span className="pill self-start">{p.category}</span>
-                      <h3 className="font-display text-xl leading-tight text-[var(--color-pib-text)] text-balance">
+                      <h3 className="text-xl leading-tight text-[var(--color-pib-text)] text-balance">
                         {p.title}
                       </h3>
                       <p className="text-sm text-[var(--color-pib-text-muted)] leading-relaxed text-pretty flex-1">
@@ -216,12 +217,13 @@ export default async function InsightsIndexPage() {
               <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
                 <input
                   type="email"
+                  aria-label="Email address"
                   placeholder="you@company.com"
-                  className="bg-[var(--color-pib-bg)] border border-[var(--color-pib-line-strong)] rounded-full px-5 py-3 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent-soft)] transition min-w-[260px]"
+                  className="bg-[var(--color-pib-bg)] border border-[var(--color-pib-line-strong)] rounded-md px-5 py-3 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent-soft)] transition min-w-[260px]"
                 />
                 <button className="btn-pib-accent" type="button">
                   Subscribe
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  <Icon name="arrow_forward" />
                 </button>
               </div>
             </div>

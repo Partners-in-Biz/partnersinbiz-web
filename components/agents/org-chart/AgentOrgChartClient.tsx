@@ -12,6 +12,8 @@ import type { RuntimeModelSummary } from '@/lib/agents/runtime-config'
 import OrgChartCanvas, { type OrgChartCanvasHandle } from '@/components/agents/org-chart/OrgChartCanvas'
 import OrgNodeEditor from '@/components/agents/org-chart/OrgNodeEditor'
 
+import { Icon } from '@/components/studio'
+
 export type AgentOrgChartMode = 'admin' | 'portal'
 
 export interface AgentOrgChartClientProps {
@@ -21,7 +23,7 @@ export interface AgentOrgChartClientProps {
    * Portal: active org id (locked).
    */
   orgId: string
-  /** Admin only — when set, shows org switcher control. */
+  /** Admin only  -  when set, shows org switcher control. */
   orgOptions?: Array<{ id: string; name: string }>
   onOrgChange?: (orgId: string) => void
   /** Human label for the locked portal org. */
@@ -117,7 +119,7 @@ export default function AgentOrgChartClient({
       }
       setAgentsById(map)
     } catch {
-      // live chips optional — keep previous map rather than fail the chart
+      // live chips optional  -  keep previous map rather than fail the chart
       void 0
     }
   }, [agentsListUrl])
@@ -172,7 +174,7 @@ export default function AgentOrgChartClient({
       if (!res.ok) throw new Error(body?.error ?? `Seed failed (${res.status})`)
       const data = body.data ?? body
       if (data.skipped) {
-        setNotice('Chart already has nodes — seed skipped (idempotent).')
+        setNotice('Chart already has nodes  -  seed skipped (idempotent).')
       } else {
         setNotice(`Seeded ${data.created ?? 0} role seat(s) (${template} template).`)
       }
@@ -208,7 +210,7 @@ export default function AgentOrgChartClient({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-[var(--color-pib-text)]">{title}</h1>
+          <h1 className="text-xl font-medium text-[var(--color-pib-text)]">{title}</h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">{description}</p>
           {mode === 'portal' && (
             <p className="mt-1 text-xs text-[var(--color-pib-text-faint)]">
@@ -249,7 +251,7 @@ export default function AgentOrgChartClient({
             disabled={loading}
             className="btn-pib-ghost btn-pib-sm font-label inline-flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            <Icon name="refresh" className="text-[16px]" />
             Refresh
           </button>
 
@@ -266,7 +268,7 @@ export default function AgentOrgChartClient({
                   : 'Seed starter seats'
             }
           >
-            <span className="material-symbols-outlined text-[16px]">park</span>
+            <Icon name="park" className="text-[16px]" />
             {seeding ? 'Seeding…' : 'Seed starter chart'}
           </button>
 
@@ -277,21 +279,21 @@ export default function AgentOrgChartClient({
             className="btn-pib-primary btn-pib-sm font-label inline-flex items-center gap-1.5 disabled:opacity-50"
             title={!canEdit ? 'Admin required' : undefined}
           >
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <Icon name="add" className="text-[16px]" />
             Add node
           </button>
         </div>
       </div>
 
       {!canEdit && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          View-only — {readOnlyMessage}
+        <div className="rounded-md border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-xs text-[var(--st-warning)]">
+          View-only  -  {readOnlyMessage}
         </div>
       )}
 
       {notice && !error && (
         <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-300">
-          <span className="material-symbols-outlined text-[14px]">info</span>
+          <Icon name="info" className="text-[14px]" />
           {notice}
         </div>
       )}
@@ -308,7 +310,7 @@ export default function AgentOrgChartClient({
           onSelectNode={(node) => setEditor({ node })}
           liveModelByAgentId={liveModelByAgentId}
         />
-        <div className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-lg">
+        <div className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
           <button
             type="button"
             aria-label="Zoom out"
@@ -316,7 +318,7 @@ export default function AgentOrgChartClient({
             onClick={() => canvasRef.current?.zoomOut()}
             className="grid h-8 w-8 place-items-center border-r border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">remove</span>
+            <Icon name="remove" className="text-[18px]" />
           </button>
           <button
             type="button"
@@ -325,7 +327,7 @@ export default function AgentOrgChartClient({
             onClick={() => canvasRef.current?.fit()}
             className="grid h-8 w-8 place-items-center border-r border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">fit_screen</span>
+            <Icon name="fit_screen" className="text-[18px]" />
           </button>
           <button
             type="button"
@@ -334,7 +336,7 @@ export default function AgentOrgChartClient({
             onClick={() => canvasRef.current?.zoomIn()}
             className="grid h-8 w-8 place-items-center text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+            <Icon name="add" className="text-[18px]" />
           </button>
         </div>
       </div>

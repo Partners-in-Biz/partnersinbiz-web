@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -136,15 +138,9 @@ function StatTile({
     >
       <div className="flex items-start justify-between gap-3">
         <p className="truncate pib-label">{label}</p>
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[15px]"
-          style={{ borderColor: `${color}55`, color }}
-        >
-          {icon}
-        </span>
+        <Icon name={icon} className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border" />
       </div>
-      <div className="mt-3 truncate text-2xl font-semibold text-[var(--color-pib-text)]">{value}</div>
+      <div className="mt-3 truncate text-2xl font-medium text-[var(--color-pib-text)]">{value}</div>
       <p className="mt-2 min-h-8 text-xs leading-snug text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
@@ -166,11 +162,11 @@ function Lane({
   return (
     <section className="flex min-w-0 flex-col">
       <div className="mb-3 flex items-center gap-2 px-1">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="h-2 w-2 shrink-0 rounded-md" style={{ background: color }} />
+        <Icon name={icon} />
         <h3 className="truncate pib-label">{title}</h3>
         {typeof count === 'number' ? (
-          <span className="ml-auto rounded-full bg-[var(--color-pib-surface)] px-1.5 py-0.5 text-[9px] font-label text-[var(--color-pib-text-muted)]">
+          <span className="ml-auto rounded-md bg-[var(--color-pib-surface)] px-1.5 py-0.5 text-[9px] font-label text-[var(--color-pib-text-muted)]">
             {count}
           </span>
         ) : null}
@@ -274,7 +270,7 @@ export function ProjectPortfolioReportPanel({
     return (
       <Surface className="p-4">
         <div className="flex items-center gap-3 text-sm text-[var(--color-pib-text-muted)]">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin" />
           <span>Loading portfolio report</span>
         </div>
       </Surface>
@@ -285,9 +281,9 @@ export function ProjectPortfolioReportPanel({
     return (
       <Surface className="p-4">
         <div className="flex items-start gap-3">
-          <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-[#f59e0b]">warning</span>
+          <Icon name="warning" className="mt-0.5" />
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Portfolio report unavailable</h2>
+            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Portfolio report unavailable</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{state.error}</p>
           </div>
         </div>
@@ -313,16 +309,10 @@ export function ProjectPortfolioReportPanel({
     <Surface className="p-0 overflow-hidden">
       <div className="grid border-b border-[var(--color-pib-line)] lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.7fr)]">
         <div className="relative min-w-0 border-b border-[var(--color-pib-line)] px-5 py-5 lg:border-b-0 lg:border-r">
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border text-[20px]"
-            style={{ borderColor: `${healthColor}55`, color: healthColor, background: `${healthColor}12` }}
-          >
-            monitoring
-          </span>
+          <Icon name="monitoring" className="absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-md border" />
           <p className="pib-label">Portfolio report</p>
           <div className="mt-3 flex items-end gap-2">
-            <span className="text-4xl font-semibold leading-none text-[var(--color-pib-text)]">{totalProjects}</span>
+            <span className="text-4xl font-medium leading-none text-[var(--color-pib-text)]">{totalProjects}</span>
             <span className="pb-1 text-lg font-medium text-[var(--color-pib-text-muted)]">{totalProjects === 1 ? 'project' : 'projects'}</span>
           </div>
           <p className="mt-3 max-w-sm text-sm text-[var(--color-pib-text-muted)]">
@@ -333,25 +323,25 @@ export function ProjectPortfolioReportPanel({
             <span>Clear work</span>
             <span>{clearWorkPercent}%</span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30">
+          <div className="mt-2 h-2 overflow-hidden rounded-md bg-black/30">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-md"
               style={{ width: `${clearWorkPercent}%`, background: healthColor }}
             />
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--color-pib-text-muted)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2.5 py-1.5">
-              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">database</span>
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2.5 py-1.5">
+              <Icon name="database" />
               Live data
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2.5 py-1.5">
-              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">schedule</span>
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2.5 py-1.5">
+              <Icon name="schedule" />
               {plural(overdueTasks, 'overdue', 'overdue')}
             </span>
             {overCapacityPeople > 0 ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f59e0b40] bg-[#f59e0b10] px-2.5 py-1.5 text-[#fbbf24]">
-                <span aria-hidden="true" className="material-symbols-outlined text-[15px]">groups</span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[#f59e0b40] bg-[#f59e0b10] px-2.5 py-1.5 text-[#fbbf24]">
+                <Icon name="groups" />
                 {plural(overCapacityPeople, 'person', 'people')} over capacity
               </span>
             ) : null}
@@ -368,25 +358,25 @@ export function ProjectPortfolioReportPanel({
             <StatTile icon="payments" label="Revenue" value={formatCurrency(trackedRevenue, currency)} detail="Tracked project revenue in scope." tone="success" />
           </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.08]">
-            <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${clearWorkPercent}%` }} />
+          <div className="mt-3 h-2 overflow-hidden rounded-md bg-white/[0.08]">
+            <div className="h-full rounded-md bg-[var(--color-pib-accent)]" style={{ width: `${clearWorkPercent}%` }} />
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#60a5fa]" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-md bg-[#60a5fa]" />
               Open {openTasks}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-md bg-[#ef4444]" />
               Blocked {blockedTasks}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#c084fc]" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-md bg-[#c084fc]" />
               Review {waitingApprovals}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-md bg-[#22c55e]" />
               Clear {clearWork}
             </span>
           </div>
@@ -411,19 +401,19 @@ export function ProjectPortfolioReportPanel({
                   <div className="min-w-0">
                     <p className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-[var(--color-pib-text)]">
                       <span className="truncate">{client.clientName}</span>
-                      {clientHref ? <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">arrow_outward</span> : null}
+                      {clientHref ? <Icon name="arrow_outward" className="shrink-0" /> : null}
                     </p>
                     <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                       {plural(numberValue(client.projectCount), 'project')} · {plural(numberValue(client.openTasks), 'open', 'open')} · {plural(clientBlockedTasks, 'blocked', 'blocked')}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-[var(--color-pib-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-pib-text)]">
+                  <span className="shrink-0 rounded-md bg-[var(--color-pib-surface)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-pib-text)]">
                     {formatCurrency(numberValue(client.trackedRevenue), currency)}
                   </span>
                 </div>
                 {numberValue(client.highRisks) > 0 ? (
                   <p className="mt-2 inline-flex items-center gap-1 rounded border border-[#ef444440] bg-[#ef444410] px-2 py-1 text-[10px] text-[#f87171]">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">warning</span>
+                    <Icon name="warning" />
                     {plural(numberValue(client.highRisks), 'high risk')}
                   </p>
                 ) : null}
@@ -445,7 +435,7 @@ export function ProjectPortfolioReportPanel({
                   <div className="min-w-0">
                     <p className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-[var(--color-pib-text)]">
                       <span className="truncate">{project.name}</span>
-                      <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">arrow_outward</span>
+                      <Icon name="arrow_outward" className="shrink-0" />
                     </p>
                     <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                       {displayStatus(project.status)} · {plural(numberValue(project.reports?.tasks?.open), 'open', 'open')} · {plural(numberValue(project.timeline?.dependencyCount), 'dependency', 'dependencies')}
@@ -455,12 +445,12 @@ export function ProjectPortfolioReportPanel({
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
                   <span className="inline-flex items-center gap-1">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">timeline</span>
+                    <Icon name="timeline" />
                     {numberValue(project.timeline?.driftCount)} drift
                   </span>
                   {projectBlockedTasks > 0 ? (
                     <span className="inline-flex items-center gap-1 text-[#f87171]">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[13px]">block</span>
+                      <Icon name="block" />
                       {plural(projectBlockedTasks, 'blocked', 'blocked')}
                     </span>
                   ) : null}
@@ -479,13 +469,13 @@ export function ProjectPortfolioReportPanel({
               <RailCard key={person.uid} color={person.overCapacity ? '#f59e0b' : '#c084fc'}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="min-w-0 truncate text-sm font-medium text-[var(--color-pib-text)]">{person.name}</p>
-                  <span className={person.overCapacity ? 'text-sm font-semibold text-[#f59e0b]' : 'text-sm font-semibold text-[var(--color-pib-text)]'}>
+                  <span className={person.overCapacity ? 'text-sm font-medium text-[#f59e0b]' : 'text-sm font-medium text-[var(--color-pib-text)]'}>
                     {utilization}%
                   </span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-md bg-white/[0.06]">
                   <div
-                    className={person.overCapacity ? 'h-full rounded-full bg-[#f59e0b]' : 'h-full rounded-full bg-[var(--color-pib-accent)]'}
+                    className={person.overCapacity ? 'h-full rounded-md bg-[#f59e0b]' : 'h-full rounded-md bg-[var(--color-pib-accent)]'}
                     style={{ width: `${Math.min(utilization, 140)}%` }}
                   />
                 </div>

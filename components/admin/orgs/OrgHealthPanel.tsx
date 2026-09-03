@@ -5,6 +5,8 @@ import { Surface, StatusPill, EmptyState } from '@/components/ui/AppFoundation'
 import { TrendAreaChart } from '@/components/ui/Charts'
 import { apiGet } from './OrgDetailApi'
 
+import { Icon } from '@/components/studio'
+
 interface HealthPillar {
   key: string
   label: string
@@ -48,7 +50,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
   }, [slug])
 
   if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Computing health score…</Surface>
-  if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
+  if (error) return <Surface className="text-[var(--st-danger)] text-sm">{error}</Surface>
   if (!data) return null
 
   const ringColor = BAND_COLOR[data.band] ?? '#F59E0B'
@@ -69,7 +71,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-headline font-bold text-[var(--color-pib-text)]">{data.score}</span>
+              <span className="text-4xl font-headline font-medium text-[var(--color-pib-text)]">{data.score}</span>
               <span className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">/ 100</span>
             </div>
           </div>
@@ -87,9 +89,9 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
                   <span className="font-medium text-[var(--color-pib-text)]">{p.label}</span>
                   <span className="text-[var(--color-pib-text-muted)]">{p.score} / {p.max}</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                <div className="h-2 w-full overflow-hidden rounded-md bg-white/5">
                   <div
-                    className="h-full rounded-full"
+                    className="h-full rounded-md"
                     style={{ width: `${(p.score / p.max) * 100}%`, background: 'var(--color-pib-accent)' }}
                   />
                 </div>
@@ -110,12 +112,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
           <div className="space-y-2">
             {data.alerts.map((a, i) => (
               <div key={i} className="flex items-start gap-2 text-sm">
-                <span
-                  className="material-symbols-outlined text-[18px]"
-                  style={{ color: a.kind === 'upsell' ? '#4ade80' : '#ef4444' }}
-                >
-                  {a.kind === 'upsell' ? 'trending_up' : 'warning'}
-                </span>
+                <Icon name={a.kind === 'upsell' ? 'trending_up' : 'warning'} className="text-[18px]" style={{ color: a.kind === 'upsell' ? '#4ade80' : '#ef4444' }} />
                 <span className="text-[var(--color-pib-text)]">{a.message}</span>
               </div>
             ))}

@@ -39,7 +39,7 @@ export default async function PortalSprintLayout({
   const sprint = sprintSnap.data() as SeoSprintRecord
   if (!sprint.orgId) notFound()
 
-  // Authorize against the viewer's active portal org — not sprint.orgId.
+  // Authorize against the viewer's active portal org  -  not sprint.orgId.
   // Projected sprints live on the serving org book; linked-org members open them via grant.
   const user = await resolvePortalSeoUser()
   if (!user) redirect('/login')

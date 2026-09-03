@@ -10,8 +10,8 @@
  *   <div data-pib-form></div>
  *
  * The route is unauthenticated. The publicKey is opaque (rotating it kills
- * any deployed widgets using it). The response is JS only — never any HTML
- * shell — so it can be loaded as a <script> tag.
+ * any deployed widgets using it). The response is JS only  -  never any HTML
+ * shell  -  so it can be loaded as a <script> tag.
  *
  * Cached for 5 minutes at the CDN: changes to the source's name /
  * consentRequired / redirectUrl propagate within that window.
@@ -34,7 +34,7 @@ function notFoundJs(publicKey: string): string {
   // A polite no-op script. We expose nothing about whether the key existed,
   // only that the widget is unavailable. Logged to console so an embedder
   // can spot misconfiguration in DevTools.
-  return `// Partners in Biz form widget — capture source not found or disabled
+  return `// Partners in Biz form widget  -  capture source not found or disabled
 console.warn('[pib-form] Widget unavailable for key ${JSON.stringify(publicKey).slice(1, -1)}');
 `
 }
@@ -74,7 +74,7 @@ export async function GET(_req: Request, context: Params) {
 /**
  * Builds the IIFE that the embedder's <script> tag loads. The widget config
  * is JSON-encoded so it can't break out of the JS string. Inline styles only
- * — we never touch the host page's stylesheet.
+ *  -  we never touch the host page's stylesheet.
  */
 function buildWidgetJs(source: PublicCaptureSourceView): string {
   const config = {
@@ -143,11 +143,11 @@ function render(host){
         var u=r.b&&r.b.data&&r.b.data.redirectUrl;
         if(u){window.location.href=u;return;}
         if(C.redirectUrl){window.location.href=C.redirectUrl;return;}
-        var ok=D.createElement('div');ok.textContent="Thanks — we'll be in touch!";
+        var ok=D.createElement('div');ok.textContent="Thanks  -  we'll be in touch!";
         ok.style.cssText='padding:18px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;font-size:14px;font-family:inherit;text-align:center;';
         host.innerHTML='';host.appendChild(ok);return;
       }
-      if(r.s===429)showErr("Slow down — try again in a minute.");
+      if(r.s===429)showErr("Slow down  -  try again in a minute.");
       else showErr((r.b&&r.b.error)||'Something went wrong. Please try again.');
       reset();
     }).catch(function(){showErr('Network error. Please try again.');reset();});

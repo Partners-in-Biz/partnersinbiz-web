@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 
 export interface CrmHubCommandMetric {
   openDealsCount: number
@@ -72,15 +73,15 @@ export function CrmHubCommandRail({
             aria-label={action.cta}
             className="group flex gap-2.5 p-3 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span aria-hidden="true" className="pib-icon-tint shrink-0">
-              <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+            <span aria-hidden="true" className="shrink-0">
+              <Icon name={action.icon} />
             </span>
             <span className="min-w-0">
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{action.title}</h2>
+              <h2 className="text-sm text-[var(--color-pib-text)]">{action.title}</h2>
               <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.detail}</p>
               <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                 {action.cta}
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
+                <Icon name="arrow_forward" />
               </p>
             </span>
           </Link>

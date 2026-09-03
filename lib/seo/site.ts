@@ -5,8 +5,8 @@ export const SITE = {
   locale: 'en_ZA',
   language: 'en-ZA',
   description:
-    'South African web development and AI integration agency. We build Next.js websites, custom platforms, AI agents, and growth automation for ambitious SMEs.',
-  tagline: 'Software your competitors will copy.',
+    'Websites, web apps, mobile apps and AI for South African businesses. A site that gets you clients from R35,000, live in 2 to 4 weeks. Built in Pretoria by the person who quotes it, and yours outright.',
+  tagline: 'Software that brings in clients.',
   email: 'hello@partnersinbiz.online',
   phone: '+27-67-896-6333',
   whatsapp: '+27678966333',
@@ -41,21 +41,31 @@ export const SITE = {
 } as const;
 
 export const NAV = [
-  { href: '/work', label: 'Work' },
   { href: '/services', label: 'Services' },
-  { href: '/partner-with-us', label: 'Partner' },
-  { href: '/tools', label: 'Tools' },
-  { href: '/our-process', label: 'Process' },
-  { href: '/insights', label: 'Insights' },
+  { href: '/work', label: 'Work' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
 ] as const;
+
+/** Quieter studio links. Footer only. */
+export const STUDIO_NAV = [
+  { href: '/our-process', label: 'Process' },
+  { href: '/faq', label: 'FAQ' },
+  { href: '/insights', label: 'Insights' },
+  { href: '/tools', label: 'Tools' },
+  { href: '/partner-with-us', label: 'Partner with us' },
+  { href: '/properties', label: 'Properties' },
+] as const;
+
+/** The one CTA label, everywhere on the public site. */
+export const CTA_LABEL = 'Book a 20-min call';
 
 export const SERVICES = [
   {
     slug: 'web-development',
     name: 'Marketing Websites',
     short: 'High-performance sites that convert',
-    outcome: 'Sub-2s LCP. Real lead capture. Built to be found.',
+    outcome: 'Found on Google, fast on a phone, enquiries to your WhatsApp. From R35,000, live in 2 to 4 weeks.',
     icon: 'public',
     keywords: ['Next.js', 'Tailwind', 'SEO', 'Vercel'],
   },
@@ -63,7 +73,7 @@ export const SERVICES = [
     slug: 'web-applications',
     name: 'Web Applications',
     short: 'Custom platforms, internal tools, SaaS',
-    outcome: 'Production CRMs, dashboards, and bespoke SaaS — shipped in weeks, not quarters.',
+    outcome: 'The platform your business runs on, with a preview from week two. From R120,000.',
     icon: 'dashboard',
     keywords: ['React', 'Firebase', 'Next.js', 'Auth'],
   },
@@ -71,7 +81,7 @@ export const SERVICES = [
     slug: 'mobile-apps',
     name: 'Mobile Apps',
     short: 'iOS + Android from a single codebase',
-    outcome: 'Native-feel apps with shared business logic, real offline support, and store-ready builds.',
+    outcome: 'iOS and Android from one codebase, in both stores, with offline support and push.',
     icon: 'phone_iphone',
     keywords: ['React Native', 'Expo', 'Capacitor'],
   },
@@ -79,7 +89,7 @@ export const SERVICES = [
     slug: 'ai-integration',
     name: 'AI Integrations',
     short: 'Agents, assistants, and automation',
-    outcome: 'Claude and GPT integrations that do real work — not chatbots that pretend to.',
+    outcome: 'Agents that answer, quote, summarise and follow up, wired into the tools you already use.',
     icon: 'bolt',
     keywords: ['Claude', 'OpenAI', 'RAG', 'Agents'],
   },
@@ -87,7 +97,7 @@ export const SERVICES = [
     slug: 'growth-systems',
     name: 'Growth Systems',
     short: 'Automation, analytics, and outreach',
-    outcome: 'Scheduled content, email nurture, and analytics — wired to your CRM, not bolted on.',
+    outcome: 'Search, email, social and analytics running on a schedule, so the site keeps working after launch.',
     icon: 'trending_up',
     keywords: ['Resend', 'Analytics', 'Automation'],
   },
@@ -95,7 +105,7 @@ export const SERVICES = [
     slug: 'bespoke-builds',
     name: 'Bespoke Builds',
     short: 'When the off-the-shelf answer is "no"',
-    outcome: 'Strategic partnerships for novel software — equity, retainer, or fixed-scope.',
+    outcome: 'When the off-the-shelf answer is no. Fixed scope, retainer or equity.',
     icon: 'auto_awesome',
     keywords: ['Strategy', 'Architecture'],
   },
@@ -116,7 +126,7 @@ export const CASE_STUDIES = [
       { value: '50+', label: 'lessons' },
       { value: 'iOS + Android', label: 'mobile builds' },
     ],
-    cover: '/images/case-velox-cover.png',
+    cover: '/images/shot-velox.jpg',
     stack: ['Vite', 'React 19', 'Capacitor', 'Firebase', 'RevenueCat', 'Tailwind v4'],
     href: '/work/velox',
   },
@@ -134,7 +144,7 @@ export const CASE_STUDIES = [
       { value: 'RSVP', label: 'training mode' },
       { value: 'IAP', label: 'native subscriptions' },
     ],
-    cover: '/images/case-lumen-cover.png',
+    cover: '/images/shot-lumen.jpg',
     stack: ['Vite', 'React 19', 'Capacitor', 'Firebase', 'RevenueCat', 'i18next'],
     href: '/work/lumen',
   },
@@ -151,7 +161,7 @@ export const CASE_STUDIES = [
       { value: '<4w', label: 'time to launch' },
       { value: '98%', label: 'retention' },
     ],
-    cover: '/images/case-athleet-cover.jpg',
+    cover: '/images/shot-athleet.jpg',
     stack: ['Next.js 16', 'Firebase', 'Tailwind v4', 'Resend'],
     href: '/work/athleet',
   },
@@ -161,14 +171,14 @@ export const CASE_STUDIES = [
     industry: 'Aviation',
     services: ['Web Application', 'Mobile App'],
     year: '2025',
-    summary: 'B2B loyalty platform rebuilt from the ground up — Angular + Ionic monorepo serving global aviation clients.',
+    summary: 'B2B loyalty platform rebuilt from the ground up, Angular + Ionic monorepo serving global aviation clients.',
     headline: 'Modernising a 10-year B2B loyalty platform without downtime',
     metrics: [
       { value: '0', label: 'minutes downtime' },
       { value: '4.1x', label: 'faster page loads' },
       { value: '12+', label: 'enterprise clients' },
     ],
-    cover: '/images/case-loyaltyplus-cover.jpg',
+    cover: '/images/shot-loyaltyplus.jpg',
     stack: ['Angular', 'Ionic', 'Capacitor', 'Firebase'],
     href: '/work/loyalty-plus',
   },
@@ -179,13 +189,13 @@ export const CASE_STUDIES = [
     services: ['Marketing Website', 'Client Portal'],
     year: '2025',
     summary: 'Bespoke marketing site and secure client document portal for a boutique South African law firm.',
-    headline: 'A law firm site that ranks — and a portal that bills',
+    headline: 'A law firm site that ranks, and a portal that bills',
     metrics: [
       { value: '#1', label: 'on Google for primary terms' },
       { value: '1.4s', label: 'mobile LCP' },
       { value: '2x', label: 'inbound enquiries' },
     ],
-    cover: '/images/case-ahs-law-cover.jpg',
+    cover: '/images/shot-ahs-law.jpg',
     stack: ['Vite', 'React', 'Firebase Auth'],
     href: '/work/ahs-law',
   },
@@ -202,7 +212,7 @@ export const CASE_STUDIES = [
       { value: '38%', label: 'sign-up rate' },
       { value: 'Day 1', label: 'analytics in production' },
     ],
-    cover: '/images/case-scrolledbrain-cover.jpg',
+    cover: '/images/shot-scrolledbrain.jpg',
     stack: ['Next.js', '@partnersinbiz/analytics-js'],
     href: '/work/scrolledbrain',
   },
@@ -214,7 +224,7 @@ export const TESTIMONIALS = [
       'Pip and the Partners in Biz team rebuilt our entire platform in 6 weeks. We shipped what our last vendor took 9 months to half-finish.',
     author: 'Founder', // PLACEHOLDER
     role: 'CEO, Athleet',
-    avatar: '/images/case-athleet-cover.jpg',
+    avatar: '/images/shot-athleet.jpg',
     company: 'Athleet',
   },
   {
@@ -222,15 +232,15 @@ export const TESTIMONIALS = [
       'They write code like grown-ups. No stubs, no "we will fix it in v2", no surprises in the invoice.',
     author: 'Operations Lead', // PLACEHOLDER
     role: 'Director, AHS Law',
-    avatar: '/images/case-ahs-law-cover.jpg',
+    avatar: '/images/shot-ahs-law.jpg',
     company: 'AHS Law',
   },
   {
     quote:
-      'The thing that sold me was the process page. They show you exactly what they will do — and then they do it.',
+      'The thing that sold me was the process page. They show you exactly what they will do, and then they do it.',
     author: 'Product Lead', // PLACEHOLDER
     role: 'Product, Loyalty Plus',
-    avatar: '/images/case-loyaltyplus-cover.jpg',
+    avatar: '/images/shot-loyaltyplus.jpg',
     company: 'Loyalty Plus',
   },
 ] as const;
@@ -246,7 +256,7 @@ export const PROCESS = [
     step: '01',
     name: 'Discover',
     blurb:
-      'A focused 2-week strategy sprint. We map your business, your customers, and the wedge — before a single line of code.',
+      'A focused 2-week strategy sprint. We map your business, your customers, and the wedge, before a single line of code.',
     deliverables: ['Audit deck', 'Architecture map', 'Cost-of-build estimate', 'Success metrics'],
   },
   {
@@ -267,7 +277,7 @@ export const PROCESS = [
     step: '04',
     name: 'Launch',
     blurb:
-      'A real launch — DNS, analytics, monitoring, SEO, and an actual launch plan with copy and assets.',
+      'A real launch: DNS, analytics, monitoring, SEO, and an actual launch plan with copy and assets.',
     deliverables: ['Production deploy', 'Analytics wired', 'Launch checklist', 'Handover docs'],
   },
   {
@@ -290,15 +300,15 @@ export const FAQ_HOMEPAGE = [
   },
   {
     q: 'Do I own the code?',
-    a: 'Yes — completely. Every project ships to your GitHub, your Vercel, and your Firebase / Supabase. No vendor lock-in, no recurring "platform fees".',
+    a: 'Yes, completely. Every project ships to your GitHub, your Vercel, and your Firebase / Supabase. No vendor lock-in, no recurring "platform fees".',
   },
   {
     q: 'Are you South African?',
-    a: 'Yes — based in Pretoria, working with clients across South Africa, the UK, and the US. We invoice in ZAR (with USD/EUR available) and accept EFT, PayPal, and international cards.',
+    a: 'Yes. Based in Pretoria, working with clients across South Africa, the UK, and the US. We invoice in ZAR (with USD/EUR available) and accept EFT, PayPal, and international cards.',
   },
   {
     q: 'What stack do you build with?',
-    a: 'Next.js 16, React 19, Tailwind v4, TypeScript, and Vercel for the front end. Firebase or Supabase for data. Anthropic Claude and OpenAI for AI features. Resend for email. We pick the boring, battle-tested tools — not whatever is on Hacker News this week.',
+    a: 'Next.js 16, React 19, Tailwind v4, TypeScript, and Vercel for the front end. Firebase or Supabase for data. Anthropic Claude and OpenAI for AI features. Resend for email. We pick the boring, battle-tested tools, not whatever is on Hacker News this week.',
   },
   {
     q: 'Can you work with my existing developer or agency?',

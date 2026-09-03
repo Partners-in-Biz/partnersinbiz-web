@@ -9,6 +9,8 @@
 'use client'
 
 import type {
+import { Icon } from '@/components/studio'
+
   SequenceStep,
   SequenceBranch,
   SequenceBranchRule,
@@ -151,13 +153,13 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
           <div key={idx} className="bento-card !p-0 overflow-hidden">
             {/* Header: timing + channel + controls */}
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-pib-line)] bg-black/10 px-4 py-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-7 !w-7 text-xs font-medium">
+              <span aria-hidden="true" className="!h-7 !w-7 text-xs font-medium">
                 {idx + 1}
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">schedule</span>
+                <Icon name="schedule" className="text-[15px] text-[var(--color-pib-text-muted)]" />
                 <span className="text-xs text-[var(--color-pib-text-muted)]">Wait</span>
-                <input
+                <input aria-label="Wait"
                   type="number"
                   min={0}
                   value={step.delayDays}
@@ -191,7 +193,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                   title="Move up"
                   className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] disabled:opacity-30"
                 >
-                  <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                  <Icon name="arrow_upward" className="text-[16px]" />
                 </button>
                 <button
                   type="button"
@@ -200,15 +202,15 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                   title="Move down"
                   className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] disabled:opacity-30"
                 >
-                  <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+                  <Icon name="arrow_downward" className="text-[16px]" />
                 </button>
                 <button
                   type="button"
                   onClick={() => removeStep(idx)}
                   title="Delete step"
-                  className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-red-400/[0.08] hover:text-red-400"
+                  className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-red-400/[0.08] hover:text-[var(--st-danger)]"
                 >
-                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  <Icon name="delete" className="text-[16px]" />
                 </button>
               </div>
             </div>
@@ -219,7 +221,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                 <>
                   <div>
                     <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Subject</label>
-                    <input
+                    <input aria-label="Welcome to {{orgName}}"
                       value={step.subject}
                       onChange={(e) => updateStep(idx, { subject: e.target.value })}
                       placeholder="Welcome to {{orgName}}"
@@ -229,6 +231,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                   <div>
                     <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Body (HTML)</label>
                     <textarea
+                      aria-label="Email body HTML"
                       value={step.bodyHtml}
                       onChange={(e) => updateStep(idx, { bodyHtml: e.target.value, bodyText: e.target.value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() })}
                       rows={4}
@@ -240,7 +243,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
               ) : (
                 <div>
                   <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">SMS message</label>
-                  <textarea
+                  <textarea aria-label="Hi {{firstName}}, thanks for joining!"
                     value={step.smsBody ?? ''}
                     onChange={(e) => updateStep(idx, { smsBody: e.target.value })}
                     rows={3}
@@ -260,7 +263,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
               <div className="rounded-lg border border-[var(--color-pib-line)] p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-violet-300">account_tree</span>
+                    <Icon name="account_tree" className="text-[15px] text-[var(--sc-accent)]" />
                     <span className="text-xs font-medium">Branch after this step</span>
                   </div>
                   {step.branch ? (
@@ -287,7 +290,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                     {step.branch.rules.map((rule, ruleIdx) => (
                       <div key={ruleIdx} className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-pib-line)] bg-black/10 px-2.5 py-2">
                         <span className="text-[11px] text-[var(--color-pib-text-muted)]">If</span>
-                        <select
+                        <select aria-label="Kind"
                           value={rule.condition.kind}
                           onChange={(e) =>
                             updateBranchRule(idx, ruleIdx, {
@@ -303,7 +306,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           ))}
                         </select>
                         {rule.condition.kind === 'clicked-link' && (
-                          <input
+                          <input aria-label="url contains"
                             value={rule.condition.urlSubstring}
                             onChange={(e) =>
                               updateBranchRule(idx, ruleIdx, { condition: { kind: 'clicked-link', urlSubstring: e.target.value } })
@@ -313,7 +316,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           />
                         )}
                         {rule.condition.kind === 'contact-has-tag' && (
-                          <input
+                          <input aria-label="tag"
                             value={rule.condition.tag}
                             onChange={(e) =>
                               updateBranchRule(idx, ruleIdx, { condition: { kind: 'contact-has-tag', tag: e.target.value } })
@@ -323,7 +326,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           />
                         )}
                         {rule.condition.kind === 'contact-at-stage' && (
-                          <input
+                          <input aria-label="stage"
                             value={rule.condition.stage}
                             onChange={(e) =>
                               updateBranchRule(idx, ruleIdx, { condition: { kind: 'contact-at-stage', stage: e.target.value } })
@@ -333,7 +336,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           />
                         )}
                         {rule.condition.kind === 'days-since-step' && (
-                          <input
+                          <input aria-label="stage"
                             type="number"
                             min={0}
                             value={rule.condition.days}
@@ -344,7 +347,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           />
                         )}
                         <span className="text-[11px] text-[var(--color-pib-text-muted)]">→ go to</span>
-                        <select
+                        <select aria-label="Next Step Number"
                           value={rule.nextStepNumber}
                           onChange={(e) => updateBranchRule(idx, ruleIdx, { nextStepNumber: parseInt(e.target.value, 10) })}
                           className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-[11px]"
@@ -362,13 +365,13 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
                           className="cursor-pointer ml-auto text-[var(--color-pib-text-muted)] hover:text-red-300"
                           title="Remove rule"
                         >
-                          <span className="material-symbols-outlined text-[15px]">close</span>
+                          <Icon name="close" className="text-[15px]" />
                         </button>
                       </div>
                     ))}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--color-pib-text-muted)]">Otherwise go to</span>
-                      <select
+                      <select aria-label="Default Next Step Number"
                         value={step.branch.defaultNextStepNumber}
                         onChange={(e) => setBranch(idx, { ...step.branch!, defaultNextStepNumber: parseInt(e.target.value, 10) })}
                         className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-[11px]"
@@ -398,11 +401,11 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
 
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => addStep('email')} className="btn-pib-secondary flex items-center gap-1.5 text-sm">
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <Icon name="add" className="text-[16px]" />
           Add email step
         </button>
         <button type="button" onClick={() => addStep('sms')} className="btn-pib-secondary flex items-center gap-1.5 text-sm">
-          <span className="material-symbols-outlined text-[16px]">sms</span>
+          <Icon name="sms" className="text-[16px]" />
           Add SMS step
         </button>
       </div>
@@ -423,7 +426,7 @@ function WaitUntilEditor({
     <div className="rounded-lg border border-[var(--color-pib-line)] p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[15px] text-amber-300">hourglass_top</span>
+          <Icon name="hourglass_top" className="text-[15px] text-[var(--st-warning)]" />
           <span className="text-xs font-medium">Wait until (before sending)</span>
         </div>
         {value ? (
@@ -447,7 +450,7 @@ function WaitUntilEditor({
 
       {value && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select
+          <select aria-label="Kind"
             value={value.condition.kind}
             onChange={(e) => onChange({ ...value, condition: defaultWaitCondition(e.target.value as WaitCondition['kind']) })}
             className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-[11px]"
@@ -459,7 +462,7 @@ function WaitUntilEditor({
             ))}
           </select>
           {value.condition.kind === 'contact-tag-added' && (
-            <input
+            <input aria-label="tag"
               value={value.condition.tag}
               onChange={(e) => onChange({ ...value, condition: { kind: 'contact-tag-added', tag: e.target.value } })}
               placeholder="tag"
@@ -467,7 +470,7 @@ function WaitUntilEditor({
             />
           )}
           {value.condition.kind === 'contact-stage-reached' && (
-            <input
+            <input aria-label="stage"
               value={value.condition.stage}
               onChange={(e) => onChange({ ...value, condition: { kind: 'contact-stage-reached', stage: e.target.value } })}
               placeholder="stage"
@@ -475,7 +478,7 @@ function WaitUntilEditor({
             />
           )}
           <span className="text-[11px] text-[var(--color-pib-text-muted)]">max</span>
-          <input
+          <input aria-label="stage"
             type="number"
             min={0}
             value={value.maxWaitDays}
@@ -483,7 +486,7 @@ function WaitUntilEditor({
             className="w-16 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-[11px]"
           />
           <span className="text-[11px] text-[var(--color-pib-text-muted)]">days, then</span>
-          <select
+          <select aria-label="On Timeout"
             value={value.onTimeout}
             onChange={(e) => onChange({ ...value, onTimeout: e.target.value as 'send' | 'exit' })}
             className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-[11px]"

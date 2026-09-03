@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -40,13 +41,13 @@ export function QuickEmailCampaignCreator({ orgId, slug }: { orgId: string; slug
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <p className="eyebrow">Admin creation</p>
-          <h2 className="font-headline text-xl font-semibold mt-2">Create an email campaign draft</h2>
+          <h2 className="font-headline text-xl font-medium mt-2">Create an email campaign draft</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Clients request campaigns; admins create the operational campaign records.
           </p>
         </div>
         <button type="button" onClick={() => setOpen((value) => !value)} className="pib-btn-primary">
-          <span className="material-symbols-outlined text-[18px]">{open ? 'close' : 'add'}</span>
+          <Icon name={open ? 'close' : 'add'} className="text-[18px]" />
           Email campaign
         </button>
       </div>
@@ -58,6 +59,7 @@ export function QuickEmailCampaignCreator({ orgId, slug }: { orgId: string; slug
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && createCampaign()}
               placeholder="Campaign name"
+              aria-label="Campaign name"
               className="pib-input flex-1"
               autoFocus
             />

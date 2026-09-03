@@ -1,0 +1,43 @@
+/*
+ * Scroll-in motion for paper pages. Echoes the home stage: the plate slides in
+ * from the right (sh-shot-in) and the terracotta block wipes open from its
+ * right edge (sh-block-in). Everything is visible unless a ScrollIn wrapper
+ * has been set to `pending` on the client, so server HTML never hides content.
+ */
+
+/* Transitions run only on the way in, so entering `pending` snaps hidden
+   instantly instead of fading server-rendered content out below the fold. */
+.sc-in[data-sc-in='in'] .sc-plate {
+  transition:
+    opacity 800ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    translate 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sc-in .sc-block {
+  transform-origin: right center;
+}
+.sc-in[data-sc-in='in'] .sc-block {
+  transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.sc-in[data-sc-in='pending'] .sc-plate {
+  opacity: 0;
+  translate: 48px 0;
+}
+.sc-in[data-sc-in='pending'] .sc-block {
+  transform: scaleX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-in[data-sc-in='in'] .sc-plate {
+    transition: opacity 400ms ease-out;
+  }
+  .sc-in[data-sc-in='in'] .sc-block {
+    transition: none;
+  }
+  .sc-in[data-sc-in='pending'] .sc-plate {
+    translate: 0 0;
+  }
+  .sc-in[data-sc-in='pending'] .sc-block {
+    transform: none;
+  }
+}

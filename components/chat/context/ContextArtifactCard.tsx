@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useState } from 'react'
 import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
 import { displayStateStyle, displayStateLabel } from '@/lib/chat-context/displayStateStyles'
@@ -7,7 +8,7 @@ import { safePreviewUrl } from '@/lib/chat-context/safeUrl'
 
 function Preview({ artifact }: { artifact: ChatArtifactSummary }) {
   const preview = artifact.preview
-  if (artifact.artifactKind === 'canvas' && (!preview || preview.kind === 'none')) return <div aria-label={`Canvas preview for ${artifact.title}`} className="grid aspect-[2/1] place-items-center bg-gradient-to-br from-primary/15 to-transparent"><span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">draw</span></div>
+  if (artifact.artifactKind === 'canvas' && (!preview || preview.kind === 'none')) return <div aria-label={`Canvas preview for ${artifact.title}`} className="grid aspect-[2/1] place-items-center bg-primary/10"><Icon name="draw" className="text-3xl text-primary" /></div>
   if (!preview || preview.kind === 'none') return null
   const url = safePreviewUrl(preview.url)
   const thumbnail = safePreviewUrl(preview.thumbnailUrl)
@@ -27,8 +28,8 @@ export function ContextArtifactCard({ artifact, selected = false, onActivate, on
       <div className="min-w-0 flex-1">
     <Preview artifact={artifact} />
     <button type="button" aria-label={`Inspect ${artifact.title}`} aria-current={selected ? 'true' : undefined} onClick={() => onActivate?.(artifact)} className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left outline-none hover:bg-white/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 xl:min-h-0">
-      <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">draft</span></span>
-      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">{artifact.title}</span><span className={`mt-0.5 inline-flex rounded-full border px-1.5 py-0.5 text-[10px] ${stateStyle.badgeClassName}`}>{artifact.statusLabel || displayStateLabel(artifact.state)}</span></span>
+      <Icon name="draft" className="text-[16px]" />
+      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">{artifact.title}</span><span className={`mt-0.5 inline-flex rounded-[4px] border px-1.5 py-0.5 text-[10px] ${stateStyle.badgeClassName}`}>{artifact.statusLabel || displayStateLabel(artifact.state)}</span></span>
     </button>
     <div className="flex flex-wrap gap-x-2 gap-y-1 border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
       {artifact.version && <span>{artifact.version}</span>}

@@ -1,16 +1,16 @@
 'use client'
 //
-// Google Ads connection panel — separate component from `ConnectionsPanel`
+// Google Ads connection panel - separate component from `ConnectionsPanel`
 // (which owns Meta) so the two providers can evolve independently and the
 // Meta paths stay untouched. Rendered alongside `ConnectionsPanel` on
 // `app/(admin)/admin/org/[slug]/ads/connections/page.tsx`.
 //
 // Flow:
-//   - No connection → "Connect Google Ads" button → POST authorize → redirect
-//   - Connection without defaultAdAccountId → fetch accessible customers
-//     (`GET /api/v1/ads/google/customers`) → render <select> picker →
+// - No connection → "Connect Google Ads" button → POST authorize → redirect
+// - Connection without defaultAdAccountId → fetch accessible customers
+//     (`GET /api/v1/ads/google/customers`) → render account select picker →
 //     submit PATCHes `customerId` then router.refresh()
-//   - Connection with defaultAdAccountId → status pill + disconnect button
+// - Connection with defaultAdAccountId → status pill + disconnect button
 //
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -196,7 +196,7 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Disconnect Google Ads connection?</h2>
+              <h2 className="font-medium text-red-100">Disconnect Google Ads connection?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 This revokes Google Ads account access for this workspace. Campaign history stays in PiB.
               </p>
@@ -268,7 +268,7 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
       {google && customerId && (
         <div className="mt-4">
-          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
+          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
             Customer {customerId}
           </span>
           {loginCustomerId && (

@@ -38,7 +38,7 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
       {...listeners}
     >
       <div
-        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-pib-cyan)]/50"
+        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--sc-ink-soft)]/50"
         style={{ padding: '8px 9px', borderLeft: `2px solid ${priorityColor}` }}
         onClick={onClick}
       >
@@ -63,13 +63,13 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
           <Link
             href={projectHref ?? `/portal/projects/${projectId}`}
             onClick={e => e.stopPropagation()}
-            className="max-w-[140px] truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            className="max-w-[140px] truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium"
             style={{ background: badgeBg, color: badgeText }}
           >
             {projectName}
           </Link>
           <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            className="h-1.5 w-1.5 shrink-0 rounded-md"
             style={{ background: priorityColor }}
             title={task.priority ?? 'normal'}
           />

@@ -75,7 +75,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
       if (json.success) {
         const d = json.data
         setActionMsg(
-          `Check complete — ${d.percent?.toFixed(1)}% spent. ${d.exhausted ? 'Budget exhausted.' : ''}`,
+          `Check complete - ${d.percent?.toFixed(1)}% spent. ${d.exhausted ? 'Budget exhausted.' : ''}`,
         )
       } else {
         setActionError(json.error ?? 'Budget check failed')
@@ -181,11 +181,11 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           aria-modal="false"
           aria-labelledby="budget-detail-confirm-title"
           aria-describedby="budget-detail-confirm-description"
-          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+          className="rounded-lg border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] p-4 shadow-sm"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <h2 id="budget-detail-confirm-title" className="text-sm font-semibold text-white">
+              <h2 id="budget-detail-confirm-title" className="text-sm font-medium text-white">
                 {confirmAction === 'reset'
                   ? `Reset budget period for ${currentBudget.name}?`
                   : `Archive budget ${currentBudget.name} for ${orgSlug}?`}
@@ -211,7 +211,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
                   onClick={resetPeriod}
                   disabled={resetting}
                   aria-label={`Confirm reset period for budget ${currentBudget.name}`}
-                  className="rounded border border-[#F5A623]/40 bg-[#F5A623]/10 px-3 py-1.5 text-xs font-medium text-[#F5A623] hover:bg-[#F5A623]/20 disabled:opacity-40"
+                  className="rounded border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--sc-accent)] hover:bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] disabled:opacity-40"
                 >
                   {resetting ? 'Resetting...' : 'Reset period'}
                 </button>
@@ -293,7 +293,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           <button
             onClick={() => setShowEdit((v) => !v)}
             aria-label={`${showEdit ? 'Cancel edit for' : 'Edit'} budget ${currentBudget.name}`}
-            className="rounded border border-[#F5A623]/30 px-4 py-2 text-sm text-[#F5A623] hover:border-[#F5A623]"
+            className="rounded border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] px-4 py-2 text-sm text-[var(--sc-accent)] hover:border-[var(--sc-accent)]"
           >
             {showEdit ? 'Cancel edit' : 'Edit'}
           </button>
@@ -303,7 +303,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
             onClick={requestArchive}
             disabled={archiving}
             aria-label={`Archive budget ${currentBudget.name} for ${orgSlug}`}
-            className="rounded border border-white/10 px-4 py-2 text-sm text-white/40 hover:text-red-400"
+            className="rounded border border-white/10 px-4 py-2 text-sm text-white/40 hover:text-[var(--st-danger)]"
           >
             Archive
           </button>
@@ -313,7 +313,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
       {/* Edit form (collapsible) */}
       {showEdit && (
         <div className="rounded-lg border border-white/10 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-white/80">Edit budget</h2>
+          <h2 className="mb-4 text-sm font-medium text-white/80">Edit budget</h2>
           <BudgetCapEditor
             orgId={budget.orgId}
             orgSlug={orgSlug}
@@ -338,7 +338,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
 
       {/* Events timeline */}
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide">
+        <h2 className="text-sm font-medium text-white/60 uppercase tracking-wide">
           Events ({events.length})
         </h2>
         {events.length === 0 ? (
@@ -347,14 +347,14 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           <ul className="divide-y divide-white/5 rounded-lg border border-white/10">
             {events.map((ev) => (
               <li key={ev.id} className="flex items-start gap-3 px-4 py-3 text-sm">
-                <span className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7 text-sm leading-tight" aria-hidden>
+                <span className="!h-7 !w-7 text-sm leading-tight" aria-hidden>
                   {EVENT_ICON[ev.type] ?? '•'}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium capitalize">{ev.type.replace(/_/g, ' ')}</span>
                     {ev.threshold != null && (
-                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-300">
+                      <span className="rounded bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-1.5 py-0.5 text-xs text-[var(--st-warning)]">
                         @ {ev.threshold}%
                       </span>
                     )}

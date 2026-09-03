@@ -138,7 +138,7 @@ export default function FinanceIntercompanyPage() {
         expectedVersion: 0,
         ...requestIdentity('ic-tx'),
       })
-      scope.setMessage(`Transaction ${id} proposed — receiving entity must approve before final`)
+      scope.setMessage(`Transaction ${id} proposed - receiving entity must approve before final`)
     })
   }
 
@@ -180,7 +180,7 @@ export default function FinanceIntercompanyPage() {
           </section>
 
           <section className="pib-card space-y-3 p-4">
-            <h2 className="text-base font-semibold">Create intercompany pair</h2>
+            <h2 className="text-base">Create intercompany pair</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">Source legal entity id
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={sourceEntityId} onChange={(e) => setSourceEntityId(e.target.value)} />
@@ -224,7 +224,7 @@ export default function FinanceIntercompanyPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Pairs</h2>
+              <h2 className="mb-3 text-base">Pairs</h2>
               {(bundle?.pairs || []).length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No pairs yet.</p>
               ) : (
@@ -248,7 +248,7 @@ export default function FinanceIntercompanyPage() {
               )}
             </div>
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Transactions</h2>
+              <h2 className="mb-3 text-base">Transactions</h2>
               {(bundle?.transactions || []).length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No intercompany transactions yet.</p>
               ) : (

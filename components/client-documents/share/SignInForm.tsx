@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { signInWithPopup } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase/client'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { Button, Field, Input, Notice, Panel } from '@/components/studio'
 
 export function SignInForm({
   redirectUrl,
@@ -65,64 +66,59 @@ export function SignInForm({
 
   if (sent) {
     return (
-      <div className="mx-auto mt-32 max-w-sm space-y-4 px-6 text-center">
-        <h1 className="text-2xl font-semibold text-[var(--doc-text)]">Check your email</h1>
-        <p className="text-sm text-[var(--doc-muted)]">
+      <Panel>
+        <h1 className="sc-article__h2">Check your email.</h1>
+        <p className="sc-body mt-4">
           We sent a sign-in link to <strong>{email}</strong>. It expires in 15 minutes.
         </p>
-      </div>
+      </Panel>
     )
   }
 
   return (
-    <div className="mx-auto mt-32 max-w-sm space-y-4 px-6">
-      <h1 className="text-center text-2xl font-semibold text-[var(--doc-text)]">
-        Sign in to continue
-      </h1>
+    <Panel>
+      <h1 className="sc-article__h2 text-center">Sign in to continue.</h1>
 
-      <PageTabs
-        variant="segmented"
-        ariaLabel="Sign-in method"
-        value={tab}
-        onValueChange={(value) => setTab(value as 'email' | 'google')}
-        tabs={[
-          { value: 'email', label: 'Email link' },
-          { value: 'google', label: 'Google' },
-        ]}
-      />
+      <div className="mt-8">
+        <PageTabs
+          variant="segmented"
+          ariaLabel="Sign-in method"
+          value={tab}
+          onValueChange={(value) => setTab(value as 'email' | 'google')}
+          tabs={[
+            { value: 'email', label: 'Email link' },
+            { value: 'google', label: 'Google' },
+          ]}
+        />
+      </div>
 
       {tab === 'email' ? (
-        <form onSubmit={sendMagicLink} className="space-y-3">
-          <input
-            type="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-            aria-label="Email"
-            className="w-full rounded-lg border border-[var(--doc-border)] bg-transparent px-4 py-3 text-[var(--doc-text)] focus:border-[var(--doc-accent)] focus:outline-none"
-          />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <button
-            type="submit"
-            disabled={busy || !email}
-            className="w-full rounded-lg bg-[var(--doc-accent)] px-6 py-3 text-sm font-semibold text-black hover:opacity-90 disabled:opacity-40"
-          >
-            {busy ? 'Sending…' : 'Send sign-in link'}
-          </button>
+        <form onSubmit={sendMagicLink} className="st-stack mt-8">
+          <Field id="edit-share-email" label="Email">
+            <Input
+              id="edit-share-email"
+              type="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              autoComplete="email"
+              aria-label="Email"
+            />
+          </Field>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          <Button type="submit" block loading={busy} disabled={busy || !email}>
+            Send sign-in link
+          </Button>
         </form>
       ) : (
-        <div className="space-y-3">
-          <button
-            onClick={signInGoogle}
-            disabled={busy}
-            className="w-full rounded-lg border border-[var(--doc-border)] bg-white py-3 text-sm font-semibold text-black hover:bg-gray-50 disabled:opacity-40"
-          >
-            {busy ? 'Signing in…' : 'Continue with Google'}
-          </button>
-          {error && <p className="text-center text-sm text-red-400">{error}</p>}
+        <div className="st-stack mt-8">
+          <Button type="button" variant="secondary" block loading={busy} onClick={signInGoogle}>
+            Continue with Google
+          </Button>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
         </div>
       )}
-    </div>
+    </Panel>
   )
 }

@@ -52,7 +52,7 @@ function humanize(value?: string) {
 function gateTone(status?: string) {
   if (status === 'passed') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
   if (status === 'blocked') return 'border-rose-500/30 bg-rose-500/10 text-rose-100'
-  if (status === 'warning' || status === 'missing_evidence') return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+  if (status === 'warning' || status === 'missing_evidence') return 'border-amber-500/30 bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
   return 'border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-muted)]'
 }
 
@@ -121,7 +121,7 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
 
       {moduleDisabled ? (
         <Surface className="p-4 text-sm text-[var(--color-pib-text)]">
-          <h2 className="text-sm font-semibold">Book Studio is not enabled for this portal.</h2>
+          <h2 className="text-sm">Book Studio is not enabled for this portal.</h2>
           <p className="mt-1 text-[var(--color-pib-text-muted)]">Your PiB team controls when a client-safe book review packet becomes available.</p>
         </Surface>
       ) : (
@@ -132,7 +132,7 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
               <Surface className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading Book Studio review material…</Surface>
             ) : projects.length === 0 ? (
               <Surface className="p-4">
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">No books yet</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">No books yet</h2>
                 <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                   {capabilities?.canCreate
                     ? 'Create your first book to get started.'
@@ -155,8 +155,8 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={project.coverImageUrl} alt="" className="mb-2 h-28 w-full rounded-md object-cover" />
                       ) : null}
-                      <p className="eyebrow !text-[10px]">{humanize(project.stage)}</p>
-                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{project.title ?? 'Untitled book project'}</h2>
+                      <p className="sc-tiny !text-[10px]">{humanize(project.stage)}</p>
+                      <h2 className="text-base text-[var(--color-pib-text)]">{project.title ?? 'Untitled book project'}</h2>
                       <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
                         {format?.label ?? project.format ?? 'No format'}
                         {project.status ? ` · ${humanize(project.status)}` : ''}
@@ -179,7 +179,7 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
                         <div className="mt-3 space-y-1.5">
                           {packets.map((packet) => (
                             <div key={packet.id ?? packet.title} className="rounded-md border border-[var(--color-pib-line)] p-2 text-xs text-[var(--color-pib-text-muted)]">
-                              <p className="font-semibold text-[var(--color-pib-text)]">{packet.title ?? 'Review packet'}</p>
+                              <p className="text-[var(--color-pib-text)]">{packet.title ?? 'Review packet'}</p>
                               {packet.summary ? <p className="mt-0.5">{packet.summary}</p> : null}
                             </div>
                           ))}
@@ -192,7 +192,7 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
             )}
           </section>
 
-          <Surface className="border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+          <Surface className="border-amber-500/30 bg-[var(--sc-surface)]/10 p-3 text-sm text-[var(--sc-ink-soft)]">
             Manual release posture: PiB must complete rights, evidence, checksum and human release gates before anything leaves the workspace.
           </Surface>
         </>

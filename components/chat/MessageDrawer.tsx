@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ContextReferenceSeed } from '@/lib/context-references/types'
@@ -87,16 +88,16 @@ export function MessageDrawer({
         className={[
           'relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40',
           open
-            ? 'bg-[var(--color-pib-blue-soft)] text-[#93C5FD]'
+            ? 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[#93C5FD]'
             : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[20px]">forum</span>
+        <Icon name="forum" className="text-[20px]" />
       </button>
 
       {open && orgId && drawerPortalTarget && createPortal(
         <div className="fixed right-0 top-0 z-[80] h-dvh w-full md:w-[clamp(420px,34vw,560px)]">
-          <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
+          <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]">
             <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-4" data-testid="message-drawer-header">
               <div className="flex-1 min-w-0">
                 <p className="eyebrow !text-[10px]">Messages</p>
@@ -110,7 +111,7 @@ export function MessageDrawer({
                 aria-label="Close messages"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <Icon name="close" className="text-[20px]" />
               </button>
             </header>
             <div className="flex min-h-0 flex-1 overflow-hidden">

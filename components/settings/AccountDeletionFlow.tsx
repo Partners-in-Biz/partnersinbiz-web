@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { Icon } from '@/components/studio'
+
 interface DataSummary {
   orgMemberships: number
   ownedOrgs: number
@@ -89,12 +91,12 @@ export function AccountDeletionFlow() {
   return (
     <div className="pib-card border border-red-500/30 p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-red-400">warning</span>
-        <h3 className="text-base font-semibold text-[var(--color-pib-text)]">Delete account</h3>
+        <Icon name="warning" className="text-[var(--st-danger)]" />
+        <h3 className="text-base font-medium text-[var(--color-pib-text)]">Delete account</h3>
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-sm text-[var(--st-danger)] bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
       )}
 
       {step === 'review' && (
@@ -104,17 +106,17 @@ export function AccountDeletionFlow() {
             30-day recovery window:
           </p>
           <ul className="space-y-1.5">
-            <li className={itemClass}><span className="material-symbols-outlined text-[16px]">person</span> Your profile &amp; sign-in</li>
-            <li className={itemClass}><span className="material-symbols-outlined text-[16px]">groups</span> Your workspace memberships</li>
-            <li className={itemClass}><span className="material-symbols-outlined text-[16px]">notifications</span> Notifications &amp; preferences</li>
-            <li className={itemClass}><span className="material-symbols-outlined text-[16px]">key</span> Personal API keys</li>
-            <li className={itemClass}><span className="material-symbols-outlined text-[16px]">image</span> Avatar &amp; uploaded media</li>
+            <li className={itemClass}><Icon name="person" className="text-[16px]" /> Your profile &amp; sign-in</li>
+            <li className={itemClass}><Icon name="groups" className="text-[16px]" /> Your workspace memberships</li>
+            <li className={itemClass}><Icon name="notifications" className="text-[16px]" /> Notifications &amp; preferences</li>
+            <li className={itemClass}><Icon name="key" className="text-[16px]" /> Personal API keys</li>
+            <li className={itemClass}><Icon name="image" className="text-[16px]" /> Avatar &amp; uploaded media</li>
           </ul>
           <button
             type="button"
             onClick={goToConfirm}
             disabled={loading}
-            className="text-sm font-medium px-4 py-2 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-50"
+            className="text-sm font-medium px-4 py-2 rounded-lg bg-red-500/15 text-[var(--st-danger)] hover:bg-red-500/25 transition-colors disabled:opacity-50"
           >
             Continue
           </button>
@@ -124,9 +126,9 @@ export function AccountDeletionFlow() {
       {step === 'confirm' && (
         <div className="space-y-4">
           <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Type <span className="font-mono font-semibold text-[var(--color-pib-text)]">DELETE</span> to confirm you want to delete your account.
+            Type <span className="font-mono font-medium text-[var(--color-pib-text)]">DELETE</span> to confirm you want to delete your account.
           </p>
-          <input
+          <input aria-label="DELETE"
             type="text"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
@@ -146,7 +148,7 @@ export function AccountDeletionFlow() {
               type="button"
               disabled={typed.trim() !== 'DELETE'}
               onClick={() => setStep('final')}
-              className="text-sm font-medium px-4 py-2 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-sm font-medium px-4 py-2 rounded-lg bg-red-500/15 text-[var(--st-danger)] hover:bg-red-500/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Continue
             </button>
@@ -185,7 +187,7 @@ export function AccountDeletionFlow() {
           {cancelled ? (
             <>
               <div className="flex items-center gap-2 text-green-400">
-                <span className="material-symbols-outlined">check_circle</span>
+                <Icon name="check_circle" />
                 <p className="text-sm font-medium">Deletion cancelled. Your account is safe.</p>
               </div>
               <button
@@ -199,7 +201,7 @@ export function AccountDeletionFlow() {
           ) : (
             <>
               <div className="flex items-center gap-2 text-[var(--color-pib-text)]">
-                <span className="material-symbols-outlined text-amber-400">schedule</span>
+                <Icon name="schedule" className="text-[var(--st-warning)]" />
                 <p className="text-sm font-medium">Account scheduled for deletion</p>
               </div>
               <p className="text-sm text-[var(--color-pib-text-muted)]">

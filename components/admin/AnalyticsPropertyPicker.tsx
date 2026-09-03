@@ -96,7 +96,7 @@ export function AnalyticsPropertyPicker({
     <div className={`grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end ${className}`}>
       <div>
         <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Client</label>
-        <select
+        <select name="analyticspropertypicker-select-84"
           value={orgId}
           disabled={disabled || loadingOrgs}
           onChange={(event) => {
@@ -113,7 +113,7 @@ export function AnalyticsPropertyPicker({
       </div>
       <div>
         <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Property</label>
-        <select
+        <select name="analyticspropertypicker-select-85"
           value={value}
           disabled={disabled || !orgId || loadingProperties}
           onChange={(event) => onChange(event.target.value)}
@@ -150,7 +150,7 @@ export function AnalyticsPropertyPicker({
           </Link>
         )}
       </div>
-      {error && <p className="md:col-span-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="md:col-span-3 text-xs text-[var(--st-danger)]">{error}</p>}
     </div>
   )
 }

@@ -2,8 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { PageHeader, EmptyState, PageTabs } from '@/components/ui/AppFoundation'
+import { Button, ButtonLink, Status, Skeleton, Panel } from '@/components/studio'
 import type { EmailTemplate, TemplateCategory } from '@/lib/email-builder/templates'
 
 const CATEGORIES: { value: TemplateCategory | 'all'; label: string }[] = [
@@ -16,13 +17,13 @@ const CATEGORIES: { value: TemplateCategory | 'all'; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ]
 
-const CATEGORY_COLORS: Record<string, string> = {
-  newsletter: 'pib-pill pib-pill-blue',
-  welcome: 'pib-pill pib-pill-accent',
-  'product-launch': 'pib-pill pib-pill-violet',
-  reengagement: 'pib-pill pib-pill-rose',
-  transactional: 'pib-pill pib-pill-success',
-  custom: 'pib-pill',
+const CATEGORY_TONE: Record<string, 'success' | 'warning' | 'danger' | 'info' | undefined> = {
+  newsletter: 'info',
+  welcome: undefined,
+  'product-launch': 'info',
+  reengagement: 'warning',
+  transactional: 'success',
+  custom: undefined,
 }
 
 export default function EmailTemplatesPage() {
@@ -40,7 +41,6 @@ export default function EmailTemplatesPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Render small previews for each template
   useEffect(() => {
     let cancelled = false
     async function renderPreviews() {
@@ -52,7 +52,18 @@ export default function EmailTemplatesPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               document: t.document,
-              vars: { firstName: 'Friend', orgName: 'Your Brand', unsubscribeUrl: '#', invoiceNumber: '1234', itemDescription: 'Pro plan', quantity: '1', subtotal: 'R 499.00', vat: 'R 74.85', total: 'R 573.85', invoiceUrl: '#' },
+              vars: {
+                firstName: 'Friend',
+                orgName: 'Your Brand',
+                unsubscribeUrl: '#',
+                invoiceNumber: '1234',
+                itemDescription: 'Pro plan',
+                quantity: '1',
+                subtotal: 'R 499.00',
+                vat: 'R 74.85',
+                total: 'R 573.85',
+                invoiceUrl: '#',
+              },
             }),
           })
           const json = await res.json()
@@ -102,14 +113,18 @@ export default function EmailTemplatesPage() {
             {
               id: 'b_init_3',
               type: 'footer',
-              props: { orgName: '{{orgName}}', address: 'Pretoria, Gauteng, South Africa', unsubscribeUrl: '{{unsubscribeUrl}}' },
+              props: {
+                orgName: '{{orgName}}',
+                address: 'Pretoria, Gauteng, South Africa',
+                unsubscribeUrl: '{{unsubscribeUrl}}',
+              },
             },
           ],
           theme: {
-            primaryColor: '#F5A623',
-            textColor: '#0A0A0B',
-            backgroundColor: '#F4F4F5',
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            primaryColor: '#e4572e',
+            textColor: '#1a1714',
+            backgroundColor: '#f3efe6',
+            fontFamily: 'var(--sc-font)',
             contentWidth: 600,
           },
         },
@@ -142,48 +157,37 @@ export default function EmailTemplatesPage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Email · Templates</p>
-          <h1 className="pib-page-title mt-2">Email templates</h1>
-          <p className="pib-page-sub">Drag-drop email composer with Outlook-safe rendering.</p>
-        </div>
-        <button onClick={createBlank} disabled={creating} className="btn-pib-primary">
-          {creating ? 'Creating...' : 'New from scratch'}
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Email"
+        title="Email templates."
+        description="Drag-drop email composer with Outlook-safe rendering."
+        actions={
+          <Button onClick={createBlank} disabled={creating} loading={creating}>
+            {creating ? 'Creating...' : 'New from scratch'}
+          </Button>
+        }
+      />
 
-      <div role="tablist" aria-label="Template categories" className="pib-tabs pib-tabs-segmented min-w-0 max-w-full overflow-x-auto">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            role="tab"
-            aria-selected={filter === c.value}
-            onClick={() => setFilter(c.value)}
-            className={`pib-tab ${filter === c.value ? 'pib-tab-active' : ''}`}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Template categories"
+        value={filter}
+        onValueChange={(v) => setFilter(v as TemplateCategory | 'all')}
+        tabs={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+      />
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-80" />
+            <Skeleton key={i} height={320} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">mail</span>
-          <h2 className="pib-empty-state-title">No templates in this category.</h2>
-        </div>
+        <EmptyState title="No templates in this category." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((t) => (
-            <div key={t.id} className="pib-card flex flex-col overflow-hidden p-0">
-              <div className="relative bg-white" style={{ height: 220, overflow: 'hidden' }}>
+            <Panel key={t.id} className="flex flex-col overflow-hidden !p-0">
+              <div className="relative bg-[var(--sc-canvas)]" style={{ height: 220, overflow: 'hidden' }}>
                 {previews[t.id] ? (
                   <div
                     style={{
@@ -195,33 +199,33 @@ export default function EmailTemplatesPage() {
                     dangerouslySetInnerHTML={{ __html: previews[t.id] }}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-[var(--color-pib-text-muted)]">Loading preview...</div>
+                  <div className="sc-body flex h-full w-full items-center justify-center text-xs text-[var(--sc-ink-soft)]">
+                    Loading preview...
+                  </div>
                 )}
               </div>
-              <div className="flex flex-1 flex-col border-t border-[var(--color-pib-line)] p-4">
+              <div className="flex flex-1 flex-col border-t border-[var(--sc-line)] p-4">
                 <div className="mb-1 flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-semibold leading-tight">{t.name}</h3>
-                  {t.isStarter && <span className="pib-pill">Starter</span>}
+                  <h3 className="st-title text-sm leading-tight">{t.name}</h3>
+                  {t.isStarter && <Status>Starter</Status>}
                 </div>
-                <p className="mb-3 flex-1 text-xs text-[var(--color-pib-text-muted)] line-clamp-2">{t.description}</p>
+                <p className="sc-body mb-3 flex-1 text-xs text-[var(--sc-ink-soft)] line-clamp-2">{t.description}</p>
                 <div className="flex items-center justify-between gap-2">
-                  <span className={CATEGORY_COLORS[t.category] ?? CATEGORY_COLORS.custom}>
-                    {t.category}
-                  </span>
+                  <Status tone={CATEGORY_TONE[t.category]}>{t.category}</Status>
                   <div className="flex gap-2">
                     {t.isStarter ? (
-                      <button onClick={() => duplicate(t.id)} className="btn-pib-secondary">
+                      <Button variant="secondary" size="sm" onClick={() => duplicate(t.id)}>
                         Duplicate
-                      </button>
+                      </Button>
                     ) : (
-                      <Link href={`/portal/email-templates/${t.id}`} className="btn-pib-secondary">
+                      <ButtonLink href={`/portal/email-templates/${t.id}`} variant="secondary" size="sm">
                         Edit
-                      </Link>
+                      </ButtonLink>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
+            </Panel>
           ))}
         </div>
       )}

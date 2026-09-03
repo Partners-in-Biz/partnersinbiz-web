@@ -23,21 +23,21 @@ const FOUNDATION_STEPS: Step[] = [
     body: 'Owner/admin creates a finance_admin assignment for the planned legal entity id. This unlocks foundation.configure for that entity.',
     href: '/portal/finance/practice',
     cta: 'Open practice roles',
-    emptyState: 'If Practice shows no assignments, you are not yet a finance admin for any entity — start there before ledger writes.',
+    emptyState: 'If Practice shows no assignments, you are not yet a finance admin for any entity - start there before ledger writes.',
   },
   {
     title: '2. Create legal entity + primary book',
     body: 'Use the Finance command centre bootstrap action or foundation commands: legal-entity.create and book.create.',
     href: '/portal/finance',
     cta: 'Open command centre',
-    emptyState: 'Empty hub entity/book pickers mean bootstrap has not run yet — do not jump to journals first.',
+    emptyState: 'Empty hub entity/book pickers mean bootstrap has not run yet - do not jump to journals first.',
   },
   {
     title: '3. Chart of accounts and periods',
     body: 'Create ledger accounts and open accounting periods before posting. Periods must not overlap within a book.',
     href: '/portal/finance/ledger',
     cta: 'Open ledger',
-    emptyState: 'Empty chart/periods lists are expected on a new book — create COA and at least one open period.',
+    emptyState: 'Empty chart/periods lists are expected on a new book - create COA and at least one open period.',
   },
   {
     title: '4. Approvals and journals',
@@ -53,11 +53,11 @@ const OPERATING_STEPS: Step[] = [
     body: 'Customer invoices, supplier bills, credit/debit notes, recurring schedules, bulk issue/void/allocate, aging, and draft counterparty statements.',
     href: '/portal/finance/documents',
     cta: 'Open AR/AP',
-    emptyState: 'No documents yet is normal — create a customer invoice or supplier bill after COA exists.',
+    emptyState: 'No documents yet is normal - create a customer invoice or supplier bill after COA exists.',
   },
   {
     title: '6. Bank statements + bank rules',
-    body: 'Import statements, generate recon suggestions, then add bank rules for smarter matches. Accept/dismiss is always human-gated — never auto-posts and never initiates payouts.',
+    body: 'Import statements, generate recon suggestions, then add bank rules for smarter matches. Accept/dismiss is always human-gated - never auto-posts and never initiates payouts.',
     href: '/portal/finance/statements',
     cta: 'Statements',
     emptyState: 'Empty suggestion queues mean no unmatched bank lines or no rules evaluated yet.',
@@ -83,7 +83,7 @@ const OPERATING_STEPS: Step[] = [
   },
   {
     title: '10. Cutover + packaging',
-    body: 'Opening trial balance cutover requires balanced TB + AR/AP open-item recon + approval. Packaging is download/manifest only (SARS-ready, payment instructions, accountant packs) — no submit, no bank initiate.',
+    body: 'Opening trial balance cutover requires balanced TB + AR/AP open-item recon + approval. Packaging is download/manifest only (SARS-ready, payment instructions, accountant packs) - no submit, no bank initiate.',
     href: '/portal/finance/cutover',
     cta: 'Cutover wizard',
     emptyState: 'No cutover packages until you create one from a balanced opening set.',
@@ -97,7 +97,7 @@ function StepList({ steps, orgScope }: { steps: Step[]; orgScope: PortalOrgRoute
         <Card key={step.title} className="p-5" data-testid="finance-onboarding-step">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{step.title}</h2>
+              <h2 className="text-base text-[var(--color-pib-text)]">{step.title}</h2>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{step.body}</p>
               {step.emptyState ? (
                 <p className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted,transparent)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
@@ -152,10 +152,10 @@ export default function FinanceSetupPage() {
       }
     >
       <Card className="space-y-3 p-5" data-testid="finance-onboarding-intro">
-        <h2 className="text-base font-semibold">How to use this guide</h2>
+        <h2 className="text-base">How to use this guide</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Work top to bottom. Keep tenant scope on every finance URL via org query params. Commands send X-Org-Id and exact legal entity/book scope.
-          Empty tables are intentional until the prerequisite step is done — each step calls out what “empty” means so operators are not blocked by blank screens.
+          Empty tables are intentional until the prerequisite step is done - each step calls out what “empty” means so operators are not blocked by blank screens.
         </p>
         <div className="flex flex-wrap gap-1.5">
           <HudChip>Foundation first</HudChip>
@@ -165,17 +165,17 @@ export default function FinanceSetupPage() {
       </Card>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Foundation</h3>
+        <h3 className="text-sm uppercase tracking-wide text-[var(--color-pib-text-muted)]">Foundation</h3>
         <StepList steps={FOUNDATION_STEPS} orgScope={orgScope} />
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Day-2 operating lanes</h3>
+        <h3 className="text-sm uppercase tracking-wide text-[var(--color-pib-text-muted)]">Day-2 operating lanes</h3>
         <StepList steps={OPERATING_STEPS} orgScope={orgScope} />
       </div>
 
       <Card className="space-y-3 p-5" data-testid="finance-onboarding-hard-gates">
-        <h2 className="text-base font-semibold">Hard gates (always on)</h2>
+        <h2 className="text-base">Hard gates (always on)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
           <li>No SARS e-filing submit from Tax, Payroll, or Packaging.</li>
           <li>No external bank payment initiation from Documents, Statements, Bank rules, Payroll, or Packaging.</li>

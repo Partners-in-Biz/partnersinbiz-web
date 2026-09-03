@@ -15,12 +15,12 @@ function TimelinePhase({ phase, index }: { phase: Phase; index: number }) {
     <li ref={sectionRef} className="relative">
       <span
         ref={numberRef}
-        className="absolute -left-[2.6rem] flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold"
+        className="absolute -left-[2.6rem] flex h-12 w-12 items-center justify-center rounded-md text-sm font-medium"
         style={{ background: 'var(--doc-accent)', color: 'var(--doc-bg)' }}
       >
         {String(index + 1).padStart(2, '0')}
       </span>
-      <h3 className="text-lg font-semibold text-[var(--doc-text)] md:text-xl">
+      <h3 className="text-lg font-medium text-[var(--doc-text)] md:text-xl">
         {phase.label}
       </h3>
       <p className="mt-1 text-xs uppercase tracking-wider text-[var(--doc-muted)]">
@@ -40,7 +40,7 @@ export function TimelineBlock({ block, index }: { block: DocumentBlock; index: n
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-8 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-8 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}

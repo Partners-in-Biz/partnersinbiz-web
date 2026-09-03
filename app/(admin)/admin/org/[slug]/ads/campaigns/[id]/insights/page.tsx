@@ -33,7 +33,7 @@ export default async function CampaignInsightsPage({ params }: { params: Promise
       </header>
 
       {!metaId ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Campaign is not live yet — record client approval and complete admin launch gates before insights can collect.</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Campaign is not live yet  -  record client approval and complete admin launch gates before insights can collect.</p>
       ) : (
         <InsightsChart orgId={orgId} level="campaign" pibEntityId={id} daysBack={7} />
       )}

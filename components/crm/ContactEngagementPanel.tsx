@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 export interface ContactEngagementEmail {
   id: string
   direction?: string
@@ -89,10 +91,10 @@ function Signal({
   return (
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-center gap-1.5">
-        <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[14px]">{icon}</span></span>
+        <Icon name={icon} className="text-[14px]" />
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
       </div>
-      <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -117,7 +119,7 @@ function EngagementCommandButtons({
           aria-label={`Log note from engagement cockpit for ${contactName}`}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+          <Icon name="edit_note" className="text-[14px]" />
           Log note
         </button>
       ) : null}
@@ -128,7 +130,7 @@ function EngagementCommandButtons({
           aria-label={`Send email from engagement cockpit to ${contactName}`}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
+          <Icon name="outgoing_mail" className="text-[14px]" />
           Send email
         </button>
       ) : null}
@@ -139,7 +141,7 @@ function EngagementCommandButtons({
           aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
+          <Icon name="event" className="text-[14px]" />
           Schedule meeting
         </button>
       ) : null}
@@ -181,11 +183,11 @@ export function ContactEngagementPanel({
   const contactName = actions?.contactName?.trim() || 'this contact'
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <section className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Engagement cockpit</p>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
-          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{health}%</span>
+          <span className="text-sm font-medium text-[var(--color-pib-text)]">{health}%</span>
           {' '}
           <span className="text-[10px] uppercase tracking-[0.18em]">active</span>
         </p>
@@ -196,9 +198,9 @@ export function ContactEngagementPanel({
           Cadence, response depth, and the next relationship move in one view.
         </p>
 
-        <div className="h-1 overflow-hidden rounded-full bg-white/10">
+        <div className="h-1 overflow-hidden bg-white/10 rounded-md">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
+            className="h-full rounded-md bg-primary transition-all duration-500"
             style={{ width: `${health}%` }}
           />
         </div>
@@ -213,10 +215,10 @@ export function ContactEngagementPanel({
         {suggestion ? (
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
             <div className="flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-[16px] text-primary">tips_and_updates</span>
+              <Icon name="tips_and_updates" className="text-[16px] text-primary" />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
+                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
                   <span className={`pib-pill ${suggestion.urgency === 'high' ? 'pib-pill-danger' : suggestion.urgency === 'medium' ? 'pib-pill-warn' : 'pib-pill-accent'}`}>
                     {suggestion.urgency}
                   </span>
@@ -229,7 +231,7 @@ export function ContactEngagementPanel({
                     aria-label={`Start suggested action: ${suggestionActionLabel} for ${contactName}`}
                     className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
+                    <Icon name="play_arrow" className="text-[14px]" />
                     Start action
                   </button>
                 ) : null}
@@ -240,17 +242,12 @@ export function ContactEngagementPanel({
         ) : (
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
             <div className="flex items-start gap-2.5">
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
-              >
-                psychology
-              </span>
+              <Icon name="psychology" className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary" />
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
                   Next best action missing
                 </p>
-                <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Create the next relationship signal</h3>
+                <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Create the next relationship signal</h3>
                 <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.
                 </p>

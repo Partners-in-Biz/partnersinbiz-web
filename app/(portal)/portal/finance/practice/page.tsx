@@ -274,7 +274,7 @@ export default function FinancePracticePage() {
             : kind === 'reconciliation.awaiting_approval'
               ? 'Reconciliation awaiting approval'
               : 'Cutover package ready',
-        body: `Operator notification (${kind}) — in-app only, no external send.`,
+        body: `Operator notification (${kind}) - in-app only, no external send.`,
         href: '/portal/finance/practice',
         ...ids,
       })
@@ -316,7 +316,7 @@ export default function FinancePracticePage() {
       active="practice"
       orgScope={orgScope}
       title="Practice & roles"
-      description="Role matrix, multi-client switcher, firm→client grants (prepare/review/file-export), practice queue, polished notification centre, and dense audit explorer with CSV export. Tenant-scoped — no SARS submit, no payment initiate, no client mass email, packaging egress closed."
+      description="Role matrix, multi-client switcher, firm→client grants (prepare/review/file-export), practice queue, polished notification centre, and dense audit explorer with CSV export. Tenant-scoped - no SARS submit, no payment initiate, no client mass email, packaging egress closed."
       error={error}
       message={message}
       meta={
@@ -350,7 +350,7 @@ export default function FinancePracticePage() {
           <section className="grid gap-4 lg:grid-cols-2" data-testid="practice-switcher">
             <Card className="space-y-3 p-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Practice multi-client switcher</h2>
+                <h2 className="text-base">Practice multi-client switcher</h2>
                 <HudChip>X-Org-Id scoped</HudChip>
               </div>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -398,7 +398,7 @@ export default function FinancePracticePage() {
 
             <Card className="space-y-3 p-4" data-testid="practice-notifications" id="notifications">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Notification centre</h2>
+                <h2 className="text-base">Notification centre</h2>
                 <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" variant="secondary" disabled={busy || !orgId || unreadCount === 0} onClick={() => void markAllUnreadRead()}>
                     Mark all read
@@ -496,7 +496,7 @@ export default function FinancePracticePage() {
           <section className="grid gap-4 lg:grid-cols-2" data-testid="practice-grants" id="grants">
             <Card className="space-y-3 p-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Firm→client grants</h2>
+                <h2 className="text-base">Firm→client grants</h2>
                 <HudChip>Beyond membership</HudChip>
               </div>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -637,7 +637,7 @@ export default function FinancePracticePage() {
 
             <Card className="space-y-3 p-4" data-testid="practice-queue">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Practice queue</h2>
+                <h2 className="text-base">Practice queue</h2>
                 <HudChip>Attention first</HudChip>
               </div>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -670,7 +670,7 @@ export default function FinancePracticePage() {
               )}
               {(bundle?.grantAccessEvents ?? []).length > 0 && (
                 <div className="border-t border-[var(--color-pib-line)] pt-3" data-testid="practice-grant-access">
-                  <h3 className="text-sm font-semibold">Recent grant access audit</h3>
+                  <h3 className="text-sm">Recent grant access audit</h3>
                   <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-xs text-[var(--color-pib-text-muted)]">
                     {(bundle?.grantAccessEvents ?? []).slice(0, 12).map((e) => (
                       <li key={e.id}>
@@ -687,9 +687,9 @@ export default function FinancePracticePage() {
 
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="space-y-3 p-4" data-testid="practice-role-assign">
-              <h2 className="text-base font-semibold">Assign finance role</h2>
+              <h2 className="text-base">Assign finance role</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
-                finance_admin only. Bookkeeper cannot approve pay runs — policy matrix enforced on every command.
+                finance_admin only. Bookkeeper cannot approve pay runs - policy matrix enforced on every command.
               </p>
               <label className="block text-sm">
                 User id
@@ -759,7 +759,7 @@ export default function FinancePracticePage() {
               </Button>
 
               <div className="border-t border-[var(--color-pib-line)] pt-3">
-                <h3 className="text-sm font-semibold">Org assignments</h3>
+                <h3 className="text-sm">Org assignments</h3>
                 {(bundle?.assignments ?? []).length === 0 ? (
                   <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No assignments in this org.</p>
                 ) : (
@@ -787,13 +787,13 @@ export default function FinancePracticePage() {
 
             <Card className="space-y-3 p-4" data-testid="practice-audit-explorer" id="audit">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Audit explorer</h2>
+                <h2 className="text-base">Audit explorer</h2>
                 <Button size="sm" variant="primary" disabled={!orgId || auditEvents.length === 0} onClick={downloadAuditCsv} data-testid="practice-audit-export-csv">
                   Export CSV
                 </Button>
               </div>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
-                Density filters: actor, event type, legal entity. Rows are current-org only — cross-tenant never appears. CSV is a local download.
+                Density filters: actor, event type, legal entity. Rows are current-org only - cross-tenant never appears. CSV is a local download.
               </p>
               <div className="grid gap-2 sm:grid-cols-3" data-testid="practice-audit-filters">
                 <input
@@ -879,8 +879,9 @@ export default function FinancePracticePage() {
 
           <Card className="space-y-3 p-4" data-testid="practice-role-matrix">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">Role matrix</h2>
+              <h2 className="text-base">Role matrix</h2>
               <input
+                aria-label="Filter action or role"
                 className="w-full max-w-xs rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm sm:w-64"
                 placeholder="Filter action or role"
                 value={matrixQuery}

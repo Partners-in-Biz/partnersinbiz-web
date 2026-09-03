@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BlogReaderCard } from '@/components/campaign-preview'
 import { SocialPlatformCard } from '@/components/campaign-preview/pickSocialCard'
@@ -14,7 +15,7 @@ function brandFromCampaign(campaign: Record<string, unknown>): PreviewBrand | un
     const name = typeof campaign.name === 'string' ? campaign.name : undefined
     return name ? {
       name,
-      palette: { bg: '#0A0A0B', accent: '#F5A623', alert: '#F59E0B', text: '#EDEDED' },
+      palette: { bg: 'var(--sc-ink)', accent: 'var(--st-warning)', alert: '#F59E0B', text: '#EDEDED' },
     } : undefined
   }
   const raw = identity as Record<string, unknown>
@@ -24,14 +25,14 @@ function brandFromCampaign(campaign: Record<string, unknown>): PreviewBrand | un
   if (!palette || typeof palette.accent !== 'string') {
     return typeof campaign.name === 'string' ? {
       name: campaign.name,
-      palette: { bg: '#0A0A0B', accent: '#F5A623', alert: '#F59E0B', text: '#EDEDED' },
+      palette: { bg: 'var(--sc-ink)', accent: 'var(--st-warning)', alert: '#F59E0B', text: '#EDEDED' },
     } : undefined
   }
   return {
     name: typeof campaign.name === 'string' ? campaign.name : undefined,
     logoUrl: typeof raw.logoUrl === 'string' ? raw.logoUrl : undefined,
     palette: {
-      bg: typeof palette.bg === 'string' ? palette.bg : '#0A0A0B',
+      bg: typeof palette.bg === 'string' ? palette.bg : 'var(--sc-ink)',
       accent: palette.accent,
       alert: typeof palette.alert === 'string' ? palette.alert : '#F59E0B',
       text: typeof palette.text === 'string' ? palette.text : '#EDEDED',
@@ -104,9 +105,9 @@ export function CampaignContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-xl border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading campaign previews…
         </span>
       </div>
@@ -115,7 +116,7 @@ export function CampaignContextPreview({
 
   if (state === 'error') {
     return (
-      <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-4 text-xs text-amber-100">
+      <div role="status" className="rounded-[6px] border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-3 py-4 text-xs text-[var(--st-warning)]">
         The campaign preview is unavailable. Open the full campaign cockpit to continue.
       </div>
     )
@@ -146,11 +147,7 @@ export function CampaignContextPreview({
             aria-selected={filter === item.id}
             disabled={item.count === 0 && item.id !== 'all'}
             onClick={() => setFilter(item.id)}
-            className={`min-h-11 rounded-lg border px-2.5 text-[11px] xl:min-h-8 ${
-              filter === item.id
-                ? 'border-primary/40 bg-primary/15 font-semibold text-primary'
-                : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'
-            } disabled:opacity-40`}
+            className={`min-h-11 rounded-lg border px-2.5 text-[11px] xl:min-h-8 ${ filter === item.id ? 'border-primary/40 bg-primary/15 font-medium text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]' } disabled:opacity-40`}
           >
             {item.label} ({item.count})
           </button>
@@ -158,7 +155,7 @@ export function CampaignContextPreview({
       </div>
 
       {empty && (
-        <div className="rounded-xl border border-dashed border-[var(--color-card-border)] px-3 py-4 text-xs text-[var(--color-pib-text-muted)]">
+        <div className="rounded-[6px] border border-dashed border-[var(--color-card-border)] px-3 py-4 text-xs text-[var(--color-pib-text-muted)]">
           No campaign assets yet. Ask Maya to run the content engine or attach posts to this campaign.
         </div>
       )}

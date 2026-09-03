@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { WorkbenchFileNode, WorkbenchFilePreview } from '@/lib/messages/workbench/types'
+import { Icon } from '@/components/studio'
 
 function FileNodeRow({
   node,
@@ -40,15 +41,11 @@ function FileNodeRow({
         aria-pressed={isDirectory ? undefined : isSelected}
       >
         {isDirectory ? (
-          <span aria-hidden="true" className="material-symbols-outlined w-[15px] text-[15px] text-[var(--color-pib-text-muted)]">
-            {expanded ? 'expand_more' : 'chevron_right'}
-          </span>
+          <Icon name={expanded ? 'expand_more' : 'chevron_right'} className="w-[15px] text-[15px] text-[var(--color-pib-text-muted)]" />
         ) : (
           <span className="w-[15px] shrink-0" />
         )}
-        <span aria-hidden="true" className={`material-symbols-outlined text-[14px] ${isDirectory ? 'text-primary' : 'text-[var(--color-pib-text-muted)]'}`}>
-          {isDirectory ? 'folder' : 'description'}
-        </span>
+        <Icon name={isDirectory ? 'folder' : 'description'} className={`text-[14px] ${isDirectory ? 'text-primary' : 'text-[var(--color-pib-text-muted)]'}`} />
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
       </button>
       {isDirectory && expanded && node.children?.map((child) => (
@@ -99,7 +96,7 @@ function FilePreviewPane({
   return (
     <div className="flex min-h-0 flex-1 flex-col border-t border-[var(--color-card-border)]">
       <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--color-card-border)] px-2.5 py-1.5">
-        <span aria-hidden="true" className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">description</span>
+        <Icon name="description" className="text-[13px] text-[var(--color-pib-text-muted)]" />
         <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]">{preview.path}</span>
         {!preview.loading && !preview.error && onSave && !editing && (
           <button type="button" aria-label="Edit file" onClick={() => setEditing(true)} className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]">Edit</button>
@@ -117,7 +114,7 @@ function FilePreviewPane({
             {saveError && <p role="alert" className="text-[10px] text-red-300">{saveError}</p>}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => { setEditing(false); setDraft(preview.content ?? ''); setSaveError(null) }} className="rounded-md px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]">Cancel</button>
-              <button type="button" onClick={() => { void save() }} disabled={saveState === 'saving' || draft === (preview.content ?? '')} className="rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-black disabled:opacity-50">{saveState === 'saving' ? 'Saving…' : 'Approve & save'}</button>
+              <button type="button" onClick={() => { void save() }} disabled={saveState === 'saving' || draft === (preview.content ?? '')} className="rounded-md bg-primary px-2 py-1 text-[10px] text-black disabled:opacity-50">{saveState === 'saving' ? 'Saving…' : 'Approve & save'}</button>
             </div>
           </div>
         ) : (
@@ -144,7 +141,7 @@ export function WorkbenchFilesPanel({ tree, message, selectedPath, onSelectPath,
   if (tree.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-        <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">folder_off</span>
+        <Icon name="folder_off" className="text-[28px] text-[var(--color-pib-text-muted)]" />
         {message ? (
           <>
             <p className="text-xs font-medium text-red-200">Files could not be loaded</p>

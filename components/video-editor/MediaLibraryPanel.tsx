@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import { GlassBar } from '@/components/ui/HudChip'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
 import type { StockResult } from '@/lib/video-editor/stock'
 import type { EditorClip, EditorMediaKind, MediaRef, VideoEditorMediaPreview } from '@/lib/video-editor/types'
@@ -382,7 +381,7 @@ export function MediaLibraryPanel({
           <button
             key={source.id ?? url ?? title}
             type="button"
-            className="w-full rounded-lg border border-[var(--color-pib-line)] p-3 text-left text-sm hover:border-[var(--color-pib-primary)] disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-lg border border-[var(--color-pib-line)] p-3 text-left text-sm hover:border-[var(--sc-ink-soft)] disabled:cursor-not-allowed disabled:opacity-70"
             disabled={!media}
             title={disabledReason || `Add ${title} to the timeline`}
             onClick={() => media ? onAddClip(clipFromMedia(media)) : undefined}
@@ -404,7 +403,7 @@ export function MediaLibraryPanel({
                   const chip = preview.proxy
                     ? { label: 'Proxy ready', className: 'text-emerald-300 border-emerald-300/40' }
                     : preview.status === 'pending' || preview.status === 'processing'
-                      ? { label: 'Preparing preview...', className: 'text-amber-200 border-amber-200/40' }
+                      ? { label: 'Preparing preview...', className: 'text-[var(--sc-ink-soft)] border-amber-200/40' }
                       : { label: 'Original', className: 'text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)]' }
                   return (
                     <span data-testid={`proxy-chip-${source.id ?? ''}`} className={`mt-1 inline-block rounded border px-1.5 py-0.5 text-[10px] ${chip.className}`}>
@@ -412,7 +411,7 @@ export function MediaLibraryPanel({
                     </span>
                   )
                 })()}
-                {disabledReason ? <span className="mt-1 block text-xs text-amber-200">{disabledReason}</span> : null}
+                {disabledReason ? <span className="mt-1 block text-xs text-[var(--sc-ink-soft)]">{disabledReason}</span> : null}
               </span>
             </span>
           </button>
@@ -423,10 +422,8 @@ export function MediaLibraryPanel({
 
   return (
     <section className="pib-card-section space-y-3 p-3" data-module-accent="cyan">
-      <GlassBar className="items-center justify-between gap-2 p-2">
-        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Media</h2>
-        <button type="button" className="btn-pib-ghost btn-pib-sm font-label" onClick={onRefresh}>Refresh</button>
-      </GlassBar>
+      <h2 className="text-sm text-[var(--color-pib-text)]">Media</h2>
+      <button type="button" className="btn-pib-ghost btn-pib-sm font-label" onClick={onRefresh}>Refresh</button>
       <div role="tablist" aria-label="Media source tabs" className="flex flex-wrap gap-1 rounded-lg border border-[var(--color-pib-line)] p-1">
         {sourceTabLabels.map((tab) => (
           <button
@@ -434,7 +431,7 @@ export function MediaLibraryPanel({
             type="button"
             role="tab"
             aria-selected={activeTab === tab.id}
-            className={`rounded-md px-2 py-1 text-xs ${activeTab === tab.id ? 'bg-[var(--color-pib-line)] font-semibold text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
+            className={`rounded-md px-2 py-1 text-xs ${activeTab === tab.id ? 'bg-[var(--color-pib-line)]  text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
             onClick={() => setSelectedTab(tab.id)}
           >
             {tab.label}
@@ -449,7 +446,7 @@ export function MediaLibraryPanel({
               const file = event.target.files?.[0]
               if (file) void upload(file)
               event.currentTarget.value = ''
-            }} />
+            }}  aria-label="Upload file"/>
             {uploadState.message ? (
               <span
                 role="status"
@@ -474,14 +471,14 @@ export function MediaLibraryPanel({
               placeholder="Search stock"
               value={stockQuery}
               onChange={(event) => setStockQuery(event.target.value)}
-            />
-            <label className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+             aria-label="Search stock"/>
+            <label className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Stock kind
               <select
                 className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-2 text-sm normal-case text-[var(--color-pib-text)]"
                 value={stockKind}
                 onChange={(event) => setStockKind(event.target.value as StockSearchKind)}
-              >
+               aria-label="Input">
                 <option value="all">All</option>
                 <option value="image">Images</option>
                 <option value="video">Videos</option>
@@ -523,8 +520,8 @@ export function MediaLibraryPanel({
             placeholder="Describe the B-roll you need..."
             value={generatePrompt}
             onChange={(event) => setGeneratePrompt(event.target.value)}
-          />
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+           aria-label="Describe the B-roll you need..."/>
+          <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
             Image or video
             <select
               aria-label="Image or video"
@@ -537,13 +534,13 @@ export function MediaLibraryPanel({
             </select>
           </label>
           {generateKind === 'video' ? (
-            <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Duration
               <select
                 className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-2 text-sm normal-case text-[var(--color-pib-text)]"
                 value={generateDuration}
                 onChange={(event) => setGenerateDuration(Number(event.target.value))}
-              >
+               aria-label="Input">
                 <option value={4}>4 seconds</option>
                 <option value={8}>8 seconds</option>
               </select>
@@ -552,7 +549,7 @@ export function MediaLibraryPanel({
           <button type="button" className="btn-pib-primary btn-pib-sm font-label" disabled={generateBusy || !orgId} onClick={() => void generateMedia()}>
             {generateBusy ? 'Generating...' : 'Generate'}
           </button>
-          {!canvasId ? <p className="text-xs text-amber-200">This editor project is not linked to a Creative Canvas yet.</p> : null}
+          {!canvasId ? <p className="text-xs text-[var(--sc-ink-soft)]">This editor project is not linked to a Creative Canvas yet.</p> : null}
           {generateMessage ? <p role="status" className="text-xs text-[var(--color-pib-text-muted)]">{generateMessage}</p> : null}
         </div>
       ) : null}

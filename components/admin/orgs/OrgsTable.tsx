@@ -46,12 +46,12 @@ function zar(n: number): string {
 }
 
 function fmtDate(ms: number | null): string {
-  if (!ms) return '—'
+  if (!ms) return ' - '
   return new Date(ms).toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 function planLabel(plan: string): string {
-  if (!plan) return '—'
+  if (!plan) return ' - '
   return plan.charAt(0).toUpperCase() + plan.slice(1)
 }
 
@@ -180,14 +180,14 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-        <input
+        <input aria-label="Search by name or owner email"
           type="text"
           placeholder="Search by name or owner email..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           className="flex-1 min-w-[220px] px-4 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
         />
-        <select
+        <select aria-label="Search by name or owner email..."
           value={planFilter}
           onChange={(e) => { setPlanFilter(e.target.value); setPage(0) }}
           className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] focus:outline-none focus:border-[var(--color-accent-v2)]"
@@ -197,7 +197,7 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
             <option key={p} value={p}>{planLabel(p)}</option>
           ))}
         </select>
-        <select
+        <select aria-label="Status Filter"
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
           className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] focus:outline-none focus:border-[var(--color-accent-v2)]"
@@ -258,10 +258,10 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
                     ) : null}
                   </div>
                   <p className="text-sm text-[var(--color-pib-text-muted)] truncate" title={org.ownerEmail}>
-                    {org.ownerEmail || '—'}
+                    {org.ownerEmail || ' - '}
                   </p>
                   <p className="text-sm text-[var(--color-pib-text-muted)]">{planLabel(org.plan)}</p>
-                  <p className="text-sm text-[var(--color-pib-text)] text-right tabular-nums">{org.mrr > 0 ? zar(org.mrr) : '—'}</p>
+                  <p className="text-sm text-[var(--color-pib-text)] text-right tabular-nums">{org.mrr > 0 ? zar(org.mrr) : ' - '}</p>
                   <p className="text-sm text-[var(--color-pib-text-muted)] text-right tabular-nums">{org.contacts.toLocaleString('en-ZA')}</p>
                   <p className="text-sm text-[var(--color-pib-text-muted)] text-right tabular-nums">{org.sends30d.toLocaleString('en-ZA')}</p>
                   <p className="text-xs text-[var(--color-pib-text-muted)]">{fmtDate(org.createdAt)}</p>

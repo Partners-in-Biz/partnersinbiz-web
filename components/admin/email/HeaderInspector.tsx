@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 
 /**
  * Raw email header inspector. Paste a full set of RFC 5322 headers (e.g. the
- * "Show original" output from Gmail) and it surfaces the auth-results lines —
+ * "Show original" output from Gmail) and it surfaces the auth-results lines  - 
  * SPF, DKIM, DMARC, plus Return-Path / From / Message-ID. Pure client-side
  * parsing; nothing leaves the browser.
  */
@@ -74,8 +74,8 @@ function parseHeaders(raw: string): { auth: AuthLine[]; meta: { key: string; val
 
 const VERDICT_STYLE: Record<AuthLine['verdict'], string> = {
   pass: 'bg-green-500/10 text-green-400 border-green-500/30',
-  fail: 'bg-red-500/10 text-red-400 border-red-500/30',
-  neutral: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  fail: 'bg-red-500/10 text-[var(--st-danger)] border-red-500/30',
+  neutral: 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)] border-amber-500/30',
   none: 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)]',
   unknown: 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)]',
 }
@@ -87,13 +87,13 @@ export default function HeaderInspector() {
   return (
     <div className="pib-card p-5 space-y-4">
       <div>
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Raw header inspector</h2>
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">Raw header inspector</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Paste a message&apos;s full headers (Gmail &rarr; Show original) to read its SPF / DKIM /
-          DMARC auth results. Parsing is local — nothing is uploaded.
+          DMARC auth results. Parsing is local  -  nothing is uploaded.
         </p>
       </div>
-      <textarea
+      <textarea aria-label="Authentication-Results: mx.google.com;\n spf=pass ...; dkim=pass ...; dmarc=pass"
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
         placeholder={'Authentication-Results: mx.google.com;\n  spf=pass ...; dkim=pass ...; dmarc=pass ...'}

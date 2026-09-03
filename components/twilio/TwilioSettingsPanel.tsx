@@ -222,7 +222,7 @@ export function TwilioSettingsPanel({ orgId }: TwilioSettingsPanelProps) {
         </div>
       )}
 
-      {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-3 text-xs text-[var(--st-danger)]">{error}</p>}
       {feedback && <p className="mt-3 text-xs text-green-400">{feedback}</p>}
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ export function TwilioSettingsPanel({ orgId }: TwilioSettingsPanelProps) {
               ['defaultFromNumber', 'Default SMS from (E.164)', 'text'],
               ['whatsappFrom', 'WhatsApp from (E.164)', 'text'],
               ['voiceCallerId', 'Voice caller ID (E.164)', 'text'],
-              ['apiKeySid', 'API Key SID (SK…) — Voice softphone', 'text'],
+              ['apiKeySid', 'API Key SID (SK…)  -  Voice softphone', 'text'],
               ['apiKeySecret', 'API Key Secret', 'password'],
               ['twimlAppSid', 'TwiML App SID (AP…)', 'text'],
               ['verifyServiceSid', 'Verify Service SID (VA…)', 'text'],

@@ -5,8 +5,8 @@ import { use, useCallback, useEffect, useState } from 'react'
 import { AccessCodeForm } from '@/components/client-documents/share/AccessCodeForm'
 import { SignInForm } from '@/components/client-documents/share/SignInForm'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
-import { DocumentTheme } from '@/components/client-documents/theme/DocumentTheme'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
+import { Notice, Panel, Skeleton } from '@/components/studio'
 
 type State =
   | { kind: 'loading' }
@@ -49,36 +49,39 @@ export default function EditSharePage({ params }: { params: Promise<{ shareToken
 
   if (state.kind === 'loading') {
     return (
-      <DocumentTheme>
-        <div className="grid min-h-screen place-items-center text-[var(--doc-muted)]">Loading…</div>
-      </DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+        <Skeleton height={120} />
+      </main>
     )
   }
   if (state.kind === 'error') {
     return (
-      <DocumentTheme>
-        <div className="mx-auto mt-32 max-w-sm px-6 text-center text-[var(--doc-text)]">
-          <p>{state.message}</p>
-        </div>
-      </DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+        <Panel>
+          <h1 className="sc-article__h2">Link unavailable.</h1>
+          <div className="mt-4">
+            <Notice tone="danger">{state.message}</Notice>
+          </div>
+        </Panel>
+      </main>
     )
   }
   if (state.kind === 'need_code') {
     return (
-      <DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
         <AccessCodeForm editShareToken={shareToken} onSuccess={check} />
-      </DocumentTheme>
+      </main>
     )
   }
   if (state.kind === 'need_auth') {
     return (
-      <DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
         <SignInForm
           redirectUrl={`/d/${shareToken}/edit`}
           context={{ type: 'edit_share', editShareToken: shareToken }}
           onAuthenticated={check}
         />
-      </DocumentTheme>
+      </main>
     )
   }
   return <DocumentRenderer document={state.document} version={state.version} />

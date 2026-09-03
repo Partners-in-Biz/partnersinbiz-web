@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
 import { fetchSeo } from '@/components/seo/seoToolClient'
 import type { AuditCategory, AuditIssue, SiteAuditResult } from '@/lib/seo/onpage-audit'
+import { Icon } from '@/components/studio'
 
 type AuditDoc = {
   id: string
@@ -76,13 +77,13 @@ function ScoreRing({ score }: { score: number }) {
 
 function SeverityPill({ severity }: { severity: 'critical' | 'warning' | 'info' }) {
   const map = {
-    critical: 'bg-red-500/20 text-red-300 border-red-500/30',
-    warning: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    info: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    critical: 'bg-[color-mix(in_srgb,var(--st-danger)_20%,transparent)] text-[var(--st-danger)] border-[color-mix(in_srgb,var(--st-danger)_30%,transparent)]',
+    warning: 'bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)] text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_30%,transparent)]',
+    info: 'bg-[color-mix(in_srgb,var(--st-info)_20%,transparent)] text-[var(--st-info)] border-[color-mix(in_srgb,var(--st-info)_30%,transparent)]',
   }
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${map[severity]}`}
+      className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] uppercase tracking-wider ${map[severity]}`}
     >
       {severity}
     </span>
@@ -96,16 +97,16 @@ function BreakdownChips({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
-        <span className="material-symbols-outlined text-[14px]">error</span>
+      <span className="inline-flex items-center gap-1.5 rounded border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-300">
+        <Icon name="error" />
         {breakdown.critical} critical
       </span>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
-        <span className="material-symbols-outlined text-[14px]">warning</span>
+      <span className="inline-flex items-center gap-1.5 rounded border border-amber-500/30 bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] px-3 py-1 text-xs text-[var(--sc-ink-soft)]">
+        <Icon name="warning" />
         {breakdown.warning} warnings
       </span>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-        <span className="material-symbols-outlined text-[14px]">info</span>
+      <span className="inline-flex items-center gap-1.5 rounded border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
+        <Icon name="info" />
         {breakdown.info} info
       </span>
     </div>
@@ -215,15 +216,13 @@ export function AuditRunnerClient({
         activeSprintId={activeSprintId}
         action={
           activeSprintId ? (
-            <button
+            <button name="auditrunnerclient-action-36"
               onClick={runAudit}
               disabled={running}
               className="pib-btn-primary text-sm disabled:opacity-50"
             >
-              <span
-                className={`material-symbols-outlined text-[18px] ${running ? 'animate-spin' : ''}`}
-              >
-                {running ? 'autorenew' : 'radar'}
+              <span className={`inline-flex ${running ? 'animate-spin' : ''}`}>
+                <Icon name={running ? 'autorenew' : 'radar'} />
               </span>
               {running ? 'Auditing…' : 'Run new audit'}
             </button>
@@ -232,11 +231,9 @@ export function AuditRunnerClient({
       />
 
       {!activeSprintId && (
-        <div className="pib-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">
-            health_and_safety
-          </span>
-          <h3 className="font-headline text-lg font-semibold mt-3">No active sprint</h3>
+        <div className="st-panel p-10 text-center">
+          <Icon name="health_and_safety" />
+          <h3 className="font-headline text-lg mt-3">No active sprint</h3>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">
             Set up an SEO sprint first, then run a full site audit here.
           </p>
@@ -244,17 +241,15 @@ export function AuditRunnerClient({
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <span className="material-symbols-outlined text-[16px] align-middle mr-1.5">error</span>
+        <div className="border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <Icon name="error" />
           {error}
         </div>
       )}
 
       {running && (
-        <div className="pib-card p-10 text-center">
-          <span className="material-symbols-outlined animate-spin text-4xl text-[var(--color-pib-accent)]">
-            autorenew
-          </span>
+        <div className="st-panel p-10 text-center">
+          <Icon name="autorenew" className="animate-spin" />
           <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">
             Running audit on {activeSiteUrl}…
           </p>
@@ -265,7 +260,7 @@ export function AuditRunnerClient({
       )}
 
       {!running && displayScore !== undefined && displayBreakdown && (
-        <div className="pib-card p-5 flex flex-col items-center gap-5">
+        <div className="st-panel p-5 flex flex-col items-center gap-5">
           <ScoreRing score={displayScore} />
           <BreakdownChips breakdown={displayBreakdown} />
           {result && (
@@ -281,13 +276,13 @@ export function AuditRunnerClient({
             const catCritical = cat.issues.filter((i) => i.severity === 'critical').length
             const catWarning = cat.issues.filter((i) => i.severity === 'warning').length
             return (
-              <div key={cat.category} className="pib-card overflow-hidden">
-                <button
+              <div key={cat.category} className="st-panel overflow-hidden">
+                <button name="auditrunnerclient-action-37"
                   onClick={() => toggleCategory(cat.category)}
                   className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-[var(--color-pib-surface-2)] transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-semibold text-sm">{cat.category}</span>
+                    <span className="text-sm">{cat.category}</span>
                     <span className="pib-pill pib-pill-success text-[10px]">{cat.issues.length} issues</span>
                     {catCritical > 0 && (
                       <span className="pib-pill text-[10px] border-red-500/30 bg-red-500/10 text-red-300">
@@ -295,14 +290,12 @@ export function AuditRunnerClient({
                       </span>
                     )}
                     {catWarning > 0 && (
-                      <span className="pib-pill text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-300">
+                      <span className="pib-pill text-[10px] border-amber-500/30 bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] text-[var(--sc-ink-soft)]">
                         {catWarning} warnings
                       </span>
                     )}
                   </div>
-                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] flex-shrink-0">
-                    {isOpen ? 'expand_less' : 'expand_more'}
-                  </span>
+                  <Icon name={isOpen ? 'expand_less' : 'expand_more'} />
                 </button>
                 {isOpen && cat.issues.length > 0 && (
                   <div className="border-t border-[var(--color-pib-line)]">
@@ -325,7 +318,7 @@ export function AuditRunnerClient({
       {existingAudits.length > 0 && (
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">Audit history</h3>
+            <h3 className="text-sm">Audit history</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
               Click a past audit to view its breakdown.
             </p>
@@ -334,12 +327,12 @@ export function AuditRunnerClient({
             {existingAudits.map((audit) => {
               const isActive = selectedAudit?.id === audit.id
               return (
-                <button
+                <button name="auditrunnerclient-action-38"
                   key={audit.id}
                   onClick={() => selectAudit(audit)}
                   className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left text-sm transition-colors hover:bg-[var(--color-pib-surface-2)] ${
-                    isActive ? 'bg-[var(--color-pib-surface-2)]' : ''
-                  }`}
+ isActive ? 'bg-[var(--color-pib-surface-2)]' : ''
+ }`}
                 >
                   <div className="space-y-0.5">
                     <p className="font-medium">
@@ -363,7 +356,7 @@ export function AuditRunnerClient({
                   <div className="flex items-center gap-3">
                     {audit.onPageScore !== undefined && (
                       <span
-                        className="text-2xl font-bold tabular-nums"
+                        className="text-2xl tabular-nums"
                         style={{ color: scoreColor(audit.onPageScore) }}
                       >
                         {audit.onPageScore}
@@ -374,7 +367,7 @@ export function AuditRunnerClient({
                         <span className="text-[10px] text-red-300">
                           {audit.issueBreakdown.critical} critical
                         </span>
-                        <span className="text-[10px] text-amber-300">
+                        <span className="text-[10px] text-[var(--sc-ink-soft)]">
                           {audit.issueBreakdown.warning} warn
                         </span>
                       </div>

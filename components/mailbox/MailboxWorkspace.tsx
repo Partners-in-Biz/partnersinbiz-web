@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/AppFoundation'
@@ -425,7 +427,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 aria-label="Close email and return to workspace"
                 title="Close email"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
+                <Icon name="close" />
               </button>
             ) : null}
             <span className="truncate">{config.title}</span>
@@ -434,15 +436,15 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
         actions={
           <>
             <button type="button" className="btn-pib-secondary btn-pib-sm" onClick={() => loadMessages({ refresh: true }).catch((err) => { setError(err.message); setLoading(false) })}>
-              <span className="material-symbols-outlined text-[18px]">sync</span>
+              <Icon name="sync" />
               Refresh mail
             </button>
             <button type="button" className="btn-pib-secondary btn-pib-sm" onClick={() => setShowAccount((v) => !v)}>
-              <span className="material-symbols-outlined text-[18px]">add_link</span>
+              <Icon name="add_link" />
               Link account
             </button>
             <button type="button" className="btn-pib-primary btn-pib-sm" onClick={() => startCompose()}>
-              <span className="material-symbols-outlined text-[18px]">edit_square</span>
+              <Icon name="edit_square" />
               New email
             </button>
           </>
@@ -498,15 +500,15 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 }}
                 className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left ${folder === item.id ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
               >
-                <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                <Icon name={item.icon} />
                 <span className="flex-1">{item.label}</span>
                 {item.id === 'inbox' && unread > 0 ? <span className="pill !text-[10px]">{unread}</span> : null}
               </button>
             ))}
           </div>
           <div className="border-t border-[var(--color-pib-line)] pt-4 space-y-2">
-            <p className="eyebrow !text-[10px]">Accounts</p>
-            <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="pib-input w-full">
+            <p className="sc-tiny !text-[10px]">Accounts</p>
+            <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="pib-input w-full" aria-label="Input">
               <option value="all">All accounts</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>{account.emailAddress}</option>
@@ -517,7 +519,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 <div key={account.id} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs">
                   <div className="flex items-center gap-2">
                     <p className="min-w-0 flex-1 truncate font-medium">{account.displayName}</p>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${account.status === 'connected' ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-200'}`}>
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${account.status === 'connected' ? 'bg-emerald-500/10 text-emerald-200' : 'bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'}`}>
                       {account.provider === 'google' ? 'Google' : 'IMAP'}
                     </span>
                   </div>
@@ -561,7 +563,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
 
         <section className="bento-card !p-0 overflow-hidden">
           <div className="p-3 border-b border-[var(--color-pib-line)]">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search mail" className="pib-input w-full" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search mail" className="pib-input w-full"  aria-label="Search mail"/>
           </div>
           <div className="h-[calc(100dvh-12rem)] min-h-[560px] overflow-y-auto">
             {loading ? (
@@ -580,7 +582,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                 className={`w-full text-left px-4 py-3 border-b border-[var(--color-pib-line)] hover:bg-white/[0.03] ${selectedId === message.id && !showComposer ? 'bg-white/[0.05]' : ''}`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${message.read ? 'bg-transparent' : 'bg-[var(--color-pib-accent)]'}`} />
+                  <span className={`w-2 h-2 rounded ${message.read ? 'bg-transparent' : 'bg-[var(--color-pib-accent)]'}`} />
                   <p className="font-medium truncate flex-1">{folder === 'sent' || folder === 'drafts' ? message.to.join(', ') || 'No recipient' : message.from}</p>
                   <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatDate(messageDate(message))}</span>
                 </div>
@@ -641,14 +643,14 @@ function MessagePane({
       <div className="p-5 border-b border-[var(--color-pib-line)]">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold truncate">{message.subject || '(no subject)'}</h2>
+            <h2 className="text-xl truncate">{message.subject || '(no subject)'}</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
               {message.from} to {message.to.join(', ') || message.accountEmail}
             </p>
           </div>
           {isDraft && (
             <button type="button" className="btn-pib-secondary !py-2" onClick={onEditDraft}>
-              <span className="material-symbols-outlined text-[18px]">edit_square</span>
+              <Icon name="edit_square" />
               Edit
             </button>
           )}
@@ -661,7 +663,7 @@ function MessagePane({
         {message.attachments.length ? (
           <div className="mb-5 flex flex-wrap gap-2 whitespace-normal">
             {message.attachments.map((attachment) => (
-              <span key={`${attachment.name}-${attachment.sizeBytes}`} className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+              <span key={`${attachment.name}-${attachment.sizeBytes}`} className="rounded border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
                 {attachment.name} · {formatBytes(attachment.sizeBytes)}
               </span>
             ))}
@@ -717,22 +719,22 @@ function ComposerPanel({
     <form onSubmit={(e) => { e.preventDefault(); void onSend() }} className="flex h-full min-h-[560px] flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-4">
         <div>
-          <p className="eyebrow !text-[10px]">Compose</p>
-          <h2 className="text-lg font-semibold">New email</h2>
+          <p className="sc-tiny !text-[10px]">Compose</p>
+          <h2 className="text-lg">New email</h2>
         </div>
         <button type="button" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={onClose} title="Close compose">
-          <span className="material-symbols-outlined text-[20px]">close</span>
+          <Icon name="close" />
         </button>
       </div>
 
       <div className="grid flex-1 overflow-hidden xl:grid-cols-[1fr_210px]">
         <div className="flex min-w-0 flex-col overflow-y-auto p-5">
           <div className="grid gap-2 md:grid-cols-[minmax(180px,260px)_1fr]">
-            <select value={compose.accountId} onChange={(e) => setCompose((c) => ({ ...c, accountId: e.target.value }))} className="pib-input">
+            <select value={compose.accountId} onChange={(e) => setCompose((c) => ({ ...c, accountId: e.target.value }))} className="pib-input" aria-label="Input">
               <option value="">Choose sending account</option>
               {accounts.map((account) => <option key={account.id} value={account.id}>{account.emailAddress}</option>)}
             </select>
-            <input list={datalistId} value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
+            <input list={datalistId} value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input"  aria-label="To"/>
           </div>
           <datalist id={datalistId}>
             {recipientSuggestions.map((recipient) => (
@@ -746,7 +748,7 @@ function ComposerPanel({
                   key={`${recipient.type}-${recipient.id}-${recipient.email}-chip`}
                   type="button"
                   onClick={() => appendRecipient('to', recipient.email)}
-                  className="rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-accent)]/60 hover:text-[var(--color-pib-text)]"
+                  className="rounded border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-accent)]/60 hover:text-[var(--color-pib-text)]"
                   title={recipient.detail || recipient.type}
                 >
                   {recipient.label} · {recipient.email}
@@ -755,10 +757,10 @@ function ComposerPanel({
             </div>
           ) : null}
           <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <input list={datalistId} value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
-            <input list={datalistId} value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
+            <input list={datalistId} value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input"  aria-label="Cc"/>
+            <input list={datalistId} value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input"  aria-label="Bcc"/>
           </div>
-          <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full" />
+          <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full"  aria-label="Subject"/>
           <AttachmentPicker attachments={compose.attachments} onAdd={addAttachments} onRemove={(index) => setCompose((c) => ({ ...c, attachments: c.attachments.filter((_, i) => i !== index) }))} />
           <RichComposer
             value={compose.bodyHtml}
@@ -767,7 +769,7 @@ function ComposerPanel({
         </div>
 
         <aside className="border-t border-[var(--color-pib-line)] p-4 xl:border-l xl:border-t-0">
-          <p className="eyebrow !text-[10px] mb-3">Templates</p>
+          <p className="sc-tiny !text-[10px] mb-3">Templates</p>
           <div className="space-y-2">
             {EMAIL_TEMPLATES.map((template) => (
               <button
@@ -786,7 +788,7 @@ function ComposerPanel({
       <div className="flex justify-end gap-2 border-t border-[var(--color-pib-line)] px-5 py-4">
         <button type="button" onClick={onDraft} className="btn-pib-secondary">Save draft</button>
         <button type="submit" className="btn-pib-primary">
-          <span className="material-symbols-outlined text-[18px]">send</span>
+          <Icon name="send" />
           Send
         </button>
       </div>
@@ -832,18 +834,18 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
   return (
     <div className="mt-3 flex min-h-[360px] flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02]">
       <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] px-2 py-2">
-        <button type="button" className={`${buttonClass} font-bold`} onMouseDown={(e) => { e.preventDefault(); exec('bold') }} title="Bold">B</button>
+        <button type="button" className={`${buttonClass} `} onMouseDown={(e) => { e.preventDefault(); exec('bold') }} title="Bold">B</button>
         <button type="button" className={`${buttonClass} italic`} onMouseDown={(e) => { e.preventDefault(); exec('italic') }} title="Italic">I</button>
         <button type="button" className={`${buttonClass} underline`} onMouseDown={(e) => { e.preventDefault(); exec('underline') }} title="Underline">U</button>
         <span className="mx-1 h-5 w-px bg-[var(--color-pib-line)]" />
         <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); exec('insertUnorderedList') }} title="Bulleted list">
-          <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+          <Icon name="format_list_bulleted" />
         </button>
         <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); exec('insertOrderedList') }} title="Numbered list">
-          <span className="material-symbols-outlined text-[18px]">format_list_numbered</span>
+          <Icon name="format_list_numbered" />
         </button>
         <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); openLinkPanel() }} title="Insert link" aria-label="Insert link">
-          <span className="material-symbols-outlined text-[18px]">link</span>
+          <Icon name="link" />
         </button>
       </div>
       {showLinkPanel && (
@@ -855,7 +857,7 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="min-w-0 flex-1">
-              <p id="email-link-panel-title" className="eyebrow !text-[10px]">Insert email link</p>
+              <p id="email-link-panel-title" className="sc-tiny !text-[10px]">Insert email link</p>
               <label htmlFor="email-link-url" className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]">
                 URL to link
               </label>
@@ -865,7 +867,7 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
                 onChange={(event) => setLinkUrl(event.target.value)}
                 className="pib-input mt-1 w-full"
                 inputMode="url"
-              />
+               aria-label="Input"/>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -914,19 +916,19 @@ function AttachmentPicker({
     <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="eyebrow !text-[10px]">Attachments</p>
+          <p className="sc-tiny !text-[10px]">Attachments</p>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Up to 5 files, 10 MB total.</p>
         </div>
         <label className="btn-pib-secondary cursor-pointer text-xs">
-          <span className="material-symbols-outlined text-[16px]">attach_file</span>
+          <Icon name="attach_file" />
           Attach files
-          <input type="file" multiple className="sr-only" onChange={(event) => { void onAdd(event.target.files); event.currentTarget.value = '' }} />
+          <input type="file" multiple className="sr-only" onChange={(event) => { void onAdd(event.target.files); event.currentTarget.value = '' }}  aria-label="Upload file"/>
         </label>
       </div>
       {attachments.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {attachments.map((attachment, index) => (
-            <span key={`${attachment.name}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span key={`${attachment.name}-${index}`} className="inline-flex items-center gap-2 rounded border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
               {attachment.name} · {formatBytes(attachment.sizeBytes)}
               <button type="button" onClick={() => onRemove(index)} className="text-[var(--color-pib-text-muted)] hover:text-red-200" aria-label={`Remove ${attachment.name}`}>
                 ×
@@ -963,7 +965,7 @@ function formatBytes(value: number) {
 function IconButton({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
     <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]" title={title} onClick={onClick}>
-      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      <Icon name="icon" />
     </button>
   )
 }
@@ -972,7 +974,7 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
   return (
     <label className="block text-sm">
       <span className="text-[var(--color-pib-text-muted)]">{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="pib-input w-full mt-1" />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="pib-input w-full mt-1"  aria-label="Input"/>
     </label>
   )
 }

@@ -25,7 +25,7 @@ export function PipPresencePill({ lastRunAt, nowAt }: PipPresencePillProps) {
   }
   return (
     <span className={pill}>
-      <span className={`h-2 w-2 rounded-full ${color}`} />
+      <span className={`h-2 w-2 ${color}`} style={{ borderRadius: '50%' }} />
       {label}
     </span>
   )

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Sequence, SequenceStep, SequenceStatus } from '@/lib/sequences/types'
 import { validateSequenceActivation } from '@/lib/sequences/validation'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 // ── Input class helper ────────────────────────────────────────────────────────
 
@@ -66,9 +67,9 @@ function StepRow({
             disabled={index === 0}
             title="Move up"
             aria-label={`Move step ${stepNumber} up`}
-            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_upward</span>
+            <Icon name="arrow_upward" className="text-[14px]" />
           </button>
           <button
             type="button"
@@ -76,18 +77,18 @@ function StepRow({
             disabled={index === total - 1}
             title="Move down"
             aria-label={`Move step ${stepNumber} down`}
-            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_downward</span>
+            <Icon name="arrow_downward" className="text-[14px]" />
           </button>
           <button
             type="button"
             onClick={onRemove}
             title="Remove step"
             aria-label={`Remove step ${stepNumber}`}
-            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-container)] transition-colors"
+            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-container)] transition-colors"
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">close</span>
+            <Icon name="close" className="text-[14px]" />
           </button>
         </div>
       </div>
@@ -339,10 +340,10 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
       <div className="border-b border-[var(--color-pib-line)] p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Journey identity</p>
-            <h2 className="mt-2 text-sm font-semibold">Name the follow-up outcome</h2>
+            <p className="sc-tiny !text-[10px]">Journey identity</p>
+            <h2 className="mt-2 text-sm">Name the follow-up outcome</h2>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">route</span>
+          <Icon name="route" className="text-[18px] text-[var(--color-pib-text-muted)]" />
         </div>
 
         <div className="space-y-3">
@@ -394,8 +395,8 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
       <div className="p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Journey steps</p>
-            <h2 className="mt-2 text-sm font-semibold">Design the touchpoint path</h2>
+            <p className="sc-tiny !text-[10px]">Journey steps</p>
+            <h2 className="mt-2 text-sm">Design the touchpoint path</h2>
           </div>
           <span className="pib-pill px-2 py-1 text-[10px]">
             {readySteps}/{steps.length} ready
@@ -426,7 +427,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
           onClick={addStep}
           className="btn-pib-secondary mt-3 h-8 gap-1.5 px-2 text-xs"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+          <Icon name="add" className="text-[16px]" />
           Add step
         </button>
       </div>
@@ -434,7 +435,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
       {/* ── Validation / save errors ── */}
       {(validationError ?? saveError) && (
         <p className="text-sm text-[var(--color-error)] flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">error</span>
+          <Icon name="error" className="text-[16px]" />
           {validationError ?? saveError}
         </p>
       )}
@@ -447,7 +448,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
           disabled={saving}
           className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+          <Icon name="save" className="text-[16px]" />
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create sequence'}
         </button>
         <button
@@ -463,36 +464,36 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
 
       <aside className="pib-surface overflow-hidden xl:sticky xl:top-4 xl:self-start">
         <div className="border-b border-[var(--color-pib-line)] p-4">
-          <p className="eyebrow !text-[10px]">Sequence preview</p>
-          <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled sequence'}</h2>
+          <p className="sc-tiny !text-[10px]">Sequence preview</p>
+          <h2 className="mt-2 text-sm">{name.trim() || 'Untitled sequence'}</h2>
           <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
             {status === 'active' ? 'Active' : status === 'paused' ? 'Paused' : 'Draft'} journey with{' '}
             <span className="text-[var(--color-pib-text)]">{steps.length} step{steps.length === 1 ? '' : 's'}</span> over{' '}
             <span className="text-[var(--color-pib-text)]">{describeCadence(steps)}</span>.
           </p>
-          <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--color-pib-line)] rounded-2xl border border-[var(--color-pib-line)]">
+          <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--color-pib-line)] rounded-[6px] border border-[var(--color-pib-line)]">
             <div className="px-2 py-2">
               <p className="pib-label mb-0">Ready</p>
-              <p className="mt-1 text-lg font-semibold">{readySteps}</p>
+              <p className="mt-1 text-lg">{readySteps}</p>
             </div>
             <div className="px-2 py-2">
               <p className="pib-label mb-0">Email</p>
-              <p className="mt-1 text-lg font-semibold">{emailSteps}</p>
+              <p className="mt-1 text-lg">{emailSteps}</p>
             </div>
             <div className="px-2 py-2">
               <p className="pib-label mb-0">SMS</p>
-              <p className="mt-1 text-lg font-semibold">{smsSteps}</p>
+              <p className="mt-1 text-lg">{smsSteps}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4">
-          <p className="eyebrow !text-[10px]">First touch</p>
+          <p className="sc-tiny !text-[10px]">First touch</p>
           <p className="mt-3 line-clamp-3 text-sm">{firstTouch}</p>
           <div className="mt-4 space-y-2">
             {steps.map((step, index) => (
               <div key={`${step.stepNumber}-${index}`} className="flex items-center gap-3 border-b border-[var(--color-pib-line)] px-2 py-2 last:border-b-0">
-                <span className="pib-icon-tint flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px]">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px]">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">

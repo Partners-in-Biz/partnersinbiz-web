@@ -86,7 +86,7 @@ function CharacterNodeComponent({ data, selected }: NodeProps) {
             fontSize: 12,
             padding: 8,
           }}
-        />
+         aria-label="Describe the character…"/>
       </div>
     </BaseNodeCard>
   )

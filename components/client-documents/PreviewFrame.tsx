@@ -28,17 +28,17 @@ export function PreviewFrame({
     <>
       <div
         data-testid="document-preview-toolbar"
-        className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:mb-6 md:px-8"
+        className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-4 py-3 md:-mx-8 md:mb-6 md:px-8"
       >
         <div className="mx-auto flex max-w-[1400px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href={backHref}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur hover:bg-black/85 sm:justify-start"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-black/70 px-4 py-2 text-xs font-medium uppercase tracking-wider text-white hover:bg-black/85 sm:justify-start"
           >
             <span aria-hidden>←</span> Back to editor
           </Link>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
-            <span className="min-h-10 max-w-full rounded-full bg-black/70 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur">
+            <span className="min-h-10 max-w-full rounded-md bg-black/70 px-4 py-2 text-xs font-medium uppercase tracking-wider text-white">
               {versionLabel}
             </span>
             {shareUrl && (
@@ -46,7 +46,7 @@ export function PreviewFrame({
                 href={shareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-10 max-w-full items-center justify-center rounded-full bg-[var(--color-pib-accent)] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-[var(--color-pib-accent-hover)]"
+                className="inline-flex min-h-10 max-w-full items-center justify-center rounded-md bg-[var(--color-pib-accent)] px-4 py-2 text-xs font-medium uppercase tracking-wider text-black hover:bg-[var(--color-pib-accent-hover)]"
               >
                 Client-facing share link →
               </Link>

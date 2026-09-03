@@ -69,9 +69,9 @@ function money(amount: number, currency: string): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'pib-pill-cyan',
-  resolved: 'pib-pill-success',
-  suspended: 'pib-pill-danger',
+  active: 'st-status st-status--info',
+  resolved: 'st-status st-status--success',
+  suspended: 'st-status st-status--danger',
 }
 
 function emptyStage(): Stage {
@@ -187,11 +187,11 @@ export default function DunningPage() {
       <PageHeader
         accent="cyan"
         eyebrow="Billing / Dunning"
-        title="Dunning — EFT reminders"
-        description="These are EFT payment-reminder sequences. There are no card retries — when an invoice is overdue we email the client on a schedule. The final stage can suspend the org's subscription until they pay."
+        title="Dunning - EFT reminders"
+        description="These are EFT payment-reminder sequences. There are no card retries - when an invoice is overdue we email the client on a schedule. The final stage can suspend the org's subscription until they pay."
         actions={
           <button
-            className="btn-pib-primary btn-pib-sm whitespace-nowrap"
+            className="st-btn st-btn--primary st-btn--sm whitespace-nowrap"
             onClick={runNow}
             disabled={running || loading}
           >
@@ -201,19 +201,19 @@ export default function DunningPage() {
       />
 
       {topError && (
-        <div className="pib-card border-red-500/40 bg-red-500/5 p-4 text-sm text-red-400">
+        <div className="st-panel border-red-500/40 bg-red-500/5 p-4 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
       {notice && (
-        <div className="pib-card border-green-500/40 bg-green-500/5 p-4 text-sm text-green-400">
+        <div className="st-panel border-green-500/40 bg-green-500/5 p-4 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {runSummary && (
-        <div className="pib-card p-4 text-sm text-on-surface">
-          <div className="font-semibold mb-2">Last run</div>
+        <div className="st-panel p-4 text-sm text-on-surface">
+          <div className="font-medium mb-2">Last run</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <Stat label="Overdue invoices" value={runSummary.overdueInvoices} />
             <Stat label="New sequences" value={runSummary.sequencesCreated} />
@@ -226,7 +226,7 @@ export default function DunningPage() {
           </div>
           {!runSummary.active && (
             <p className="text-xs text-on-surface/60 mt-3">
-              Dunning is currently inactive — only paid sequences were resolved. Turn it on below to
+              Dunning is currently inactive - only paid sequences were resolved. Turn it on below to
               send reminders.
             </p>
           )}
@@ -234,9 +234,9 @@ export default function DunningPage() {
       )}
 
       {/* Reminder schedule editor */}
-      <section className="pib-card p-5 space-y-5">
+      <section className="st-panel p-5 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h2 className="text-lg font-semibold text-on-surface">Reminder schedule</h2>
+          <h2 className="text-lg font-medium text-on-surface">Reminder schedule</h2>
           <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
             <input
               type="checkbox"
@@ -270,18 +270,19 @@ export default function DunningPage() {
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-2 text-sm text-on-surface">
                     <span className="font-medium">Stage {i + 1}</span>
-                    <span className="text-on-surface/50">— fires</span>
+                    <span className="text-on-surface/50">- fires</span>
                     <input
                       type="number"
                       min={0}
-                      className="pib-input w-20"
+                      className="st-input w-20"
                       value={stage.daysAfterDue}
                       onChange={(e) => updateStage(i, { daysAfterDue: Number(e.target.value) })}
+                      aria-label={`Stage ${i + 1} days after due`}
                     />
                     <span className="text-on-surface/50">days after due</span>
                   </div>
                   <button
-                    className="pib-btn-ghost text-red-400 text-xs"
+                    className="st-btn st-btn--ghost text-[var(--st-danger)] text-xs"
                     onClick={() => removeStage(i)}
                   >
                     Remove
@@ -291,20 +292,22 @@ export default function DunningPage() {
                 <div>
                   <label className="block text-xs text-on-surface/60 mb-1">Subject</label>
                   <input
-                    className="pib-input w-full"
+                    className="st-input w-full"
                     value={stage.subject}
                     placeholder="Reminder: invoice {{invoiceNumber}} is overdue"
                     onChange={(e) => updateStage(i, { subject: e.target.value })}
+                    aria-label={`Stage ${i + 1} subject`}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs text-on-surface/60 mb-1">Body</label>
                   <textarea
-                    className="pib-input w-full min-h-[120px]"
+                    className="st-input w-full min-h-[120px]"
                     value={stage.body}
                     placeholder="Hi {{orgName}}, invoice {{invoiceNumber}} for {{amount}} is overdue…"
                     onChange={(e) => updateStage(i, { body: e.target.value })}
+                    aria-label={`Stage ${i + 1} body`}
                   />
                 </div>
 
@@ -325,15 +328,15 @@ export default function DunningPage() {
           <button className="pib-btn-secondary" onClick={addStage} disabled={loading}>
             Add stage
           </button>
-          <button className="pib-btn-primary" onClick={save} disabled={saving || loading}>
+          <button className="st-btn st-btn--primary" onClick={save} disabled={saving || loading}>
             {saving ? 'Saving…' : 'Save schedule'}
           </button>
         </div>
       </section>
 
       {/* Active sequences */}
-      <section className="pib-card p-5 space-y-4">
-        <h2 className="text-lg font-semibold text-on-surface">Active sequences</h2>
+      <section className="st-panel p-5 space-y-4">
+        <h2 className="text-lg font-medium text-on-surface">Active sequences</h2>
         {loading ? (
           <Skeleton className="h-24 w-full" />
         ) : sequences.length === 0 ? (
@@ -357,7 +360,7 @@ export default function DunningPage() {
                     <td className="py-2 pr-4">{s.invoiceNumber}</td>
                     <td className="py-2 pr-4">{s.currentStage}</td>
                     <td className="py-2 pr-4">
-                      <span className={`pib-pill ${STATUS_STYLES[s.status] ?? ''}`}>
+                      <span className={`st-status ${STATUS_STYLES[s.status] ?? ''}`}>
                         {s.status}
                       </span>
                     </td>
@@ -371,8 +374,8 @@ export default function DunningPage() {
       </section>
 
       {/* Overdue invoices not yet in a sequence */}
-      <section className="pib-card p-5 space-y-4">
-        <h2 className="text-lg font-semibold text-on-surface">Overdue — not yet in a sequence</h2>
+      <section className="st-panel p-5 space-y-4">
+        <h2 className="text-lg font-medium text-on-surface">Overdue - not yet in a sequence</h2>
         {loading ? (
           <Skeleton className="h-24 w-full" />
         ) : overdue.length === 0 ? (
@@ -414,7 +417,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
       <div className="text-on-surface/50">{label}</div>
-      <div className="text-base font-semibold text-on-surface">{value}</div>
+      <div className="text-base font-medium text-on-surface">{value}</div>
     </div>
   )
 }

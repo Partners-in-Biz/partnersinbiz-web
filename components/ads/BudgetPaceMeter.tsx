@@ -13,12 +13,12 @@ export function BudgetPaceMeter({ percent, capCents, spendCents, currencyCode = 
     percent >= 100
       ? 'bg-red-500'
       : percent >= 90
-      ? 'bg-amber-500'
+      ? 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]'
       : percent >= 75
       ? 'bg-yellow-500'
       : 'bg-emerald-500'
   const fmt = (cents: number | undefined) => {
-    if (typeof cents !== 'number') return '—'
+    if (typeof cents !== 'number') return ' - '
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(
       cents / 100,
     )
@@ -29,11 +29,11 @@ export function BudgetPaceMeter({ percent, capCents, spendCents, currencyCode = 
         <span>
           {fmt(spendCents)} / {fmt(capCents)}
         </span>
-        <span className={percent >= 100 ? 'text-red-400 font-semibold' : ''}>
+        <span className={percent >= 100 ? 'text-[var(--st-danger)] font-medium' : ''}>
           {percent.toFixed(1)}%
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+      <div className="h-2 w-full bg-white/10 overflow-hidden rounded-md">
         <div className={`h-full ${color} transition-all`} style={{ width: `${clamped}%` }} />
       </div>
     </div>

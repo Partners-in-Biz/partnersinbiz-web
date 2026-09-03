@@ -582,15 +582,15 @@ export default function OrgSettingsPage() {
               Map multiple Google Drive folders to each workspace/resource. PiB visibility controls what admins, agents, and clients can see; Drive ACLs remain the binary asset source-of-truth guardrail.
             </p>
           </div>
-          <span className="rounded-full bg-[var(--color-pib-surface-2)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+          <span className="rounded-md bg-[var(--color-pib-surface-2)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             Portal exposure deferred
           </span>
         </div>
         <div className="border-t border-[var(--color-pib-line)]/50 p-4">
-          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] p-4">
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Required Google OAuth setup</h2>
+                <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Required Google OAuth setup</h2>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Prepare the workspace OAuth records admins need before adding Drive folders. The buttons do not expose raw tokens; they create auditable registry records and start the approved Google authorization flow.
                 </p>
@@ -628,10 +628,10 @@ export default function OrgSettingsPage() {
           </div>
         </div>
         <div className="border-t border-[var(--color-pib-line)]/50 p-4">
-          <div className="rounded-xl border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
+          <div className="rounded-md border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Personal X MCP account</h2>
+                <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Personal X MCP account</h2>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Register the hosted X MCP as a per-user connection so agents can work with the signed-in user’s own X permissions, including bookmarks, searches, posts, news, and article drafts. PiB stores setup metadata only; xurl handles OAuth and token refresh in the user’s MCP client. This admin card is a fallback; users should normally start from Portal → Personal → Accounts.
                 </p>
@@ -662,9 +662,9 @@ export default function OrgSettingsPage() {
           </div>
         </div>
         <form onSubmit={handleAddFolderMapping} className="border-t border-[var(--color-pib-line)]/50 p-4">
-          <div className="rounded-xl border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
+          <div className="rounded-md border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Add Drive folder mapping</h2>
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Add Drive folder mapping</h2>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Paste a Google Drive folder URL, choose whether it belongs to the selected workspace or a CRM company, and keep app visibility separate from Drive sharing.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -721,8 +721,8 @@ export default function OrgSettingsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{folder.name}</h2>
-                    <span className="rounded-full pib-pill pib-pill-cyan">{folder.resourceType || 'workspace'}</span>
+                    <h2 className="text-sm font-medium text-[var(--color-pib-text)]">{folder.name}</h2>
+                    <span className="rounded-md pib-pill pib-pill-cyan">{folder.resourceType || 'workspace'}</span>
                     {folder.resourceId && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Linked ID: {folder.resourceId}</span>}
                     {folder.resourceType === 'crm_company' && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Company: {crmCompanies.find(company => company.id === folder.resourceId)?.name || folder.resourceId}</span>}
                     {folder.parentId && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Parent: {folder.parentId}</span>}
@@ -764,8 +764,8 @@ export default function OrgSettingsPage() {
                 </div>
                 <div>
                   <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Path hints</p>
-                  <p className="mt-1 text-[var(--color-pib-text-muted)]">VPS: {folder.paths.vpsPath || '—'}</p>
-                  <p className="text-[var(--color-pib-text-muted)]">Local: {folder.paths.localPathHint || '—'}</p>
+                  <p className="mt-1 text-[var(--color-pib-text-muted)]">VPS: {folder.paths.vpsPath || ' - '}</p>
+                  <p className="text-[var(--color-pib-text-muted)]">Local: {folder.paths.localPathHint || ' - '}</p>
                 </div>
                 <div>
                   <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Tags / permissions</p>
@@ -776,7 +776,7 @@ export default function OrgSettingsPage() {
             </div>
           ))}
         </div>
-        {folderNotice && <div className="border-t border-[var(--color-pib-line)]/50 p-4 text-sm text-[var(--color-pib-green)]">{folderNotice}</div>}
+        {folderNotice && <div className="border-t border-[var(--color-pib-line)]/50 p-4 text-sm text-[var(--st-success)]">{folderNotice}</div>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
@@ -785,24 +785,24 @@ export default function OrgSettingsPage() {
           <p className="pib-label">General</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="pib-label">Organisation Name</label>
-              <input value={form.name} onChange={e => update('name', e.target.value)} className="pib-input" placeholder="Acme Corp" />
+              <label htmlFor="fld-organisation-name" className="pib-label">Organisation Name</label>
+              <input id="fld-organisation-name" aria-label="Organisation Name" value={form.name} onChange={e => update('name', e.target.value)} className="pib-input" placeholder="Acme Corp" />
             </div>
             <div>
-              <label className="pib-label">Website</label>
-              <input value={form.website} onChange={e => update('website', e.target.value)} className="pib-input" placeholder="https://acme.com" />
+              <label htmlFor="fld-website" className="pib-label">Website</label>
+              <input id="fld-website" aria-label="Website" value={form.website} onChange={e => update('website', e.target.value)} className="pib-input" placeholder="https://acme.com" />
             </div>
             <div className="col-span-2">
-              <label className="pib-label">Description</label>
-              <textarea value={form.description} onChange={e => update('description', e.target.value)} className="pib-textarea" rows={3} placeholder="Brief description of the organisation" />
+              <label htmlFor="fld-description" className="pib-label">Description</label>
+              <textarea id="fld-description" aria-label="Description" value={form.description} onChange={e => update('description', e.target.value)} className="pib-textarea" rows={3} placeholder="Brief description of the organisation" />
             </div>
             <div>
-              <label className="pib-label">Industry</label>
-              <input value={form.industry} onChange={e => update('industry', e.target.value)} className="pib-input" placeholder="e.g. Technology" />
+              <label htmlFor="fld-industry" className="pib-label">Industry</label>
+              <input id="fld-industry" aria-label="Industry" value={form.industry} onChange={e => update('industry', e.target.value)} className="pib-input" placeholder="e.g. Technology" />
             </div>
             <div>
-              <label className="pib-label">Status</label>
-              <select value={form.status} onChange={e => update('status', e.target.value)} className="pib-select">
+              <label htmlFor="fld-status" className="pib-label">Status</label>
+              <select id="fld-status" aria-label="Status" value={form.status} onChange={e => update('status', e.target.value)} className="pib-select">
                 <option value="active">Active</option>
                 <option value="onboarding">Onboarding</option>
                 <option value="suspended">Suspended</option>
@@ -810,12 +810,12 @@ export default function OrgSettingsPage() {
               </select>
             </div>
             <div>
-              <label className="pib-label">Billing Email</label>
-              <input type="email" value={form.billingEmail} onChange={e => update('billingEmail', e.target.value)} className="pib-input" placeholder="billing@company.com" />
+              <label htmlFor="fld-billing-email" className="pib-label">Billing Email</label>
+              <input id="fld-billing-email" aria-label="Billing Email" type="email" value={form.billingEmail} onChange={e => update('billingEmail', e.target.value)} className="pib-input" placeholder="billing@company.com" />
             </div>
             <div>
-              <label className="pib-label">Notification Email</label>
-              <input type="email" value={form.notificationEmail} onChange={e => update('notificationEmail', e.target.value)} className="pib-input" placeholder="notify@company.com" />
+              <label htmlFor="fld-notification-email" className="pib-label">Notification Email</label>
+              <input id="fld-notification-email" aria-label="Notification Email" type="email" value={form.notificationEmail} onChange={e => update('notificationEmail', e.target.value)} className="pib-input" placeholder="notify@company.com" />
             </div>
             <div className="col-span-2 flex items-center gap-3">
               <input
@@ -830,8 +830,8 @@ export default function OrgSettingsPage() {
               </label>
             </div>
             <div>
-              <label className="pib-label">Timezone</label>
-              <select value={form.timezone} onChange={e => update('timezone', e.target.value)} className="pib-select">
+              <label htmlFor="fld-timezone" className="pib-label">Timezone</label>
+              <select id="fld-timezone" aria-label="Timezone" value={form.timezone} onChange={e => update('timezone', e.target.value)} className="pib-select">
                 <option value="Africa/Johannesburg">Africa/Johannesburg (SAST, UTC+2)</option>
                 <option value="America/Chicago">America/Chicago (CST, UTC-6)</option>
                 <option value="America/Denver">America/Denver (MST, UTC-7)</option>
@@ -852,8 +852,8 @@ export default function OrgSettingsPage() {
               </select>
             </div>
             <div>
-              <label className="pib-label">Currency</label>
-              <select value={form.currency} onChange={e => update('currency', e.target.value as OrgForm['currency'])} className="pib-select">
+              <label htmlFor="fld-currency" className="pib-label">Currency</label>
+              <select id="fld-currency" aria-label="Currency" value={form.currency} onChange={e => update('currency', e.target.value as OrgForm['currency'])} className="pib-select">
                 <option value="ZAR">ZAR (R)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
@@ -880,7 +880,7 @@ export default function OrgSettingsPage() {
               className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">Mobile Apps</span>
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">Mobile Apps</span>
               <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Show App Store and Google Play review links, release notes, and app feedback tools for this selected org only after PiB operator review.
               </span>
@@ -896,7 +896,7 @@ export default function OrgSettingsPage() {
               className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">YouTube Studio</span>
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">YouTube Studio</span>
               <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Show channel video requests, draft reviews, publishing packet approvals, and client-safe YouTube analytics.
               </span>
@@ -912,7 +912,7 @@ export default function OrgSettingsPage() {
               className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">Book Studio</span>
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">Book Studio</span>
               <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Expose Book Studio for this selected org only after the approved Phase 1 runtime foundation is enabled. Disabled is the safe default.
               </span>
@@ -925,8 +925,8 @@ export default function OrgSettingsPage() {
           <p className="pib-label">Email send-time</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="pib-label">Preferred send hour (local)</label>
-              <select
+              <label htmlFor="fld-preferred-send-hour-local" className="pib-label">Preferred send hour (local)</label>
+              <select id="fld-preferred-send-hour-local" aria-label="Preferred send hour (local)"
                 value={form.preferredSendHourLocal}
                 onChange={e => update('preferredSendHourLocal', parseInt(e.target.value, 10))}
                 className="pib-select"
@@ -976,8 +976,8 @@ export default function OrgSettingsPage() {
               </p>
             </div>
             <div className="col-span-2">
-              <label className="pib-label">Reply notification recipients</label>
-              <input
+              <label htmlFor="fld-reply-notification-recipients" className="pib-label">Reply notification recipients</label>
+              <input id="fld-reply-notification-recipients" aria-label="Reply notification recipients"
                 value={form.replyNotifyEmails}
                 onChange={e => update('replyNotifyEmails', e.target.value)}
                 className="pib-input"
@@ -995,28 +995,28 @@ export default function OrgSettingsPage() {
           <p className="pib-label">Billing Address</p>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="pib-label">Street Address</label>
-              <input value={form.line1} onChange={e => update('line1', e.target.value)} className="pib-input" placeholder="123 Main Street" />
+              <label htmlFor="fld-street-address" className="pib-label">Street Address</label>
+              <input id="fld-street-address" aria-label="Street Address" value={form.line1} onChange={e => update('line1', e.target.value)} className="pib-input" placeholder="123 Main Street" />
             </div>
             <div className="col-span-2">
-              <label className="pib-label">Address Line 2</label>
-              <input value={form.line2} onChange={e => update('line2', e.target.value)} className="pib-input" placeholder="Suite 100 (optional)" />
+              <label htmlFor="fld-address-line-2" className="pib-label">Address Line 2</label>
+              <input id="fld-address-line-2" aria-label="Address Line 2" value={form.line2} onChange={e => update('line2', e.target.value)} className="pib-input" placeholder="Suite 100 (optional)" />
             </div>
             <div>
-              <label className="pib-label">City</label>
-              <input value={form.city} onChange={e => update('city', e.target.value)} className="pib-input" placeholder="Cape Town" />
+              <label htmlFor="fld-city" className="pib-label">City</label>
+              <input id="fld-city" aria-label="City" value={form.city} onChange={e => update('city', e.target.value)} className="pib-input" placeholder="Cape Town" />
             </div>
             <div>
-              <label className="pib-label">State / Province</label>
-              <input value={form.state} onChange={e => update('state', e.target.value)} className="pib-input" placeholder="Western Cape" />
+              <label htmlFor="fld-state-province" className="pib-label">State / Province</label>
+              <input id="fld-state-province" aria-label="State / Province" value={form.state} onChange={e => update('state', e.target.value)} className="pib-input" placeholder="Western Cape" />
             </div>
             <div>
-              <label className="pib-label">Postal Code</label>
-              <input value={form.postalCode} onChange={e => update('postalCode', e.target.value)} className="pib-input" placeholder="8001" />
+              <label htmlFor="fld-postal-code" className="pib-label">Postal Code</label>
+              <input id="fld-postal-code" aria-label="Postal Code" value={form.postalCode} onChange={e => update('postalCode', e.target.value)} className="pib-input" placeholder="8001" />
             </div>
             <div>
-              <label className="pib-label">Country</label>
-              <input value={form.country} onChange={e => update('country', e.target.value)} className="pib-input" placeholder="South Africa" />
+              <label htmlFor="fld-country" className="pib-label">Country</label>
+              <input id="fld-country" aria-label="Country" value={form.country} onChange={e => update('country', e.target.value)} className="pib-input" placeholder="South Africa" />
             </div>
           </div>
         </div>
@@ -1026,28 +1026,28 @@ export default function OrgSettingsPage() {
           <p className="pib-label">Company Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="pib-label">Legal Company Name</label>
-              <input value={form.legalName} onChange={e => update('legalName', e.target.value)} className="pib-input" placeholder="Acme (Pty) Ltd" />
+              <label htmlFor="fld-legal-company-name" className="pib-label">Legal Company Name</label>
+              <input id="fld-legal-company-name" aria-label="Legal Company Name" value={form.legalName} onChange={e => update('legalName', e.target.value)} className="pib-input" placeholder="Acme (Pty) Ltd" />
             </div>
             <div>
-              <label className="pib-label">Trading Name</label>
-              <input value={form.tradingName} onChange={e => update('tradingName', e.target.value)} className="pib-input" placeholder="Acme" />
+              <label htmlFor="fld-trading-name" className="pib-label">Trading Name</label>
+              <input id="fld-trading-name" aria-label="Trading Name" value={form.tradingName} onChange={e => update('tradingName', e.target.value)} className="pib-input" placeholder="Acme" />
             </div>
             <div>
-              <label className="pib-label">Phone</label>
-              <input value={form.phone} onChange={e => update('phone', e.target.value)} className="pib-input" placeholder="+27 21 000 0000" />
+              <label htmlFor="fld-phone" className="pib-label">Phone</label>
+              <input id="fld-phone" aria-label="Phone" value={form.phone} onChange={e => update('phone', e.target.value)} className="pib-input" placeholder="+27 21 000 0000" />
             </div>
             <div>
-              <label className="pib-label">VAT Number</label>
-              <input value={form.vatNumber} onChange={e => update('vatNumber', e.target.value)} className="pib-input" placeholder="4000000000" />
+              <label htmlFor="fld-vat-number" className="pib-label">VAT Number</label>
+              <input id="fld-vat-number" aria-label="VAT Number" value={form.vatNumber} onChange={e => update('vatNumber', e.target.value)} className="pib-input" placeholder="4000000000" />
             </div>
             <div>
-              <label className="pib-label">Registration Number</label>
-              <input value={form.registrationNumber} onChange={e => update('registrationNumber', e.target.value)} className="pib-input" placeholder="2020/000000/07" />
+              <label htmlFor="fld-registration-number" className="pib-label">Registration Number</label>
+              <input id="fld-registration-number" aria-label="Registration Number" value={form.registrationNumber} onChange={e => update('registrationNumber', e.target.value)} className="pib-input" placeholder="2020/000000/07" />
             </div>
             <div>
-              <label className="pib-label">Tax Number</label>
-              <input value={form.taxNumber} onChange={e => update('taxNumber', e.target.value)} className="pib-input" placeholder="Income tax number" />
+              <label htmlFor="fld-tax-number" className="pib-label">Tax Number</label>
+              <input id="fld-tax-number" aria-label="Tax Number" value={form.taxNumber} onChange={e => update('taxNumber', e.target.value)} className="pib-input" placeholder="Income tax number" />
             </div>
           </div>
         </div>
@@ -1057,36 +1057,36 @@ export default function OrgSettingsPage() {
           <p className="pib-label">Agreement Contacts</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="pib-label">Accounts Contact Name</label>
-              <input value={form.accountsContactName} onChange={e => update('accountsContactName', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-accounts-contact-name" className="pib-label">Accounts Contact Name</label>
+              <input id="fld-accounts-contact-name" aria-label="Accounts Contact Name" value={form.accountsContactName} onChange={e => update('accountsContactName', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Accounts Contact Title</label>
-              <input value={form.accountsContactTitle} onChange={e => update('accountsContactTitle', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-accounts-contact-title" className="pib-label">Accounts Contact Title</label>
+              <input id="fld-accounts-contact-title" aria-label="Accounts Contact Title" value={form.accountsContactTitle} onChange={e => update('accountsContactTitle', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Accounts Contact Email</label>
-              <input type="email" value={form.accountsContactEmail} onChange={e => update('accountsContactEmail', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-accounts-contact-email" className="pib-label">Accounts Contact Email</label>
+              <input id="fld-accounts-contact-email" aria-label="Accounts Contact Email" type="email" value={form.accountsContactEmail} onChange={e => update('accountsContactEmail', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Accounts Contact Phone</label>
-              <input value={form.accountsContactPhone} onChange={e => update('accountsContactPhone', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-accounts-contact-phone" className="pib-label">Accounts Contact Phone</label>
+              <input id="fld-accounts-contact-phone" aria-label="Accounts Contact Phone" value={form.accountsContactPhone} onChange={e => update('accountsContactPhone', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Authorised Signatory Name</label>
-              <input value={form.authorizedSignatoryName} onChange={e => update('authorizedSignatoryName', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-authorised-signatory-name" className="pib-label">Authorised Signatory Name</label>
+              <input id="fld-authorised-signatory-name" aria-label="Authorised Signatory Name" value={form.authorizedSignatoryName} onChange={e => update('authorizedSignatoryName', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Authorised Signatory Title</label>
-              <input value={form.authorizedSignatoryTitle} onChange={e => update('authorizedSignatoryTitle', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-authorised-signatory-title" className="pib-label">Authorised Signatory Title</label>
+              <input id="fld-authorised-signatory-title" aria-label="Authorised Signatory Title" value={form.authorizedSignatoryTitle} onChange={e => update('authorizedSignatoryTitle', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Authorised Signatory Email</label>
-              <input type="email" value={form.authorizedSignatoryEmail} onChange={e => update('authorizedSignatoryEmail', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-authorised-signatory-email" className="pib-label">Authorised Signatory Email</label>
+              <input id="fld-authorised-signatory-email" aria-label="Authorised Signatory Email" type="email" value={form.authorizedSignatoryEmail} onChange={e => update('authorizedSignatoryEmail', e.target.value)} className="pib-input" />
             </div>
             <div>
-              <label className="pib-label">Authorised Signatory Phone</label>
-              <input value={form.authorizedSignatoryPhone} onChange={e => update('authorizedSignatoryPhone', e.target.value)} className="pib-input" />
+              <label htmlFor="fld-authorised-signatory-phone" className="pib-label">Authorised Signatory Phone</label>
+              <input id="fld-authorised-signatory-phone" aria-label="Authorised Signatory Phone" value={form.authorizedSignatoryPhone} onChange={e => update('authorizedSignatoryPhone', e.target.value)} className="pib-input" />
             </div>
           </div>
         </div>
@@ -1108,12 +1108,12 @@ export default function OrgSettingsPage() {
               </label>
             </div>
             <div>
-              <label className="pib-label">Purchase Order Number</label>
-              <input value={form.purchaseOrderNumber} onChange={e => update('purchaseOrderNumber', e.target.value)} className="pib-input" placeholder="PO-123" />
+              <label htmlFor="fld-purchase-order-number" className="pib-label">Purchase Order Number</label>
+              <input id="fld-purchase-order-number" aria-label="Purchase Order Number" value={form.purchaseOrderNumber} onChange={e => update('purchaseOrderNumber', e.target.value)} className="pib-input" placeholder="PO-123" />
             </div>
             <div className="col-span-2">
-              <label className="pib-label">Invoice Instructions</label>
-              <textarea value={form.invoiceInstructions} onChange={e => update('invoiceInstructions', e.target.value)} className="pib-textarea" rows={3} placeholder="Any recurring invoice notes or routing requirements" />
+              <label htmlFor="fld-invoice-instructions" className="pib-label">Invoice Instructions</label>
+              <textarea id="fld-invoice-instructions" aria-label="Invoice Instructions" value={form.invoiceInstructions} onChange={e => update('invoiceInstructions', e.target.value)} className="pib-textarea" rows={3} placeholder="Any recurring invoice notes or routing requirements" />
             </div>
           </div>
         </div>
@@ -1123,32 +1123,32 @@ export default function OrgSettingsPage() {
           <p className="pib-label">Banking Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="pib-label">Bank Name</label>
-              <input value={form.bankName} onChange={e => update('bankName', e.target.value)} className="pib-input" placeholder="FNB" />
+              <label htmlFor="fld-bank-name" className="pib-label">Bank Name</label>
+              <input id="fld-bank-name" aria-label="Bank Name" value={form.bankName} onChange={e => update('bankName', e.target.value)} className="pib-input" placeholder="FNB" />
             </div>
             <div>
-              <label className="pib-label">Account Holder</label>
-              <input value={form.accountHolder} onChange={e => update('accountHolder', e.target.value)} className="pib-input" placeholder="Partners in Biz (Pty) Ltd" />
+              <label htmlFor="fld-account-holder" className="pib-label">Account Holder</label>
+              <input id="fld-account-holder" aria-label="Account Holder" value={form.accountHolder} onChange={e => update('accountHolder', e.target.value)} className="pib-input" placeholder="Partners in Biz (Pty) Ltd" />
             </div>
             <div>
-              <label className="pib-label">Account Number</label>
-              <input value={form.accountNumber} onChange={e => update('accountNumber', e.target.value)} className="pib-input" placeholder="62000000000" />
+              <label htmlFor="fld-account-number" className="pib-label">Account Number</label>
+              <input id="fld-account-number" aria-label="Account Number" value={form.accountNumber} onChange={e => update('accountNumber', e.target.value)} className="pib-input" placeholder="62000000000" />
             </div>
             <div>
-              <label className="pib-label">Branch Code</label>
-              <input value={form.branchCode} onChange={e => update('branchCode', e.target.value)} className="pib-input" placeholder="250655" />
+              <label htmlFor="fld-branch-code" className="pib-label">Branch Code</label>
+              <input id="fld-branch-code" aria-label="Branch Code" value={form.branchCode} onChange={e => update('branchCode', e.target.value)} className="pib-input" placeholder="250655" />
             </div>
             <div>
-              <label className="pib-label">Routing Number</label>
-              <input value={form.routingNumber} onChange={e => update('routingNumber', e.target.value)} className="pib-input" placeholder="Optional" />
+              <label htmlFor="fld-routing-number" className="pib-label">Routing Number</label>
+              <input id="fld-routing-number" aria-label="Routing Number" value={form.routingNumber} onChange={e => update('routingNumber', e.target.value)} className="pib-input" placeholder="Optional" />
             </div>
             <div>
-              <label className="pib-label">SWIFT Code</label>
-              <input value={form.swiftCode} onChange={e => update('swiftCode', e.target.value)} className="pib-input" placeholder="FIRNZAJJ (optional)" />
+              <label htmlFor="fld-swift-code" className="pib-label">SWIFT Code</label>
+              <input id="fld-swift-code" aria-label="SWIFT Code" value={form.swiftCode} onChange={e => update('swiftCode', e.target.value)} className="pib-input" placeholder="FIRNZAJJ (optional)" />
             </div>
             <div>
-              <label className="pib-label">IBAN</label>
-              <input value={form.iban} onChange={e => update('iban', e.target.value)} className="pib-input" placeholder="Optional" />
+              <label htmlFor="fld-iban" className="pib-label">IBAN</label>
+              <input id="fld-iban" aria-label="IBAN" value={form.iban} onChange={e => update('iban', e.target.value)} className="pib-input" placeholder="Optional" />
             </div>
           </div>
         </div>
@@ -1157,7 +1157,7 @@ export default function OrgSettingsPage() {
           <button type="submit" disabled={saving} className="btn-pib-primary btn-pib-sm font-label">
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
-          {saved && <span className="text-sm text-[var(--color-pib-green)]">Saved successfully</span>}
+          {saved && <span className="text-sm text-[var(--st-success)]">Saved successfully</span>}
         </div>
       </form>
     </div>

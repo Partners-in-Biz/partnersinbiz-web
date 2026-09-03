@@ -1,0 +1,214 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Services filmstrip. Tokens come from .sc-stage (stage.css). One sticky frame
+   under the fixed nav, six slides keyed off --sc-p (written by ScrollCraft onto
+   [data-sc-rebuild]). Motion is opacity, clip-path and a short translate.
+   Below 860px, under reduced motion and without JS the slides stack in order.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sf-strip {
+  --sc-p: 0;
+  --sf-span: 420vh;
+  --sf-nav: calc(var(--sc-u) * 14);
+  --sf-fade: 0.02;
+  position: relative;
+  height: calc(100svh + var(--sf-span));
+}
+
+.sf-frame {
+  position: sticky;
+  top: var(--sf-nav);
+  height: calc(100svh - var(--sf-nav));
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── Type ───────────────────────────────────────────────────────────────── */
+
+.sf-h2 {
+  font-size: clamp(1.75rem, 0.9rem + 2.8vw, 3.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.032em;
+  font-weight: 500;
+  text-wrap: balance;
+  max-width: 15ch;
+  margin: 0;
+}
+
+/* ── Kicker and rail pin to the top corners of the frame. ───────────────── */
+
+.sf-kicker {
+  position: absolute;
+  top: calc(var(--sc-u) * 6);
+  left: 0;
+  margin: 0;
+  color: var(--sc-accent);
+}
+.sf-rail {
+  position: absolute;
+  top: calc(var(--sc-u) * 6);
+  right: 0;
+  display: flex;
+  gap: calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each slide opens across its own --s0..--s1 window; the crossfade straddles
+   the boundary so the frame is never empty between two slides. */
+.sf-rail__item,
+.sf-slide {
+  --on: calc(
+    clamp(0, calc((var(--sc-p) - var(--s0) + var(--sf-fade) / 2) / var(--sf-fade)), 1) *
+      clamp(0, calc((var(--s1) - var(--sc-p) + var(--sf-fade) / 2) / var(--sf-fade)), 1)
+  );
+}
+.sf-rail__item {
+  color: color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), color-mix(in srgb, var(--sc-ink-soft) 55%, transparent));
+  border-bottom: 2px solid color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), transparent);
+  padding-bottom: calc(var(--sc-u) * 1);
+}
+
+/* ── Slides ─────────────────────────────────────────────────────────────── */
+
+.sf-slide {
+  position: absolute;
+  inset: 0;
+  padding: calc(var(--sc-u) * 18) 0 calc(var(--sc-u) * 8);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 6);
+  align-items: center;
+  opacity: var(--on);
+  /* The aperture: nothing is hit-testable while a slide is off. */
+  clip-path: inset(calc((1 - var(--on)) * 50%));
+}
+.sf-slide__copy {
+  grid-column: 1 / 6;
+  transform: translateY(calc((1 - var(--on)) * 18px));
+}
+.sf-slide__service {
+  color: var(--sc-accent);
+  margin: 0 0 calc(var(--sc-u) * 4);
+}
+.sf-slide__index {
+  display: inline-block;
+  min-width: 2.2em;
+}
+.sf-slide__line {
+  margin: calc(var(--sc-u) * 5) 0 0;
+  max-width: 44ch;
+}
+.sf-slide__price {
+  font-size: clamp(2rem, 1rem + 3.2vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: calc(var(--sc-u) * 8) 0 0;
+}
+.sf-slide__terms {
+  margin: calc(var(--sc-u) * 2) 0 calc(var(--sc-u) * 5);
+}
+.sf-slide__more {
+  margin: 0;
+  color: var(--sc-ink);
+}
+
+/* ── Plates: real screenshots, terracotta drop, hairline inset. ─────────── */
+
+.sf-plate {
+  grid-column: 6 / 13;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  /* Room for the drop inside the frame's overflow: hidden. */
+  margin: 0 12px 0 0;
+  background: var(--sc-surface);
+  box-shadow: 12px 12px 0 var(--sc-accent);
+  transform: translateY(calc((1 - var(--on)) * -14px));
+}
+.sf-plate img {
+  object-fit: cover;
+  object-position: top center;
+}
+.sf-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  z-index: 2;
+}
+.sf-plate__credit {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 26px);
+  margin: 0;
+  color: var(--sc-ink-soft);
+}
+
+/* ── Short viewports: tighten the frame. ────────────────────────────────── */
+
+@media (max-height: 760px) and (min-width: 861px) {
+  .sf-slide {
+    padding-top: calc(var(--sc-u) * 14);
+  }
+  .sf-slide__line {
+    display: none;
+  }
+  .sf-slide__price {
+    margin-top: calc(var(--sc-u) * 6);
+  }
+}
+
+/* ── Stacked: mobile and reduced motion. Unstick, everything in order. ──── */
+
+@media (max-width: 860px), (prefers-reduced-motion: reduce) {
+  .sf-strip {
+    --sc-gate: 0;
+    height: auto;
+  }
+  .sf-frame {
+    position: relative;
+    top: auto;
+    height: auto;
+    overflow: visible;
+  }
+  .sf-kicker {
+    position: static;
+  }
+  .sf-rail {
+    display: none;
+  }
+  .sf-slide {
+    position: relative;
+    inset: auto;
+    opacity: 1 !important;
+    clip-path: none !important;
+    padding: calc(var(--sc-u) * 10) 0 calc(var(--sc-u) * 12);
+    border-top: 1px solid var(--sc-line);
+  }
+  .sf-kicker + .sf-rail + .sf-slide {
+    border-top: 0;
+    padding-top: calc(var(--sc-u) * 8);
+  }
+  .sf-slide__copy,
+  .sf-plate {
+    transform: none !important;
+  }
+  .sf-plate {
+    margin-right: 12px;
+    margin-bottom: calc(var(--sc-u) * 10);
+  }
+}
+
+@media (max-width: 860px) {
+  .sf-slide {
+    grid-template-columns: 1fr;
+    row-gap: calc(var(--sc-u) * 8);
+  }
+  .sf-slide__copy,
+  .sf-plate {
+    grid-column: 1 / -1;
+  }
+}

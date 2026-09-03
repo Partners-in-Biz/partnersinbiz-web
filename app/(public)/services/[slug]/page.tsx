@@ -1,486 +1,56 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { SERVICES, CASE_STUDIES, SITE } from '@/lib/seo/site'
+import { SERVICES, SITE } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
+import { JsonLd, breadcrumbSchema, serviceSchema, faqSchema } from '@/lib/seo/schema'
+import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, plateFor } from '@/lib/marketing/service-content'
 import {
-  JsonLd,
-  breadcrumbSchema,
-  serviceSchema,
-  faqSchema,
-} from '@/lib/seo/schema'
-import { Reveal } from '@/components/marketing/Reveal'
-import { SectionHead } from '@/components/marketing/SectionHead'
+  Article,
+  ArticleHead,
+  ArticleList,
+  ArticleRow,
+  CtaSentence,
+  Plate,
+  Proof,
+} from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
-
-type Slug = (typeof SERVICES)[number]['slug']
-
-interface ServiceContent {
-  headline: string
-  intro: string
-  propertiesCallout?: boolean
-  personas: { icon: string; title: string; body: string }[]
-  deliverables: { icon: string; title: string; body: string }[]
-  process: { step: string; title: string; body: string }[]
-  techExtras: string[]
-  caseStudySlugs: string[]
-  relatedInsightSlugs?: string[]
-  pricing: {
-    label: string
-    note?: string
-    includes: string[]
-  }
-  faqs: { q: string; a: string }[]
-}
-
-const ZAR = (n: number) =>
-  new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    maximumFractionDigits: 0,
-  }).format(n)
-
-const CONTENT: Record<Slug, ServiceContent> = {
-  'web-development': {
-    headline: 'Marketing sites that perform under load — and rank under pressure.',
-    intro:
-      'A marketing site is a salesperson that works at 3am. We build the kind that opens the deal, not the kind that sits there. Sub-2s LCP, real lead capture, structured for search from the first commit.',
-    propertiesCallout: true,
-    personas: [
-      {
-        icon: 'storefront',
-        title: 'SMEs relaunching',
-        body: 'Established business, tired site, customers asking who built that. We replace it with something you are proud to send.',
-      },
-      {
-        icon: 'rocket_launch',
-        title: 'Startups before fundraising',
-        body: 'You need a site that does not undermine the deck. We build it in two to four weeks so it is ready before the meetings are.',
-      },
-      {
-        icon: 'handshake',
-        title: 'Agencies needing a dev partner',
-        body: 'Bring us the Figma. We bring the Next.js build, the CMS, and the hand-off your client deserves.',
-      },
-    ],
-    deliverables: [
-      { icon: 'design_services', title: 'Custom design', body: 'No templates. Your brand, built to your tone.' },
-      { icon: 'code', title: 'Next.js 16 build', body: 'App Router, React Server Components, Tailwind v4.' },
-      { icon: 'edit_note', title: 'CMS or MDX', body: 'Sanity, Notion, or markdown — you pick the editing surface.' },
-      { icon: 'search', title: 'On-page SEO', body: 'Schema, sitemap, OpenGraph, robots — wired correctly from day one.' },
-      { icon: 'speed', title: 'Performance budget', body: 'Sub-2s LCP target, image optimisation, font subsetting.' },
-      { icon: 'analytics', title: 'Analytics wired', body: 'Plausible, GA4, or our own analytics — your choice.' },
-      { icon: 'mark_email_read', title: 'Lead capture', body: 'Forms posted to Resend, Slack, or your CRM.' },
-      { icon: 'cloud_upload', title: 'Vercel deploy', body: 'Production deploy on your Vercel, your domain, your DNS.' },
-      { icon: 'tune', title: 'Properties control plane', body: 'Runtime config, kill switch, feature flags, analytics — change without redeploys.' },
-    ],
-    process: [
-      { step: '01', title: 'Brief', body: 'A 60-minute call. Audience, goals, pages, references. Quote in three days.' },
-      { step: '02', title: 'Design', body: 'High-fidelity Figma in 5–7 days. One round of feedback baked in.' },
-      { step: '03', title: 'Build', body: 'Vercel preview from day one. Daily Loom updates while we ship.' },
-      { step: '04', title: 'Launch', body: 'DNS cut-over, analytics live, search console verified. We watch the first day with you.' },
-    ],
-    techExtras: ['Sanity', 'MDX', 'Resend', 'Plausible', 'Cloudflare'],
-    caseStudySlugs: ['ahs-law', 'scrolledbrain'],
-    relatedInsightSlugs: [
-      'website-minimum-price-south-africa',
-      'website-maintenance-not-one-time',
-      'sa-sme-cybersecurity-attacks',
-      'south-african-website-cost-2026',
-    ],
-    pricing: {
-      label: `from ${ZAR(35000)}`,
-      includes: [
-        'Up to 6 pages, custom designed',
-        'CMS or MDX editing surface',
-        'On-page SEO and schema',
-        'Vercel deploy on your account',
-        '30 days of post-launch support',
-      ],
-    },
-    faqs: [
-      { q: 'Do you use templates or build custom?', a: 'Custom every time. We do not sell theme installs. Your design is built for your brand and your audience — and the code is hand-written, not generated by a page builder.' },
-      { q: `What is included in ${ZAR(35000)}?`, a: 'Up to 6 pages of custom design, a Next.js build, CMS or MDX editing, on-page SEO, analytics wiring, lead-capture forms, and a Vercel deploy on your account. Add-ons (blog systems, multi-language, custom integrations) are quoted on top.' },
-      { q: 'How long until launch?', a: 'Two to four weeks from kick-off, depending on content readiness. Most of the slip in marketing-site projects is the client side — we keep things moving with weekly checkpoints.' },
-      { q: 'Will it rank on Google?', a: 'Sites we build score 95+ on Lighthouse SEO out of the gate, with structured data, sitemap, and OpenGraph wired correctly. Ranking is a function of the content, the backlinks, and time — but the technical foundation will not be the bottleneck.' },
-      { q: 'Do I own the code?', a: 'Yes. The repo lives on your GitHub, the deploy lives on your Vercel, and the CMS lives on your account. No vendor lock-in.' },
-      { q: 'What if I need changes after launch?', a: 'You either learn the CMS (it is built for non-technical editors), put us on a small retainer, or pay-as-you-go at R950/hour for ad-hoc changes. Most clients pick the retainer.' },
-      { q: 'Can you migrate from WordPress / Wix / Squarespace?', a: 'Yes. We pull content via export or scrape, redirect old URLs to preserve SEO, and ship the new site without losing rankings.' },
-    ],
-  },
-
-  'web-applications': {
-    headline: 'Custom platforms shipped in weeks. Not quarters.',
-    intro:
-      'When the off-the-shelf SaaS does not fit and the spreadsheet has become a job, you need a real platform. We build production CRMs, dashboards, internal tools and bespoke SaaS — with the same engineering discipline a Series A team brings.',
-    propertiesCallout: true,
-    personas: [
-      {
-        icon: 'view_kanban',
-        title: 'Ops teams drowning in spreadsheets',
-        body: 'You have outgrown Notion, Airtable, and the duct tape. You need a real system with real auth, real audit trails, and real reporting.',
-      },
-      {
-        icon: 'sell',
-        title: 'Founders productising a service',
-        body: 'You sell the same engagement over and over. Time to wrap it in software, charge for it monthly, and stop trading hours for revenue.',
-      },
-      {
-        icon: 'trending_up',
-        title: 'Scale-ups outgrowing tools',
-        body: 'Bubble, Retool and Glide got you to product-market fit. Now you need something built to scale, with code you actually own.',
-      },
-    ],
-    deliverables: [
-      { icon: 'lock', title: 'Auth and roles', body: 'Email + OAuth, role-based access, organisation hierarchy.' },
-      { icon: 'database', title: 'Database + API', body: 'Firestore or Supabase, server actions, typed end-to-end.' },
-      { icon: 'dashboard', title: 'Custom dashboard', body: 'Designed for your workflow, not a generic admin theme.' },
-      { icon: 'admin_panel_settings', title: 'Admin tooling', body: 'You should be able to run support without our help.' },
-      { icon: 'webhook', title: 'API + webhooks', body: 'A real API for integrations and outbound webhooks for events.' },
-      { icon: 'verified_user', title: 'Audit log', body: 'Every action attributed, timestamped, and queryable.' },
-      { icon: 'science', title: 'Tests + CI', body: 'Critical paths covered. PRs go through Vercel previews and CI.' },
-      { icon: 'rocket_launch', title: 'Production launch', body: 'Monitoring, error tracking, on-call runbook.' },
-      { icon: 'tune', title: 'Properties wired in', body: 'Per-property analytics, remote config, and a kill switch from day one.' },
-    ],
-    process: [
-      { step: '01', title: 'Discovery sprint', body: 'Two weeks. We map your workflow, sketch the data model, and write the spec.' },
-      { step: '02', title: 'Architecture + design', body: 'Figma for the UI, ERD for the data, ADR for the choices we make.' },
-      { step: '03', title: 'Build in slices', body: 'Weekly Vercel previews. You use the app as we build it — feedback baked in.' },
-      { step: '04', title: 'Launch + iterate', body: 'Production launch, then a 60-day stabilisation window for the rough edges.' },
-    ],
-    techExtras: ['Server Actions', 'Firestore', 'Supabase', 'TanStack', 'Resend', 'Stripe / PayPal'],
-    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
-    relatedInsightSlugs: [
-      'website-vs-app-south-africa-sme',
-      'next-js-16-for-business-websites',
-      'building-an-ai-agent-that-bills',
-    ],
-    pricing: {
-      label: `from ${ZAR(120000)}`,
-      includes: [
-        'Two-week discovery sprint',
-        'Auth, roles, and audit log',
-        'Custom dashboard and admin',
-        'API + outbound webhooks',
-        '60-day post-launch stabilisation',
-      ],
-    },
-    faqs: [
-      { q: 'How is this different from a Bubble or Retool app?', a: 'We write real code. That means you can hire any Next.js engineer to extend it, your data is in a real database you own, and the app does not break when the no-code platform changes its pricing or sunsets a feature.' },
-      { q: 'How long does an MVP take?', a: 'Six to twelve weeks for a working MVP, depending on scope. We slice the build so you have a usable preview from the end of week two — not a big-bang reveal at the end.' },
-      { q: `Why does it start at ${ZAR(120000)}?`, a: 'A real web app needs auth, a database, an API, an admin panel, monitoring, and a deploy pipeline before it does anything useful for your customers. R120k is the floor for doing all of that properly. Most projects land between R180k and R450k.' },
-      { q: 'Can you work with our existing engineers?', a: 'Yes. We do hybrid engagements where we own a slice of the codebase, mentor your team, and hand over progressively. Reviews on PRs, architectural decision records, the whole thing.' },
-      { q: 'What if my requirements change mid-build?', a: 'They will. That is why we build in two-week slices with weekly previews — so the spec evolves as you use the thing. Big changes are scoped and quoted as change orders.' },
-      { q: 'Who owns the IP?', a: 'You do. Everything ships to your GitHub, your Vercel, and your database. Our contract assigns IP on delivery.' },
-      { q: 'Will the app scale?', a: 'Yes. We pick infrastructure that scales horizontally — Vercel, Firestore / Supabase, edge functions. We have built apps now serving thousands of daily users on the same architecture.' },
-    ],
-  },
-
-  'mobile-apps': {
-    headline: 'Native-feel apps from a codebase you actually own.',
-    intro:
-      'A real mobile app — not a wrapped website. We build with React Native and Expo so iOS and Android share business logic, ship from one team, and stay in sync. Native-feel interactions, real offline support, and a path to the App Store and Play Store.',
-    propertiesCallout: true,
-    personas: [
-      {
-        icon: 'devices',
-        title: 'SaaS adding mobile',
-        body: 'Your web product is loved. Customers want it on their phone. We build the companion app without rebuilding the backend.',
-      },
-      {
-        icon: 'storefront',
-        title: 'Retail and services going digital-first',
-        body: 'Loyalty, bookings, ordering, member portals — the things your customers genuinely use on mobile.',
-      },
-      {
-        icon: 'experiment',
-        title: 'Startups testing PMF',
-        body: 'You need to put a real app in beta testers&rsquo; hands fast. We ship to TestFlight in week three.',
-      },
-    ],
-    deliverables: [
-      { icon: 'phone_iphone', title: 'iOS + Android build', body: 'One codebase, two stores, shared business logic.' },
-      { icon: 'palette', title: 'Native-feel UI', body: 'Platform conventions where they matter — your brand where it counts.' },
-      { icon: 'wifi_off', title: 'Offline support', body: 'Real offline mutations, queued sync, conflict handling.' },
-      { icon: 'notifications_active', title: 'Push notifications', body: 'Expo Push, segmented, actionable.' },
-      { icon: 'lock', title: 'Auth + biometrics', body: 'Sign in with Apple, Google, email, plus FaceID / TouchID.' },
-      { icon: 'cloud_sync', title: 'Backend sync', body: 'Shared API with your web app — one source of truth.' },
-      { icon: 'monitoring', title: 'Crash + analytics', body: 'Sentry, analytics events, session replay.' },
-      { icon: 'store', title: 'Store submission', body: 'We handle TestFlight, Play Console, store assets, the lot.' },
-      { icon: 'tune', title: 'Properties for app surfaces', body: 'Remote-control App Store / Play Store URLs, kill switch, feature flags via Properties.' },
-    ],
-    process: [
-      { step: '01', title: 'Scope + design', body: 'We define the v1 scope ruthlessly. Mobile rewards focus.' },
-      { step: '02', title: 'Build in Expo', body: 'OTA updates from week one. Internal builds via TestFlight and Play internal track.' },
-      { step: '03', title: 'Beta + feedback', body: 'A real beta cohort uses the app for two weeks. We fix what they hit.' },
-      { step: '04', title: 'Store submission', body: 'Listings written, screenshots produced, review responses handled.' },
-    ],
-    techExtras: ['Expo', 'EAS Build', 'React Native', 'Reanimated', 'Sentry', 'Capacitor (when it fits)'],
-    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
-    relatedInsightSlugs: [
-      'website-vs-app-south-africa-sme',
-      'south-african-website-cost-2026',
-    ],
-    pricing: {
-      label: `from ${ZAR(180000)}`,
-      includes: [
-        'Single React Native codebase',
-        'iOS + Android builds',
-        'Push, auth, offline support',
-        'Store submission for both platforms',
-        '60-day post-launch support',
-      ],
-    },
-    faqs: [
-      { q: 'Why React Native and not native Swift / Kotlin?', a: 'For 90% of apps the user-facing difference is invisible — and you save half the cost and ship to both platforms simultaneously. When a project genuinely needs native modules, we write them. We are not religious about the framework.' },
-      { q: 'Can you publish to the App Store and Play Store?', a: 'Yes. We handle the developer accounts (or use yours), the listings, the screenshots, the privacy declarations, and the review process. Apple rejections are part of the job.' },
-      { q: 'Will it share a backend with my web app?', a: 'Almost always, yes. The same Next.js API or Firestore that powers your web app powers the mobile app. One source of truth.' },
-      { q: 'What about offline?', a: 'We treat offline as a first-class state, not an afterthought. Reads cache, writes queue, conflicts resolve. You design for the bad-signal user from day one.' },
-      { q: 'How do updates work after launch?', a: 'Most JS-only changes ship via Expo OTA without a store review — usually within minutes. Native changes go through normal store review.' },
-      { q: `Is ${ZAR(180000)} for both platforms?`, a: 'Yes. One number, both stores. Going native-only would not be cheaper on one platform once you account for the lost reach.' },
-      { q: 'Do you do app design too?', a: 'Yes. Mobile design is its own discipline — we design the app from scratch in Figma before we write a line of code.' },
-    ],
-  },
-
-  'ai-integration': {
-    headline: 'AI agents that do real work — not chatbots that pretend to.',
-    intro:
-      'Most "AI features" are a chat box bolted onto a sidebar. We build the other kind: agents that draft emails, triage tickets, summarise calls, generate reports, and quietly do the work nobody wanted to do. Production-grade, with guardrails, evals, and a paper trail.',
-    personas: [
-      {
-        icon: 'support_agent',
-        title: 'Ops teams automating triage',
-        body: 'Inbound enquiries, support tickets, document review — the high-volume, low-judgement work that drowns your team.',
-      },
-      {
-        icon: 'campaign',
-        title: 'Sales teams replacing manual outreach',
-        body: 'Personalised first-touch emails, meeting prep briefs, pipeline updates — the work the SDR is too senior to enjoy.',
-      },
-      {
-        icon: 'auto_awesome',
-        title: 'Founders building AI-native products',
-        body: 'Your product IS the AI. You need someone who has shipped agents to production, not someone who read the OpenAI cookbook last week.',
-      },
-    ],
-    deliverables: [
-      { icon: 'smart_toy', title: 'Custom agent', body: 'Claude or GPT, with tool use, scoped to your workflow.' },
-      { icon: 'menu_book', title: 'RAG + knowledge base', body: 'Your docs, indexed, retrieved, cited.' },
-      { icon: 'shield', title: 'Guardrails', body: 'Input validation, output filtering, hallucination checks.' },
-      { icon: 'rule', title: 'Eval suite', body: 'Test cases that actually catch regressions before users do.' },
-      { icon: 'history', title: 'Audit log', body: 'Every prompt, response, and tool call — queryable.' },
-      { icon: 'paid', title: 'Cost monitoring', body: 'Per-tenant token usage, budget alerts, model fallbacks.' },
-      { icon: 'speed', title: 'Streaming UI', body: 'Real-time response, optimistic state, cancellable.' },
-      { icon: 'integration_instructions', title: 'Wired to your stack', body: 'Slack, Gmail, your CRM, your CMS — wherever the work lives.' },
-    ],
-    process: [
-      { step: '01', title: 'Use-case design', body: 'We pick the workflow with the highest leverage and the clearest success criteria.' },
-      { step: '02', title: 'Prototype + eval', body: 'A working agent in two weeks, plus the eval suite to prove it works.' },
-      { step: '03', title: 'Production hardening', body: 'Guardrails, monitoring, cost controls, fallbacks, retries.' },
-      { step: '04', title: 'Deploy + watch', body: 'Live behind a flag for a cohort, then rolled out as the metrics earn it.' },
-    ],
-    techExtras: ['Anthropic', 'OpenAI', 'Vercel AI SDK', 'pgvector', 'LangSmith', 'Tool use'],
-    caseStudySlugs: ['scrolledbrain', 'athleet'],
-    relatedInsightSlugs: [
-      'ai-integration-roi-south-africa-sme',
-      'ai-chatbot-case-study-sme',
-      'building-an-ai-agent-that-bills',
-    ],
-    pricing: {
-      label: `from ${ZAR(75000)}`,
-      includes: [
-        'One production agent / workflow',
-        'RAG over your knowledge base',
-        'Eval suite with regression tests',
-        'Audit log and cost monitoring',
-        '30-day tuning window post-launch',
-      ],
-    },
-    faqs: [
-      { q: 'What is the difference between this and a ChatGPT plugin?', a: 'A plugin is a chat box. We build agents that take actions — file a ticket, send an email, update a record, draft a document. The chat is the input surface, but the value is the work it actually does.' },
-      { q: 'Claude or GPT?', a: 'Both, depending on the job. We benchmark on your data and pick the model that wins on quality, latency, and cost. Most production agents end up using two or three models for different steps.' },
-      { q: 'How do you prevent hallucinations?', a: 'You cannot prevent them entirely. You design for them — strict output schemas, retrieval-grounded answers with citations, evals that catch regressions, and a human-in-the-loop for high-stakes actions.' },
-      { q: 'What about my data privacy?', a: 'We use zero-retention API endpoints from Anthropic and OpenAI by default. Your data is not used for training. For sensitive use cases we can deploy via Bedrock or Azure for region compliance.' },
-      { q: 'How much does it cost to run after we build it?', a: 'Highly variable, but most agents we deploy run between R500 and R8 000 per month in API spend depending on volume. We instrument everything so you see cost per query, per tenant, per workflow.' },
-      { q: 'Can you train a custom model?', a: 'Rarely the right answer. Frontier models with good prompting and RAG beat fine-tunes for almost every business use case in 2026. We will tell you honestly when fine-tuning is worth it (it usually is not).' },
-      { q: 'How do you measure if it is working?', a: 'Eval suites with golden answers, production metrics on success / failure / human-override rates, and business metrics (tickets closed, emails sent, time saved). We do not ship without the dashboard.' },
-    ],
-  },
-
-  'growth-systems': {
-    headline:
-      'Scheduled content, email nurture, analytics — wired to your CRM, not bolted on.',
-    intro:
-      'Marketing automation that does not feel like marketing automation. We build the plumbing that makes content compound: social scheduling, email sequences, analytics dashboards, and CRM workflows that talk to each other.',
-    personas: [
-      {
-        icon: 'group',
-        title: 'Marketing teams without engineers',
-        body: 'You have the strategy. You need someone to wire the tools so they actually run without daily babysitting.',
-      },
-      {
-        icon: 'self_improvement',
-        title: 'Founders doing their own marketing',
-        body: 'You write the posts. You should not also be the publishing platform, the CRM, and the analytics tool.',
-      },
-      {
-        icon: 'business',
-        title: 'Agencies adding automation',
-        body: 'You sell strategy and creative. We build the systems that deliver it for your clients.',
-      },
-    ],
-    deliverables: [
-      { icon: 'schedule_send', title: 'Content scheduler', body: 'Cross-post to LinkedIn, X, Instagram, TikTok from one queue.' },
-      { icon: 'mark_email_unread', title: 'Email sequences', body: 'Onboarding, nurture, re-engagement — built in Resend.' },
-      { icon: 'hub', title: 'CRM wiring', body: 'Contacts, leads, deals — synced across tools without copy-paste.' },
-      { icon: 'analytics', title: 'Custom analytics', body: 'A dashboard that answers your questions, not Google&rsquo;s.' },
-      { icon: 'rss_feed', title: 'RSS automation', body: 'Source from RSS, transform with AI, publish on schedule.' },
-      { icon: 'notifications', title: 'Slack / WhatsApp alerts', body: 'New lead, hot deal, churn signal — into the channel that matters.' },
-      { icon: 'auto_graph', title: 'Funnel tracking', body: 'See where leads die. Fix it. Measure the lift.' },
-      { icon: 'manage_history', title: 'Reporting', body: 'Weekly auto-generated reports for clients or stakeholders.' },
-    ],
-    process: [
-      { step: '01', title: 'Audit + map', body: 'We map every tool you use, every leak in the funnel, every manual handover.' },
-      { step: '02', title: 'System design', body: 'A diagram of how the new plumbing flows. Approve before we wire.' },
-      { step: '03', title: 'Build + connect', body: 'Two-week build of the connectors, schedulers, and dashboards.' },
-      { step: '04', title: 'Run + iterate', body: 'Monthly retainer to tune, expand, and measure what actually moves.' },
-    ],
-    techExtras: ['Resend', 'Buffer / Native APIs', 'Webhooks', 'Cron jobs', 'PostgreSQL', 'Looker Studio'],
-    caseStudySlugs: ['scrolledbrain', 'ahs-law'],
-    relatedInsightSlugs: [
-      'social-media-automation-sme',
-      'social-automation-roi-measurement',
-      'ai-integration-roi-south-africa-sme',
-    ],
-    pricing: {
-      label: `from ${ZAR(45000)} / month`,
-      note: 'Monthly retainer. Includes build hours and ongoing tuning.',
-      includes: [
-        '20 hours of build / month',
-        'Content scheduling system',
-        'Email sequence templates',
-        'Analytics dashboard',
-        'Monthly performance review',
-      ],
-    },
-    faqs: [
-      { q: 'How is this different from Zapier?', a: 'Zapier is the duct tape. We build the system. Zapier is brilliant for connecting two tools — when you have nine tools, brittle webhooks, and a CEO who needs the dashboard updated every Monday, you need a real piece of software with monitoring, retries, and audit trails.' },
-      { q: 'Can you use my existing CRM?', a: 'Yes. HubSpot, Pipedrive, Salesforce, our own Partners in Biz CRM — we wire to whatever you use. We will tell you honestly if the CRM is the bottleneck.' },
-      { q: 'Do you write the content too?', a: 'No. We build the system that publishes the content. We will recommend writers and consult on workflow, but the content itself stays with you or your agency.' },
-      { q: 'What is in the monthly retainer?', a: 'Twenty hours of senior engineering time on your growth system — building new automations, tuning existing ones, fixing what breaks, and producing the monthly report. Hours roll over one month.' },
-      { q: 'Can I cancel anytime?', a: 'Yes. 30 days&rsquo; notice. We will export everything to your accounts before we go.' },
-      { q: 'Will you handle ad campaigns?', a: 'No — that is a different specialism. We build the analytics infrastructure that lets your ad team see what is working. Most of our clients use Whetstone or a freelancer for media buying.' },
-      { q: 'How do you measure success?', a: 'We agree on three metrics at the start (usually leads / month, cost per lead, and conversion to deal). You see them on a dashboard. We review monthly.' },
-    ],
-  },
-
-  'bespoke-builds': {
-    headline: 'Strategic engineering for novel software.',
-    intro:
-      'Sometimes the answer is not a website, an app, or an integration — it is a piece of software nobody has built before. For those projects we work in equity-style partnerships, deep retainers, or a single-project deep-dive. Senior engineering only.',
-    personas: [
-      {
-        icon: 'lightbulb',
-        title: 'Founders with a complex idea',
-        body: 'No SaaS solves it. Off-the-shelf will not stretch. You need a partner who can think with you about the architecture, not just take the spec.',
-      },
-      {
-        icon: 'school',
-        title: 'Technical teams needing a senior view',
-        body: 'You have engineers. You want a second opinion on the architecture, the AI strategy, or the build vs. buy question — from someone who has shipped what you are about to.',
-      },
-      {
-        icon: 'handshake',
-        title: 'Equity-style partnerships',
-        body: 'You are pre-funding. We can take a portion of the build in equity for the right idea and the right founder.',
-      },
-    ],
-    deliverables: [
-      { icon: 'architecture', title: 'Architecture design', body: 'System diagram, ADRs, build / buy / borrow recommendations.' },
-      { icon: 'science', title: 'Technical prototype', body: 'A working spike that proves the hard part works.' },
-      { icon: 'menu_book', title: 'Engineering spec', body: 'Written so any senior engineer can pick it up.' },
-      { icon: 'engineering', title: 'Hands-on build', body: 'We can build the whole thing or just the spine.' },
-      { icon: 'reviews', title: 'Code review + mentoring', body: 'For your existing team, on the work we do not touch.' },
-      { icon: 'paid', title: 'Cost modelling', body: 'Honest infrastructure cost projections at 1x, 10x, 100x scale.' },
-      { icon: 'security', title: 'Security review', body: 'Threat model, auth design, data handling, compliance.' },
-      { icon: 'rocket_launch', title: 'Launch playbook', body: 'How to ship it, monitor it, and not get woken up at 3am.' },
-    ],
-    process: [
-      { step: '01', title: 'Deep-dive call', body: 'A long, candid conversation. Sometimes the answer is "do not build this".' },
-      { step: '02', title: 'Discovery sprint', body: 'Two to four weeks. Architecture, prototype, and an honest cost.' },
-      { step: '03', title: 'Build phase', body: 'Either we build it, or we hand it to your team with a spec they can run with.' },
-      { step: '04', title: 'Ongoing partnership', body: 'Advisory, fractional CTO, or full-time engagement — whatever the work needs.' },
-    ],
-    techExtras: ['Architecture review', 'AI strategy', 'Fractional CTO', 'Equity partnerships', 'Discovery sprints'],
-    caseStudySlugs: ['velox', 'lumen', 'athleet', 'loyalty-plus'],
-    relatedInsightSlugs: [
-      'next-js-16-for-business-websites',
-      'building-an-ai-agent-that-bills',
-      'ai-integration-roi-south-africa-sme',
-    ],
-    pricing: {
-      label: 'Custom — let&rsquo;s scope it.',
-      note: 'These projects are quoted on the work, not a price card.',
-      includes: [
-        'Discovery sprint from R85 000',
-        'Equity-style partnerships considered',
-        'Fractional CTO from R45 000 / month',
-        'Senior engineering, no juniors',
-        'NDA and IP assignment standard',
-      ],
-    },
-    faqs: [
-      { q: 'What does "bespoke" actually mean?', a: 'It means the work does not fit the other five service shapes. Usually it is a complex platform, an AI-native product, a deep technical research project, or a long-term partnership where the scope evolves quarterly.' },
-      { q: 'Will you take equity instead of cash?', a: 'For the right project, yes — usually a blended model where we take cash for direct costs and equity for the upside. We are selective. We have to believe in the founder and the wedge.' },
-      { q: 'Do you do fractional CTO work?', a: 'Yes. Typically two to four days a month for early-stage teams — architecture, hiring, AI strategy, technical due diligence. From R45 000/month.' },
-      { q: 'Can I just hire you for the discovery sprint?', a: 'Absolutely. A 2–4 week discovery sprint is a fixed-price engagement (from R85k) and produces an architecture, a prototype of the hardest part, and an honest build estimate. You can take the output to any engineering team.' },
-      { q: 'What if you tell me not to build it?', a: 'Then you have saved a lot of money. We have killed three projects at the discovery stage in the last 12 months. We would rather lose the build fee than ship something that should not exist.' },
-      { q: 'NDAs?', a: 'Standard. We sign yours or use ours. IP is assigned on delivery. We do not retain rights to client work beyond using it as a case study with your permission.' },
-      { q: 'Why is there no price?', a: 'Because the work genuinely does not fit a price card. Our smallest bespoke engagement was a R85k discovery sprint. Our largest was a R2.4m build over nine months. The shape decides the price.' },
-    ],
-  },
-}
 
 export function generateStaticParams() {
   return SERVICES.map((s) => ({ slug: s.slug }))
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const service = SERVICES.find((s) => s.slug === slug)
   if (!service) return { title: 'Service not found' }
-  const content = CONTENT[service.slug as Slug]
+  const content = SERVICE_CONTENT[service.slug]
+  const description = `${content.headline} ${content.price.label}. ${content.price.terms}`
   return {
-    title: service.name,
-    description: content.headline,
+    title: `${service.name}: ${content.headline}`,
+    description,
     alternates: { canonical: `/services/${service.slug}` },
     openGraph: {
-      title: `${service.name} — Partners in Biz`,
-      description: content.headline,
+      title: `${service.name} | ${SITE.name}`,
+      description,
       url: `${SITE.url}/services/${service.slug}`,
       type: 'website',
     },
   }
 }
 
-export default async function ServiceDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
+export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const service = SERVICES.find((s) => s.slug === slug)
   if (!service) notFound()
 
-  const content = CONTENT[service.slug as Slug]
-  const techPills = [...service.keywords, ...content.techExtras]
-  const featuredCases = content.caseStudySlugs
-    .map((s) => CASE_STUDIES.find((c) => c.slug === s))
-    .filter(Boolean) as (typeof CASE_STUDIES)[number][]
+  const content = SERVICE_CONTENT[service.slug]
+  const study = caseFor(content.proof.caseSlug)
+  const plate = plateFor(service.slug)
+  const related = content.relatedInsightSlugs
+    .map((s) => POSTS.find((p) => p.slug === s))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+  const others = SERVICE_ORDER.filter((s) => s !== service.slug)
 
   const breadcrumb = breadcrumbSchema([
     { name: 'Home', url: '/' },
@@ -488,362 +58,119 @@ export default async function ServiceDetailPage({
     { name: service.name, url: `/services/${service.slug}` },
   ])
 
-  // Strip HTML entities for schema description.
-  const cleanHeadline = content.headline.replace(/&rsquo;/g, "'")
-
   return (
-    <main className="relative">
+    <Article>
       <JsonLd data={breadcrumb} />
       <JsonLd
         data={serviceSchema({
           slug: service.slug,
           name: service.name,
-          description: cleanHeadline,
-          priceFrom:
-            service.slug === 'web-development'
-              ? 35000
-              : service.slug === 'web-applications'
-                ? 120000
-                : service.slug === 'mobile-apps'
-                  ? 180000
-                  : service.slug === 'ai-integration'
-                    ? 75000
-                    : service.slug === 'growth-systems'
-                      ? 45000
-                      : undefined,
+          description: content.headline,
+          priceFrom: content.price.amount,
         })}
       />
       <JsonLd data={faqSchema(content.faqs)} />
 
-      {/* Hero */}
-      <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
-        <div className="container-pib">
-          <Reveal>
-            <p className="eyebrow mb-6">
-              <Link href="/services" className="pib-link-underline">
-                Services
-              </Link>
-              <span className="mx-2 text-[var(--color-pib-text-faint)]">/</span>
-              <span>{service.name}</span>
-            </p>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1
-              className="h-display text-balance max-w-5xl"
-              dangerouslySetInnerHTML={{ __html: content.headline }}
-            />
-          </Reveal>
-          <Reveal delay={160}>
-            <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
-              {content.intro}
-            </p>
-          </Reveal>
-          {content.propertiesCallout && (
-            <Reveal delay={200}>
-              <div className="mt-6 inline-flex items-center gap-3 bento-card !p-4 max-w-2xl">
-                <span className="material-symbols-outlined text-[var(--color-pib-accent)]">tune</span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] text-pretty">
-                  Ships with{' '}
-                  <Link
-                    href="/properties"
-                    className="pib-link-underline text-[var(--color-pib-accent)]"
-                  >
-                    Properties
-                  </Link>{' '}
-                  — our runtime control plane for store URLs, feature flags, kill switch, and per-site analytics.
-                </p>
-              </div>
-            </Reveal>
-          )}
-          <Reveal delay={240}>
-            <div className="mt-10 flex flex-wrap gap-3">
-              <Link href="/start-a-project" className="btn-pib-primary">
-                Start a project
-                <span className="material-symbols-outlined text-base">arrow_outward</span>
-              </Link>
-              <Link href="/work" className="btn-pib-secondary">
-                View case studies
-              </Link>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <ArticleHead
+        kicker={
+          <>
+            <Link href="/services" prefetch={false} className="sc-link">
+              Services
+            </Link>
+            {' / '}
+            {service.name}
+          </>
+        }
+        title={content.headline}
+        lede={content.lede}
+        plate={<Plate src={plate.shot.src} alt={plate.shot.alt} caption={plate.credit} wide priority />}
+      />
 
-      {/* Who this is for */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <SectionHead eyebrow="Who this is for" title="Three kinds of teams we work with." />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-            {content.personas.map((p, i) => (
-              <Reveal key={p.title} delay={i * 80}>
-                <div className="bento-card h-full p-8 flex flex-col gap-4">
-                  <span
-                    className="material-symbols-outlined text-[var(--color-pib-accent)]"
-                    style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0, 'wght' 300" }}
-                  >
-                    {p.icon}
-                  </span>
-                  <h3 className="font-display text-xl text-[var(--color-pib-text)]">{p.title}</h3>
-                  <p
-                    className="text-[var(--color-pib-text-muted)] text-pretty leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: p.body }}
-                  />
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ArticleRow
+        title={content.price.label}
+        aside={
+          <>
+            <p className="sc-tiny">What the price buys</p>
+            <ArticleList items={content.price.includes} />
+          </>
+        }
+      >
+        <p>{content.price.terms}</p>
+        {content.price.contrast && <p>{content.price.contrast}</p>}
+        <CtaSentence lead="Twenty minutes is enough to know if this is the right shape for you." />
+      </ArticleRow>
 
-      {/* What you get */}
-      <section className="section">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="What you get"
-            title="Concrete deliverables. No vapourware."
-            subtitle="The list below is what ships, not what we promise. Every project is quoted against this scope so you know exactly what you are paying for."
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-            {content.deliverables.map((d, i) => (
-              <Reveal key={d.title} delay={i * 40}>
-                <div className="bento-card p-6 md:p-7 flex items-start gap-5 h-full">
-                  <span
-                    className="material-symbols-outlined text-[var(--color-pib-accent)] shrink-0"
-                    style={{ fontSize: '28px', fontVariationSettings: "'FILL' 0, 'wght' 300" }}
-                  >
-                    {d.icon}
-                  </span>
-                  <div>
-                    <h3 className="font-medium text-[var(--color-pib-text)]">{d.title}</h3>
-                    <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)] text-pretty">
-                      {d.body}
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ArticleRow
+        title="Who this is for"
+        flip
+        aside={<Proof line={content.proof.line} credit={`${study.client}, ${study.industry}`} href={study.href} />}
+      >
+        {content.who.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+      </ArticleRow>
 
-      {/* How we do it */}
-      <section className="section">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="How we do it"
-            title="A four-step path. Designed not to surprise you."
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {content.process.map((p, i) => (
-              <Reveal key={p.step} delay={i * 80}>
-                <div className="bento-card p-7 h-full flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs tracking-widest text-[var(--color-pib-text-faint)]">
-                      {p.step}
-                    </span>
-                    <span className="h-px flex-1 ml-4 bg-[var(--color-pib-line)]" />
-                  </div>
-                  <h3 className="font-display text-2xl text-[var(--color-pib-text)]">
-                    {p.title}
-                  </h3>
-                  <p className="text-sm text-[var(--color-pib-text-muted)] leading-relaxed text-pretty flex-1">
-                    {p.body}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Tech band */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <Reveal>
-            <div className="border-y border-[var(--color-pib-line)] py-10 flex flex-col md:flex-row md:items-center gap-6">
-              <p className="eyebrow shrink-0">Stack</p>
-              <div className="flex flex-wrap gap-2">
-                {techPills.map((t) => (
-                  <span key={t} className="pill text-xs">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Featured case studies */}
-      {featuredCases.length > 0 && (
-        <section className="section">
-          <div className="container-pib">
-            <SectionHead
-              eyebrow="Selected work"
-              title="See it in production."
-              href="/work"
-              cta="All case studies"
-            />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
-              {featuredCases.map((c, i) => (
-                <Reveal key={c.slug} delay={i * 80}>
-                  <Link href={c.href} className="bento-card h-full p-8 md:p-10 group block">
-                    <div className="flex items-center justify-between mb-6">
-                      <span className="eyebrow">{c.industry}</span>
-                      <span className="material-symbols-outlined text-[var(--color-pib-text-faint)] group-hover:text-[var(--color-pib-text)] transition-colors">
-                        arrow_outward
-                      </span>
-                    </div>
-                    <h3 className="font-display text-2xl md:text-3xl text-[var(--color-pib-text)] text-balance">
-                      {c.headline}
-                    </h3>
-                    <p className="mt-4 text-[var(--color-pib-text-muted)] text-pretty">
-                      {c.summary}
-                    </p>
-                    <div className="mt-6 grid grid-cols-3 gap-4 pt-6 border-t border-[var(--color-pib-line)]">
-                      {c.metrics.map((m) => (
-                        <div key={m.label}>
-                          <div className="font-display text-2xl text-[var(--color-pib-accent)]">
-                            {m.value}
-                          </div>
-                          <div className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-faint)] mt-1">
-                            {m.label}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Link>
-                </Reveal>
+      <ArticleRow
+        title="What ships"
+        aside={
+          <>
+            <p className="sc-tiny">How it runs</p>
+            <ol className="sc-article__list">
+              {content.steps.map((step) => (
+                <li key={step.title}>
+                  <strong>{step.title}.</strong> {step.body}
+                </li>
               ))}
-            </div>
-          </div>
-        </section>
-      )}
+            </ol>
+          </>
+        }
+      >
+        <ArticleList items={content.deliverables} />
+        <p>
+          Built with {[...service.keywords].join(', ')}. Boring, supported tools, so the work is still standing in five years.
+        </p>
+      </ArticleRow>
 
-      {/* Pricing band */}
-      <section className="section">
-        <div className="container-pib">
-          <Reveal>
-            <div className="bento-card p-10 md:p-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-5">
-                <p className="eyebrow mb-4">Pricing</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
-                  {service.name}{' '}
-                  <span
-                    className="text-[var(--color-pib-accent)]"
-                    dangerouslySetInnerHTML={{ __html: content.pricing.label }}
-                  />
-                </h3>
-                {content.pricing.note && (
-                  <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">
-                    {content.pricing.note}
-                  </p>
-                )}
-                <p className="mt-6 text-[var(--color-pib-text-muted)] text-pretty">
-                  Custom builds price differently —{' '}
-                  <Link href="/start-a-project" className="pib-link-underline text-[var(--color-pib-accent)]">
-                    let&rsquo;s scope it
-                  </Link>
-                  .
-                </p>
-              </div>
-              <div className="lg:col-span-7">
-                <p className="text-xs uppercase tracking-widest text-[var(--color-pib-text-faint)] mb-4">
-                  Includes
-                </p>
-                <ul className="space-y-3">
-                  {content.pricing.includes.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-3 text-[var(--color-pib-text)]"
-                    >
-                      <span className="material-symbols-outlined text-[var(--color-pib-accent)] mt-0.5">
-                        check_circle
-                      </span>
-                      <span className="text-pretty">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <ArticleRow title={`Questions about ${service.name.toLowerCase()}`}>
+        <FAQ items={content.faqs} />
+      </ArticleRow>
 
-      {/* FAQ */}
-      <section className="section">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="FAQ"
-            title={`Questions about ${service.name.toLowerCase()}.`}
-            subtitle="Everything we get asked at the start of a project. If yours is not here, just write to us."
-          />
-          <FAQ items={content.faqs} />
-        </div>
-      </section>
-
-      {/* Related Insights */}
-      {content.relatedInsightSlugs && content.relatedInsightSlugs.length > 0 && (
-        <section className="section pt-0">
-          <div className="container-pib">
-            <SectionHead
-              eyebrow="Related insights"
-              title="Further reading from the workshop."
-              subtitle="Practical writing on the topics this service touches — pricing, decision frameworks, ROI data, and the things that change once a project is live."
-            />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
-              {content.relatedInsightSlugs
-                .map((s) => POSTS.find((p) => p.slug === s))
-                .filter((p): p is NonNullable<typeof p> => Boolean(p))
-                .map((p, i) => (
-                  <Reveal key={p.slug} delay={i * 80}>
-                    <Link
-                      href={`/insights/${p.slug}`}
-                      className="bento-card h-full p-6 flex flex-col gap-3 group"
-                    >
-                      <span className="pill self-start">{p.category}</span>
-                      <h3 className="font-display text-xl leading-tight text-[var(--color-pib-text)] text-balance group-hover:text-[var(--color-pib-accent)] transition">
-                        {p.title}
-                      </h3>
-                      <p className="text-sm text-[var(--color-pib-text-muted)] leading-relaxed text-pretty flex-1">
-                        {p.description}
-                      </p>
-                      <span className="pib-link-underline text-[var(--color-pib-accent)] text-sm font-medium inline-flex items-center gap-1.5 mt-1">
-                        Read article
-                        <span className="material-symbols-outlined text-base">arrow_forward</span>
-                      </span>
+      <ArticleRow
+        title="Also on the call if you need it"
+        flip
+        aside={
+          related.length > 0 ? (
+            <>
+              <p className="sc-tiny">Further reading</p>
+              <ul className="sc-article__list">
+                {related.map((p) => (
+                  <li key={p.slug}>
+                    <Link href={`/insights/${p.slug}`} prefetch={false} className="sc-link">
+                      {p.title}
                     </Link>
-                  </Reveal>
+                  </li>
                 ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* CTA */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <Reveal>
-            <div className="border-t border-[var(--color-pib-line)] pt-14 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-              <h3 className="h-display text-3xl md:text-5xl text-balance max-w-2xl">
-                Ready to brief us on your{' '}
-                <span className="text-[var(--color-pib-accent)]">{service.name.toLowerCase()}</span>{' '}
-                project?
-              </h3>
-              <div className="flex flex-wrap gap-3 shrink-0">
-                <Link href="/start-a-project" className="btn-pib-primary">
-                  Start a project
-                  <span className="material-symbols-outlined text-base">arrow_outward</span>
-                </Link>
-                <Link href="/services" className="btn-pib-secondary">
-                  All services
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-    </main>
+              </ul>
+            </>
+          ) : undefined
+        }
+      >
+        <p>
+          {others.map((s, i) => (
+            <span key={s}>
+              <Link href={`/services/${s}`} prefetch={false} className="sc-link">
+                {SERVICES.find((meta) => meta.slug === s)?.name}
+              </Link>
+              {i < others.length - 1 ? ', ' : '.'}
+            </span>
+          ))}{' '}
+          <Link href="/services" prefetch={false} className="sc-link">
+            Everything we do
+          </Link>
+          .
+        </p>
+        <CtaSentence lead={`Ready to talk about ${service.name.toLowerCase()}?`} />
+      </ArticleRow>
+    </Article>
   )
 }

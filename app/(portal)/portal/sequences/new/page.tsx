@@ -7,6 +7,7 @@ import { SequenceForm } from '@/components/crm/SequenceForm'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { Icon } from '@/components/studio'
 
 export default function NewSequencePage() {
   const router = useRouter()
@@ -58,7 +59,7 @@ export default function NewSequencePage() {
             onClick={handleCancel}
             className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            <Icon name="arrow_back" />
             Sequences
           </button>
           <p className="eyebrow">Email · Journey builder</p>
@@ -69,9 +70,7 @@ export default function NewSequencePage() {
         </div>
         <div className="pib-card w-full max-w-sm">
           <div className="flex items-start gap-3">
-            <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
-              <span className="material-symbols-outlined text-[18px]">route</span>
-            </span>
+            <Icon name="route" />
             <div>
               <p className="text-xs font-medium">Company-scoped journey</p>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">

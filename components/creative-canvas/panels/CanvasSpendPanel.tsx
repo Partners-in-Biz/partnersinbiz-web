@@ -16,7 +16,7 @@ function round2(value: number): number {
 }
 
 /** Estimated credit cost of a run: model unit cost × variant count. Runs don't
- *  store a resolved cost, so we derive it from the model registry — matches the
+ *  store a resolved cost, so we derive it from the model registry  -  matches the
  *  Generate-button estimate the user saw at dispatch. */
 function runCost(run: CreativeCanvasRun): number {
   const model = getCanvasModel(run.model ?? '')

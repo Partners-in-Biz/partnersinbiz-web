@@ -20,6 +20,12 @@ const METRICS: { value: string; label: string }[] = [
   { value: 'roas', label: 'ROAS' },
 ]
 
+const AXIS_TICK = {
+  className: 'sc-tiny',
+  fill: 'var(--sc-ink-soft)',
+  fontSize: 11,
+} as const
+
 interface MetricRow { date: string; value: number; metric: string }
 
 export function InsightsChart({ orgId, level, pibEntityId, daysBack = 7 }: Props) {
@@ -47,7 +53,7 @@ export function InsightsChart({ orgId, level, pibEntityId, daysBack = 7 }: Props
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <select
-          className="rounded border border-white/10 bg-white/5 px-2 py-1 text-sm"
+          className="st-select"
           value={metric}
           onChange={(e) => setMetric(e.target.value)}
           aria-label="Metric"
@@ -56,23 +62,37 @@ export function InsightsChart({ orgId, level, pibEntityId, daysBack = 7 }: Props
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
-        <span className="text-xs text-white/40">Last {daysBack} days</span>
+        <span className="sc-tiny text-[var(--sc-ink-soft)]">Last {daysBack} days</span>
       </div>
       <div className="h-64 w-full">
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-white/40">Loading…</div>
+          <div className="flex h-full items-center justify-center sc-body text-[var(--sc-ink-soft)]">Loading…</div>
         ) : rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-white/40">
-            No data yet — refresh insights or wait for the next cron pull.
+          <div className="flex h-full items-center justify-center sc-body text-[var(--sc-ink-soft)]">
+            No data yet. Refresh insights or wait for the next cron pull.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#0A0A0B', border: '1px solid rgba(255,255,255,0.1)' }} />
-              <Line type="monotone" dataKey="value" stroke="var(--color-pib-rose)" strokeWidth={2} dot={{ r: 3 }} />
+              <CartesianGrid stroke="var(--sc-line)" strokeWidth={1} vertical={false} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{
+                  background: 'var(--sc-surface)',
+                  border: '1px solid var(--sc-line)',
+                  borderRadius: 6,
+                  color: 'var(--sc-ink)',
+                  fontSize: 12,
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="var(--sc-accent)"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'var(--sc-accent)' }}
+              />
             </LineChart>
           </ResponsiveContainer>
         )}

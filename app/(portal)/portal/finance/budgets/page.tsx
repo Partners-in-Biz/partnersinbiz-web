@@ -165,7 +165,7 @@ export default function FinanceBudgetsPage() {
         apByPeriod: { [periodKey]: parseRandsToMinor('2000.00') },
         ...requestIdentity('cashflow'),
       })
-      scope.setMessage('Cashflow plan ready — planning only, no payment initiation')
+      scope.setMessage('Cashflow plan ready - planning only, no payment initiation')
     })
   }
 
@@ -223,7 +223,7 @@ export default function FinanceBudgetsPage() {
         scenarioIds: [baseId, downId, upId],
         ...requestIdentity('scn-cmp'),
       })
-      scope.setMessage('Named scenarios built + compared — temporary analysis only, no bank movement')
+      scope.setMessage('Named scenarios built + compared - temporary analysis only, no bank movement')
     })
   }
 
@@ -249,7 +249,7 @@ export default function FinanceBudgetsPage() {
         applyAsOpening: true,
         ...requestIdentity('scn-actuals'),
       })
-      scope.setMessage('Reconciled cash actuals attached (read-only) — no bank movement')
+      scope.setMessage('Reconciled cash actuals attached (read-only) - no bank movement')
     })
   }
 
@@ -264,7 +264,7 @@ export default function FinanceBudgetsPage() {
         includeComparison: ids.length >= 2,
         ...requestIdentity('scn-snap'),
       })
-      scope.setMessage('Scenario snapshot frozen — temporary analysis artifact only')
+      scope.setMessage('Scenario snapshot frozen - temporary analysis artifact only')
     })
   }
 
@@ -290,7 +290,7 @@ export default function FinanceBudgetsPage() {
       active="budgets"
       orgScope={scope.orgScope}
       title="Budgets & cash scenarios"
-      description="Operating budgets, forecast multipliers, cashflow planner, and named base/downside/upside scenarios. Temporary analysis only — never a permanent CEO dashboard. Does not initiate bank payments or SARS submits."
+      description="Operating budgets, forecast multipliers, cashflow planner, and named base/downside/upside scenarios. Temporary analysis only - never a permanent CEO dashboard. Does not initiate bank payments or SARS submits."
       error={scope.error}
       message={scope.message}
       loading={scope.loading || busy}
@@ -309,9 +309,9 @@ export default function FinanceBudgetsPage() {
         <div className="space-y-6" data-testid="finance-budgets-scenarios">
           <FinanceScopeBar scope={scope} />
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Role lens (UX density)</h2>
+              <h2 className="text-sm">Role lens (UX density)</h2>
               <div className="flex gap-1.5">
                 <button
                   type="button"
@@ -330,7 +330,7 @@ export default function FinanceBudgetsPage() {
               </div>
             </div>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
-              Persona is a density lens only — authorization still uses finance roles. Owner sees decision spread; bookkeeper sees actuals + entry detail.
+              Persona is a density lens only - authorization still uses finance roles. Owner sees decision spread; bookkeeper sees actuals + entry detail.
             </p>
             <div className="mt-3 grid gap-3 md:grid-cols-4">
               <StatCard label="Base close" value={formatMinor(endingByKind.base ?? 0)} detail="Named base scenario" />
@@ -345,8 +345,8 @@ export default function FinanceBudgetsPage() {
           </section>
 
           {(ownerDense || bookkeeperDense) && (
-            <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-              <h2 className="mb-3 text-sm font-semibold">Budget</h2>
+            <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+              <h2 className="mb-3 text-sm">Budget</h2>
               <div className="grid gap-3 md:grid-cols-4">
                 <label className="text-xs">
                   Name
@@ -372,8 +372,8 @@ export default function FinanceBudgetsPage() {
           )}
 
           {bookkeeperDense && (
-            <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-              <h2 className="mb-3 text-sm font-semibold">Forecast multipliers (bps, 10000=100%)</h2>
+            <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+              <h2 className="mb-3 text-sm">Forecast multipliers (bps, 10000=100%)</h2>
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-xs">
                   Revenue bps
@@ -390,8 +390,8 @@ export default function FinanceBudgetsPage() {
             </section>
           )}
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Cashflow planner + opening</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Cashflow planner + opening</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs">
                 Opening cash (R)
@@ -433,8 +433,8 @@ export default function FinanceBudgetsPage() {
             ) : null}
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4" data-testid="cash-scenarios-panel">
-            <h2 className="mb-1 text-sm font-semibold">Named cash scenarios</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4" data-testid="cash-scenarios-panel">
+            <h2 className="mb-1 text-sm">Named cash scenarios</h2>
             <p className="mb-3 text-xs text-[var(--color-pib-text-muted)]">
               Base / downside / upside with adjustable inflow/outflow bps and period deltas. Compare + snapshot. No auto bank movement.
             </p>
@@ -467,7 +467,7 @@ export default function FinanceBudgetsPage() {
 
             {ownerDense && latestCompare ? (
               <div className="mt-4 overflow-x-auto">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Owner compare</h3>
+                <h3 className="mb-2 text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Owner compare</h3>
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left text-[var(--color-pib-text-muted)]">
@@ -499,7 +499,7 @@ export default function FinanceBudgetsPage() {
 
             {bookkeeperDense ? (
               <div className="mt-4 space-y-3 rounded-lg border border-dashed border-[var(--color-pib-line)] p-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Bookkeeper actuals (read-only)</h3>
+                <h3 className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Bookkeeper actuals (read-only)</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-xs">
                     Reconciled cash total (R)
@@ -550,7 +550,7 @@ export default function FinanceBudgetsPage() {
             ) : null}
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm">
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm">
             <div>Budgets: {bundle?.budgets?.length ?? 0}</div>
             <div>Forecasts: {bundle?.forecasts?.length ?? 0}</div>
             <div>Cashflow plans: {bundle?.cashflowPlans?.length ?? 0}</div>

@@ -1,10 +1,12 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useState } from 'react'
 
 import { fmtTimestamp } from '@/lib/format/timestamp'
 
-/** Local shape — mirrors the SignatureRequest stored under the document. */
+/** Local shape - mirrors the SignatureRequest stored under the document. */
 interface SignatureRequestRow {
   id: string
   signerName: string
@@ -40,9 +42,7 @@ function StatusBadge({ status }: { status: SignatureRequestRow['status'] }) {
   const m = map[status]
   return (
     <span className={`pib-pill ${m.cls} !text-[10px]`}>
-      <span className="material-symbols-outlined text-[13px]" aria-hidden>
-        {m.icon}
-      </span>
+      <Icon name={m.icon} />
       {m.label}
     </span>
   )
@@ -103,7 +103,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
         return
       }
       const data = unwrap<{ emailSent?: boolean }>(body)
-      setNotice(data?.emailSent ? 'Signature request sent.' : 'Request created — but the invite email could not be sent.')
+      setNotice(data?.emailSent ? 'Signature request sent.' : 'Request created - but the invite email could not be sent.')
       setSignerName('')
       setSignerEmail('')
       setMessage('')
@@ -126,9 +126,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 text-xs font-medium hover:bg-white/5"
           >
-            <span className="material-symbols-outlined text-sm" aria-hidden>
-              edit_document
-            </span>
+            <Icon name="edit_document" />
             Request signature
           </button>
         ) : null}
@@ -184,7 +182,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
               type="button"
               onClick={handleSend}
               disabled={sending}
-              className="flex-1 rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
+              className="flex-1 rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
               style={{ background: 'var(--color-pib-accent)', color: '#000' }}
             >
               {sending ? 'Sending…' : 'Send request'}
@@ -220,9 +218,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
                   rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden>
-                    picture_as_pdf
-                  </span>
+                  <Icon name="picture_as_pdf" />
                   Signed PDF copy
                 </a>
               ) : null}

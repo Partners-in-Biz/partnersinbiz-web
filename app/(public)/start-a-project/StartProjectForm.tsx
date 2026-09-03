@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { SITE } from '@/lib/seo/site'
@@ -97,7 +99,7 @@ export default function StartProjectForm() {
     const detailsBlock = [
       data.details.trim(),
       '',
-      '— — —',
+      ' - - - ',
       `Timeline: ${timelineLabel}`,
       `Budget: ${budgetLabel}`,
       data.whatsapp ? `WhatsApp: ${data.whatsapp}${data.preferWhatsapp ? ' (preferred)' : ''}` : null,
@@ -133,14 +135,9 @@ export default function StartProjectForm() {
     return (
       <div className="bento-card p-8 md:p-10">
         <div className="flex items-start gap-4">
-          <span
-            className="material-symbols-outlined text-[var(--color-pib-accent)]"
-            style={{ fontSize: '40px', fontVariationSettings: "'FILL' 1, 'wght' 400" }}
-          >
-            check_circle
-          </span>
+          <Icon name="check_circle" />
           <div className="flex-1">
-            <h2 className="font-display text-3xl text-[var(--color-pib-text)] mb-2">
+            <h2 className="text-3xl text-[var(--color-pib-text)] mb-2">
               Got it. We&rsquo;ll reply within one business day.
             </h2>
             <p className="text-[var(--color-pib-text-muted)] leading-relaxed">
@@ -152,12 +149,12 @@ export default function StartProjectForm() {
         <div className="mt-8 pt-6 border-t border-[var(--color-pib-line)] space-y-4">
           <p className="text-sm text-[var(--color-pib-text-muted)]">Want to grab a slot now?</p>
           <Link href={SITE.cal.url} className="btn-pib-accent">
-            <span className="material-symbols-outlined text-base">event</span>
+            <Icon name="event" />
             Book a 20-min call
           </Link>
           <p className="text-sm text-[var(--color-pib-text-muted)] pt-2">Or message us on WhatsApp:</p>
           <a href={waLink} target="_blank" rel="noreferrer" className="btn-pib-secondary">
-            <span className="material-symbols-outlined text-base">chat</span>
+            <Icon name="chat" />
             Open WhatsApp
           </a>
         </div>
@@ -177,7 +174,7 @@ export default function StartProjectForm() {
             {Math.round((step / totalSteps) * 100)}%
           </span>
         </div>
-        <div className="h-1 w-full bg-[var(--color-pib-line)] rounded-full overflow-hidden">
+        <div className="h-1 w-full bg-[var(--color-pib-line)] rounded-md overflow-hidden">
           <div
             className="h-full bg-[var(--color-pib-accent)] transition-all duration-500 ease-out"
             style={{ width: `${(step / totalSteps) * 100}%` }}
@@ -269,7 +266,7 @@ export default function StartProjectForm() {
                 label="WhatsApp"
                 value={data.whatsapp}
                 onChange={(v) => update('whatsapp', v)}
-                placeholder="Optional — +27 …"
+                placeholder="Optional - +27 …"
               />
               <label className="flex items-center gap-3 -mt-1 select-none cursor-pointer">
                 <input
@@ -292,6 +289,7 @@ export default function StartProjectForm() {
                   value={data.details}
                   onChange={(e) => update('details', e.target.value)}
                   rows={5}
+                  aria-label="What are you building? Any links?"
                   placeholder="A few sentences. Links to references, current site, anything that helps."
                   className="w-full bg-[var(--color-pib-bg)] border border-[var(--color-pib-line-strong)] rounded-lg px-4 py-3 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent-soft)] transition resize-y"
                 />
@@ -303,7 +301,7 @@ export default function StartProjectForm() {
 
       {/* Error */}
       {status === 'error' && (
-        <p className="mt-4 text-sm text-red-400" role="alert">
+        <p className="mt-4 text-sm text-[var(--st-danger)]" role="alert">
           {errorMsg}
         </p>
       )}
@@ -316,7 +314,7 @@ export default function StartProjectForm() {
           disabled={step === 1}
           className="btn-pib-secondary disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <Icon name="arrow_back" />
           Back
         </button>
 
@@ -328,7 +326,7 @@ export default function StartProjectForm() {
             className="btn-pib-accent disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Next
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <Icon name="arrow_forward" />
           </button>
         ) : (
           <button
@@ -339,7 +337,7 @@ export default function StartProjectForm() {
           >
             {status === 'loading' ? 'Sending…' : 'Send it'}
             {status !== 'loading' && (
-              <span className="material-symbols-outlined text-base">send</span>
+              <Icon name="send" />
             )}
           </button>
         )}
@@ -367,7 +365,7 @@ function Step({
 }) {
   return (
     <div>
-      <h2 className="font-display text-3xl md:text-4xl text-[var(--color-pib-text)] text-balance mb-2">
+      <h2 className="text-3xl md:text-4xl text-[var(--color-pib-text)] text-balance mb-2">
         {title}
       </h2>
       {subtitle && (
@@ -392,20 +390,18 @@ function RadioCard({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`group flex items-start gap-4 p-5 rounded-xl border text-left transition-all ${
+      className={`group flex items-start gap-4 p-5 rounded-md border text-left transition-all ${
         selected
           ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)]'
           : 'border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] hover:border-[var(--color-pib-line-strong)] hover:bg-[var(--color-pib-surface-2)]'
       }`}
     >
-      <span
-        className={`material-symbols-outlined shrink-0 ${
+      <Icon
+        name={option.icon}
+        className={`shrink-0 ${
           selected ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'
         }`}
-        style={{ fontSize: '24px' }}
-      >
-        {option.icon}
-      </span>
+      />
       <div className="flex-1 min-w-0">
         <span
           className={`block font-medium ${
@@ -421,13 +417,13 @@ function RadioCard({
         )}
       </div>
       <span
-        className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${
+        className={`shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition ${
           selected
             ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]'
             : 'border-[var(--color-pib-line-strong)] bg-transparent'
         }`}
       >
-        {selected && <span className="w-2 h-2 rounded-full bg-black" />}
+        {selected && <span className="w-2 h-2 rounded-md bg-black" />}
       </span>
     </button>
   )
@@ -459,6 +455,7 @@ function Field({
         value={value}
         required={required}
         placeholder={placeholder}
+        aria-label={label}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-[var(--color-pib-bg)] border border-[var(--color-pib-line-strong)] rounded-lg px-4 py-3 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-faint)] focus:border-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent-soft)] transition"
       />

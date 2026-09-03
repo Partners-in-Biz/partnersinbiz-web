@@ -16,7 +16,7 @@ const statusLabel: Record<CanvasNodeStatus, string> = {
 }
 
 /**
- * Combine node — the heart of the freeform canvas. Link any image / text /
+ * Combine node  -  the heart of the freeform canvas. Link any image / text /
  * video / audio nodes into it, write one instruction describing how they come
  * together ("the person wears these clothes, the dog sits next to them"),
  * pick an output type, and Generate. The result lands in a new output node
@@ -119,7 +119,7 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
             fontSize: 13,
             padding: 10,
           }}
-        />
+         aria-label="Describe how the linked nodes come together…"/>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${canvasTheme.border}` }}>

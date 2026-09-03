@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 
 type AccessMember = {
@@ -343,7 +345,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <p className="pib-label">People & Access</p>
-          <h2 className="mt-1 text-xl font-headline font-bold text-[var(--color-pib-text)]">Project collaboration</h2>
+          <h2 className="mt-1 text-xl font-headline font-medium text-[var(--color-pib-text)]">Project collaboration</h2>
           <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Invite people and organisations to this project without granting workspace-wide access.</p>
         </div>
         <button type="button" onClick={() => loadAccess()} className="pib-btn-secondary text-xs font-label" disabled={loading}>
@@ -354,8 +356,8 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
       {error ? <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Internal members</h3>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+          <h3 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">Internal members</h3>
           <div className="mt-3 space-y-2">
             {data.members.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading members...' : 'No project members yet.'}</p> : null}
             {data.members.map((member) => (
@@ -396,7 +398,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                 <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)]">
                   <span className="min-w-0 truncate">Selected member: {labelForMember(selectedMember)}</span>
                   <button type="button" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={() => setSelectedMember(null)} aria-label="Clear selected member">
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <Icon name="close" />
                   </button>
                 </div>
               ) : null}
@@ -418,7 +420,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                         <span className="block truncate font-medium">{labelForMember(member)}</span>
                         {member.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{member.email}</span> : null}
                       </span>
-                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                      <Icon name="person_add" />
                     </button>
                   ))}
                 </div>
@@ -434,8 +436,8 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
           </form>
         </div>
 
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">External organisations</h3>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+          <h3 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">External organisations</h3>
           <div className="mt-3 space-y-2">
             {data.organizations.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading organisations...' : 'No external organisations yet.'}</p> : null}
             {data.organizations.map((org) => (
@@ -543,7 +545,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                       <span className="block truncate font-medium">{company.name || 'Unnamed company'}</span>
                       {company.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{company.email}</span> : null}
                     </span>
-                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                    <Icon name="chevron_right" />
                   </button>
                 ))}
                 {!selectedCompany && companySearch.trim().length >= 2 ? (
@@ -553,7 +555,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                     disabled={companyCreating}
                     className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm font-medium text-[var(--color-pib-text)] hover:border-[var(--color-primary)] disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add_business</span>
+                    <Icon name="add_business" />
                     {companyCreating ? 'Creating company...' : 'Create CRM company'}
                   </button>
                 ) : null}
@@ -585,7 +587,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                         <span className="block truncate font-medium">{contact.name || 'Unnamed contact'}</span>
                         {contact.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{contact.email}</span> : null}
                       </span>
-                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                      <Icon name="person_add" />
                     </button>
                   ))}
                   <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
@@ -614,7 +616,7 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
                       disabled={contactCreating || !newContactName.trim() || !newContactEmail.trim()}
                       className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-label text-[var(--color-pib-text)] hover:border-[var(--color-primary)] disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+                      <Icon name="person_add" />
                       {contactCreating ? 'Creating contact...' : 'Create contact'}
                     </button>
                   </div>
@@ -638,8 +640,8 @@ export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: stri
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-        <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Access audit</h3>
+      <div className="mt-4 rounded-md border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+        <h3 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">Access audit</h3>
         <div className="mt-3 grid gap-2">
           {auditRows.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading audit...' : 'No access records yet.'}</p> : null}
           {auditRows.map((row) => (

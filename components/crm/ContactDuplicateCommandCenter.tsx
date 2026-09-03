@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface DuplicateContact {
   id: string
@@ -71,12 +72,12 @@ function DuplicateGroupResolver({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Matched by {group.reason}</p>
-          <p className="mt-0.5 text-xs font-semibold text-[var(--color-pib-text)]">
+          <p className="mt-0.5 text-xs font-medium text-[var(--color-pib-text)]">
             {group.contacts.length} records need {remainingMergeCount} merge{remainingMergeCount === 1 ? '' : 's'}
           </p>
         </div>
         <span className="pib-pill pib-pill-accent shrink-0">
-          <span className="material-symbols-outlined text-[14px]">data_check</span>
+          <Icon name="data_check" className="text-[14px]" />
           One merge at a time
         </span>
       </div>
@@ -136,7 +137,7 @@ function DuplicateGroupResolver({
           disabled={isMerging || !loser}
           className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+          <Icon name="merge" className="text-[14px]" />
           {isMerging ? 'Merging…' : 'Merge next duplicate'}
         </button>
       </div>
@@ -154,7 +155,7 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Duplicate hygiene</p>
-          <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Resolve contact conflicts</h2>
+          <h2 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Resolve contact conflicts</h2>
           <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Pick the canonical record, merge one duplicate at a time, and keep reviewing until each match group is clean.
           </p>
@@ -165,25 +166,25 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
           className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           aria-label="Close duplicate contacts"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <Icon name="close" className="text-[16px]" />
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
+          <p className="text-lg font-medium leading-6 text-[var(--color-pib-text)]">
             {groupCount} match group{groupCount === 1 ? '' : 's'}
           </p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Groups</p>
         </div>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
+          <p className="text-lg font-medium leading-6 text-[var(--color-pib-text)]">
             {recordCount} record{recordCount === 1 ? '' : 's'}
           </p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Records</p>
         </div>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
+          <p className="text-lg font-medium leading-6 text-[var(--color-pib-text)]">
             {queuedMerges} merge{queuedMerges === 1 ? '' : 's'} queued
           </p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Queue</p>
@@ -194,15 +195,10 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2">
-              <span
-                className="material-symbols-outlined mt-0.5 grid h-6 w-6 place-items-center rounded-md border border-emerald-400/40 bg-emerald-400/10 text-[16px] text-emerald-100"
-                aria-hidden="true"
-              >
-                verified
-              </span>
+              <Icon name="verified" className="mt-0.5 grid h-6 w-6 place-items-center rounded-md border border-emerald-400/40 bg-emerald-400/10 text-[16px] text-emerald-100" />
               <div className="min-w-0">
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Scan complete</p>
-                <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Contact data is clean</h3>
+                <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Contact data is clean</h3>
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No duplicate contacts need review right now. Keep the team moving with clean owner, stage, and
                   follow-up lists.
@@ -210,24 +206,22 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
               </div>
             </div>
             <button type="button" onClick={onClose} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                arrow_back
-              </span>
+              <Icon name="arrow_back" className="text-[14px]" />
               Return to contacts
             </button>
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">0 merge backlog</p>
+              <p className="text-xs font-medium leading-5 text-[var(--color-pib-text)]">0 merge backlog</p>
               <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Backlog</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">Lists stay trustworthy</p>
+              <p className="text-xs font-medium leading-5 text-[var(--color-pib-text)]">Lists stay trustworthy</p>
               <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Team impact</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">Run after imports</p>
+              <p className="text-xs font-medium leading-5 text-[var(--color-pib-text)]">Run after imports</p>
               <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Next check</p>
             </div>
           </div>

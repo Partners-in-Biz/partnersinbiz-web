@@ -1,4 +1,4 @@
-/* Quiet Messages overrides — solid black, no glass/glow motion.
+/* Quiet Messages overrides - solid black, no glass/glow motion.
    Scoped to [data-messages-experience='quiet-2026'] only. */
 
 [data-messages-experience='quiet-2026'] {
@@ -24,11 +24,11 @@
 [data-messages-experience='quiet-2026'] .messages-hud-pulse,
 [data-messages-experience='quiet-2026'] .messages-hud-meter,
 [data-messages-experience='quiet-2026'] .messages-scanlines,
-[data-messages-experience='quiet-2026'] .pib-scanlines,
+[data-messages-experience='quiet-2026'] .,
 [data-messages-experience='quiet-2026'] .messages-neural-field,
-[data-messages-experience='quiet-2026'] .pib-neural-field,
+[data-messages-experience='quiet-2026'] .,
 [data-messages-experience='quiet-2026'] .messages-atmosphere-fallback,
-[data-messages-experience='quiet-2026'] .pib-aurora-fallback {
+[data-messages-experience='quiet-2026'] . {
   display: none !important;
   animation: none !important;
 }
@@ -68,7 +68,7 @@
   box-shadow: none !important;
 }
 
-/* Flat thread — no card bubbles; keep accent rail with readable inset */
+/* Flat thread - no card bubbles; keep accent rail with readable inset */
 [data-messages-experience='quiet-2026'] .mx-bubble-agent {
   background: transparent !important;
   border: 0 !important;
@@ -92,14 +92,14 @@
   box-shadow: none !important;
 }
 
-/* Message pane header — drop the light divider border and trim padding */
+/* Message pane header - drop the light divider border and trim padding */
 [data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > section > div:first-child {
   border-bottom: 0 !important;
   padding-top: 0.375rem !important;
   padding-bottom: 0.375rem !important;
 }
 
-/* Trim thread container paddings — less whitespace around messages */
+/* Trim thread container paddings - less whitespace around messages */
 [data-messages-experience='quiet-2026'] [role='log'][aria-label='Conversation messages'] {
   padding: 0.5rem !important;
 }
@@ -129,7 +129,7 @@
   inset: 0 0 0 auto;
   width: 2px;
   border-radius: 999px;
-  background: var(--color-pib-primary);
+  background: var(--sc-ink-soft);
   opacity: 0.8;
   pointer-events: none;
 }

@@ -48,9 +48,9 @@ function unwrap<T>(body: unknown): T | null {
 }
 
 function relative(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return ' - '
   const ms = Date.parse(iso)
-  if (!Number.isFinite(ms)) return '—'
+  if (!Number.isFinite(ms)) return ' - '
   const diff = ms - Date.now()
   const abs = Math.abs(diff)
   const mins = Math.round(abs / 60000)
@@ -125,7 +125,7 @@ export function SocialApisHealth() {
       {loading ? (
         <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading social API health…</div>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
+        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-[var(--st-danger)]">{error}</div>
       ) : payload && summary ? (
         <>
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -136,8 +136,8 @@ export function SocialApisHealth() {
           </section>
 
           {summary.activeOutages > 0 ? (
-            <div className="pib-card border border-amber-400/30 bg-amber-400/10 p-5">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Active outages detected</h2>
+            <div className="pib-card border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-5">
+              <h2 className="text-lg font-medium text-[var(--color-pib-text)]">Active outages detected</h2>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                 {summary.activeOutages} platform{summary.activeOutages === 1 ? '' : 's'} reported recent connection errors.
                 Review the affected platforms below and trigger re-auth where prompted.
@@ -149,7 +149,7 @@ export function SocialApisHealth() {
             {payload.platforms.map((p) => (
               <div key={p.platform} className="pib-card p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold text-[var(--color-pib-text)]">{p.label}</h3>
+                  <h3 className="text-base font-medium text-[var(--color-pib-text)]">{p.label}</h3>
                   <span className={connPill(p.connection)}>{CONN_LABEL[p.connection]}</span>
                 </div>
 
@@ -167,7 +167,7 @@ export function SocialApisHealth() {
                     <div className="border-t border-[var(--color-pib-line)] pt-3 text-sm">
                       <Row label="Token expiry">
                         {p.tokenExpiry.expired > 0 || p.tokenExpiry.expiringSoon > 0 ? (
-                          <span className="text-amber-400">
+                          <span className="text-[var(--st-warning)]">
                             {p.tokenExpiry.expired} expired · {p.tokenExpiry.expiringSoon} expiring{p.tokenExpiry.nextExpiryAt ? ` · next ${relative(p.tokenExpiry.nextExpiryAt)}` : ''}
                           </span>
                         ) : p.tokenExpiry.nextExpiryAt ? (
@@ -180,7 +180,7 @@ export function SocialApisHealth() {
                       <Row label="Rate limit">
                         {p.rateLimit.tracked ? (
                           <span className="text-[var(--color-pib-text)]">
-                            {p.rateLimit.remaining ?? '—'}{p.rateLimit.limit != null ? ` / ${p.rateLimit.limit}` : ''} remaining
+                            {p.rateLimit.remaining ?? ' - '}{p.rateLimit.limit != null ? ` / ${p.rateLimit.limit}` : ''} remaining
                             {p.rateLimit.resetAt ? ` · resets ${relative(p.rateLimit.resetAt)}` : ''}
                           </span>
                         ) : (
@@ -190,7 +190,7 @@ export function SocialApisHealth() {
 
                       <Row label="Outage">
                         {p.outage.active ? (
-                          <span className="text-red-400">
+                          <span className="text-[var(--st-danger)]">
                             {p.outage.affected} account{p.outage.affected === 1 ? '' : 's'} · {p.outage.lastError ?? 'error'}{p.outage.lastErrorAt ? ` (${relative(p.outage.lastErrorAt)})` : ''}
                           </span>
                         ) : (
@@ -200,15 +200,15 @@ export function SocialApisHealth() {
                     </div>
 
                     {p.reAuthRequired.count > 0 ? (
-                      <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3">
-                        <p className="text-xs font-label uppercase tracking-widest text-amber-400">
+                      <div className="rounded-lg border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)] p-3">
+                        <p className="text-xs font-label uppercase tracking-widest text-[var(--st-warning)]">
                           Re-auth required ({p.reAuthRequired.count})
                         </p>
                         <ul className="mt-2 space-y-1 text-sm">
                           {p.reAuthRequired.accounts.map((a) => (
                             <li key={a.id} className="flex items-center justify-between gap-3">
                               <span className="truncate text-[var(--color-pib-text)]">{a.displayName}</span>
-                              <span className="shrink-0 text-xs text-[var(--color-pib-text-muted)]">{a.status} · org {a.orgId || '—'}</span>
+                              <span className="shrink-0 text-xs text-[var(--color-pib-text-muted)]">{a.status} · org {a.orgId || ' - '}</span>
                             </li>
                           ))}
                         </ul>
@@ -227,9 +227,9 @@ export function SocialApisHealth() {
 
 function Metric({ label, value, helper, tone = 'default' }: { label: string; value: string; helper?: string; tone?: 'default' | 'warn' }) {
   return (
-    <div className={`pib-card p-5 ${tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/5' : ''}`}>
+    <div className={`pib-card p-5 ${tone === 'warn' ? 'border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)]' : ''}`}>
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-2xl font-medium text-[var(--color-pib-text)]">{value}</p>
       {helper ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{helper}</p> : null}
     </div>
   )
@@ -239,7 +239,7 @@ function Stat({ label, value, warn = false }: { label: string; value: number; wa
   return (
     <div>
       <dt className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</dt>
-      <dd className={`mt-1 text-lg font-semibold ${warn && value > 0 ? 'text-amber-400' : 'text-[var(--color-pib-text)]'}`}>{value}</dd>
+      <dd className={`mt-1 text-lg font-medium ${warn && value > 0 ? 'text-[var(--st-warning)]' : 'text-[var(--color-pib-text)]'}`}>{value}</dd>
     </div>
   )
 }

@@ -7,7 +7,7 @@ export type TrendSeries = {
   color?: string
   /** y-values; nulls render as gaps */
   points: (number | null)[]
-  /** when true, smaller y is better (e.g. SERP position) — affects nothing visually, kept for callers */
+  /** when true, smaller y is better (e.g. SERP position) - affects nothing visually, kept for callers */
   invert?: boolean
 }
 
@@ -72,7 +72,7 @@ export function TrendChart({
   if (!allValues.length) {
     return (
       <div
-        className={`flex items-center justify-center rounded-xl border border-[var(--color-pib-line)] bg-black/10 text-xs text-[var(--color-pib-text-muted)] ${className ?? ''}`}
+        className={`flex items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-black/10 text-xs text-[var(--color-pib-text-muted)] ${className ?? ''}`}
         style={{ height }}
       >
         No data yet
@@ -154,12 +154,12 @@ export function TrendChart({
 
       {hover !== null && (
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-xs text-[var(--color-pib-text-muted)]">
-          <span className="font-semibold text-[var(--color-pib-text)]">{labels[hover]}</span>
+          <span className="font-medium text-[var(--color-pib-text)]">{labels[hover]}</span>
           {series.map((s, si) => {
             const v = s.points[hover]
             return typeof v === 'number' ? (
               <span key={si} className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color ?? DEFAULT_COLORS[si % DEFAULT_COLORS.length] }} />
+                <span className="inline-block h-2 w-2" style={{ borderRadius: '50%',  background: s.color ?? DEFAULT_COLORS[si % DEFAULT_COLORS.length] }} />
                 {s.label}: <span className="tabular-nums text-[var(--color-pib-text)]">{yFormat(v)}</span>
               </span>
             ) : null
@@ -171,7 +171,7 @@ export function TrendChart({
         <div className="mt-2 flex flex-wrap items-center gap-3 px-2 text-xs text-[var(--color-pib-text-muted)]">
           {series.map((s, si) => (
             <span key={si} className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color ?? DEFAULT_COLORS[si % DEFAULT_COLORS.length] }} />
+              <span className="inline-block h-2 w-2" style={{ borderRadius: '50%',  background: s.color ?? DEFAULT_COLORS[si % DEFAULT_COLORS.length] }} />
               {s.label}
             </span>
           ))}

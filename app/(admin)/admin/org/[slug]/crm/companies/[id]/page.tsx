@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { useParams } from 'next/navigation'
 import type { Company } from '@/lib/companies/types'
 import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
@@ -200,9 +201,9 @@ function AdminRowsEmptyState({
 }) {
   return (
     <div className="bento-card p-8 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-amber)]">hub</span>
-      <p className="eyebrow mt-4 !text-[10px] text-[var(--color-pib-amber)]">{label} not linked yet</p>
-      <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Review selected-org context from the admin workspace</h2>
+      <Icon name="hub" className="text-[var(--st-warning)]" />
+      <p className="eyebrow mt-4 !text-[10px] text-[var(--sc-accent)]">{label} not linked yet</p>
+      <h2 className="mt-2 font-headline text-xl text-[var(--color-pib-text)]">Review selected-org context from the admin workspace</h2>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
         No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the selected client org dashboard so relationship ownership, email history, and pipeline handoffs stay visible to PiB operators.
       </p>
@@ -213,7 +214,7 @@ function AdminRowsEmptyState({
           aria-label={`Review overview for ${companyName}`}
           className="btn-pib-secondary inline-flex items-center gap-1.5"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">monitoring</span>
+          <Icon name="monitoring" className="text-[16px]" />
           Review overview
         </button>
         <Link
@@ -221,7 +222,7 @@ function AdminRowsEmptyState({
           aria-label={`Open selected org dashboard for ${companyName}`}
           className="btn-pib-primary inline-flex items-center gap-1.5"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
+          <Icon name="open_in_new" className="text-[16px]" />
           Open org dashboard
         </Link>
       </div>
@@ -269,9 +270,9 @@ function AdminRowsPanel({
             { label: 'Received', value: documentDirectionCounts.received },
             { label: 'Linked', value: documentDirectionCounts.linked },
           ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
+            <div key={item.label} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
               <p className="eyebrow !text-[9px]">{item.label}</p>
-              <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
+              <p className="mt-1 font-headline text-2xl text-[var(--color-pib-text)]">{item.value}</p>
             </div>
           ))}
         </div>
@@ -348,10 +349,10 @@ export default function AdminCompanyCommandCenterPage() {
   if (error || !center?.company) {
     return (
       <div className="bento-card p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-error)]">error_outline</span>
+        <Icon name="error_outline" className="text-[var(--st-danger)]" />
         <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{error ?? 'Company not found.'}</p>
         <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          <Icon name="arrow_back" className="text-sm" />
           Admin org dashboard
         </Link>
       </div>
@@ -367,7 +368,7 @@ export default function AdminCompanyCommandCenterPage() {
         href={`/admin/org/${slug}/dashboard`}
         className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
       >
-        <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <Icon name="arrow_back" className="text-sm" />
         Admin org workspace
       </Link>
 
@@ -381,10 +382,10 @@ export default function AdminCompanyCommandCenterPage() {
                 width={64}
                 height={64}
                 unoptimized
-                className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                className="h-16 w-16 shrink-0 rounded-md object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-pib-accent-soft)] text-xl font-label text-[var(--color-pib-accent-hover)]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-xl font-label text-[var(--color-pib-accent-hover)]">
                 {initials(company.name)}
               </div>
             )}
@@ -401,11 +402,11 @@ export default function AdminCompanyCommandCenterPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href={adminOrgDashboardHref} className="btn-pib-secondary inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">visibility</span>
+              <Icon name="visibility" className="text-[16px]" />
               Org dashboard
             </Link>
             <button type="button" onClick={() => void load()} className="btn-pib-primary inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">refresh</span>
+              <Icon name="refresh" className="text-[16px]" />
               Refresh
             </button>
           </div>

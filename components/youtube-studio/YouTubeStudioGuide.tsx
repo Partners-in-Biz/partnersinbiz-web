@@ -27,18 +27,18 @@ export function YouTubeStudioGuide({ oauthHref }: YouTubeStudioGuideProps) {
   return (
     <section className="pib-card-section space-y-6 p-6">
       <div>
-        <h2 className="font-headline text-xl font-bold text-[var(--color-pib-text)]">How YouTube Studio works</h2>
+        <h2 className="font-headline text-xl text-[var(--color-pib-text)]">How YouTube Studio works</h2>
         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
           A guided pipeline from channel connection to published video. Start by linking your channel.
         </p>
       </div>
       <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {PIPELINE_STEPS.map((step, index) => (
-          <li key={step.title} className="rounded-2xl border border-[var(--color-pib-line)] p-4">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-pib-rose-soft)] text-sm font-bold text-[var(--color-pib-rose)]">
+          <li key={step.title} className="rounded-[6px] border border-[var(--color-pib-line)] p-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-sm text-[var(--st-danger)]">
               {index + 1}
             </span>
-            <h3 className="mt-3 font-semibold text-[var(--color-pib-text)]">{step.title}</h3>
+            <h3 className="mt-3 text-[var(--color-pib-text)]">{step.title}</h3>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{step.body}</p>
           </li>
         ))}

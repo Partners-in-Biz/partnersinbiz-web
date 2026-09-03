@@ -2,8 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { ButtonLink, Icon, Notice, Panel, Skeleton, Status } from '@/components/studio'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type MeterStatus = 'ok' | 'warning' | 'critical' | 'over'
@@ -40,11 +41,11 @@ const METER_ICON: Record<string, string> = {
   storage: 'database',
 }
 
-const STATUS_STYLE: Record<MeterStatus, { bar: string; pill: string; label: string }> = {
-  ok: { bar: 'bg-[var(--color-pib-accent)]', pill: 'pib-pill', label: 'Healthy' },
-  warning: { bar: 'bg-amber-400', pill: 'pib-pill', label: 'Approaching limit' },
-  critical: { bar: 'bg-orange-500', pill: 'pib-pill', label: 'Almost exhausted' },
-  over: { bar: 'bg-red-500', pill: 'pib-pill', label: 'Over limit' },
+const STATUS_META: Record<MeterStatus, { tone?: 'success' | 'warning' | 'danger' | 'info'; label: string }> = {
+  ok: { tone: 'success', label: 'Healthy' },
+  warning: { tone: 'warning', label: 'Approaching limit' },
+  critical: { tone: 'warning', label: 'Almost exhausted' },
+  over: { tone: 'danger', label: 'Over limit' },
 }
 
 function formatUsed(meter: Meter): string {
@@ -62,45 +63,62 @@ function formatLimit(meter: Meter): string {
   return `${meter.limit.toLocaleString()} ${meter.unit}`
 }
 
+function barTone(status: MeterStatus): string {
+  switch (status) {
+    case 'ok':
+      return 'var(--st-success)'
+    case 'warning':
+      return 'var(--st-warning)'
+    case 'critical':
+      return 'var(--st-warning)'
+    case 'over':
+      return 'var(--st-danger)'
+    default:
+      return 'var(--sc-ink)'
+  }
+}
+
 function MeterCard({ meter, thresholds }: { meter: Meter; thresholds: { warning: number; critical: number } }) {
-  const style = STATUS_STYLE[meter.status]
+  const meta = STATUS_META[meter.status]
   const fillPercent = meter.unlimited ? 0 : Math.min(100, meter.percent)
   return (
-    <div className="pib-card space-y-4 p-5">
+    <Panel className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="pib-icon-tint-cyan material-symbols-outlined" aria-hidden="true">
-            {METER_ICON[meter.key] ?? 'monitoring'}
-          </span>
+          <Icon name={METER_ICON[meter.key] ?? 'monitoring'} className="text-[var(--sc-ink-soft)]" />
           <div>
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">{meter.label}</p>
-            <p className="text-xs text-[var(--color-pib-text-muted)]">{meter.helper}</p>
+            <p className="sc-body text-[var(--sc-ink)]">{meter.label}</p>
+            <p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{meter.helper}</p>
           </div>
         </div>
-        {!meter.unlimited && (
-          <span className={`${style.pill} shrink-0 text-[11px]`}>{meter.percent}%</span>
-        )}
+        {!meter.unlimited ? (
+          <Status tone={meta.tone} className="shrink-0">{meter.percent}%</Status>
+        ) : null}
       </div>
 
       <div>
         <div className="flex items-baseline justify-between">
-          <p className="text-xl font-semibold text-[var(--color-pib-text)]">{formatUsed(meter)}</p>
-          <p className="text-xs text-[var(--color-pib-text-muted)]">of {formatLimit(meter)}</p>
+          <p className="st-num text-[1.25rem] text-[var(--sc-ink)]">{formatUsed(meter)}</p>
+          <p className="sc-tiny text-[var(--sc-ink-soft)]">of {formatLimit(meter)}</p>
         </div>
         <div
-          className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]"
+          className="mt-2 h-2.5 w-full overflow-hidden bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)]"
+          style={{ borderRadius: '4px' }}
           role="progressbar"
           aria-valuenow={meter.unlimited ? undefined : meter.percent}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label={`${meter.label} usage`}
         >
-          {!meter.unlimited && (
-            <div className={`relative h-full rounded-full transition-all ${style.bar}`} style={{ width: `${fillPercent}%` }} />
-          )}
+          {!meter.unlimited ? (
+            <div
+              className="relative h-full transition-all"
+              style={{ width: `${fillPercent}%`, background: barTone(meter.status), borderRadius: '4px' }}
+            />
+          ) : null}
         </div>
-        {!meter.unlimited && (
-          <div className="relative mt-1 h-3 w-full text-[10px] text-[var(--color-pib-text-muted)]">
+        {!meter.unlimited ? (
+          <div className="relative mt-1 h-3 w-full sc-tiny text-[var(--sc-ink-soft)]">
             <span className="absolute -translate-x-1/2" style={{ left: `${thresholds.warning}%` }}>
               {thresholds.warning}%
             </span>
@@ -108,16 +126,16 @@ function MeterCard({ meter, thresholds }: { meter: Meter; thresholds: { warning:
               {thresholds.critical}%
             </span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between">
-        <span className={`${style.pill} text-[11px]`}>{style.label}</span>
-        <span className="text-[11px] text-[var(--color-pib-text-muted)]">
+        <Status tone={meta.tone}>{meta.label}</Status>
+        <span className="sc-tiny text-[var(--sc-ink-soft)]">
           {meter.resetsMonthly ? 'Resets monthly' : 'Lifetime total'}
         </span>
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -155,10 +173,10 @@ export default function PortalUsagePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl space-y-4">
-        <div className="h-6 w-48 rounded bg-[var(--color-pib-surface-soft)]" />
+        <Skeleton className="h-6 w-48" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="pib-card h-44 animate-pulse" />
+            <Skeleton key={i} className="h-44 w-full" />
           ))}
         </div>
       </div>
@@ -167,11 +185,12 @@ export default function PortalUsagePage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-7xl">
-        <div className="pib-card p-6">
-          <p className="text-sm text-red-400">{error || 'No usage data available.'}</p>
-          <Link href="/portal/billing" className="pib-btn-ghost mt-4">Back to billing</Link>
-        </div>
+      <div className="mx-auto max-w-7xl space-y-4">
+        <PageHeader eyebrow="Billing" title="Usage and limits." description="Live plan usage for this workspace." />
+        <Panel className="space-y-4">
+          <Notice tone="danger">{error || 'No usage data available.'}</Notice>
+          <ButtonLink href="/portal/billing" variant="ghost" size="sm">Back to billing</ButtonLink>
+        </Panel>
       </div>
     )
   }
@@ -183,33 +202,30 @@ export default function PortalUsagePage() {
   })()
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">Billing</p>
-        <h1 className="pib-page-title mt-2">Usage &amp; limits</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Live usage for {data.orgName} against the {data.planName} plan. Monthly meters reset on the 1st (UTC).
-          You will get an email alert at 80% and 95% of any limit.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="pib-pill">{data.planName} plan</span>
-          <span className="pib-pill">{monthLabel}</span>
-          <Link href="/portal/billing" className="pib-btn-ghost">Back to billing</Link>
-        </div>
-      </header>
+    <div className="mx-auto max-w-7xl space-y-8">
+      <PageHeader
+        eyebrow="Billing"
+        title="Usage and limits."
+        description={`Live usage for ${data.orgName} against the ${data.planName} plan. Monthly meters reset on the 1st (UTC). You will get an email alert at 80% and 95% of any limit.`}
+        meta={(
+          <>
+            <Status>{data.planName} plan</Status>
+            <Status>{monthLabel}</Status>
+          </>
+        )}
+        actions={<ButtonLink href="/portal/billing" variant="ghost" size="sm">Back to billing</ButtonLink>}
+      />
 
-      {data.summary.anyOver && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
-          <span className="material-symbols-outlined mr-2 align-middle text-[18px]">warning</span>
-          One or more limits have been exceeded. Overage is reconciled on your next EFT invoice — nothing is auto-charged.
-        </div>
-      )}
-      {!data.summary.anyOver && data.summary.anyWarning && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-          <span className="material-symbols-outlined mr-2 align-middle text-[18px]">info</span>
+      {data.summary.anyOver ? (
+        <Notice tone="danger">
+          One or more limits have been exceeded. Overage is reconciled on your next EFT invoice. Nothing is auto-charged.
+        </Notice>
+      ) : null}
+      {!data.summary.anyOver && data.summary.anyWarning ? (
+        <Notice tone="warning">
           You are approaching one or more plan limits. Consider upgrading before they reset.
-        </div>
-      )}
+        </Notice>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.meters.map((meter) => (
@@ -217,10 +233,10 @@ export default function PortalUsagePage() {
         ))}
       </section>
 
-      <section className="pib-card">
-        <p className="pib-label">Overage policy</p>
-        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{data.overagePolicy}</p>
-      </section>
+      <Panel>
+        <p className="sc-tiny">Overage policy</p>
+        <p className="sc-body mt-2 text-[var(--sc-ink-soft)]">{data.overagePolicy}</p>
+      </Panel>
     </div>
   )
 }

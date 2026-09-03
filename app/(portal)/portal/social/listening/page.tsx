@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -48,7 +50,7 @@ function tsToDate(ts: unknown): Date | null {
 
 function timeAgo(ts: unknown): string {
   const date = tsToDate(ts)
-  if (!date) return '—'
+  if (!date) return ' - '
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'just now'
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
@@ -65,7 +67,7 @@ function fromUserName(fromUser: Mention['fromUser']): string {
 
 function PlatformBadge({ platform }: { platform: string }) {
   const color = PLATFORM_COLORS[platform.toLowerCase()] || 'bg-[var(--color-pib-line-strong)]'
-  return <div className={`w-3 h-3 rounded-full ${color}`} title={platform} />
+  return <div className={`w-3 h-3 rounded ${color}`} title={platform} />
 }
 
 function SentimentDot({ sentiment }: { sentiment: string | null }) {
@@ -233,7 +235,7 @@ export default function ListeningPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <header>
-          <p className="eyebrow">Social · Listening</p>
+          <p className="sc-tiny">Social · Listening</p>
           <h1 className="pib-page-title mt-2">Social Listening</h1>
           <p className="pib-page-sub">
             Track keywords and monitor brand mentions across your social platforms
@@ -252,15 +254,15 @@ export default function ListeningPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Monitored Terms</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{terms.length}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{terms.length}</p>
         </div>
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Active</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{activeTermCount}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{activeTermCount}</p>
         </div>
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Total Matches</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{totalMatches}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{totalMatches}</p>
         </div>
       </div>
 
@@ -276,8 +278,9 @@ export default function ListeningPage() {
               if (e.key === 'Enter') handleAddTerm()
             }}
             placeholder="e.g. your brand name, a product, a competitor…"
+            aria-label="Monitored term"
             className="pib-input w-full"
-          />
+           aria-label="e.g. your brand name, a product, a competitor…"/>
           <div>
             <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Platforms (leave empty to watch all)</p>
             <div className="flex gap-2 flex-wrap">
@@ -286,7 +289,7 @@ export default function ListeningPage() {
                   key={platform}
                   type="button"
                   onClick={() => togglePlatformInForm(platform)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-label flex items-center gap-2 transition-colors ${
+                  className={`px-3 py-1.5 rounded text-sm font-label flex items-center gap-2 transition-colors ${
                     newPlatforms.includes(platform)
                       ? 'bg-[var(--color-accent-v2)] text-black'
                       : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -322,7 +325,7 @@ export default function ListeningPage() {
           </div>
         ) : terms.length === 0 ? (
           <div className="pib-empty-state">
-            <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">hearing</span>
+            <Icon name="hearing" />
             <h2 className="pib-empty-state-title">No monitored terms yet</h2>
             <p className="pib-empty-state-description">Add one above to start listening.</p>
           </div>
@@ -334,8 +337,8 @@ export default function ListeningPage() {
                 className="pib-card hover:bg-[var(--color-row-hover)] transition-colors flex items-center justify-between gap-4"
               >
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span className="pib-icon-tint-rose shrink-0">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">hearing</span>
+                  <span className="shrink-0">
+                    <Icon name="hearing" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -396,7 +399,7 @@ export default function ListeningPage() {
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setFilterTerm(null)}
-                className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                   filterTerm === null
                     ? 'bg-[var(--color-accent-v2)] text-black'
                     : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -408,7 +411,7 @@ export default function ListeningPage() {
                 <button
                   key={term.id}
                   onClick={() => setFilterTerm(term.term)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+                  className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                     filterTerm === term.term
                       ? 'bg-[var(--color-accent-v2)] text-black'
                       : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -424,7 +427,7 @@ export default function ListeningPage() {
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setFilterPlatform(null)}
-                className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                   filterPlatform === null
                     ? 'bg-[var(--color-accent-v2)] text-black'
                     : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -436,7 +439,7 @@ export default function ListeningPage() {
                 <button
                   key={platform}
                   onClick={() => setFilterPlatform(platform)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-label flex items-center gap-2 transition-colors ${
+                  className={`px-3 py-1.5 rounded text-sm font-label flex items-center gap-2 transition-colors ${
                     filterPlatform === platform
                       ? 'bg-[var(--color-accent-v2)] text-black'
                       : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -459,7 +462,7 @@ export default function ListeningPage() {
           </div>
         ) : mentions.length === 0 ? (
           <div className="pib-empty-state">
-            <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">notifications</span>
+            <Icon name="notifications" />
             <h2 className="pib-empty-state-title">No mentions found</h2>
             <p className="pib-empty-state-description">
               Add monitored terms and refresh your inbox to surface matches.

@@ -127,7 +127,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
 
   if (!reviewable.length) {
     return (
-      <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
+      <div className="rounded-[6px] bg-[var(--color-pib-surface-muted)] p-4">
         <h3 className="text-sm font-medium text-[var(--color-pib-text)] mb-1">Review &amp; approve</h3>
         <p className="text-[var(--color-pib-text-muted)] text-xs">Nothing is ready for review yet. Check back once your team shares creative output.</p>
       </div>
@@ -135,7 +135,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
   }
 
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
+    <div className="rounded-[6px] bg-[var(--color-pib-surface-muted)] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Review &amp; approve</h3>
         <span className="text-xs text-[var(--color-pib-text-muted)]">{reviewable.length} item{reviewable.length === 1 ? '' : 's'}</span>
@@ -191,7 +191,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                       type="button"
                       disabled={busy}
                       onClick={() => void submitReview(node.id, 'request_changes')}
-                      className="rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-500 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="rounded bg-[var(--sc-surface)]/15 px-3 py-1.5 text-xs font-medium text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/25 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Send request
                     </button>
@@ -199,7 +199,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                       type="button"
                       disabled={busy}
                       onClick={() => setNoteOpenFor(null)}
-                      className="rounded-full px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
+                      className="rounded px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
                     >
                       Cancel
                     </button>
@@ -213,7 +213,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                     type="button"
                     disabled={busy}
                     onClick={() => void submitReview(node.id, 'approve')}
-                    className="rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-500 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-500 hover:bg-emerald-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Approve
                   </button>
@@ -224,7 +224,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                       setNoteOpenFor(node.id)
                       setErrors((current) => ({ ...current, [node.id]: '' }))
                     }}
-                    className="rounded-full px-3 py-1.5 text-xs font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
+                    className="rounded px-3 py-1.5 text-xs font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
                   >
                     Request changes
                   </button>
@@ -294,10 +294,10 @@ export function PortalCanvasReviewSection({ orgId }: { orgId?: string }) {
     return () => { cancelled = true }
   }, [selectedId, query])
 
-  if (loading) return <div className="h-24 rounded-xl bg-[var(--color-pib-surface-muted)] animate-pulse" />
+  if (loading) return <div className="h-24 rounded-[6px] bg-[var(--color-pib-surface-muted)]" />
   if (loadError) {
     return (
-      <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
+      <div className="rounded-[6px] bg-[var(--color-pib-surface-muted)] p-4">
         <p className="text-xs text-red-500">{loadError}</p>
       </div>
     )
@@ -321,7 +321,7 @@ export function PortalCanvasReviewSection({ orgId }: { orgId?: string }) {
       {selectedId && nodes !== null && (
         <CanvasReviewPanel canvasId={selectedId} orgId={orgId} nodes={nodes} />
       )}
-      {selectedId && nodes === null && <div className="h-24 rounded-xl bg-[var(--color-pib-surface-muted)] animate-pulse" />}
+      {selectedId && nodes === null && <div className="h-24 rounded-[6px] bg-[var(--color-pib-surface-muted)]" />}
     </div>
   )
 }

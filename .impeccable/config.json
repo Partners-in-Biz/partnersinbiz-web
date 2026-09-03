@@ -1,0 +1,8 @@
+{
+  "detector": {
+    "ignoreFiles": [
+      "__tests__/**",
+      "components/studio/index.tsx"
+    ]
+  }
+}

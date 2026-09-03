@@ -20,6 +20,7 @@ import {
 } from '@/components/crm/SegmentCommandCenter'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { extractSegmentsList } from '@/lib/segments/extractSegmentsList'
+import { Icon } from '@/components/studio'
 
 const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
@@ -335,10 +336,11 @@ export default function PortalSegmentsPage() {
             if (e.target.value) applyTemplate(e.target.value, target)
             e.target.value = ''
           }}
+          aria-label="Use template"
           className={`${INPUT_CLS} md:w-72`}
         >
           <option value="" className="bg-black">
-            — Choose a recipe —
+            - Choose a recipe -
           </option>
           {PREDEFINED_SEGMENTS.map((p) => (
             <option key={p.id} value={p.id} className="bg-black">
@@ -357,6 +359,7 @@ export default function PortalSegmentsPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={INPUT_CLS}
+            aria-label="Segment name"
             required
           />
         </div>
@@ -368,6 +371,7 @@ export default function PortalSegmentsPage() {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className={INPUT_CLS}
+            aria-label="Segment description"
           />
         </div>
       </div>
@@ -380,6 +384,7 @@ export default function PortalSegmentsPage() {
           onChange={(e) => setForm({ ...form, tags: e.target.value })}
           placeholder="vip, newsletter"
           className={INPUT_CLS}
+          aria-label="Tags"
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -391,6 +396,7 @@ export default function PortalSegmentsPage() {
             value={form.stage}
             onChange={(e) => setForm({ ...form, stage: e.target.value })}
             className={INPUT_CLS}
+            aria-label="Stage"
           >
             {STAGES.map((s) => (
               <option key={s || '_'} value={s} className="bg-black">
@@ -407,6 +413,7 @@ export default function PortalSegmentsPage() {
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
             className={INPUT_CLS}
+            aria-label="Type"
           >
             {TYPES.map((t) => (
               <option key={t || '_'} value={t} className="bg-black">
@@ -423,6 +430,7 @@ export default function PortalSegmentsPage() {
             value={form.source}
             onChange={(e) => setForm({ ...form, source: e.target.value })}
             className={INPUT_CLS}
+            aria-label="Source"
           >
             {SOURCES.map((s) => (
               <option key={s || '_'} value={s} className="bg-black">
@@ -476,14 +484,12 @@ export default function PortalSegmentsPage() {
     <div className="flex min-h-0 flex-col space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 items-start gap-4">
-          <span className="pib-icon-tint" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">filter_alt</span>
-          </span>
+          <Icon name="filter_alt" />
           <div className="min-w-0">
             <p className="eyebrow">CRM</p>
             <h1 className="pib-page-title mt-2">Segments</h1>
             <p className="pib-page-sub max-w-2xl">
-              Save reusable filters across your contact base — slice by tag, stage, type, source,
+              Save reusable filters across your contact base - slice by tag, stage, type, source,
               or email engagement.
             </p>
           </div>
@@ -493,7 +499,7 @@ export default function PortalSegmentsPage() {
             onClick={() => setShowNew(true)}
             className="btn-pib-primary text-xs shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            <Icon name="add" />
             New segment
           </button>
         )}
@@ -512,7 +518,7 @@ export default function PortalSegmentsPage() {
 
       {deleteError && (
         <div className="rounded-lg border border-[var(--color-error)]/40 bg-[var(--color-error-container)] px-3 py-2 text-xs text-[var(--color-error)]">
-          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          <Icon name="error" className="mr-1.5 align-middle" />
           {deleteError}
         </div>
       )}
@@ -527,10 +533,10 @@ export default function PortalSegmentsPage() {
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-error)]" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--color-error)]" />
               <div>
                 <p className="eyebrow text-[var(--color-error)]">Saved audience delete</p>
-                <h2 id="segment-delete-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h2 id="segment-delete-confirm-title" className="mt-1 text-sm text-[var(--color-pib-text)]">
                   Delete segment &quot;{segmentDisplayName(pendingDeleteSegment)}&quot;?
                 </h2>
                 <p id="segment-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -558,7 +564,7 @@ export default function PortalSegmentsPage() {
                 className="btn-pib-danger text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                <Icon name="delete" />
                 {deletingId === pendingDeleteSegment.id ? 'Deleting...' : 'Delete segment'}
               </button>
             </div>
@@ -602,10 +608,10 @@ export default function PortalSegmentsPage() {
         <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent-hover)]" aria-hidden="true">warning</span>
+              <Icon name="warning" className="mt-0.5 text-[var(--color-pib-accent-hover)]" />
               <div>
                 <p className="eyebrow text-[var(--color-pib-accent-hover)]">Source health</p>
-                <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Segments could not load</h2>
+                <h2 className="mt-1 text-sm text-[var(--color-pib-text)]">Segments could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
@@ -615,14 +621,14 @@ export default function PortalSegmentsPage() {
               className="btn-pib-secondary text-xs shrink-0"
               aria-label="Retry loading segments"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
         </section>
       ) : segments.length === 0 ? (
         <div className="pib-empty-state">
-          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">filter_alt</span>
+          <Icon name="filter_alt" />
           <h2 className="pib-empty-state-title">No segments yet.</h2>
           <p className="pib-empty-state-description">
             Build a saved filter to target the right people each time.
@@ -632,14 +638,14 @@ export default function PortalSegmentsPage() {
               onClick={() => setShowNew(true)}
               className="btn-pib-primary text-xs mt-5"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              <Icon name="add" />
               Create first segment
             </button>
           )}
         </div>
       ) : filteredSegments.length === 0 ? (
         <div className="pib-empty-state">
-          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+          <Icon name="search_off" />
           <p className="eyebrow">Filtered audience view</p>
           <h2 className="pib-empty-state-title mt-2">No saved audiences match this view.</h2>
           <p className="pib-empty-state-description">
@@ -700,7 +706,7 @@ export default function PortalSegmentsPage() {
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{displayName}</h3>
+                        <h3 className="text-sm text-[var(--color-pib-text)]">{displayName}</h3>
                         <span className="pib-pill pib-pill-accent">
                           {count === undefined || count === null ? '…' : `${count} contact${count === 1 ? '' : 's'}`}
                         </span>
@@ -726,7 +732,7 @@ export default function PortalSegmentsPage() {
                         onClick={() => startEdit(s)}
                         className="btn-pib-ghost text-xs"
                       >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                        <Icon name="edit" />
                         Edit
                       </button>
                       <button
@@ -734,10 +740,10 @@ export default function PortalSegmentsPage() {
                           setPendingDeleteSegment(s)
                           setDeleteError('')
                         }}
-                        className="grid h-8 w-8 place-items-center rounded-full text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-soft)] hover:text-[var(--color-error)]"
+                        className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-soft)] hover:text-[var(--color-error)]"
                         aria-label={`Delete segment ${displayName}`}
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <Icon name="delete" />
                       </button>
                     </div>
                   </div>
@@ -830,7 +836,7 @@ interface AdvancedRuleBlockProps {
 }
 
 /**
- * US-055 — the generic field/operator/value + AND/OR group editor, with its own
+ * US-055 - the generic field/operator/value + AND/OR group editor, with its own
  * debounced live preview hitting /api/v1/crm/segments/preview with `ruleGroup`.
  * When enabled, the rule group takes precedence over the simple filters above.
  */
@@ -895,9 +901,7 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
             onClick={() => onChange(emptyRuleGroup())}
             className="btn-pib-secondary text-xs"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-              tune
-            </span>
+            <Icon name="tune" />
             Build advanced rules
           </button>
         ) : (

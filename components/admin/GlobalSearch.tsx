@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+import { Icon } from '@/components/studio'
+
 interface SearchResult {
   id: string
   type: 'contact' | 'project' | 'task' | 'invoice'
@@ -114,8 +116,8 @@ export default function GlobalSearch() {
           setTimeout(() => inputRef.current?.focus(), 0)
         }}
       >
-        <span className="material-symbols-outlined text-[18px] flex-shrink-0">search</span>
-        <input
+        <Icon name="search" className="text-[18px] flex-shrink-0" />
+        <input aria-label="Search"
           ref={inputRef}
           value={query}
           onChange={(e) => {
@@ -128,12 +130,12 @@ export default function GlobalSearch() {
           className="bg-transparent outline-none text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] flex-1 min-w-0"
         />
         {loading && (
-          <div className="w-3 h-3 border border-[var(--color-pib-text-muted)] border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <div className="w-3 h-3 border border-[var(--color-pib-text-muted)] border-t-transparent animate-spin flex-shrink-0" style={{ borderRadius: '50%' }} />
         )}
       </div>
 
       {open && query.length >= 2 && (
-        <div className="absolute top-full mt-2 left-0 w-80 rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] shadow-2xl z-50 overflow-hidden">
+        <div className="absolute top-full mt-2 left-0 w-80 rounded-md bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] z-50 overflow-hidden">
           {!results.length && loading ? (
             <div className="p-4 text-sm text-[var(--color-pib-text-muted)] text-center">Searching…</div>
           ) : !results.length && !loading ? (
@@ -158,7 +160,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.contact}</span>
+                        <span aria-hidden="true" className="text-base">{typeIcons.contact}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -187,7 +189,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.project}</span>
+                        <span aria-hidden="true" className="text-base">{typeIcons.project}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -216,7 +218,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.task}</span>
+                        <span aria-hidden="true" className="text-base">{typeIcons.task}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -245,7 +247,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.invoice}</span>
+                        <span aria-hidden="true" className="text-base">{typeIcons.invoice}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (

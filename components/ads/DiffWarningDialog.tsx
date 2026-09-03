@@ -34,16 +34,16 @@ export function DiffWarningDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="diff-warning-title"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/70 p-4"
     >
-      <div data-testid="diff-warning-panel" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0B] shadow-2xl">
+      <div data-testid="diff-warning-panel" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-white/10 bg-[var(--sc-ink)]">
         <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6">
-          <h2 id="diff-warning-title" className="text-lg font-semibold">
+          <h2 id="diff-warning-title" className="text-lg font-medium">
             {title}
           </h2>
           <p className="mt-1 text-sm text-white/60">
             {warnings.length} {warnings.length === 1 ? 'issue' : 'issues'} found
-            {hasErrors ? ' — errors must be resolved before launching' : ''}.
+            {hasErrors ? ' - errors must be resolved before launching' : ''}.
           </p>
         </div>
 
@@ -55,7 +55,7 @@ export function DiffWarningDialog({
                 w.severity === 'error'
                   ? 'border-red-500/40 bg-red-500/5'
                   : w.severity === 'warning'
-                    ? 'border-[#F5A623]/40 bg-[#F5A623]/5'
+                    ? 'border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                     : 'border-white/10 bg-white/5'
               }`}
             >

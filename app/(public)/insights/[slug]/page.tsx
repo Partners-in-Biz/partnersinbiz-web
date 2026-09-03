@@ -1,10 +1,11 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { POSTS, getPostBySlug, type Post } from '@/lib/content/posts'
 import { getFirestorePostBySlug, listLiveSlugs } from '@/lib/content/posts-firestore'
-import { SITE } from '@/lib/seo/site'
+import { SITE, CTA_LABEL } from '@/lib/seo/site'
 import { JsonLd, articleSchema, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
 
@@ -82,7 +83,7 @@ function renderInline(text: string, baseKey: string): React.ReactNode[] {
     const key = `${baseKey}-${i++}`
     if (tok.startsWith('**')) {
       tokens.push(
-        <strong key={key} className="text-[var(--color-pib-text)] font-semibold">
+        <strong key={key} className="text-[var(--color-pib-text)] font-medium">
           {tok.slice(2, -2)}
         </strong>
       )
@@ -162,7 +163,7 @@ function renderBody(body: string) {
       out.push(
         <h3
           key={idx}
-          className="font-display text-2xl md:text-3xl text-[var(--color-pib-text)] mt-10 mb-3 text-balance"
+          className="text-2xl md:text-3xl text-[var(--color-pib-text)] mt-10 mb-3 text-balance"
         >
           {renderInline(line.slice(4), `h3-${idx}`)}
         </h3>
@@ -172,7 +173,7 @@ function renderBody(body: string) {
       out.push(
         <h2
           key={idx}
-          className="font-display text-3xl md:text-4xl text-[var(--color-pib-text)] mt-12 mb-4 text-balance"
+          className="text-3xl md:text-4xl text-[var(--color-pib-text)] mt-12 mb-4 text-balance"
         >
           {renderInline(line.slice(3), `h2-${idx}`)}
         </h2>
@@ -182,7 +183,7 @@ function renderBody(body: string) {
       out.push(
         <h1
           key={idx}
-          className="font-display text-4xl text-[var(--color-pib-text)] mt-12 mb-4 text-balance"
+          className="text-4xl text-[var(--color-pib-text)] mt-12 mb-4 text-balance"
         >
           {renderInline(line.slice(2), `h1-${idx}`)}
         </h1>
@@ -241,7 +242,7 @@ export default async function InsightPostPage({ params }: Params) {
                 href="/insights"
                 className="inline-flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-accent)] transition mb-10"
               >
-                <span className="material-symbols-outlined text-base">arrow_back</span>
+                <Icon name="arrow_back" />
                 All insights
               </Link>
             </Reveal>
@@ -270,7 +271,7 @@ export default async function InsightPostPage({ params }: Params) {
             {/* Byline */}
             <Reveal delay={240}>
               <div className="mt-8 flex items-center gap-3 pb-8 border-b border-[var(--color-pib-line)]">
-                <div className="w-10 h-10 rounded-full bg-[var(--color-pib-accent)] text-black font-display text-lg grid place-items-center shrink-0">
+                <div className="w-10 h-10 rounded-md bg-[var(--color-pib-accent)] text-black text-lg grid place-items-center shrink-0">
                   P
                 </div>
                 <div className="text-sm text-[var(--color-pib-text-muted)]">
@@ -283,7 +284,7 @@ export default async function InsightPostPage({ params }: Params) {
 
           {/* Cover */}
           <Reveal delay={300}>
-            <div className="max-w-4xl mx-auto mt-12 relative aspect-[16/9] rounded-2xl overflow-hidden border border-[var(--color-pib-line)]">
+            <div className="max-w-4xl mx-auto mt-12 relative aspect-[16/9] rounded-md overflow-hidden border border-[var(--color-pib-line)]">
               <Image
                 src={post.cover}
                 alt={post.title}
@@ -301,11 +302,11 @@ export default async function InsightPostPage({ params }: Params) {
           {/* Author bio */}
           <div className="max-w-3xl mx-auto mt-20">
             <div className="bento-card p-8 flex items-start gap-5">
-              <div className="w-14 h-14 rounded-full bg-[var(--color-pib-accent)] text-black font-display text-2xl grid place-items-center shrink-0">
+              <div className="w-14 h-14 rounded-md bg-[var(--color-pib-accent)] text-black text-2xl grid place-items-center shrink-0">
                 P
               </div>
               <div className="flex-1">
-                <h3 className="font-display text-xl text-[var(--color-pib-text)]">
+                <h3 className="text-xl text-[var(--color-pib-text)]">
                   {SITE.founder.name}
                 </h3>
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
@@ -339,7 +340,7 @@ export default async function InsightPostPage({ params }: Params) {
                     className="bento-card p-6 group"
                   >
                     <span className="pill mb-4 inline-flex">{r.category}</span>
-                    <h4 className="font-display text-xl text-[var(--color-pib-text)] text-balance group-hover:text-[var(--color-pib-accent)] transition">
+                    <h4 className="text-xl text-[var(--color-pib-text)] text-balance group-hover:text-[var(--color-pib-accent)] transition">
                       {r.title}
                     </h4>
                     <p className="mt-2 text-sm text-[var(--color-pib-text-muted)] line-clamp-2">
@@ -360,9 +361,9 @@ export default async function InsightPostPage({ params }: Params) {
                   Let&rsquo;s build the next one together.
                 </h3>
               </div>
-              <Link href="/start-a-project" className="btn-pib-accent shrink-0">
-                Start a project
-                <span className="material-symbols-outlined text-base">arrow_outward</span>
+              <Link href={SITE.cal.url} className="btn-pib-accent shrink-0">
+                {CTA_LABEL}
+                <Icon name="arrow_outward" />
               </Link>
             </div>
           </div>

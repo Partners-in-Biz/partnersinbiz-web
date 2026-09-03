@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Icon } from '@/components/studio'
 import type {
   AutomationRule,
   AutomationAction,
@@ -101,7 +102,7 @@ function ActionRow({
   const actionNumber = index + 1
 
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 mb-2 flex flex-col gap-2">
+    <div className="rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 mb-2 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <select
           aria-label={`Action ${actionNumber} type`}
@@ -118,10 +119,10 @@ function ActionRow({
         <button
           type="button"
           onClick={onRemove}
-          className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors shrink-0"
+          className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors shrink-0"
           aria-label={`Remove action ${actionNumber}`}
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+          <Icon name="close" className="text-[18px]" />
         </button>
       </div>
 
@@ -329,16 +330,16 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
 
   return (
     <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {/* ── Name ── */}
       <div className="border-b border-[var(--color-card-border)] p-3">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Rule identity</p>
-            <h2 id="automation-rule-name-label" className="mt-2 text-sm font-semibold">Name the business outcome</h2>
+            <p className="sc-tiny !text-[10px]">Rule identity</p>
+            <h2 id="automation-rule-name-label" className="mt-2 text-sm">Name the business outcome</h2>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint">
-            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+          <span aria-hidden="true">
+            <Icon name="edit_note" className="text-[18px]" />
           </span>
         </div>
         <input
@@ -355,11 +356,11 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       <div className="border-b border-[var(--color-card-border)] p-3">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Trigger</p>
-            <h2 id="automation-trigger-label" className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
+            <p className="sc-tiny !text-[10px]">Trigger</p>
+            <h2 id="automation-trigger-label" className="mt-2 text-sm">Choose the CRM moment</h2>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint">
-            <span className="material-symbols-outlined text-[18px]">bolt</span>
+          <span aria-hidden="true">
+            <Icon name="bolt" className="text-[18px]" />
           </span>
         </div>
         <select
@@ -404,11 +405,11 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       <div className="border-b border-[var(--color-card-border)] p-3">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Timing</p>
-            <h2 className="mt-2 text-sm font-semibold">Decide when it runs</h2>
+            <p className="sc-tiny !text-[10px]">Timing</p>
+            <h2 className="mt-2 text-sm">Decide when it runs</h2>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint">
-            <span className="material-symbols-outlined text-[18px]">schedule</span>
+          <span aria-hidden="true">
+            <Icon name="schedule" className="text-[18px]" />
           </span>
         </div>
         <div className="flex gap-3">
@@ -462,11 +463,11 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       <div className="border-b border-[var(--color-card-border)] p-3">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow !text-[10px]">Actions</p>
-            <h2 className="mt-2 text-sm font-semibold">Build the execution chain</h2>
+            <p className="sc-tiny !text-[10px]">Actions</p>
+            <h2 className="mt-2 text-sm">Build the execution chain</h2>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint">
-            <span className="material-symbols-outlined text-[18px]">account_tree</span>
+          <span aria-hidden="true">
+            <Icon name="account_tree" className="text-[18px]" />
           </span>
         </div>
 
@@ -492,7 +493,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           onClick={addAction}
           className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] flex items-center gap-1.5 mt-3"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+          <Icon name="add" className="text-[16px]" />
           Add action
         </button>
       </div>
@@ -513,15 +514,15 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
           />
-          <div className="w-10 h-6 bg-[var(--color-pib-surface)] peer-checked:bg-primary rounded-full transition-colors" />
-          <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+          <div className="w-10 h-6 bg-[var(--color-pib-surface)] peer-checked:bg-primary rounded transition-colors" />
+          <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded transition-transform peer-checked:translate-x-4" />
         </label>
       </div>
 
       {/* ── Validation / save errors ── */}
       {(validationError ?? saveError) && (
-        <p className="text-sm text-red-400 flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">error</span>
+        <p className="text-sm text-[var(--st-danger)] flex items-center gap-1.5">
+          <Icon name="error" className="text-[16px]" />
           {validationError ?? saveError}
         </p>
       )}
@@ -534,7 +535,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           disabled={saving}
           className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+          <Icon name="save" className="text-[16px]" />
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create rule'}
         </button>
         <button
@@ -548,10 +549,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
       </div>
 
-      <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:sticky xl:top-4 xl:self-start">
+      <aside className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:sticky xl:top-4 xl:self-start">
         <div className="border-b border-[var(--color-card-border)] p-3">
-          <p className="eyebrow !text-[10px]">Rule preview</p>
-          <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled automation'}</h2>
+          <p className="sc-tiny !text-[10px]">Rule preview</p>
+          <h2 className="mt-2 text-sm">{name.trim() || 'Untitled automation'}</h2>
           <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
             When <span className="text-[var(--color-pib-text)]">{TRIGGER_LABELS[trigger.event]}</span> happens, run{' '}
             <span className="text-[var(--color-pib-text)]">{actions.length || 'no'} action{actions.length === 1 ? '' : 's'}</span>{' '}
@@ -560,11 +561,11 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
               <p className="text-[10px] text-[var(--color-pib-text-muted)]">Ready actions</p>
-              <p className="mt-1 text-lg font-semibold">{readyActions}/{actions.length}</p>
+              <p className="mt-1 text-lg">{readyActions}/{actions.length}</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
               <p className="text-[10px] text-[var(--color-pib-text-muted)]">Status</p>
-              <p className={enabled ? 'mt-1 text-lg font-semibold text-emerald-300' : 'mt-1 text-lg font-semibold text-amber-300'}>
+              <p className={enabled ? 'mt-1 text-lg text-emerald-300' : 'mt-1 text-lg text-[var(--sc-ink-soft)]'}>
                 {enabled ? 'Live' : 'Paused'}
               </p>
             </div>
@@ -572,7 +573,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         </div>
 
         <div className="p-3">
-          <p className="eyebrow !text-[10px]">Action stack</p>
+          <p className="sc-tiny !text-[10px]">Action stack</p>
           <div className="mt-4 space-y-2">
             {actions.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">Add at least one action to complete the rule.</p>
@@ -581,12 +582,12 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
                 const meta = ACTION_LABELS[action.type]
                 return (
                   <div key={`${action.type}-${index}`} className="flex items-center gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
-                    <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '8px' }}>
-                      <span className="material-symbols-outlined text-[15px]">{meta.icon}</span>
+                    <span aria-hidden="true" className="shrink-0" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '8px' }}>
+                      <Icon name={meta.icon} className="text-[15px]" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium">{meta.label}</p>
-                      <p className={actionCompleteness(action) ? 'text-[10px] text-emerald-300' : 'text-[10px] text-amber-300'}>
+                      <p className={actionCompleteness(action) ? 'text-[10px] text-emerald-300' : 'text-[10px] text-[var(--sc-ink-soft)]'}>
                         {actionCompleteness(action) ? 'Ready' : 'Needs detail'}
                       </p>
                     </div>

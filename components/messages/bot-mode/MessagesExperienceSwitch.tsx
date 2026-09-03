@@ -1,6 +1,7 @@
 'use client'
 
 import type { MessagesExperienceMode } from '@/lib/messages/experience-mode'
+import { Icon } from '@/components/studio'
 
 const OPTIONS: Array<{ mode: MessagesExperienceMode; label: string; icon: string }> = [
   { mode: 'messages', label: 'Messages', icon: 'forum' },
@@ -40,7 +41,7 @@ export function MessagesExperienceSwitch({
                 : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
             }`}
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{option.icon}</span>
+            <Icon name={option.icon} className="text-[14px]" />
             <span className={showLabels ? 'inline' : 'hidden sm:inline'}>{option.label}</span>
           </button>
         )

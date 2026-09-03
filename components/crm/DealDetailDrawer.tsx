@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * DealDetailDrawer — read-only deal detail panel
+ * DealDetailDrawer - read-only deal detail panel
  *
  * A5: shows probability badge + weighted value, lost reason, and line items.
  * A5 final: "Convert to quote" button pre-fills lineItems from the deal.
@@ -13,6 +13,7 @@ import type { PipelineStage } from '@/lib/pipelines/types'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
 import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
+import { Icon } from '@/components/studio'
 
 export interface DealDetailDrawerProps {
   deal: Deal
@@ -151,10 +152,10 @@ export function DealDetailDrawer({
         {/* Header */}
         <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-4 py-2">
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{dealLabel}</p>
+            <p className="text-sm text-[var(--color-pib-text)] truncate">{dealLabel}</p>
             {stage && (
               <span
-                className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+                className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded shrink-0"
                 style={{ background: `${stageColor}20`, color: stageColor }}
               >
                 {stage.label}
@@ -185,16 +186,18 @@ export function DealDetailDrawer({
                 onClick={onEdit}
                 className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 title="Edit deal"
+                aria-label="Edit deal"
               >
-                <span className="material-symbols-outlined text-[16px]">edit</span>
+                <Icon name="edit" />
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
               className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+              aria-label="Close deal detail"
             >
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <Icon name="close" />
             </button>
           </div>
         </div>
@@ -204,12 +207,12 @@ export function DealDetailDrawer({
           {/* Quote conversion feedback */}
           {quoteResult && (
             <div className="flex items-center gap-2 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
-              <span className="material-symbols-outlined text-[15px]">check_circle</span>
+              <Icon name="check_circle" />
               <span>
-                Quote {quoteResult.quoteNumber} created — view in{' '}
+                Quote {quoteResult.quoteNumber} created - view in{' '}
                 <a
                   href={quotesHref}
-                  className="underline font-semibold"
+                  className="underline"
                   onClick={onClose}
                 >
                   Quotes
@@ -219,7 +222,7 @@ export function DealDetailDrawer({
           )}
           {quoteError && (
             <div className="flex items-center gap-2 rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
-              <span className="material-symbols-outlined text-[15px]">error</span>
+              <Icon name="error" />
               <span>{quoteError}</span>
             </div>
           )}
@@ -232,19 +235,19 @@ export function DealDetailDrawer({
                   type="button"
                   aria-label={`${hasDealValue ? 'Edit' : 'Add'} value for ${dealLabel} from deal detail`}
                   onClick={onEdit}
-                  className="text-left text-lg font-semibold text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-accent-text)]"
+                  className="text-left text-lg text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-accent-text)]"
                 >
                   {dealValueLabel}
                 </button>
               ) : (
-                <p className="text-lg font-semibold text-[var(--color-pib-text)]">
+                <p className="text-lg text-[var(--color-pib-text)]">
                   {dealValueLabel}
                 </p>
               )}
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className={labelCls}>Weighted</p>
-              <p className="text-sm font-mono font-semibold text-[var(--color-pib-text)]">
+              <p className="text-sm font-mono text-[var(--color-pib-text)]">
                 {weightedValue === null ? 'Value needed' : fmtValue(weightedValue, deal.currency)}
               </p>
             </div>
@@ -255,13 +258,13 @@ export function DealDetailDrawer({
             <p className={labelCls}>Probability</p>
             <div className="flex items-center gap-3">
               {/* Progress bar */}
-              <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="flex-1 h-1.5 rounded bg-white/10 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${probability >= 70 ? 'bg-emerald-400' : probability >= 40 ? 'bg-amber-300' : 'bg-red-400'}`}
+                  className={`h-full rounded transition-all ${probability >= 70 ? 'bg-emerald-400' : probability >= 40 ? 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' : 'bg-red-400'}`}
                   style={{ width: `${probability}%` }}
                 />
               </div>
-              <span className={`rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${probability >= 70 ? 'bg-emerald-400/10 text-emerald-300' : probability >= 40 ? 'bg-amber-300/10 text-amber-200' : 'bg-red-400/10 text-red-300'}`}>
+              <span className={`rounded px-2 py-0.5 font-mono text-xs  ${probability >= 70 ? 'bg-emerald-400/10 text-emerald-300' : probability >= 40 ? 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]' : 'bg-red-400/10 text-red-300'}`}>
                 {probability}%
               </span>
             </div>
@@ -296,13 +299,7 @@ export function DealDetailDrawer({
                   People, account, owner, and timing signals for this opportunity.
                 </p>
               </div>
-              <span
-                className="material-symbols-outlined text-[16px]"
-                style={{ color: stageColor }}
-                aria-hidden="true"
-              >
-                hub
-              </span>
+              <Icon name="hub" />
             </div>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
@@ -310,7 +307,7 @@ export function DealDetailDrawer({
                 {deal.contactId ? (
                   <a
                     href={contactHref}
-                    className="text-xs font-semibold text-[var(--color-accent-text)] hover:underline"
+                    className="text-xs text-[var(--color-accent-text)] hover:underline"
                   >
                     {readableContact}
                   </a>
@@ -324,7 +321,7 @@ export function DealDetailDrawer({
                         onClick={onEdit}
                         className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
+                        <Icon name="person_add" />
                         Link decision-maker
                       </button>
                     ) : null}
@@ -336,7 +333,7 @@ export function DealDetailDrawer({
                 {deal.companyId ? (
                   <a
                     href={companyHref}
-                    className="text-xs font-semibold text-[var(--color-accent-text)] hover:underline"
+                    className="text-xs text-[var(--color-accent-text)] hover:underline"
                   >
                     {readableCompany}
                   </a>
@@ -350,7 +347,7 @@ export function DealDetailDrawer({
                         onClick={onEdit}
                         className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_business</span>
+                        <Icon name="add_business" />
                         Link company
                       </button>
                     ) : null}
@@ -364,7 +361,7 @@ export function DealDetailDrawer({
                     <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                       Deal owner missing
                     </p>
-                    <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">Assign forecast ownership</h3>
+                    <h3 className="text-xs text-[var(--color-pib-text)]">Assign forecast ownership</h3>
                     <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       No team member owns this opportunity. Assign an owner so follow-up, forecast review, and handoff accountability are visible before the deal stalls.
                     </p>
@@ -375,13 +372,13 @@ export function DealDetailDrawer({
                         onClick={onEdit}
                         className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
+                        <Icon name="person_add" />
                         Assign owner
                       </button>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{ownerLabel}</p>
+                  <p className="text-xs text-[var(--color-pib-text)]">{ownerLabel}</p>
                 )}
               </div>
               <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
@@ -391,7 +388,7 @@ export function DealDetailDrawer({
                     <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                       {closeDateLabel === 'No close date' ? 'Close date missing' : closeDateLabel}
                     </p>
-                    <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
+                    <h3 className="text-xs text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
                     <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       {closeDateActionDescription}
                     </p>
@@ -402,13 +399,13 @@ export function DealDetailDrawer({
                         onClick={onEdit}
                         className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
-                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
+                        <Icon name="event_upcoming" />
                         {closeDateActionLabel}
                       </button>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                  <p className="text-xs text-[var(--color-pib-text)]">{closeDateLabel}</p>
                 )}
               </div>
             </div>

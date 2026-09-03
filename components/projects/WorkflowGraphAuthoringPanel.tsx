@@ -262,8 +262,8 @@ export function WorkflowGraphAuthoringPanel({
   if (!scopedOrgId) {
     return (
       <section className="pib-card rounded-[var(--radius-card)] p-5">
-        <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">{copy.title}</h3>
-        <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Project org is still loading — graph authoring waits for org scope.</p>
+        <h3 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">{copy.title}</h3>
+        <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Project org is still loading - graph authoring waits for org scope.</p>
       </section>
     )
   }
@@ -273,13 +273,13 @@ export function WorkflowGraphAuthoringPanel({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <p className="pib-label">Suite · Workflow Graph</p>
-          <h3 className="mt-1 text-sm font-headline font-semibold text-[var(--color-pib-text)]">{copy.title}</h3>
+          <h3 className="mt-1 text-sm font-headline font-medium text-[var(--color-pib-text)]">{copy.title}</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{copy.subtitle}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {copy.bans.map((ban) => (
               <li
                 key={ban}
-                className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
               >
                 {ban}
               </li>
@@ -308,7 +308,7 @@ export function WorkflowGraphAuthoringPanel({
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(220px,0.35fr)_minmax(0,1fr)]">
         <div className="rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Templates</h4>
+          <h4 className="text-xs font-headline font-medium text-[var(--color-pib-text)]">Templates</h4>
           <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
             {loading ? 'Loading…' : `${templates.length} template(s) · not a second board`}
           </p>
@@ -366,7 +366,7 @@ export function WorkflowGraphAuthoringPanel({
 
               {nora ? (
                 <div className="rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
-                  <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Nora ops controls</h4>
+                  <h4 className="text-xs font-headline font-medium text-[var(--color-pib-text)]">Nora ops controls</h4>
                   <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">Budgets, concurrency limits, notify policy, and stuck/gate SLAs.</p>
                   <div className="mt-3 grid gap-3 md:grid-cols-3">
                     <label className="block">
@@ -557,7 +557,7 @@ export function WorkflowGraphAuthoringPanel({
               <div className="rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Nodes</h4>
+                    <h4 className="text-xs font-headline font-medium text-[var(--color-pib-text)]">Nodes</h4>
                     <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                       Kanban materialize: {preview.kanbanNodeIds.join(', ') || 'none'} · Ledger-only: {preview.ledgerOnlyNodeIds.join(', ') || 'none'}
                     </p>
@@ -714,7 +714,7 @@ export function WorkflowGraphAuthoringPanel({
                         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
                           {node.kind === 'agent' || node.kind === 'human_gate'
                             ? 'Materializes to Kanban on this project'
-                            : 'Ledger-only — never a board card'}
+                            : 'Ledger-only - never a board card'}
                         </p>
                         <button type="button" className="text-xs text-red-300" onClick={() => removeNode(index)}>
                           Remove
@@ -739,7 +739,7 @@ export function WorkflowGraphAuthoringPanel({
                   Start run on Kanban
                 </button>
                 {validation && !validation.ok ? (
-                  <span className="text-xs text-amber-200">Validation: {validation.error}</span>
+                  <span className="text-xs text-[var(--st-warning)]">Validation: {validation.error}</span>
                 ) : (
                   <span className="text-xs text-emerald-200">Validation: ok · materialize {preview.kanbanNodeIds.length} / ledger {preview.ledgerOnlyNodeIds.length}</span>
                 )}

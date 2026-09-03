@@ -40,7 +40,7 @@ export default function BlogDetailPage() {
   }, [slug])
 
   return (
-    <OrgThemedFrame orgId={orgId} className="-m-6 p-6 min-h-screen">
+    <OrgThemedFrame orgId={orgId}>
       <Detail slug={slug} id={id} blogId={blogId} orgName={orgName} />
     </OrgThemedFrame>
   )

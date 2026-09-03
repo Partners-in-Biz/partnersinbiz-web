@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 /* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
@@ -78,9 +79,9 @@ export interface ConversationAttachment {
 
 // colorKey → tailwind background + text classes
 const AGENT_COLOR: Record<string, { bg: string; text: string; dot: string }> = {
-  violet:  { bg: 'bg-violet-600/20',  text: 'text-violet-300',  dot: 'bg-violet-400' },
+  violet:  { bg: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]',  text: 'text-[var(--st-info)]',  dot: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]' },
   sky:     { bg: 'bg-sky-600/20',     text: 'text-sky-300',     dot: 'bg-sky-400' },
-  amber:   { bg: 'bg-amber-600/20',   text: 'text-amber-300',   dot: 'bg-amber-400' },
+  amber:   { bg: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',   text: 'text-[var(--st-warning)]',   dot: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]' },
   emerald: { bg: 'bg-emerald-600/20', text: 'text-emerald-300', dot: 'bg-emerald-400' },
   rose:    { bg: 'bg-rose-600/20',    text: 'text-rose-300',    dot: 'bg-rose-400' },
 }
@@ -124,7 +125,7 @@ function queuedRunDetail(reason: ConversationMessage['queuedReason']): string {
 
 function queuedRunPlaceholder(reason: ConversationMessage['queuedReason']): string {
   return reason
-    ? 'Queued — it will start automatically when the linked computer is ready.'
+    ? 'Queued - it will start automatically when the linked computer is ready.'
     : 'Waiting for the linked computer to start…'
 }
 
@@ -379,7 +380,7 @@ function ThoughtStream({
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-200 hover:bg-red-500/15"
               >
-                <span className="material-symbols-outlined text-[12px]">stop</span>
+                <Icon name="stop" className="text-[12px]" />
                 Stop
               </button>
             )}
@@ -474,7 +475,7 @@ function VideoOpenLink({ url, label, suffix }: { url: string; label: string; suf
       className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
       aria-label={`Open ${label}${suffix ?? ''}`}
     >
-      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+      <Icon name="open_in_new" className="text-[14px]" />
       <span className="truncate">Open {label}{suffix}</span>
     </a>
   )
@@ -483,9 +484,9 @@ function VideoOpenLink({ url, label, suffix }: { url: string; label: string; suf
 function NonEmbeddableVideoFallback({ url, name, caption }: { url: string; name?: string; caption?: string }) {
   const label = videoLabel(name, caption)
   return (
-    <div className="my-2 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-[var(--color-pib-text)]">
-      <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-amber-100">
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">movie_info</span>
+    <div className="my-2 rounded-[6px] border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] p-3 text-[var(--color-pib-text)]">
+      <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-[var(--st-warning)]">
+        <Icon name="movie_info" className="text-[16px]" />
         <span>{label}</span>
       </div>
       <p className="mb-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -499,7 +500,7 @@ function NonEmbeddableVideoFallback({ url, name, caption }: { url: string; name?
 function InlineVideoPreview({ url, name, caption }: { url: string; name?: string; caption?: string }) {
   const label = videoLabel(name, caption)
   return (
-    <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+    <figure className="my-2 overflow-hidden rounded-[6px] border border-white/10 bg-black/20">
       <video controls playsInline preload="metadata" src={url} aria-label={label} className="max-h-80 w-full bg-black" />
       <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
         <span className="min-w-0 truncate">{caption ?? name ?? 'Video preview'}</span>
@@ -580,7 +581,7 @@ function bareUrls(content: string): string[] {
 }
 
 const REDACTED_URL_HINT =
-  'Sensitive or private URL removed from linked-computer output for safety. Older messages cannot recover the original; new runs store click-to-reveal markers.'
+  'Sensitive or private URL removed from linked-computer output for safety. Older messages cannot recover the original; new runs store click to reveal markers.'
 const REVEAL_HINT = 'Hidden for safety. Click to show the original value.'
 
 function RevealableRedactionChip({
@@ -597,7 +598,7 @@ function RevealableRedactionChip({
     return (
       <abbr
         title={REDACTED_URL_HINT}
-        className="cursor-help rounded bg-amber-500/10 px-1 py-0.5 font-mono text-[0.9em] text-amber-200/90 no-underline decoration-dotted"
+        className="cursor-help rounded bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-1 py-0.5 font-mono text-[0.9em] text-[var(--st-warning)]/90 no-underline decoration-dotted"
       >
         [{label}]
       </abbr>
@@ -609,7 +610,7 @@ function RevealableRedactionChip({
         type="button"
         title={REVEAL_HINT}
         onClick={() => setOpen(true)}
-        className="inline max-w-full cursor-pointer rounded bg-amber-500/15 px-1 py-0.5 font-mono text-[0.9em] text-amber-100 underline decoration-dotted underline-offset-2 hover:bg-amber-500/25"
+        className="inline max-w-full cursor-pointer rounded bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-1 py-0.5 font-mono text-[0.9em] text-[var(--st-warning)] underline decoration-dotted underline-offset-2 hover:bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]"
       >
         [{label}]
       </button>
@@ -664,8 +665,8 @@ function mentionStyleFor(mentionText: string, mentions?: Mention[]): { border: s
   if (type === 'agent') {
     return {
       border: 'border-violet-400/30',
-      bg: 'bg-violet-500/10',
-      text: 'text-violet-100',
+      bg: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]',
+      text: 'text-[var(--st-info)]',
       title: `@agent mention ${match?.id ? `(${match.id})` : ''}`.trim(),
     }
   }
@@ -707,7 +708,7 @@ function renderMentions(text: string, keyPrefix: string, mentions?: Mention[]): 
 const REVEAL_OR_LEGACY_SPLIT =
   /(\[\[pib-reveal:(?:path|url|token)\|[A-Za-z0-9_-]{1,12000}\]\]|\[redacted-url\])/g
 
-/** Linkify bare URLs and render redaction chips (click-to-reveal when recoverable). */
+/** Linkify bare URLs and render redaction chips (click to reveal when recoverable). */
 function linkifyBareUrls(text: string, keyPrefix: string, mentions?: Mention[]): ReactNode[] {
   if (!text.includes('[redacted-url]') && !text.includes('[[pib-reveal:')) {
     return linkifyBareUrlsOnly(text, keyPrefix, mentions)
@@ -722,7 +723,7 @@ function linkifyBareUrls(text: string, keyPrefix: string, mentions?: Mention[]):
         <abbr
           key={`${keyPrefix}-redacted-url-${i}`}
           title={REDACTED_URL_HINT}
-          className="cursor-help rounded bg-amber-500/10 px-1 py-0.5 font-mono text-[0.9em] text-amber-200/90 no-underline decoration-dotted"
+          className="cursor-help rounded bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-1 py-0.5 font-mono text-[0.9em] text-[var(--st-warning)]/90 no-underline decoration-dotted"
         >
           [redacted-url]
         </abbr>,
@@ -756,7 +757,7 @@ function BareUrlPreviews({ content }: { content: string }) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="group block overflow-hidden rounded-xl border border-white/15 bg-black/20 transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
+          className="group block overflow-hidden rounded-[6px] border border-white/15 bg-black/20 transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={url} alt={url} className="max-h-52 w-full min-w-[220px] object-cover" />
@@ -860,7 +861,7 @@ function CopyAuthValueButton({ label, value }: { label: string; value: string })
       onClick={() => { void copyToClipboard(value) }}
       className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09] focus:outline-none focus:ring-2 focus:ring-primary/50"
     >
-      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
+      <Icon name="content_copy" className="text-[14px]" />
       Copy
     </button>
   )
@@ -868,9 +869,9 @@ function CopyAuthValueButton({ label, value }: { label: string; value: string })
 
 function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction }) {
   return (
-    <section aria-label="Device login instructions" className="my-2 max-w-full overflow-hidden rounded-xl border border-primary/25 bg-primary/5 p-3 text-[var(--color-pib-text)] shadow-sm">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <span aria-hidden="true" className="material-symbols-outlined text-[17px] text-primary">phonelink_lock</span>
+    <section aria-label="Device login instructions" className="my-2 max-w-full overflow-hidden rounded-[6px] border border-primary/25 bg-primary/5 p-3 text-[var(--color-pib-text)] shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <Icon name="phonelink_lock" className="text-[17px] text-primary" />
         <span>{instruction.providerLabel}</span>
       </div>
       <dl className="space-y-2 text-xs">
@@ -881,7 +882,7 @@ function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction })
         </div>
         <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:items-center">
           <dt className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Code</dt>
-          <dd className="min-w-0 break-words font-mono text-base font-semibold tracking-wide text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{instruction.code}</dd>
+          <dd className="min-w-0 break-words font-mono text-base font-medium tracking-wide text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{instruction.code}</dd>
           <dd><CopyAuthValueButton label="Copy auth code" value={instruction.code} /></dd>
         </div>
         {instruction.expiryOrStatus && (
@@ -898,7 +899,7 @@ function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction })
           rel="noreferrer"
           className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/50"
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+          <Icon name="open_in_new" className="text-[14px]" />
           <span className="truncate">Open full auth link</span>
         </a>
       )}
@@ -916,7 +917,7 @@ function inlineMarkdown(text: string, mentions?: Mention[]): ReactNode[] {
     if (match.index > lastIndex) nodes.push(...linkifyBareUrls(text.slice(lastIndex, match.index), `plain-${match.index}`, mentions))
     if (match[2]) {
       nodes.push(
-        <strong key={`strong-${match.index}`} className="font-semibold text-[var(--color-pib-text)]">
+        <strong key={`strong-${match.index}`} className="font-medium text-[var(--color-pib-text)]">
           {renderMentions(match[2], `strong-${match.index}`, mentions)}
         </strong>,
       )
@@ -966,9 +967,9 @@ function parseMermaidNodes(source: string): { labels: string[] } {
 function MermaidPreview({ source }: { source: string }) {
   const parsed = parseMermaidNodes(source)
   return (
-    <div role="img" aria-label="Mermaid diagram" className="my-2 overflow-hidden rounded-xl border border-primary/25 bg-black/25 p-3">
+    <div role="img" aria-label="Mermaid diagram" className="my-2 overflow-hidden rounded-[6px] border border-primary/25 bg-black/25 p-3">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-label uppercase tracking-wide text-primary">
-        <span className="material-symbols-outlined text-[15px]">account_tree</span>
+        <Icon name="account_tree" className="text-[15px]" />
         Diagram
       </div>
       {parsed.labels.length > 0 ? (
@@ -992,10 +993,10 @@ function MermaidPreview({ source }: { source: string }) {
 function SvgPreview({ source }: { source: string }) {
   const safeSvg = sanitizeInlineSvg(source)
   if (!safeSvg) {
-    return <pre className="my-2 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-[var(--color-pib-text-muted)]">{source}</pre>
+    return <pre className="my-2 overflow-auto whitespace-pre-wrap rounded-[6px] border border-white/10 bg-black/30 p-3 font-mono text-xs text-[var(--color-pib-text-muted)]">{source}</pre>
   }
   return (
-    <div className="my-2 overflow-auto rounded-xl border border-primary/20 bg-white p-3 text-slate-950" dangerouslySetInnerHTML={{ __html: safeSvg }} />
+    <div className="my-2 overflow-auto rounded-[6px] border border-primary/20 bg-white p-3 text-slate-950" dangerouslySetInnerHTML={{ __html: safeSvg }} />
   )
 }
 
@@ -1008,7 +1009,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     return <SvgPreview source={code} />
   }
   return (
-    <pre className="my-2 max-h-96 overflow-auto rounded-xl border border-white/10 bg-black/35 p-3 font-mono text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+    <pre className="my-2 max-h-96 overflow-auto rounded-[6px] border border-white/10 bg-black/35 p-3 font-mono text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
       <code>{code}</code>
     </pre>
   )
@@ -1068,7 +1069,7 @@ function MarkdownTable({
   }
 
   return (
-    <div className="my-3 max-w-full overflow-x-auto rounded-xl border border-white/10 bg-black/15 shadow-sm">
+    <div className="my-3 max-w-full overflow-x-auto rounded-[6px] border border-white/10 bg-black/15 shadow-sm">
       <table className="min-w-full border-collapse text-left text-sm">
         <thead className="bg-white/[0.06] text-[var(--color-pib-text)]">
           <tr>
@@ -1076,7 +1077,7 @@ function MarkdownTable({
               <th
                 key={`${header}-${index}`}
                 scope="col"
-                className="border-b border-white/10 px-3 py-2 align-top text-xs font-semibold"
+                className="border-b border-white/10 px-3 py-2 align-top text-xs font-medium"
                 style={{ textAlign: alignments[index] ?? 'left' }}
               >
                 {inlineMarkdown(header, mentions)}
@@ -1148,7 +1149,7 @@ function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[
       } else if (heading) {
         flushParagraph()
         const Tag = (`h${Math.min(heading[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5' | 'h6'
-        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-[var(--color-pib-text)]">{inlineMarkdown(heading[2], mentions)}</Tag>)
+        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-medium text-[var(--color-pib-text)]">{inlineMarkdown(heading[2], mentions)}</Tag>)
       } else if (headerCells && separatorAlignments && headerCells.length === separatorAlignments.length) {
         flushParagraph()
         const rows: string[][] = []
@@ -1327,7 +1328,7 @@ function ApprovalCard({
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-label uppercase tracking-wide text-primary">Approval card</p>
-          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
+          <p className="mt-0.5 break-words text-sm font-medium leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
         </div>
         <span className="shrink-0 rounded-md border border-primary/30 bg-black/20 px-2 py-1 text-[11px] text-primary">
           {statusLabel}
@@ -1342,7 +1343,7 @@ function ApprovalCard({
             <ul className="space-y-1">
               {evidence.map((item, index) => (
                 <li key={`${item}-${index}`} className="flex min-w-0 gap-2">
-                  <span aria-hidden="true" className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/80" />
+                  <span aria-hidden="true" className="mt-1 h-1.5 w-1.5 shrink-0 rounded-[4px] bg-primary/80" />
                   <span className="min-w-0 break-words [overflow-wrap:anywhere]">{item}</span>
                 </li>
               ))}
@@ -1387,7 +1388,7 @@ function ApprovalCard({
                   }}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                  <Icon name="add_comment" className="text-[14px]" />
                   Add selected decision to chat
                 </button>
               )}
@@ -1412,7 +1413,7 @@ function ApprovalCard({
                     onClick={() => onQuoteSelection(replyTemplate)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                    <Icon name="add_comment" className="text-[14px]" />
                     Add reply to chat
                   </button>
                 )}
@@ -1421,7 +1422,7 @@ function ApprovalCard({
                   onClick={() => { void copyToClipboard(replyTemplate) }}
                   className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09]"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
+                  <Icon name="content_copy" className="text-[14px]" />
                   Copy to clipboard
                 </button>
               </div>
@@ -1430,7 +1431,7 @@ function ApprovalCard({
         )}
 
         {safetyNote && (
-          <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-100">
+          <p className="rounded-md border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-2 py-1.5 text-[11px] leading-relaxed text-[var(--st-warning)]">
             {safetyNote}
           </p>
         )}
@@ -1449,7 +1450,7 @@ function ProjectTaskProposal({ part }: { part: RichMessagePart }) {
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Project task proposal</p>
-          <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
+          <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
         </div>
         <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
       </header>
@@ -1493,9 +1494,9 @@ function WorkspacePanelCard({ part }: { part: RichMessagePart }) {
       <header className="flex min-w-0 items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">{panel.eyebrow ?? 'Generated workspace UI'}</p>
-          <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{panel.title}</p>
+          <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-pib-text)]">{panel.title}</p>
         </div>
-        <span className="material-symbols-outlined shrink-0 text-[18px] text-primary" aria-hidden="true">dashboard_customize</span>
+        <Icon name="dashboard_customize" className="shrink-0 text-[18px] text-primary" />
       </header>
       <div className="space-y-2.5 px-3 py-3">
         {panel.body && <p className="line-clamp-3 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{panel.body}</p>}
@@ -1504,7 +1505,7 @@ function WorkspacePanelCard({ part }: { part: RichMessagePart }) {
             {panel.metrics.slice(0, 3).map((metric) => (
               <div key={metric.label} className="rounded-md border border-white/[0.08] bg-black/15 px-2 py-1.5">
                 <p className="truncate text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</p>
-                <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-pib-text)]">{metric.value}</p>
               </div>
             ))}
           </div>
@@ -1514,7 +1515,7 @@ function WorkspacePanelCard({ part }: { part: RichMessagePart }) {
           onClick={openPanel}
           className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60"
         >
-          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">splitscreen</span>
+          <Icon name="splitscreen" className="text-[15px]" />
           Open in workspace pane
         </button>
       </div>
@@ -1558,15 +1559,15 @@ function RichMessagePartView({
       return [row]
     }
     return (
-      <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
-        {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]">{part.caption}</div>}
+      <div className="my-2 overflow-hidden rounded-[6px] border border-white/10 bg-black/20">
+        {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-medium text-[var(--color-pib-text)]">{part.caption}</div>}
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left text-xs">
             {columns.length > 0 && (
               <thead className="bg-white/[0.06] text-[var(--color-pib-text)]">
                 <tr>
                   {columns.map((column) => (
-                    <th key={column} scope="col" className="border-b border-white/10 px-3 py-2 font-semibold">
+                    <th key={column} scope="col" className="border-b border-white/10 px-3 py-2 font-medium">
                       {column}
                     </th>
                   ))}
@@ -1591,7 +1592,7 @@ function RichMessagePartView({
   }
   if (type === 'image' && part.url) {
     return (
-      <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+      <figure className="my-2 overflow-hidden rounded-[6px] border border-white/10 bg-black/20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={part.url} alt={part.alt ?? part.caption ?? part.name ?? 'Rich image'} className="max-h-72 w-full object-cover" />
         {part.caption && <figcaption className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{part.caption}</figcaption>}
@@ -1602,7 +1603,7 @@ function RichMessagePartView({
     return (
       <div className="my-2 grid grid-cols-2 gap-2">
         {part.images.map((image, index) => (
-          <figure key={`${image.url}-${index}`} className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+          <figure key={`${image.url}-${index}`} className="overflow-hidden rounded-[6px] border border-white/10 bg-black/20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image.url} alt={image.alt ?? image.caption ?? `Gallery image ${index + 1}`} className="h-36 w-full object-cover" />
             {image.caption && <figcaption className="px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">{image.caption}</figcaption>}
@@ -1614,7 +1615,7 @@ function RichMessagePartView({
   if ((type === 'file' || type === 'audio' || type === 'video') && part.url) {
     if (type === 'audio') {
       return (
-        <div className="my-2 rounded-xl border border-white/10 bg-black/20 p-3">
+        <div className="my-2 rounded-[6px] border border-white/10 bg-black/20 p-3">
           {part.name && <p className="mb-2 text-xs font-medium text-[var(--color-pib-text)]">{part.name}</p>}
           <audio controls src={part.url} className="w-full" />
         </div>
@@ -1624,8 +1625,8 @@ function RichMessagePartView({
       return <VideoPreviewOrFallback url={part.url} name={part.name ?? part.title} caption={part.caption} mimeType={part.mimeType} />
     }
     return (
-      <a href={part.url} target="_blank" rel="noreferrer" className="my-2 flex items-center gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70">
-        <span className="material-symbols-outlined text-[16px]">attach_file</span>
+      <a href={part.url} target="_blank" rel="noreferrer" className="my-2 flex items-center gap-2 rounded-[6px] border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70">
+        <Icon name="attach_file" className="text-[16px]" />
         <span className="min-w-0 flex-1 truncate">{part.name ?? part.title ?? 'File'}</span>
         {typeof part.sizeBytes === 'number' && <span className="shrink-0 opacity-60">{formatBytes(part.sizeBytes)}</span>}
       </a>
@@ -1636,7 +1637,7 @@ function RichMessagePartView({
     const authInstruction = extractDeviceAuthInstruction(text, part.tool ?? part.title)
     if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
     return (
-      <div className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35">
+      <div className="my-2 overflow-hidden rounded-[6px] border border-primary/20 bg-black/35">
         <div className="border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-primary">
           {part.tool ?? part.title ?? 'Tool output'}
         </div>
@@ -1651,8 +1652,8 @@ function RichMessagePartView({
         ? part.title ?? 'Choose model'
         : part.title ?? part.status ?? 'Status'
     return (
-      <div className="my-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2">
-        {title && <p className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>}
+      <div className="my-2 rounded-[6px] border border-white/10 bg-white/[0.045] px-3 py-2">
+        {title && <p className="text-sm font-medium text-[var(--color-pib-text)]">{title}</p>}
         {part.body && <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{part.body}</p>}
         {type === 'model_picker' && part.models?.length ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1759,7 +1760,7 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
       ? 'border-red-400/35 bg-red-500/10 text-red-50'
       : overall === 'running' || overall === 'partial'
         ? 'border-sky-400/35 bg-sky-500/10 text-sky-50'
-        : 'border-amber-400/35 bg-amber-500/10 text-amber-50'
+        : 'border-amber-400/35 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]'
   const icon = overall === 'done'
     ? 'account_tree'
     : overall === 'failed' || overall === 'unknown'
@@ -1773,12 +1774,12 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
       data-testid="agent-delegation-branch"
       data-delegation-id={raw.delegationId ?? ''}
       data-branch-status={overall}
-      className={`rounded-xl border px-3 py-3 text-xs shadow-sm ${tone}`}
+      className={`rounded-[6px] border px-3 py-3 text-xs shadow-sm ${tone}`}
     >
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{icon}</span>
+        <Icon name={icon} className="text-[18px]" />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold tracking-tight">
+          <p className="font-medium tracking-tight">
             {raw.title || 'Subagent branch'}
           </p>
           <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-80">
@@ -1798,7 +1799,7 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
                 ? 'text-red-200'
                 : child.status === 'running'
                   ? 'text-sky-200'
-                  : 'text-amber-100'
+                  : 'text-[var(--st-warning)]'
             const childIcon = child.status === 'done'
               ? 'check_circle'
               : child.status === 'failed' || child.status === 'unknown'
@@ -1808,10 +1809,8 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
                   : 'schedule'
             return (
               <li key={child.id} data-child-id={child.id} data-child-status={child.status} className="min-w-0">
-                <div className={`flex items-center gap-1.5 font-semibold ${childTone}`}>
-                  <span className={`material-symbols-outlined text-[14px] ${child.status === 'running' ? 'animate-spin' : ''}`} aria-hidden="true">
-                    {childIcon}
-                  </span>
+                <div className={`flex items-center gap-1.5 font-medium ${childTone}`}>
+                  <Icon name={childIcon} className={`text-[14px] ${child.status === 'running' ? 'animate-spin' : ''}`} />
                   <span>@{child.agentId}</span>
                   <span className="text-[10px] font-medium uppercase opacity-75">{child.status}</span>
                 </div>
@@ -1858,26 +1857,24 @@ function ProjectCommandEventCard({ part, mentions }: { part: RichMessagePart; me
   const tone = type.includes('blocked') || type.includes('failed')
     ? 'border-red-400/30 bg-red-500/10 text-red-100'
     : type.includes('awaiting') || type.includes('needs')
-      ? 'border-amber-400/30 bg-amber-500/10 text-amber-100'
+      ? 'border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]'
       : type.includes('done')
         ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
         : 'border-sky-400/30 bg-sky-500/10 text-sky-100'
   const label = type.replace('task.', '').replace('session.', '').replace(/_/g, ' ')
   return (
-    <div data-testid="project-command-event" className={`rounded-xl border px-3 py-2.5 text-xs ${tone}`}>
+    <div data-testid="project-command-event" className={`rounded-[6px] border px-3 py-2.5 text-xs ${tone}`}>
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-          {type.includes('blocked') || type.includes('failed') ? 'error' : type.includes('done') ? 'check_circle' : type.includes('awaiting') ? 'priority_high' : 'sync'}
-        </span>
-        <span className="font-semibold capitalize">{label}</span>
+        <Icon name={type.includes('blocked') || type.includes('failed') ? 'error' : type.includes('done') ? 'check_circle' : type.includes('awaiting') ? 'priority_high' : 'sync'} className="text-[16px]" />
+        <span className="font-medium capitalize">{label}</span>
         {agentId && <span className="text-[10px] opacity-80">· {agentId}</span>}
       </div>
       <p className="mt-1 font-medium">{taskTitle}</p>
       {blocker && <p className="mt-1 opacity-90">Blocker: {blocker}</p>}
       {summary && !blocker && <p className="mt-1 opacity-90 line-clamp-4">{summary}</p>}
       {href && (
-        <a href={href} className="mt-2 inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline">
-          Open task <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>
+        <a href={href} className="mt-2 inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">
+          Open task <Icon name="open_in_new" className="text-[13px]" />
         </a>
       )}
     </div>
@@ -1931,7 +1928,7 @@ function actionClasses(action: ChatUiAction): string {
   if (type === 'deny' || action.variant === 'danger') {
     return 'border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20'
   }
-  // Email/document/invoice canvas open — brand primary so it cannot hide next to Copy.
+  // Email/document/invoice canvas open - brand primary so it cannot hide next to Copy.
   if (type === 'open_context') {
     return 'border-primary/40 bg-primary/15 text-primary hover:bg-primary/25'
   }
@@ -2002,7 +1999,7 @@ function RichActionBar({
               onClick={() => { void onUiAction?.(message, action) }}
               className={className}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{richActionIcon(action)}</span>
+              <Icon name={richActionIcon(action)} className="text-[14px]" />
               {action.label}
             </a>
           )
@@ -2016,9 +2013,7 @@ function RichActionBar({
             className={className}
             data-action-type={type}
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
-              {richActionIcon(action)}
-            </span>
+            <Icon name={richActionIcon(action)} className="text-[14px]" />
             {action.label}
           </button>
         )
@@ -2206,26 +2201,22 @@ export default function MessageBubble({
       <button
         type="button"
         onClick={copyMessage}
-        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm backdrop-blur hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="inline-flex items-center gap-1 rounded-[4px] border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
         aria-label="Copy message"
         title="Copy message"
       >
-        <span className="material-symbols-outlined text-[13px]">
-          {copied ? 'check' : 'content_copy'}
-        </span>
+        <Icon name={copied ? 'check' : 'content_copy'} className="text-[13px]" />
         <span>{copied ? 'Copied' : 'Copy'}</span>
       </button>
       {!isMine && (
         <button
           type="button"
           onClick={readMessageAloud}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm backdrop-blur hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="inline-flex items-center gap-1 rounded-[4px] border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
           aria-label={speaking ? 'Stop read aloud' : 'Read aloud'}
           title={speaking ? 'Stop read aloud' : 'Read aloud'}
         >
-          <span className="material-symbols-outlined text-[13px]">
-            {speaking ? 'stop_circle' : 'volume_up'}
-          </span>
+          <Icon name={speaking ? 'stop_circle' : 'volume_up'} className="text-[13px]" />
           <span>{speaking ? 'Stop' : 'Read aloud'}</span>
         </button>
       )}
@@ -2240,20 +2231,20 @@ export default function MessageBubble({
         event.stopPropagation()
         addSelectionToChat()
       }}
-      className="absolute z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-[#2d2d2d] px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-black/30 transition hover:bg-[#3a3a3a] focus:outline-none focus:ring-2 focus:ring-primary/60"
+      className="absolute z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-[4px] border border-white/10 bg-[#2d2d2d] px-3 py-1.5 text-xs font-medium text-white shadow-black/30 transition hover:bg-[#3a3a3a] focus:outline-none focus:ring-2 focus:ring-primary/60"
       style={{ left: selectionAction.left, top: selectionAction.top }}
     >
-      <span className="material-symbols-outlined text-[14px]">add_comment</span>
+      <Icon name="add_comment" className="text-[14px]" />
       Add to chat
     </button>
   ) : null
 
-  // Tool pill — no avatar, compact
+  // Tool pill - no avatar, compact
   if (isTool) {
     return (
       <div className="mx-message flex justify-center" data-author-kind="tool">
-        <div className="max-w-[90%] flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-[var(--color-pib-text-muted)] font-mono">
-          <span className="material-symbols-outlined text-[14px] text-primary">build</span>
+        <div className="max-w-[90%] flex items-center gap-2 rounded-[4px] bg-white/5 border border-white/10 px-3 py-1 text-xs text-[var(--color-pib-text-muted)] font-mono">
+          <Icon name="build" className="text-[14px] text-primary" />
           <span>{m.toolName ?? 'tool'}</span>
           {m.content && <span className="opacity-60 truncate max-w-[240px]">{m.content}</span>}
         </div>
@@ -2282,7 +2273,7 @@ export default function MessageBubble({
               type="button"
               aria-label={`Open ${attachment.name}`}
               onClick={() => setPreviewAttachment(attachment)}
-              className="group relative block overflow-hidden rounded-xl border border-white/15 bg-black/20 text-left transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
+              className="group relative block overflow-hidden rounded-[6px] border border-white/15 bg-black/20 text-left transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -2307,9 +2298,9 @@ export default function MessageBubble({
             href={attachment.url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70"
+            className="flex items-center gap-2 rounded-[6px] border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70"
           >
-            <span className="material-symbols-outlined text-[16px]">attach_file</span>
+            <Icon name="attach_file" className="text-[16px]" />
             <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
             {size && <span className="shrink-0 opacity-60">{size}</span>}
           </a>
@@ -2335,9 +2326,9 @@ export default function MessageBubble({
             type="button"
             onClick={() => setPreviewAttachment(null)}
             aria-label="Close image preview"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-white/10 text-white hover:bg-white/20"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <Icon name="close" className="text-[20px]" />
           </button>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2350,7 +2341,7 @@ export default function MessageBubble({
     </div>
   ) : null
 
-  // User's own message — float right, no avatar
+  // User's own message - float right, no avatar
   if (isMine) {
     return (
       <>
@@ -2400,9 +2391,9 @@ export default function MessageBubble({
   const commandConsole = consoleRows.length > 0 ? (
     <details className="my-1.5 overflow-hidden rounded-lg border border-white/8 bg-black/25 text-[var(--color-pib-text-muted)] group/console">
       <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--color-pib-text-muted)] [&::-webkit-details-marker]:hidden">
-        <span className="material-symbols-outlined text-[14px] opacity-70">terminal</span>
+        <Icon name="terminal" className="text-[14px] opacity-70" />
         <span className="min-w-0 flex-1 truncate">Inline command console</span>
-        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
+        <span className="rounded-[4px] bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
           {consoleRows.length}
         </span>
         <span className="text-[11px] opacity-50 transition-transform group-open/console:rotate-90">›</span>
@@ -2412,7 +2403,7 @@ export default function MessageBubble({
           <div key={row.key} className="mb-1.5 overflow-hidden rounded-md border border-white/10 bg-[#050505]/80 last:mb-0">
             <div className="flex items-center gap-2 border-b border-white/5 px-2 py-1 text-[10px]">
               <span className={[
-                'h-2 w-2 rounded-full shrink-0',
+                'h-2 w-2 rounded-[4px] shrink-0',
                 row.status === 'failed' ? 'bg-red-400' : row.status === 'running' ? 'bg-primary animate-pulse' : row.status === 'done' ? 'bg-emerald-400' : 'bg-white/40',
               ].join(' ')} />
               <span className="min-w-0 flex-1 truncate text-primary">{row.label}</span>
@@ -2436,17 +2427,15 @@ export default function MessageBubble({
       data-author-kind={isAgent ? 'agent' : 'user'}
       data-status={m.status || 'complete'}
     >
-      {/* Avatar — hidden on mobile for cleaner prose-style look.
+      {/* Avatar - hidden on mobile for cleaner prose-style look.
           Pad for the cinematic ring (::after inset -3px) so left/top edges are not clipped. */}
       <div className="mt-0.5 hidden shrink-0 overflow-visible p-[3px] lg:block">
         {isAgent ? (
-          <div className={`mx-avatar-ring flex h-8 w-8 items-center justify-center rounded-full ${color.bg}`}>
-            <span className={`material-symbols-outlined text-[16px] ${color.text}`}>
-              {agentIconKey ?? 'smart_toy'}
-            </span>
+          <div className={`mx-avatar-ring flex h-8 w-8 items-center justify-center rounded-[4px] ${color.bg}`}>
+            <Icon name={agentIconKey ?? 'smart_toy'} className={`text-[16px] ${color.text}`} />
           </div>
         ) : (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-[var(--color-pib-text)]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-[4px] bg-white/10 text-xs font-medium text-[var(--color-pib-text)]">
             {initials(m.authorDisplayName)}
           </div>
         )}
@@ -2454,7 +2443,7 @@ export default function MessageBubble({
 
       {/* Bubble content */}
       <div className="group/message max-w-full lg:max-w-[78%] flex-1 min-w-0">
-        {/* Author label — hidden on mobile */}
+        {/* Author label - hidden on mobile */}
         <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
           {m.authorDisplayName}
         </p>
@@ -2488,7 +2477,7 @@ export default function MessageBubble({
                       onClick={onStopRun}
                       className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
                     >
-                      <span className="material-symbols-outlined text-[13px]">stop</span>
+                      <Icon name="stop" className="text-[13px]" />
                       Stop
                     </button>
                   )}
@@ -2515,7 +2504,7 @@ export default function MessageBubble({
                 <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 py-0.5 text-[11px] hover:text-[var(--color-pib-text)]">
                   <span className="opacity-60 transition-transform group-open/tasks:rotate-90">›</span>
                   <span>Tasks</span>
-                  <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
+                  <span className="rounded-[4px] bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
                     {tasks.length}
                   </span>
                 </summary>
@@ -2525,12 +2514,13 @@ export default function MessageBubble({
                     const active = /progress|doing|active|running/i.test(task.status)
                     return (
                       <div key={task.key} className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
-                        <span className={[
-                          'material-symbols-outlined text-[13px]',
-                          done ? 'text-emerald-300' : active ? 'text-primary' : 'text-[var(--color-pib-text-muted)]/60',
-                        ].join(' ')}>
-                          {done ? 'check_circle' : active ? 'radio_button_checked' : 'radio_button_unchecked'}
-                        </span>
+                        <Icon
+                          name={done ? 'check_circle' : active ? 'radio_button_checked' : 'radio_button_unchecked'}
+                          className={[
+                            'text-[13px]',
+                            done ? 'text-emerald-300' : active ? 'text-primary' : 'text-[var(--color-pib-text-muted)]/60',
+                          ].join(' ')}
+                        />
                         <span className="min-w-0 flex-1 truncate">{task.title}</span>
                       </div>
                     )
@@ -2541,25 +2531,25 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Completed thinking — collapsed Thought for Ns › above the answer */}
+        {/* Completed thinking - collapsed Thought for Ns › above the answer */}
         {!isPending && !isWaiting && thinking && (
           <ThoughtStream thinking={thinking} />
         )}
 
-        {/* Completed tool console — collapsed by default; hidden while live to keep the stream sleek */}
+        {/* Completed tool console - collapsed by default; hidden while live to keep the stream sleek */}
         {!isPending && !isWaiting && commandConsole}
         {displayEvents.length > 0 && !isPending && !isWaiting && eventSummary && !thinking?.segments?.some((s) => s.kind === 'tools') && (
           <p className="mb-1 text-[11px] text-[var(--color-pib-text-muted)]/65">{eventSummary}</p>
         )}
 
-        {/* The bubble itself — plain prose on mobile, bubble on desktop */}
+        {/* The bubble itself - plain prose on mobile, bubble on desktop */}
         <div ref={contentRef} className="relative max-w-full overflow-hidden">
           {selectionPopover}
           <div
             onMouseUp={handleTextSelection}
             className={
               isFailed
-                ? 'max-w-full overflow-hidden rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
+                ? 'max-w-full overflow-hidden rounded-[6px] rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
@@ -2575,7 +2565,7 @@ export default function MessageBubble({
               <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
             )}
             {isWaiting && !renderedMessage.content && (
-              <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
+              <span className="opacity-70 italic">Paused - awaiting tool approval…</span>
             )}
             <ChatMessageContent
               mentions={renderedMessage.mentions}

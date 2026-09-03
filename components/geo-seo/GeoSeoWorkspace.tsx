@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
+import { Icon } from '@/components/studio'
+
 export type GeoSeoWorkspaceRecord = {
   id: string
   orgId?: string | null
@@ -79,7 +81,7 @@ export function GeoSeoWorkspace({
       {sourceCompanyName && (
         <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="CRM company workspace context">
           <p className="eyebrow !text-[10px]">Opened from CRM company</p>
-          <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+          <h2 className="mt-1 text-base font-medium text-[var(--color-pib-text)]">
             {sourceCompanyName} is linked to {targetWorkspaceName || 'this organisation workspace'}
           </h2>
           <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -90,9 +92,9 @@ export function GeoSeoWorkspace({
 
       <section className="pib-card p-4" aria-label="GEO SEO report approval gate">
         <div className="flex items-start gap-3">
-          <span className="material-symbols-outlined text-[var(--color-pib-accent)]">verified_user</span>
+          <Icon name="verified_user" className="text-[var(--color-pib-accent)]" />
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Client report actions gated</h2>
+            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Client report actions gated</h2>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               Share, publish, and client-visible report actions require explicit approval. This workspace can prepare audits and internal report drafts without sending or publishing them.
             </p>
@@ -102,8 +104,8 @@ export function GeoSeoWorkspace({
 
       {workspaces.length === 0 ? (
         <section className="pib-card py-12 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">psychology_alt</span>
-          <h2 className="mt-3 text-lg font-display text-[var(--color-pib-text)]">No GEO SEO workspaces yet</h2>
+          <Icon name="psychology_alt" className="text-4xl text-[var(--color-pib-text-muted)]" />
+          <h2 className="mt-3 text-lg text-[var(--color-pib-text)]">No GEO SEO workspaces yet</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Create a GEO SEO workspace when the approved data/API slice is ready. Workspace setup stays internal until a report is approved for client visibility.
           </p>
@@ -120,12 +122,12 @@ export function GeoSeoWorkspace({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="eyebrow">{geoSeoLabel(workspace.mode, 'monitoring')}</p>
-                  <h2 className="mt-1 text-xl font-display text-[var(--color-pib-text)]">{workspace.siteName || workspace.siteUrl || 'GEO SEO workspace'}</h2>
+                  <h2 className="mt-1 text-xl text-[var(--color-pib-text)]">{workspace.siteName || workspace.siteUrl || 'GEO SEO workspace'}</h2>
                   {workspace.siteUrl && <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{workspace.siteUrl}</p>}
                 </div>
                 {typeof workspace.currentGeoScore === 'number' && (
-                  <div className="rounded-2xl border border-[var(--color-pib-border)] px-4 py-3 text-center">
-                    <p className="text-2xl font-display text-[var(--color-pib-text)]">{workspace.currentGeoScore}</p>
+                  <div className="rounded-md border border-[var(--color-pib-border)] px-4 py-3 text-center">
+                    <p className="text-2xl text-[var(--color-pib-text)]">{workspace.currentGeoScore}</p>
                     <p className="text-xs text-[var(--color-pib-text-muted)]">GEO score</p>
                   </div>
                 )}
@@ -138,10 +140,10 @@ export function GeoSeoWorkspace({
               </div>
 
               <div className="mt-5 grid gap-3 text-sm text-[var(--color-pib-text-muted)] sm:grid-cols-2">
-                <p>Score movement: <span className="font-semibold text-[var(--color-pib-text)]">{geoSeoScoreDelta(workspace) || 'No baseline yet'}</span></p>
-                <p>Linked SEO sprint: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.linkedSeoSprintId ? 'Connected' : 'Not linked'}</span></p>
-                <p>Last audit: <span className="font-semibold text-[var(--color-pib-text)]">{workspace.lastAuditAt ? geoSeoDateLabel(workspace.lastAuditAt) : 'Not run'}</span></p>
-                <p>Next audit: <span className="font-semibold text-[var(--color-pib-text)]">{geoSeoDateLabel(workspace.nextAuditAt)}</span></p>
+                <p>Score movement: <span className="font-medium text-[var(--color-pib-text)]">{geoSeoScoreDelta(workspace) || 'No baseline yet'}</span></p>
+                <p>Linked SEO sprint: <span className="font-medium text-[var(--color-pib-text)]">{workspace.linkedSeoSprintId ? 'Connected' : 'Not linked'}</span></p>
+                <p>Last audit: <span className="font-medium text-[var(--color-pib-text)]">{workspace.lastAuditAt ? geoSeoDateLabel(workspace.lastAuditAt) : 'Not run'}</span></p>
+                <p>Next audit: <span className="font-medium text-[var(--color-pib-text)]">{geoSeoDateLabel(workspace.nextAuditAt)}</span></p>
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">

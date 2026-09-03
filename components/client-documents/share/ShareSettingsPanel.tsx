@@ -81,7 +81,7 @@ export function ShareSettingsPanel({
 
   return (
     <section className="space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+      <h3 className="text-sm font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
         Share settings
       </h3>
 
@@ -129,7 +129,7 @@ export function ShareSettingsPanel({
               <span className="text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)]">
                 Access code
               </span>
-              <code className="rounded bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-bold tracking-widest text-[var(--color-pib-accent)]">
+              <code className="rounded bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-medium tracking-widest text-[var(--color-pib-accent)]">
                 {document.editAccessCode}
               </code>
               <button
@@ -143,7 +143,7 @@ export function ShareSettingsPanel({
             <button
               disabled={busy}
               onClick={disableEditShare}
-              className="mt-2 text-xs text-red-400 hover:underline disabled:opacity-50"
+              className="mt-2 text-xs text-[var(--st-danger)] hover:underline disabled:opacity-50"
             >
               Disable edit link
             </button>
@@ -152,14 +152,14 @@ export function ShareSettingsPanel({
           <button
             disabled={busy}
             onClick={enableEditShare}
-            className="mt-1 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-semibold text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
+            className="mt-1 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
           >
             Enable edit link
           </button>
         )}
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--st-danger)]">{error}</p>}
     </section>
   )
 }

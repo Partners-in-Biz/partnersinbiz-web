@@ -38,7 +38,7 @@ export default async function PortalSeoIndex({
   if (user.forbidden) notFound()
   if (!user.orgId) {
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
         No organisation linked to this account.
       </div>
     )

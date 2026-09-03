@@ -29,10 +29,10 @@ const STATUS_TABS: Array<{ key: ReferralStatus | 'all'; label: string }> = [
 ]
 
 const STATUS_STYLE: Record<ReferralStatus, string> = {
-  pending: 'pib-pill-warn',
-  approved: 'pib-pill-success',
-  disputed: 'pib-pill-danger',
-  paid: 'pib-pill-cyan',
+  pending: 'st-status st-status--warning',
+  approved: 'st-status st-status--success',
+  disputed: 'st-status st-status--danger',
+  paid: 'st-status st-status--info',
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -40,7 +40,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 function StatusBadge({ status }: { status: ReferralStatus }) {
-  return <span className={`pib-pill capitalize ${STATUS_STYLE[status]}`}>{status}</span>
+  return <span className={`st-status capitalize ${STATUS_STYLE[status]}`}>{status}</span>
 }
 
 export default function ReferralsPage() {
@@ -232,9 +232,9 @@ export default function ReferralsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Referrals
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Referral Credits</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Referral Credits</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-            Track referral credits between orgs. Payouts are settled offline via EFT / PayPal —
+            Track referral credits between orgs. Payouts are settled offline via EFT / PayPal -
             mark them paid here once the transfer is done. No Stripe.
           </p>
         </div>
@@ -244,23 +244,23 @@ export default function ReferralsPage() {
               setShowCreate((v) => !v)
               setCreateError(null)
             }}
-            className="pib-btn-primary text-sm font-label"
+            className="st-btn st-btn--primary text-sm font-label"
           >
             {showCreate ? 'Cancel' : '+ New referral'}
           </button>
-          <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/settings" className="st-btn st-btn--ghost text-sm font-label">
             Back to settings
           </Link>
         </div>
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
@@ -268,35 +268,35 @@ export default function ReferralsPage() {
       {/* Summary cards */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-[6px]" />
+          <Skeleton className="h-24 rounded-[6px]" />
+          <Skeleton className="h-24 rounded-[6px]" />
         </div>
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Pending
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.pendingCreditZar)}
             </p>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{summary.pendingCount} awaiting</p>
           </div>
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Approved (unpaid)
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.approvedCreditZar)}
             </p>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{summary.approvedCount} to pay out</p>
           </div>
-          <div className="pib-card p-4">
+          <div className="st-panel p-4">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Paid out
             </p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.paidCreditZar)}
             </p>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">total settled</p>
@@ -306,7 +306,7 @@ export default function ReferralsPage() {
 
       {/* New referral form */}
       {showCreate && (
-        <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
+        <form onSubmit={handleCreate} className="st-panel p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label className="block">
               <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -315,7 +315,7 @@ export default function ReferralsPage() {
               <select
                 value={newReferrer}
                 onChange={(e) => setNewReferrer(e.target.value)}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               >
                 <option value="">Select org…</option>
@@ -333,7 +333,7 @@ export default function ReferralsPage() {
               <select
                 value={newReferred}
                 onChange={(e) => setNewReferred(e.target.value)}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               >
                 <option value="">Select org…</option>
@@ -355,14 +355,14 @@ export default function ReferralsPage() {
                 value={newCredit}
                 onChange={(e) => setNewCredit(e.target.value)}
                 placeholder={settings ? String(settings.referrerCreditZar) : '500'}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               />
             </label>
           </div>
-          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          {createError && <p className="text-xs text-[var(--st-danger)]">{createError}</p>}
           <div className="flex justify-end">
-            <button type="submit" disabled={creating} className="pib-btn-primary text-sm font-label">
+            <button type="submit" disabled={creating} className="st-btn st-btn--primary text-sm font-label">
               {creating ? 'Creating…' : 'Create referral'}
             </button>
           </div>
@@ -377,7 +377,7 @@ export default function ReferralsPage() {
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
-              className="text-xs font-label px-3 py-1.5 rounded-full border transition-colors"
+              className="text-xs font-label px-3 py-1.5 rounded border transition-colors"
               style={{
                 borderColor: active ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.12)',
                 background: active ? 'var(--color-pib-accent)' : 'transparent',
@@ -393,18 +393,18 @@ export default function ReferralsPage() {
       {/* Table */}
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {referrals.length === 0
             ? 'No referrals yet. Create one above.'
             : `No ${filter} referrals.`}
         </div>
       ) : (
-        <div className="pib-card overflow-hidden">
+        <div className="st-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -444,13 +444,13 @@ export default function ReferralsPage() {
 
       {/* Detail panel */}
       {selected && (
-        <div className="pib-card p-5 space-y-4">
+        <div className="st-panel p-5 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
                 Referral detail
               </p>
-              <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
+              <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">
                 {selected.referrerName ?? selected.referrerOrgId}
                 <span className="text-[var(--color-pib-text-muted)]"> → </span>
                 {selected.referredName ?? selected.referredOrgId}
@@ -458,7 +458,7 @@ export default function ReferralsPage() {
             </div>
             <button
               onClick={() => setSelectedId(null)}
-              className="pib-btn-ghost text-xs font-label"
+              className="st-btn st-btn--ghost text-xs font-label"
             >
               Close
             </button>
@@ -484,12 +484,12 @@ export default function ReferralsPage() {
           </div>
 
           {selected.status === 'disputed' && selected.disputeReason && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-[var(--st-danger)]">
               Dispute reason: {selected.disputeReason}
             </div>
           )}
 
-          {/* Dispute reason input — shown when disputing is possible */}
+          {/* Dispute reason input - shown when disputing is possible */}
           {selected.status !== 'paid' && (
             <label className="block">
               <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -499,7 +499,7 @@ export default function ReferralsPage() {
                 value={disputeReason}
                 onChange={(e) => setDisputeReason(e.target.value)}
                 placeholder="e.g. Referred org cancelled before first paid invoice"
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 rows={2}
               />
             </label>
@@ -510,7 +510,7 @@ export default function ReferralsPage() {
               <button
                 onClick={() => runAction('approve')}
                 disabled={busy}
-                className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                className="st-btn st-btn--primary text-sm font-label disabled:opacity-50"
               >
                 {busy ? 'Working…' : 'Approve'}
               </button>
@@ -519,7 +519,7 @@ export default function ReferralsPage() {
               <button
                 onClick={() => runAction('mark_paid')}
                 disabled={busy}
-                className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                className="st-btn st-btn--primary text-sm font-label disabled:opacity-50"
               >
                 {busy ? 'Working…' : 'Mark paid (EFT/PayPal)'}
               </button>
@@ -528,7 +528,7 @@ export default function ReferralsPage() {
               <button
                 onClick={() => runAction('dispute')}
                 disabled={busy}
-                className="text-sm font-label px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                className="text-sm font-label px-3 py-1.5 rounded-lg text-[var(--st-danger)] hover:bg-red-500/10 disabled:opacity-50"
               >
                 Dispute
               </button>
@@ -538,13 +538,13 @@ export default function ReferralsPage() {
       )}
 
       {/* Settings panel */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Programme settings
         </p>
-        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-4">Referral Settings</h2>
+        <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)] mb-4">Referral Settings</h2>
         {loading || !settingsForm ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
         ) : (
           <form onSubmit={saveSettings} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -558,7 +558,7 @@ export default function ReferralsPage() {
                   step="0.01"
                   value={settingsForm.referrerCreditZar}
                   onChange={(e) => patchSettings({ referrerCreditZar: Number(e.target.value) })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
               </label>
               <label className="block">
@@ -571,7 +571,7 @@ export default function ReferralsPage() {
                   step="0.01"
                   value={settingsForm.referredCreditZar}
                   onChange={(e) => patchSettings({ referredCreditZar: Number(e.target.value) })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
               </label>
               <label className="block">
@@ -584,7 +584,7 @@ export default function ReferralsPage() {
                   step="1"
                   value={settingsForm.minPaidInvoices}
                   onChange={(e) => patchSettings({ minPaidInvoices: Number(e.target.value) })}
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
               </label>
             </div>
@@ -606,12 +606,12 @@ export default function ReferralsPage() {
                 Programme active
               </label>
             </div>
-            {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
+            {settingsError && <p className="text-xs text-[var(--st-danger)]">{settingsError}</p>}
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                className="st-btn st-btn--primary text-sm font-label disabled:opacity-50"
               >
                 {savingSettings ? 'Saving…' : 'Save settings'}
               </button>

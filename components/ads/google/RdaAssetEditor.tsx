@@ -13,7 +13,7 @@ interface Props {
 }
 
 const CTA_OPTIONS = [
-  { value: '', label: '— None (auto) —' },
+  { value: '', label: ' -  None (auto) - ' },
   { value: 'APPLY_NOW', label: 'Apply now' },
   { value: 'BOOK_NOW', label: 'Book now' },
   { value: 'CONTACT_US', label: 'Contact us' },
@@ -27,7 +27,7 @@ const CTA_OPTIONS = [
 function CharCounter({ len, max }: { len: number; max: number }) {
   return (
     <span
-      className={`ml-1 text-xs tabular-nums ${len > max ? 'text-red-400' : 'text-white/30'}`}
+      className={`ml-1 text-xs tabular-nums ${len > max ? 'text-[var(--st-danger)]' : 'text-white/30'}`}
     >
       {len}/{max}
     </span>
@@ -57,11 +57,11 @@ function ImageUrlList({
   ariaPrefix: string
 }) {
   const btnAdd =
-    'text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed'
+    'text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed'
   const btnRemove =
-    'ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed'
+    'ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed'
   const inputCls =
-    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50'
+    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50'
 
   return (
     <section>
@@ -140,11 +140,11 @@ function TextList({
   ariaPrefix: string
 }) {
   const btnAdd =
-    'text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed'
+    'text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed'
   const btnRemove =
-    'ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed'
+    'ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed'
   const inputCls =
-    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50'
+    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50'
 
   return (
     <section>
@@ -319,7 +319,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
   }
 
   const inputCls =
-    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50'
+    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50'
   const labelCls = 'block text-sm font-medium'
 
   return (
@@ -363,7 +363,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
             </span>
             <button
               type="button"
-              className="text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={addLogoImage}
               disabled={disabled || logoImages.length >= 5}
               aria-label="Add logo image"
@@ -389,7 +389,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
               />
               <button
                 type="button"
-                className="ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed"
                 onClick={() => removeLogoImage(idx)}
                 disabled={disabled}
                 aria-label={`Remove logo image ${idx + 1}`}
@@ -414,7 +414,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
             </span>
             <button
               type="button"
-              className="text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={addSquareLogoImage}
               disabled={disabled || squareLogoImages.length >= 5}
               aria-label="Add square logo image"
@@ -440,7 +440,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
               />
               <button
                 type="button"
-                className="ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed"
                 onClick={() => removeSquareLogoImage(idx)}
                 disabled={disabled}
                 aria-label={`Remove square logo image ${idx + 1}`}
@@ -506,7 +506,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
             <span className="text-white/40 text-xs font-normal">(required)</span>
             <input
               type="text"
-              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50"
+              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50"
               value={value.businessName}
               maxLength={30}
               onChange={(e) => onChange({ ...value, businessName: e.target.value })}
@@ -520,7 +520,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
             Call to action{' '}
             <span className="text-white/40 text-xs font-normal">(optional)</span>
             <select
-              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50"
+              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50"
               value={value.callToActionText ?? ''}
               onChange={(e) => {
                 const v = e.target.value as RdaAssets['callToActionText']
@@ -548,7 +548,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
           </h3>
           <button
             type="button"
-            className="text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={addUrl}
             disabled={disabled}
             aria-label="Add landing URL"
@@ -570,7 +570,7 @@ export function RdaAssetEditor({ value, onChange, disabled = false }: Props) {
               />
               <button
                 type="button"
-                className="ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed"
                 onClick={() => removeUrl(idx)}
                 disabled={disabled || value.finalUrls.length <= 1}
                 aria-label={`Remove landing URL ${idx + 1}`}

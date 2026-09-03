@@ -62,7 +62,7 @@ export function ProjectSettingsPanel({
       <div className="max-w-4xl space-y-6">
         <div className="pib-card rounded-[var(--radius-card)] p-5">
           <p className="pib-label">Project settings</p>
-          <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">Manage this board</h2>
+          <h2 className="mt-1 text-2xl font-headline font-medium text-[var(--color-pib-text)]">Manage this board</h2>
           <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Update the client-facing project details while keeping the same polished board styling.</p>
         </div>
         <div className="pib-card p-5">
@@ -102,10 +102,10 @@ export function ProjectSettingsPanel({
                 className="pib-select w-full"
               >
                 <option value="">Not set (agent chooses)</option>
-                <option value="persuade">Persuade — landing/sales page</option>
-                <option value="operate">Operate — dashboard/app</option>
-                <option value="read">Read — docs/knowledge</option>
-                <option value="experience">Experience — portfolio/showcase</option>
+                <option value="persuade">Persuade - landing/sales page</option>
+                <option value="operate">Operate - dashboard/app</option>
+                <option value="read">Read - docs/knowledge</option>
+                <option value="experience">Experience - portfolio/showcase</option>
               </select>
               <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                 Tells agents which design standard applies to this web surface (Impeccable-style).
@@ -113,7 +113,7 @@ export function ProjectSettingsPanel({
             </div>
             <div className="pib-surface p-4">
               <p className="pib-label">Current board</p>
-              <p className="mt-2 text-lg font-headline font-bold text-[var(--color-pib-text)]">{name || 'Untitled project'}</p>
+              <p className="mt-2 text-lg font-headline font-medium text-[var(--color-pib-text)]">{name || 'Untitled project'}</p>
               <p className="mt-1 text-sm capitalize text-[var(--color-pib-text-muted)]">{status.replace(/_/g, ' ')}</p>
             </div>
             <div className="md:col-span-2">
@@ -129,7 +129,7 @@ export function ProjectSettingsPanel({
             <div className="md:col-span-2 pib-surface p-4">
               <div className="mb-4">
                 <p className="pib-label">CRM relationships</p>
-                <h3 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Linked companies and contacts</h3>
+                <h3 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">Linked companies and contacts</h3>
                 <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                   Edit the project-side CRM links used by company/contact Projects panels. Claim/share invites stay tied to the explicit primary company/contact; additional links do not create extra invite or claim-token targets.
                 </p>
@@ -193,7 +193,7 @@ export function ProjectSettingsPanel({
               {saving ? 'Saving...' : 'Save Settings'}
             </button>
             {saved && (
-              <span className="rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs text-green-300">Saved</span>
+              <span className="rounded-md border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs text-green-300">Saved</span>
             )}
           </div>
         </div>

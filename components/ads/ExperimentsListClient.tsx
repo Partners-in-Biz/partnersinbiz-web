@@ -36,11 +36,11 @@ const FILTER_TABS: { key: FilterKey; label: string }[] = [
 ]
 
 const STATUS_BADGE: Record<ExperimentStatus, string> = {
-  draft: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF]',
+  draft: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF]',
   running: 'bg-green-500/15 text-green-400',
   paused: 'bg-yellow-500/15 text-yellow-400',
   completed: 'bg-sky-500/15 text-sky-300',
-  winner_declared: 'bg-[#F5A623]/15 text-[#F5A623]',
+  winner_declared: 'bg-[color-mix(in_srgb,var(--sc-accent)_15%,transparent)] text-[var(--sc-accent)]',
 }
 
 function daysRunning(startedAt?: { seconds: number } | null): number | null {
@@ -152,7 +152,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
   return (
     <section className="space-y-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">A/B Experiments</h1>
+        <h1 className="text-2xl font-medium">A/B Experiments</h1>
         <Link
           href={`/admin/org/${orgSlug}/ads/experiments/new`}
           className="btn-pib-accent text-sm"
@@ -192,11 +192,11 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
           aria-modal="false"
           aria-labelledby="experiment-archive-title"
           aria-describedby="experiment-archive-description"
-          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+          className="rounded-lg border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] p-4 shadow-sm"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <h2 id="experiment-archive-title" className="text-sm font-semibold text-white">
+              <h2 id="experiment-archive-title" className="text-sm font-medium text-white">
                 Archive experiment {confirmArchive.name} for {orgSlug}?
               </h2>
               <p id="experiment-archive-description" className="text-sm text-white/65">
@@ -233,7 +233,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
           {activeTab === 'all' && (
             <Link
               href={`/admin/org/${orgSlug}/ads/experiments/new`}
-              className="mt-3 inline-block text-sm text-[#F5A623] underline"
+              className="mt-3 inline-block text-sm text-[var(--sc-accent)] underline"
             >
               Create an admin experiment draft →
             </Link>
@@ -251,7 +251,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/admin/org/${orgSlug}/ads/experiments/${exp.id}`}
-                        className="font-medium hover:text-[#F5A623]"
+                        className="font-medium hover:text-[var(--sc-accent)]"
                       >
                         {exp.name}
                       </Link>
@@ -262,10 +262,10 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/50">
-                      <span className="rounded bg-[var(--color-pib-rose-soft)] px-2 py-0.5 text-[#FDA4AF]">
+                      <span className="rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] px-2 py-0.5 text-[#FDA4AF]">
                         {exp.platform}
                       </span>
-                      <span className="rounded bg-[var(--color-pib-rose-soft)] px-2 py-0.5 text-[#FDA4AF]">
+                      <span className="rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] px-2 py-0.5 text-[#FDA4AF]">
                         {exp.level}
                       </span>
                       <span className="text-white/40">{exp.variantCount} variants</span>
@@ -322,7 +322,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
                         onClick={() => requestArchive(exp)}
                         disabled={archiving === exp.id}
                         aria-label={`Archive experiment ${exp.name} for ${orgSlug}`}
-                        className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400 disabled:opacity-40"
+                        className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-[var(--st-danger)] disabled:opacity-40"
                       >
                         Archive
                       </button>

@@ -15,7 +15,7 @@ export function InstagramStoriesCard({ post, brand }: InstagramStoriesCardProps)
   const handle = post.authorHandle || brand?.name || 'yourbrand'
   const text = getPostText(post.content)
   const showSticker = text.length > 0 && text.length <= 80
-  const accent = brand?.palette.accent || '#F5A623'
+  const accent = brand?.palette.accent || 'var(--sc-accent)'
 
   return (
     <div

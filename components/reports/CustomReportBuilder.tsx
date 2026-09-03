@@ -12,6 +12,8 @@ import {
   type ReportSectionType,
 } from '@/lib/reports/types'
 
+import { Icon } from '@/components/studio'
+
 const METRIC_KEYS: ReportMetricKey[] = [
   'total_revenue', 'invoiced_revenue', 'invoiced_revenue_paid', 'outstanding',
   'mrr', 'arr', 'active_subs', 'new_subs', 'churn', 'subscription_revenue',
@@ -200,12 +202,12 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
         <div className="bento-card !p-5 space-y-4">
           <div>
             <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">Title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="pib-input !text-sm w-full" />
+            <input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} className="pib-input !text-sm w-full" />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">Type</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as ReportCategory)} className="pib-input !text-sm w-full">
+              <select aria-label="Type" value={category} onChange={(e) => setCategory(e.target.value as ReportCategory)} className="pib-input !text-sm w-full">
                 {REPORT_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{REPORT_CATEGORY_LABELS[c]}</option>
                 ))}
@@ -213,11 +215,11 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
             </div>
             <div>
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">Start</label>
-              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="pib-input !text-sm w-full" />
+              <input aria-label="Start date" type="date" value={start} onChange={(e) => setStart(e.target.value)} className="pib-input !text-sm w-full" />
             </div>
             <div>
               <label className="block text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] mb-1">End</label>
-              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="pib-input !text-sm w-full" />
+              <input aria-label="End date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="pib-input !text-sm w-full" />
             </div>
           </div>
         </div>
@@ -229,19 +231,19 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
                 <span className="pib-pill pib-pill-cyan !text-[10px] uppercase">{SECTION_LABELS[sec.type]}</span>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => moveSection(sec.id, -1)} disabled={i === 0} aria-label="Move up" className="btn-pib-secondary !py-1 !px-2 !text-xs disabled:opacity-40">
-                    <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                    <Icon name="arrow_upward" className="text-[14px]" />
                   </button>
                   <button type="button" onClick={() => moveSection(sec.id, 1)} disabled={i === sections.length - 1} aria-label="Move down" className="btn-pib-secondary !py-1 !px-2 !text-xs disabled:opacity-40">
-                    <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
+                    <Icon name="arrow_downward" className="text-[14px]" />
                   </button>
                   <button type="button" onClick={() => removeSection(sec.id)} aria-label="Remove section" className="btn-pib-secondary !py-1 !px-2 !text-xs !text-rose-300 !border-rose-400/40">
-                    <span className="material-symbols-outlined text-[14px]">delete</span>
+                    <Icon name="delete" className="text-[14px]" />
                   </button>
                 </div>
               </div>
 
               {sec.type !== 'page_break' && (
-                <input
+                <input aria-label="Section title"
                   value={sec.title ?? ''}
                   onChange={(e) => updateSection(sec.id, { title: e.target.value })}
                   placeholder="Section title"
@@ -250,7 +252,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
               )}
 
               {sec.type === 'text' && (
-                <textarea
+                <textarea aria-label="Body text. Blank lines separate paragraphs"
                   value={sec.body ?? ''}
                   onChange={(e) => updateSection(sec.id, { body: e.target.value })}
                   placeholder="Body text. Blank lines separate paragraphs."
@@ -261,7 +263,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
 
               {(sec.type === 'metric' || sec.type === 'chart') && (
                 <div className="grid grid-cols-2 gap-2">
-                  <select
+                  <select aria-label="Body text. Blank lines separate paragraphs."
                     value={sec.dataSource?.kind ?? 'snapshot'}
                     onChange={(e) => updateDataSource(sec.id, { kind: e.target.value as 'snapshot' | 'manual' })}
                     className="pib-input !text-sm"
@@ -270,14 +272,14 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
                     <option value="manual">Manual value</option>
                   </select>
                   {sec.dataSource?.kind === 'manual' ? (
-                    <input
+                    <input aria-label="Value ?? 0"
                       type="number"
                       value={sec.dataSource?.value ?? 0}
                       onChange={(e) => updateDataSource(sec.id, { value: Number(e.target.value) })}
                       className="pib-input !text-sm"
                     />
                   ) : (
-                    <select
+                    <select aria-label="Metric ?? 'total_revenue'"
                       value={sec.dataSource?.metric ?? 'total_revenue'}
                       onChange={(e) => updateDataSource(sec.id, { metric: e.target.value as ReportMetricKey })}
                       className="pib-input !text-sm"
@@ -292,7 +294,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
 
               {sec.type === 'table' && (
                 <div className="space-y-2">
-                  <select
+                  <select aria-label="Kind ?? 'snapshot'"
                     value={sec.dataSource?.kind ?? 'snapshot'}
                     onChange={(e) => updateDataSource(sec.id, { kind: e.target.value as 'snapshot' | 'manual' })}
                     className="pib-input !text-sm w-full"
@@ -335,7 +337,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
         <div className="flex flex-wrap gap-2">
           {(Object.keys(SECTION_LABELS) as ReportSectionType[]).map((t) => (
             <button key={t} type="button" onClick={() => addSection(t)} className="btn-pib-secondary !py-2 !px-3 !text-sm">
-              <span className="material-symbols-outlined text-base">add</span>
+              <Icon name="add" className="text-base" />
               {SECTION_LABELS[t]}
             </button>
           ))}
@@ -359,7 +361,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
       {/* Live preview */}
       <div className="bento-card !p-6 space-y-6 lg:sticky lg:top-6 self-start">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl">{title || 'Untitled report'}</h2>
+          <h2 className="text-2xl">{title || 'Untitled report'}</h2>
           <span className="text-xs font-mono text-[var(--color-pib-text-muted)]">{start} → {end}</span>
         </div>
         {!k && (
@@ -402,17 +404,17 @@ function PreviewSection({
   if (sec.type === 'metric') {
     const val = sec.dataSource?.kind === 'manual' ? sec.dataSource.value ?? 0 : metricVal(sec.dataSource?.metric)
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="rounded-md border border-white/10 bg-white/[0.02] p-4">
         <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-pib-text-muted)] font-mono mb-1.5">{sec.title ?? sec.dataSource?.metric}</div>
-        <div className="text-2xl md:text-3xl font-display tabular-nums">{fmtNum.format(val)}</div>
+        <div className="text-2xl md:text-3xl tabular-nums">{fmtNum.format(val)}</div>
       </div>
     )
   }
   if (sec.type === 'chart') {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="rounded-md border border-white/10 bg-white/[0.02] p-5">
         <div className="text-xs uppercase tracking-wider text-[var(--color-pib-text-muted)] font-mono mb-2">{sec.title ?? sec.dataSource?.metric}</div>
-        <div className="text-2xl font-display tabular-nums text-[var(--color-pib-accent)]">{fmtNum.format(metricVal(sec.dataSource?.metric))}</div>
+        <div className="text-2xl tabular-nums text-[var(--color-pib-accent)]">{fmtNum.format(metricVal(sec.dataSource?.metric))}</div>
         <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">Trend rendered in the published report.</p>
       </div>
     )
@@ -420,11 +422,11 @@ function PreviewSection({
   // table
   const rows = sec.dataSource?.kind === 'manual'
     ? (sec.dataSource.rows ?? []).map((r) => ({ label: r.label, value: r.value }))
-    : (sec.dataSource?.metrics ?? []).map((m) => ({ label: m, value: k ? fmtNum.format(metricVal(m)) : '—' }))
+    : (sec.dataSource?.metrics ?? []).map((m) => ({ label: m, value: k ? fmtNum.format(metricVal(m)) : ' - ' }))
   return (
     <div>
       {sec.title ? <h3 className="eyebrow mb-2">{sec.title}</h3> : null}
-      <div className="rounded-2xl border border-white/10 overflow-hidden">
+      <div className="rounded-md border border-white/10 overflow-hidden">
         {rows.map((r, i) => (
           <div key={i} className="flex items-center justify-between px-4 py-2 border-b border-white/5 text-sm">
             <span className="text-[var(--color-pib-text-muted)] font-mono">{r.label}</span>

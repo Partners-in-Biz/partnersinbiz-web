@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 import type { ContextReferenceSeed } from '@/lib/context-references/types'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 
@@ -19,11 +21,11 @@ export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgN
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-3 py-2">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[15px]">smart_toy</span></span>
-        <span className="flex-1 text-sm font-semibold text-[var(--color-pib-text)]">Pip</span>
+        <span aria-hidden="true"><Icon name="smart_toy" /></span>
+        <span className="flex-1 text-sm text-[var(--color-pib-text)]">Pip</span>
         {onClose && (
           <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" aria-label="Close chat">
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <Icon name="close" />
           </button>
         )}
       </div>

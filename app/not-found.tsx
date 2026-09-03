@@ -1,28 +1,23 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: '404 — Page Not Found | PiB',
+  title: 'Page not found | Partners in Biz',
 }
 
 export default function NotFound() {
   return (
-    <main className="relative z-10 min-h-screen flex flex-col items-center justify-center px-8 text-center">
-      <span className="font-headline text-[clamp(6rem,20vw,14rem)] font-bold tracking-tighter leading-none text-white/10 select-none">
-        404
-      </span>
-      <h1 className="font-headline text-3xl md:text-5xl font-bold tracking-tighter -mt-4 mb-6">
-        Page not found.
-      </h1>
-      <p className="text-white/40 text-lg mb-12 max-w-md">
-        The page you&apos;re looking for doesn&apos;t exist or has been moved.
+    <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-24">
+      <p className="sc-tiny">404</p>
+      <h1 className="sc-article__h2 mt-4">Page not found.</h1>
+      <p className="sc-body mt-4">
+        The page you are looking for does not exist or has been moved.
       </p>
-      <Link
-        href="/"
-        className="bg-white text-black px-10 py-4 rounded-md font-headline font-bold uppercase tracking-widest text-sm hover:bg-white/90 transition-all"
-      >
-        Back to Home
-      </Link>
+      <div className="mt-8">
+        <Link href="/" prefetch={false} className="st-btn st-btn--ghost">
+          Back to home
+        </Link>
+      </div>
     </main>
   )
 }

@@ -30,7 +30,7 @@ const PROVIDERS: ProviderInfo[] = [
   { provider: 'play_console',       name: 'Google Play Console', description: 'Android installs, ratings, IAP revenue. RTDN webhooks.',           authKind: 'service_account' },
   { provider: 'google_ads',         name: 'Google Ads',          description: 'Campaign spend, conversions, ROAS, CTR.',                          authKind: 'oauth2' },
   { provider: 'ga4',                name: 'Google Analytics 4',  description: 'Sessions, conversions, source/medium attribution.',                 authKind: 'oauth2' },
-  { provider: 'firebase_analytics', name: 'Firebase Analytics',  description: 'App engagement via the Firebase-linked GA4 property — sessions, users, screen views, conversions.', authKind: 'oauth2' },
+  { provider: 'firebase_analytics', name: 'Firebase Analytics',  description: 'App engagement via the Firebase-linked GA4 property - sessions, users, screen views, conversions.', authKind: 'oauth2' },
 ]
 
 interface Connection {
@@ -49,7 +49,7 @@ interface Connection {
 }
 
 function formatTs(ts: { _seconds: number } | null | undefined): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   const d = new Date(ts._seconds * 1000)
   return d.toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })
 }
@@ -57,8 +57,8 @@ function formatTs(ts: { _seconds: number } | null | undefined): string {
 function StatusPill({ status }: { status: Connection['status'] | 'not_connected' }) {
   const styles: Record<string, string> = {
     connected:        'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    paused:           'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    reauth_required:  'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    paused:           'bg-[var(--st-warning)]/15 text-[var(--st-warning)] border-amber-500/30',
+    reauth_required:  'bg-[var(--st-warning)]/15 text-[var(--st-warning)] border-amber-500/30',
     error:            'bg-red-500/15 text-red-300 border-red-500/30',
     pending:          'bg-blue-500/15 text-blue-300 border-blue-500/30',
     not_connected:    'bg-white/5 text-white/60 border-white/10',
@@ -72,8 +72,8 @@ function StatusPill({ status }: { status: Connection['status'] | 'not_connected'
     not_connected:   'Not connected',
   }
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-mono uppercase tracking-wider ${styles[status]}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-mono uppercase tracking-wider ${styles[status]}`}>
+      <span className="w-1.5 h-1.5 rounded-md bg-current" />
       {labels[status]}
     </span>
   )
@@ -154,7 +154,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
   }
 
   async function backfill90Days(p: Provider) {
-    if (!confirm(`Backfill the last 90 days of ${p} metrics? This re-pulls and upserts historical data — existing rows for overlapping dates are overwritten, not duplicated.`)) return
+    if (!confirm(`Backfill the last 90 days of ${p} metrics? This re-pulls and upserts historical data - existing rows for overlapping dates are overwritten, not duplicated.`)) return
     setBackfillBusy(p)
     try {
       const r = await fetch(`/api/v1/properties/${propertyId}/connections/${p}/backfill`, { method: 'POST' })
@@ -200,7 +200,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
       />
 
       {flash && (
-        <div className={`rounded-xl border px-4 py-3 text-sm ${
+        <div className={`rounded-md border px-4 py-3 text-sm ${
           flash.kind === 'ok'
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
             : 'bg-red-500/10 border-red-500/30 text-red-200'
@@ -213,7 +213,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-white/5 h-24" />
+            <div key={i} className="rounded-md bg-white/5 h-24" />
           ))}
         </div>
       ) : (
@@ -227,7 +227,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{info.name}</h3>
+                      <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{info.name}</h3>
                       <StatusPill status={status} />
                       <span className="text-[10px] uppercase tracking-wider text-[var(--color-pib-text-muted)] font-mono">{info.authKind}</span>
                     </div>
@@ -236,7 +236,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
                       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                         <Stat label="Last pulled" value={formatTs(conn.lastPulledAt)} />
                         <Stat label="Last success" value={formatTs(conn.lastSuccessAt)} />
-                        <Stat label="Backfilled through" value={conn.backfilledThrough ?? '—'} />
+                        <Stat label="Backfilled through" value={conn.backfilledThrough ?? ' - '} />
                         <Stat label="Failures" value={String(conn.consecutiveFailures ?? 0)} />
                       </div>
                     )}
@@ -249,13 +249,13 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
                       <button
                         disabled={isBusy}
                         onClick={() => authorize(info.provider)}
-                        className="px-3 py-1.5 text-xs rounded-full bg-white text-black font-medium hover:bg-[#F5A623] transition-colors disabled:opacity-60"
+                        className="px-3 py-1.5 text-xs rounded-md bg-white text-black font-medium hover:bg-[var(--sc-accent)] transition-colors disabled:opacity-60"
                       >
                         {isBusy ? 'Connecting…' : 'Connect'}
                       </button>
                     )}
                     {!conn && info.authKind !== 'oauth2' && (
-                      <span className="px-3 py-1.5 text-xs rounded-full border border-white/10 text-white/50 font-mono">
+                      <span className="px-3 py-1.5 text-xs rounded-md border border-white/10 text-white/50 font-mono">
                         Add credentials via API
                       </span>
                     )}
@@ -264,21 +264,21 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
                         <button
                           disabled={isBusy}
                           onClick={() => pullNow(info.provider)}
-                          className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
+                          className="px-3 py-1.5 text-xs rounded-md border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
                         >
                           {isBusy ? '…' : 'Pull now'}
                         </button>
                         <button
                           disabled={backfillBusy === info.provider}
                           onClick={() => backfill90Days(info.provider)}
-                          className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
+                          className="px-3 py-1.5 text-xs rounded-md border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
                         >
                           {backfillBusy === info.provider ? 'Backfilling…' : 'Backfill 90 days'}
                         </button>
                         <button
                           disabled={isBusy}
                           onClick={() => disconnect(info.provider)}
-                          className="px-3 py-1.5 text-xs rounded-full border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-60"
+                          className="px-3 py-1.5 text-xs rounded-md border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-60"
                         >
                           Disconnect
                         </button>

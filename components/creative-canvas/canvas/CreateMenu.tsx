@@ -69,7 +69,7 @@ export default function CreateMenu({ position, onCreate, onClose }: CreateMenuPr
             outline: 'none',
             marginBottom: 6,
           }}
-        />
+         aria-label="Search"/>
         {filteredGroups.map((g) => (
           <div key={g.group || '_default'} style={{ marginBottom: 4 }}>
             {g.group ? (

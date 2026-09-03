@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { Icon, Panel, Status, Title } from '@/components/studio'
 
 const readinessMetrics = [
   {
@@ -62,17 +63,15 @@ function ReadinessMetric({
   icon: string
 }) {
   return (
-    <div className="pib-stat-card min-w-0 space-y-3" data-module-accent="cyan">
-      <div className="relative flex items-start justify-between gap-3">
-        <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
-          {icon}
-        </span>
+    <div className="pib-stat-card st-panel--flat min-w-0 space-y-3 p-4">
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="sc-tiny">{label}</p>
+        <Icon name={icon} />
       </div>
-      <p className="relative text-xl font-semibold tabular-nums leading-none text-[var(--color-pib-text)]">
+      <p className="st-num relative text-xl tabular-nums leading-none text-[var(--sc-ink)]">
         {value} {label}
       </p>
-      <p className="relative text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
+      <p className="sc-body relative text-[0.75rem] text-[var(--sc-ink-soft)]">{detail}</p>
     </div>
   )
 }
@@ -87,14 +86,12 @@ function SignalCard({
   icon: string
 }) {
   return (
-    <div className="pib-stat-card min-w-0 space-y-3 p-4">
-      <div className="relative flex items-start gap-3">
-        <span className="pib-icon-tint-cyan shrink-0">
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{icon}</span>
-        </span>
+    <div className="pib-stat-card st-panel--flat min-w-0 space-y-3 p-4">
+      <div className="relative flex items-start gap-4">
+        <Icon name={icon} />
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h3>
-          <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{description}</p>
+          <h3 className="text-sm text-[var(--sc-ink)]">{title}</h3>
+          <p className="sc-body mt-2 text-[0.75rem] text-[var(--sc-ink-soft)]">{description}</p>
         </div>
       </div>
     </div>
@@ -103,75 +100,71 @@ function SignalCard({
 
 export default function NotificationsPage() {
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-8">
       <PageHeader
-        accent="cyan"
-        eyebrow="Settings · CRM operations"
-        title="Notifications"
+        title="Notifications."
         description="Keep CRM work visible across sales, approvals, billing, and client communication before the team grows."
       />
 
       <section role="region" aria-label="CRM notification command center" className="space-y-4">
-        <div data-testid="notification-command-hero" className="pib-card overflow-hidden !p-0">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
-            <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
-              <div>
-                <span className="pib-icon-tint-cyan mb-4">
-                  <span className="material-symbols-outlined text-[22px]" aria-hidden="true">notifications_active</span>
-                </span>
-                <p className="eyebrow">Operating readiness</p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
-                  Notification command center
-                </h2>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                  Device notifications are the first channel. Treat them as a CRM readiness check for the events that should not wait for someone to open the app.
-                </p>
+        <div data-testid="notification-command-hero">
+          <Panel className="!p-0 overflow-hidden">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
+              <div className="flex flex-col justify-between gap-8 border-b border-[var(--sc-line)] p-5 lg:border-b-0 lg:border-r">
+                <div>
+                  <Icon name="notifications_active" />
+                  <p className="sc-tiny mt-4">Operating readiness</p>
+                  <Title className="mt-3">Notification command center</Title>
+                  <p className="sc-body mt-3 max-w-xl text-[var(--sc-ink-soft)]">
+                    Device notifications are the first channel. Treat them as a CRM readiness check for the events that should not wait for someone to open the app.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Status>Team accountability</Status>
+                  <Status>Browser push first</Status>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="pib-pill">Team accountability</span>
-                <span className="pib-pill">Browser push first</span>
-              </div>
-            </div>
 
-            <div data-testid="notification-readiness-grid" className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {readinessMetrics.map((metric) => (
-                <ReadinessMetric key={metric.label} {...metric} />
-              ))}
+              <div data-testid="notification-readiness-grid" className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                {readinessMetrics.map((metric) => (
+                  <ReadinessMetric key={metric.label} {...metric} />
+                ))}
+              </div>
             </div>
-          </div>
+          </Panel>
         </div>
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <section data-testid="notification-push-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="pib-label">Device channel</p>
+            <p className="sc-tiny">Device channel</p>
           </div>
           <div className="space-y-4 p-5">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Push notifications</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <Title>Push notifications</Title>
+              <p className="sc-body mt-2 text-[var(--sc-ink-soft)]">
                 Enable browser push on this device so urgent CRM work reaches the person who owns it.
               </p>
             </div>
-            <div className="pib-stat-card min-w-0 p-4">
+            <Panel flat className="p-4">
               <PushNotificationsToggle />
-            </div>
+            </Panel>
           </div>
         </section>
 
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="pib-label">CRM signals</p>
+            <p className="sc-tiny">CRM signals</p>
           </div>
           <div className="space-y-4 p-5">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Events that need attention</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <Title>Events that need attention</Title>
+              <p className="sc-body mt-2 text-[var(--sc-ink-soft)]">
                 These are the notification categories the command center keeps visible while the full preference model expands.
               </p>
             </div>
-            <div data-testid="notification-signal-grid" className="grid gap-3 md:grid-cols-2">
+            <div data-testid="notification-signal-grid" className="grid gap-4 md:grid-cols-2">
               {crmSignals.map((signal) => (
                 <SignalCard key={signal.title} {...signal} />
               ))}

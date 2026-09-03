@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef, useState } from 'react'
 import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorMediaPreview } from '@/lib/video-editor/types'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
@@ -203,30 +205,30 @@ export function TimelinePanel(props: TimelinePanelProps) {
                 type="button"
                 aria-label={mode.label}
                 aria-pressed={editMode === mode.id}
-                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}
+                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--sc-ink-soft)]/20 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}
                 onClick={() => onEditModeChange?.(mode.id)}
               >
-                <span className="material-symbols-rounded text-base">{mode.icon}</span>
+                <Icon name={mode.icon} />
               </button>
             ))}
           </div>
           <button type="button" className="pib-btn-ghost text-sm" onClick={onSplitAtPlayhead} aria-label="Split at playhead">
-            <span className="material-symbols-rounded text-base">content_cut</span>
+            <Icon name="content_cut" />
           </button>
           <button type="button" className="pib-btn-ghost text-sm" onClick={onRemoveSelected} aria-label="Delete selected">
-            <span className="material-symbols-rounded text-base">delete</span>
+            <Icon name="delete" />
           </button>
           <button type="button" className="pib-btn-ghost text-sm" disabled={normalizedSelection.length < 2} onClick={onLinkSelection} aria-label="Link clips">
-            <span className="material-symbols-rounded text-base">link</span>
+            <Icon name="link" />
           </button>
           <button type="button" className="pib-btn-ghost text-sm" disabled={!selectedGrouped} onClick={onUnlinkSelection} aria-label="Unlink clips">
-            <span className="material-symbols-rounded text-base">link_off</span>
+            <Icon name="link_off" />
           </button>
           <button type="button" className="pib-btn-ghost text-sm" onClick={() => onZoomChange(Math.min(180, Math.round(pxPerSecond * 1.25)))} aria-label="Zoom in">
-            <span className="material-symbols-rounded text-base">zoom_in</span>
+            <Icon name="zoom_in" />
           </button>
           <button type="button" className="pib-btn-ghost text-sm" onClick={() => onZoomChange(Math.max(20, Math.round(pxPerSecond / 1.25)))} aria-label="Zoom out">
-            <span className="material-symbols-rounded text-base">zoom_out</span>
+            <Icon name="zoom_out" />
           </button>
         </div>
         <label className="text-sm text-[var(--color-pib-text-muted)]">
@@ -240,7 +242,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
               else onAddTrack(event.target.value as EditorTrackKind)
               event.target.value = ''
             }}
-          >
+           aria-label="Input">
             <option value="">Choose</option>
             <option value="video">Video track</option>
             <option value="overlay">Overlay track</option>
@@ -264,7 +266,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
               {rulerTicks.map((tick) => (
                 <span key={tick} style={{ left: `${tick * pxPerSecond}px` }} className="absolute top-2">{tick}s</span>
               ))}
-              <span style={{ left: `${playheadSeconds * pxPerSecond}px` }} className="absolute inset-y-0 w-px bg-[var(--color-pib-primary)]" />
+              <span style={{ left: `${playheadSeconds * pxPerSecond}px` }} className="absolute inset-y-0 w-px bg-[var(--sc-ink-soft)]" />
             </div>
           </div>
           {timeline.tracks.map((track) => (
@@ -306,7 +308,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       }}
                       className={[
                         'group absolute top-3 h-12 overflow-hidden rounded-md border px-2 text-left text-xs',
-                        selected ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-[var(--color-pib-text-muted)]',
+                        selected ? 'border-[var(--sc-ink-soft)] bg-[var(--sc-ink-soft)]/20 text-[var(--color-pib-text)]' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-[var(--color-pib-text-muted)]',
                         editMode === 'slip' ? 'cursor-ew-resize' : 'cursor-pointer',
                       ].join(' ')}
                       onClick={(event) => handleClipClick(event, track.id, clip.id)}
@@ -342,8 +344,8 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       <span className="pointer-events-none relative block truncate">{clipLabel}</span>
                       <span className="pointer-events-none relative block truncate">{clip.duration}s</span>
                       {clip.groupId ? (
-                        <span data-testid={`group-badge-${clip.id}`} className="absolute right-1 top-1 rounded bg-[var(--color-pib-primary)]/40 px-1 text-[10px]" title={`Linked group ${clip.groupId}`}>
-                          <span className="material-symbols-rounded text-[10px]">link</span>
+                        <span data-testid={`group-badge-${clip.id}`} className="absolute right-1 top-1 rounded bg-[var(--sc-ink-soft)]/40 px-1 text-[10px]" title={`Linked group ${clip.groupId}`}>
+                          <Icon name="link" />
                         </span>
                       ) : null}
                       {(clip.keyframes ?? []).map((keyframe, index) => (
@@ -352,7 +354,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                           data-testid={`keyframe-marker-${clip.id}-${index}`}
                           title={`${keyframe.property} @ ${keyframe.atSeconds}s`}
                           style={{ left: `${keyframe.atSeconds * pxPerSecond}px` }}
-                          className="absolute bottom-0.5 h-1.5 w-1.5 rotate-45 bg-amber-300"
+                          className="absolute bottom-0.5 h-1.5 w-1.5 rotate-45 bg-[var(--sc-surface)]"
                         />
                       ))}
                       {(
@@ -361,7 +363,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                             type="button"
                             data-testid={`trim-handle-start-${clip.id}`}
                             aria-label={`Trim start of clip ${clip.id}`}
-                            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-[var(--sc-ink-soft)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => {
                               event.stopPropagation()
@@ -389,7 +391,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                             type="button"
                             data-testid={`trim-handle-end-${clip.id}`}
                             aria-label={`Trim end of clip ${clip.id}`}
-                            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[var(--sc-ink-soft)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => {
                               event.stopPropagation()

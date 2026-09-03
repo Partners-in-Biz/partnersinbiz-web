@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface ContactNote {
   id: string
@@ -17,7 +18,7 @@ interface ContactNotesPanelProps {
   contactName?: string
   /** Builds an org-scoped API path (mirrors the contact page's contactApiPath). */
   apiPath: (path: string) => string
-  /** Current actor uid — used to gate edit/delete affordances client-side. */
+  /** Current actor uid - used to gate edit/delete affordances client-side. */
   currentUid?: string
   /** True when the actor is an admin/owner (can edit/delete any note). */
   isPrivileged?: boolean
@@ -198,7 +199,7 @@ export function ContactNotesPanel({
 
       <div className="pib-surface-body">
         {/* Composer */}
-        <div className="rounded-2xl border border-[var(--color-pib-line)] p-2">
+        <div className="rounded-md border border-[var(--color-pib-line)] p-2">
           <label htmlFor="contact-note-composer" className="sr-only">
             {`Add a note for ${label}`}
           </label>
@@ -220,7 +221,7 @@ export function ContactNotesPanel({
               aria-label={`Save note for ${label}`}
               className="btn-pib-primary h-8 gap-1.5 px-2.5 text-xs"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
+              <Icon name="add_comment" className="text-[14px]" />
               {saving ? 'Saving…' : 'Add note'}
             </button>
           </div>
@@ -237,7 +238,7 @@ export function ContactNotesPanel({
               ))}
             </div>
           ) : loadError ? (
-            <div className="rounded-2xl border border-[var(--color-pib-accent)] p-2.5">
+            <div className="rounded-md border border-[var(--color-pib-accent)] p-2.5">
               <p className="text-xs text-[var(--color-pib-text-muted)]">{loadError}</p>
               <button
                 type="button"
@@ -245,7 +246,7 @@ export function ContactNotesPanel({
                 className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
                 aria-label="Retry loading notes"
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+                <Icon name="refresh" className="text-[14px]" />
                 Retry
               </button>
             </div>
@@ -276,17 +277,17 @@ export function ContactNotesPanel({
                             type="button"
                             onClick={() => startEdit(note)}
                             aria-label={`Edit note by ${noteAuthorLabel(note)}`}
-                            className="inline-flex h-6 items-center rounded-full px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
+                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                           >
-                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                            <Icon name="edit" className="text-[14px]" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setPendingDeleteId(note.id)}
                             aria-label={`Delete note by ${noteAuthorLabel(note)}`}
-                            className="inline-flex h-6 items-center rounded-full px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)]"
+                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)]"
                           >
-                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                            <Icon name="delete" className="text-[14px]" />
                           </button>
                         </div>
                       )}
@@ -329,7 +330,7 @@ export function ContactNotesPanel({
                     )}
 
                     {isPendingDelete && (
-                      <div className="mt-1.5 flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-error)] bg-[var(--color-error-container)] px-2 py-1.5">
+                      <div className="mt-1.5 flex items-center justify-between gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-container)] px-2 py-1.5">
                         <span className="text-xs text-[var(--color-pib-text-muted)]">Delete this note?</span>
                         <div className="flex gap-1.5">
                           <button

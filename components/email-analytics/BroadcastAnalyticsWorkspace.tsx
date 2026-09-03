@@ -121,8 +121,8 @@ export function BroadcastAnalyticsWorkspace({
       <div
         className={
           surface === 'portal'
-            ? 'pib-skeleton h-40 rounded-xl'
-            : 'pib-skeleton h-40 rounded-xl'
+            ? 'pib-skeleton h-40 rounded-[6px]'
+            : 'pib-skeleton h-40 rounded-[6px]'
         }
       />
     )
@@ -221,7 +221,7 @@ export function BroadcastAnalyticsWorkspace({
           <div
             className={
               surface === 'portal'
-                ? 'h-32 rounded-lg bg-white/[0.04] animate-pulse'
+                ? 'h-32 rounded-lg bg-white/[0.04] '
                 : 'pib-skeleton h-32 rounded-lg'
             }
           />
@@ -258,7 +258,7 @@ function BackLink({ href, surface }: { href: string; surface: 'admin' | 'portal'
   return (
     <Link
       href={href}
-      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-[var(--color-pib-blue)] hover:underline'}
+      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-[var(--sc-ink-soft)] hover:underline'}
     >
       Back to email analytics
     </Link>
@@ -283,16 +283,16 @@ function Kpi({
       data-module-accent="blue"
       className={
         surface === 'portal'
-          ? 'pib-stat-card rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-3'
-          : 'pib-stat-card rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3'
+          ? 'pib-stat-card rounded-[6px] border border-[var(--color-pib-line)] bg-white/[0.03] p-3'
+          : 'pib-stat-card rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3'
       }
     >
       <div className="pib-label text-[10px] tracking-[0.14em] text-[var(--color-pib-text-muted)]">{label}</div>
       <div
         className={
           tone === 'warn'
-            ? 'mt-1 text-xl font-semibold tabular-nums tracking-tight text-red-400'
-            : 'mt-1 text-xl font-semibold tabular-nums tracking-tight text-[var(--color-pib-text)]'
+            ? 'mt-1 text-xl  tabular-nums tracking-tight text-[var(--st-danger)]'
+            : 'mt-1 text-xl  tabular-nums tracking-tight text-[var(--color-pib-text)]'
         }
       >
         {value.toLocaleString()}
@@ -316,7 +316,7 @@ function Section({
       <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]' : 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]'}>
         {title}
       </h2>
-      <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4'}>
+      <div className={surface === 'portal' ? 'rounded-[6px] border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4'}>
         {children}
       </div>
     </section>

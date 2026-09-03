@@ -9,7 +9,7 @@ export default function OrgWikiPage() {
   const slug = params.slug
 
   return (
-    <OrgThemedFrame orgId={null} className="-m-6 min-h-screen p-6">
+    <OrgThemedFrame orgId={null}>
       <KnowledgeBrowser
         scope="agent"
         agent={slug}

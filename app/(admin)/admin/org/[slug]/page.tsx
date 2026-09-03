@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PageHeader, PageTabs, StatusPill, type PageTab } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 import { apiGet, type OrgDetail } from '@/components/admin/orgs/OrgDetailApi'
 import { OrgDetailOverviewPanel } from '@/components/admin/orgs/OrgDetailOverviewPanel'
 import { OrgBillingPanel } from '@/components/admin/orgs/OrgBillingPanel'
@@ -51,7 +52,7 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
         accent="cyan"
         eyebrow={
           <Link href="/admin/organizations" className="inline-flex items-center gap-1 hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Organisations
+            <Icon name="arrow_back" className="text-[16px]" /> Organisations
           </Link>
         }
         title={org?.name ?? slug}
@@ -69,7 +70,7 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
         actions={
           org ? (
             <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary btn-pib-sm">
-              <span className="material-symbols-outlined text-[16px]">open_in_new</span> Open workspace
+              <Icon name="open_in_new" className="text-[16px]" /> Open workspace
             </Link>
           ) : null
         }

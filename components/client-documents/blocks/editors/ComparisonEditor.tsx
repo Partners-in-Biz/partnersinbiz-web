@@ -87,6 +87,7 @@ export function ComparisonEditor({
         value={block.title ?? ''}
         onChange={(e) => onChange({ ...block, title: e.target.value })}
         placeholder="Section title (e.g. Us vs them)"
+        aria-label="Section title"
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
       />
       <input
@@ -94,12 +95,14 @@ export function ComparisonEditor({
         value={headersText}
         onChange={(e) => updateHeaders(e.target.value)}
         placeholder="Comma-separated headers (e.g. PiB, Agency A, Agency B)"
+        aria-label="Comparison headers"
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
       />
       <textarea
         value={rowsText}
         onChange={(e) => updateRows(e.target.value)}
-        placeholder={`One row per line — format: Label | true | false | "string"\nExample:\nSocial automation | true | false | "Limited"`}
+        placeholder={`One row per line - format: Label | true | false | "string"\nExample:\nSocial automation | true | false | "Limited"`}
+        aria-label="Comparison rows"
         rows={6}
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 font-mono text-xs"
       />
@@ -110,6 +113,7 @@ export function ComparisonEditor({
           value={highlightCol}
           onChange={(e) => commit({ highlightCol: Number(e.target.value) })}
           min={-1}
+          aria-label="Highlight column"
           className="w-20 rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-sm"
         />
         <span className="text-xs opacity-60">(-1 to disable)</span>

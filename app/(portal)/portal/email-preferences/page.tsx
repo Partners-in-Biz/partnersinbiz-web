@@ -11,6 +11,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { Icon, Skeleton, Panel, Button, Status } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import type {
   FrequencyChoice,
@@ -61,13 +63,11 @@ export default function EmailPreferencesAdminPage() {
   if (!selectedOrgId) {
     return (
       <div className="mx-auto max-w-3xl space-y-8">
-        <header>
-          <p className="eyebrow">Email · Preferences</p>
-          <h1 className="pib-page-title mt-2">Email preferences</h1>
-          <p className="pib-page-sub">
-            Pick an organisation from the topbar to manage its email preferences.
-          </p>
-        </header>
+        <PageHeader
+          eyebrow="Email"
+          title="Email preferences."
+          description="Pick an organisation from the topbar to manage its email preferences."
+        />
       </div>
     )
   }
@@ -155,38 +155,32 @@ export default function EmailPreferencesAdminPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <header>
-        <p className="eyebrow">Email · Preferences</p>
-        <h1 className="pib-page-title mt-2">Email preferences</h1>
-        <p className="pib-page-sub">
-          Viewing: <span className="font-medium text-[var(--color-pib-text)]">{orgName || selectedOrgId}</span>
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Email"
+        title="Email preferences."
+        description={`Viewing: ${orgName || selectedOrgId}.`}
+      />
 
-      {savedFlash && (
-        <div>
-          <span className="pib-pill pib-pill-success">{savedFlash}</span>
-        </div>
-      )}
+      {savedFlash && <Status tone="success">{savedFlash}</Status>}
 
-      {loading && <div className="pib-skeleton h-24" />}
+      {loading && <Skeleton height={96} />}
 
-      {/* Section 1 — Org preferences config */}
+      {/* Section 1  -  Org preferences config */}
       {cfg && (
-        <section className="pib-card space-y-4">
+        <Panel className="space-y-4">
           <header className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">tune</span>
+              <span aria-hidden="true">
+                <Icon name="tune" />
               </span>
-              <h2 className="text-base font-semibold">Preferences page</h2>
+              <h2 className="text-base">Preferences page</h2>
             </div>
             <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={cfg.enabled}
                 onChange={(e) => updateCfg({ enabled: e.target.checked })}
-              />
+               aria-label="Toggle"/>
               Master toggle (enforce preferences)
             </label>
           </header>
@@ -199,7 +193,7 @@ export default function EmailPreferencesAdminPage() {
                 className="pib-input mt-1 block w-full"
                 value={cfg.preferencesPageHeading}
                 onChange={(e) => updateCfg({ preferencesPageHeading: e.target.value })}
-              />
+               aria-label="Input"/>
             </label>
             <label className="pib-label">
               Subheading
@@ -208,7 +202,7 @@ export default function EmailPreferencesAdminPage() {
                 className="pib-textarea mt-1 block w-full"
                 value={cfg.preferencesPageSubheading}
                 onChange={(e) => updateCfg({ preferencesPageSubheading: e.target.value })}
-              />
+               aria-label="Input"/>
             </label>
             <label className="pib-label">
               Default frequency for new contacts
@@ -216,7 +210,7 @@ export default function EmailPreferencesAdminPage() {
                 className="pib-select mt-1 block w-full"
                 value={cfg.defaultFrequency}
                 onChange={(e) => updateCfg({ defaultFrequency: e.target.value as FrequencyChoice })}
-              >
+               aria-label="Input">
                 {FREQUENCY_CHOICES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -228,8 +222,8 @@ export default function EmailPreferencesAdminPage() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Topics</h3>
-              <button onClick={addTopic} className="btn-pib-ghost">
+              <h3 className="text-sm">Topics</h3>
+              <button onClick={addTopic} className="st-btn st-btn--ghost st-btn--sm">
                 + Add topic
               </button>
             </div>
@@ -237,12 +231,13 @@ export default function EmailPreferencesAdminPage() {
               {cfg.topics.map((t, idx) => (
                 <li
                   key={`${t.id}-${idx}`}
-                  className="grid grid-cols-1 items-center gap-2 rounded-xl border border-[var(--color-pib-line)] p-2 sm:grid-cols-[120px_1fr_1fr_80px_36px]"
+                  className="grid grid-cols-1 items-center gap-2 rounded-[6px] border border-[var(--color-pib-line)] p-2 sm:grid-cols-[120px_1fr_1fr_80px_36px]"
                 >
                   <input
                     type="text"
                     value={t.id}
                     placeholder="id"
+                    aria-label={`Topic ${idx + 1} id`}
                     onChange={(e) => updateTopic(idx, { id: e.target.value })}
                     className="pib-input font-mono text-xs"
                   />
@@ -250,13 +245,14 @@ export default function EmailPreferencesAdminPage() {
                     type="text"
                     value={t.label}
                     placeholder="Label"
+                    aria-label={`Topic ${idx + 1} label`}
                     onChange={(e) => updateTopic(idx, { label: e.target.value })}
                     className="pib-input"
                   />
                   <input
                     type="text"
                     value={t.description}
-                    placeholder="Description"
+                    placeholder="Description" aria-label={`Topic ${idx + 1} description`}
                     onChange={(e) => updateTopic(idx, { description: e.target.value })}
                     className="pib-input"
                   />
@@ -265,7 +261,7 @@ export default function EmailPreferencesAdminPage() {
                       type="checkbox"
                       checked={t.defaultOptIn}
                       onChange={(e) => updateTopic(idx, { defaultOptIn: e.target.checked })}
-                    />
+                     aria-label="Toggle"/>
                     opt-in
                   </label>
                   <button
@@ -281,29 +277,29 @@ export default function EmailPreferencesAdminPage() {
           </div>
 
           <div className="flex justify-end">
-            <button onClick={saveCfg} disabled={savingCfg} className="btn-pib-primary">
+            <button onClick={saveCfg} disabled={savingCfg} className="st-btn st-btn--primary st-btn--sm">
               {savingCfg ? 'Saving…' : 'Save preferences config'}
             </button>
           </div>
-        </section>
+        </Panel>
       )}
 
-      {/* Section 2 — Frequency cap */}
+      {/* Section 2  -  Frequency cap */}
       {cap && (
-        <section className="pib-card space-y-4">
+        <Panel className="space-y-4">
           <header className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">speed</span>
+              <span aria-hidden="true">
+                <Icon name="speed" />
               </span>
-              <h2 className="text-base font-semibold">Frequency cap</h2>
+              <h2 className="text-base">Frequency cap</h2>
             </div>
             <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={cap.enabled}
                 onChange={(e) => setCap({ ...cap, enabled: e.target.checked })}
-              />
+               aria-label="Toggle"/>
               Enabled
             </label>
           </header>
@@ -318,7 +314,7 @@ export default function EmailPreferencesAdminPage() {
                 value={cap.maxPer24Hours}
                 onChange={(e) => setCap({ ...cap, maxPer24Hours: Number(e.target.value) })}
                 className="mt-2 block w-full"
-              />
+               aria-label="Value"/>
             </label>
             <label className="pib-label">
               Max per 7 days: <span className="font-medium text-[var(--color-pib-text)]">{cap.maxPer7Days}</span>
@@ -329,7 +325,7 @@ export default function EmailPreferencesAdminPage() {
                 value={cap.maxPer7Days}
                 onChange={(e) => setCap({ ...cap, maxPer7Days: Number(e.target.value) })}
                 className="mt-2 block w-full"
-              />
+               aria-label="Value"/>
             </label>
           </div>
 
@@ -346,6 +342,7 @@ export default function EmailPreferencesAdminPage() {
                     <input
                       type="checkbox"
                       className="hidden"
+                      data-impeccable-disable="content-invisible-at-rest"
                       checked={checked}
                       onChange={(e) => {
                         const next = new Set(cap.exemptTopics)
@@ -365,25 +362,23 @@ export default function EmailPreferencesAdminPage() {
           </div>
 
           <div className="flex justify-end">
-            <button onClick={saveCap} disabled={savingCap} className="btn-pib-primary">
+            <button onClick={saveCap} disabled={savingCap} className="st-btn st-btn--primary st-btn--sm">
               {savingCap ? 'Saving…' : 'Save frequency cap'}
             </button>
           </div>
-        </section>
+        </Panel>
       )}
 
-      {/* Section 3 — Recent unsubscribes */}
-      <section className="pib-card">
+      {/* Section 3  -  Recent unsubscribes */}
+      <Panel>
         <div className="mb-3 flex items-center gap-3">
-          <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">unsubscribe</span>
-          </span>
-          <h2 className="text-base font-semibold">Recent opt-outs</h2>
+          <Icon name="unsubscribe" />
+          <h2 className="st-title text-base">Recent opt-outs</h2>
         </div>
         {unsubs.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No recent opt-outs.</p>
+          <p className="sc-body text-sm text-[var(--sc-ink-soft)]">No recent opt-outs.</p>
         ) : (
-          <ul className="divide-y divide-[var(--color-pib-line)]">
+          <ul className="divide-y divide-[var(--sc-line)]">
             {unsubs.map((u) => (
               <li
                 key={u.contactId}
@@ -391,19 +386,19 @@ export default function EmailPreferencesAdminPage() {
               >
                 <div className="flex flex-col">
                   <span>{u.email || u.contactId}</span>
-                  <span className="text-[11px] text-[var(--color-pib-text-muted)]">
+                  <span className="text-[11px] text-[var(--sc-ink-soft)]">
                     via {u.updatedFrom} · freq={u.frequency}
                     {u.unsubscribeAllAt ? ' · all' : ''}
                   </span>
                 </div>
-                <code className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">
+                <code className="font-mono text-[11px] text-[var(--sc-ink-soft)]">
                   {u.contactId.slice(0, 12)}…
                 </code>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   )
 }

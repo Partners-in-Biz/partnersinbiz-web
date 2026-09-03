@@ -34,6 +34,50 @@ export function useOrgBrand(): OrgThemedFrameValue {
   return useContext(Ctx)
 }
 
+/** CSS vars for client brand, only inside preview surfaces (never chrome). */
+export function orgPreviewBrandVars(
+  brandColors: BrandColorsLike | undefined,
+): CSSProperties {
+  if (!brandColors) return {}
+  return {
+    '--org-bg': brandColors.background ?? 'var(--sc-canvas)',
+    '--org-surface': brandColors.surface ?? 'var(--sc-surface)',
+    '--org-accent':
+      brandColors.accent ?? brandColors.primary ?? 'var(--sc-accent)',
+    '--org-accent-soft':
+      brandColors.accent ?? brandColors.primary ?? 'var(--sc-accent)',
+    '--org-text': brandColors.text ?? 'var(--sc-ink)',
+    '--org-text-muted': brandColors.textMuted ?? 'var(--sc-ink-soft)',
+    '--org-border': brandColors.border ?? 'var(--sc-line)',
+  } as CSSProperties
+}
+
+/**
+ * Scopes client brand CSS vars to a preview subtree only.
+ * Do not wrap page chrome, shells, or toolbars with this.
+ */
+export function OrgPreviewBrandScope({
+  brandColors,
+  children,
+  className = '',
+}: {
+  brandColors?: BrandColorsLike
+  children: ReactNode
+  className?: string
+}) {
+  const { brandColors: ctxColors } = useOrgBrand()
+  const colors = brandColors ?? ctxColors
+  return (
+    <div className={className} style={orgPreviewBrandVars(colors)} data-org-preview-brand="">
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Loads org brand into context for previews. Does not paint client brand
+ * onto admin chrome; Studio tokens own the shell and page frame.
+ */
 export function OrgThemedFrame({
   orgId,
   children,
@@ -77,50 +121,9 @@ export function OrgThemedFrame({
     [brandColors, org?.brandProfile, org?.name],
   )
 
-  // Inline CSS-var injection scoped to this wrapper. Defaults preserved via
-  // var() fallback chains, so missing colours don't break anything.
-  const styleVars: CSSProperties = brandColors
-    ? ({
-        '--org-bg': brandColors.background ?? 'var(--color-pib-bg)',
-        '--org-surface': brandColors.surface ?? 'var(--color-pib-surface)',
-        '--org-accent':
-          brandColors.accent ?? brandColors.primary ?? 'var(--color-pib-accent)',
-        '--org-accent-soft':
-          brandColors.accent ?? brandColors.primary ?? 'var(--color-pib-accent)',
-        '--org-text': brandColors.text ?? 'var(--color-pib-text)',
-        '--org-text-muted':
-          brandColors.textMuted ?? 'var(--color-pib-text-muted)',
-        '--org-border': brandColors.border ?? 'var(--color-pib-line)',
-      } as CSSProperties)
-    : {}
-
   return (
     <Ctx.Provider value={{ org, brand, brandColors, loading }}>
-      <div
-        className={className}
-        style={{
-          ...styleVars,
-          // Subtle accent tint backdrop. Falls back to default when no brand.
-          backgroundImage: brandColors
-            ? `radial-gradient(1100px 480px at 0% -10%, ${withAlpha(
-                (brandColors.accent ?? brandColors.primary ?? '#F5A623') as string,
-                0.08,
-              )} 0%, transparent 60%)`
-            : undefined,
-        }}
-      >
-        {children}
-      </div>
+      <div className={className}>{children}</div>
     </Ctx.Provider>
   )
-}
-
-/** Adds an alpha channel to a #RRGGBB hex. Falls back to the original string. */
-function withAlpha(color: string, alpha: number): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(color)
-  if (!m) return color
-  const a = Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, '0')
-  return `#${m[1]}${a}`
 }

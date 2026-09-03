@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,8 @@ export default async function PortalContentTab({ params }: { params: Promise<{ i
     <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
-          <p className="eyebrow">Editorial pipeline</p>
-          <h2 className="text-lg font-semibold mt-1">Content</h2>
+          <p className="sc-tiny">Editorial pipeline</p>
+          <h2 className="text-lg mt-1">Content</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Planned, drafted, reviewed, scheduled, and live SEO content.
           </p>
@@ -52,9 +53,9 @@ export default async function PortalContentTab({ params }: { params: Promise<{ i
           {PIPELINE.map((status) => {
             const items = content.filter((item) => (item.status ?? 'idea') === status)
             return (
-              <div key={status} className="pib-card p-4 min-h-[220px]">
+              <div key={status} className="st-panel p-4 min-h-[220px]">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-headline text-base font-semibold capitalize">{status.replace('_', ' ')}</h3>
+                  <h3 className="font-headline text-base capitalize">{status.replace('_', ' ')}</h3>
                   <span className="text-xs text-[var(--color-pib-text-muted)]">{items.length}</span>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -96,19 +97,19 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-6 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
+    <div className="st-panel p-6 text-center">
+      <Icon name={icon} />
+      <h3 className="font-headline text-lg mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
     </div>
   )

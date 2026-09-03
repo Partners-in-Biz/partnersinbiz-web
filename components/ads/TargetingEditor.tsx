@@ -1,4 +1,4 @@
-// @deprecated-replace: supersedes TargetingEditorBasic — use this for all Phase 4+ ad-set targeting
+// @deprecated-replace: supersedes TargetingEditorBasic - use this for all Phase 4+ ad-set targeting
 'use client'
 import { useState, useEffect } from 'react'
 import type { AdTargeting, AdCustomAudience, AdSavedAudience } from '@/lib/ads/types'
@@ -129,7 +129,7 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          className="text-sm text-[#F5A623] underline"
+          className="text-sm text-[var(--sc-accent)] underline"
           onClick={() => setSavedSelectorOpen((o) => !o)}
         >
           {savedSelectorOpen ? 'Hide saved audiences' : `Apply saved audience (${savedAudiences.length})`}
@@ -261,7 +261,7 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
             </div>
             <button
               type="button"
-              className="text-xs text-[#F5A623] underline"
+              className="text-xs text-[var(--sc-accent)] underline"
               onClick={() => setCaPickerOpen(true)}
             >
               {includeIds.length + excludeIds.length === 0 ? 'Add audiences' : 'Edit'}
@@ -283,9 +283,9 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
 
       {/* Save Modal */}
       {saveModalOpen && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border border-white/10 bg-[#0A0A0B] p-6">
-            <h2 className="text-lg font-semibold">Save as template</h2>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-md rounded-lg border border-white/10 bg-[var(--sc-ink)] p-6">
+            <h2 className="text-lg font-medium">Save as template</h2>
             <p className="mt-1 text-xs text-white/60">Reuse this targeting on future ad sets.</p>
             <label className="mt-4 block text-sm">
               <span className="font-medium">Name</span>
@@ -353,10 +353,10 @@ function CAPickerModal({ customAudiences, initialInclude, initialExclude, onAppl
   }
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-[#0A0A0B] p-6">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-[var(--sc-ink)] p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Custom audiences</h2>
+          <h2 className="text-lg font-medium">Custom audiences</h2>
           <button className="text-sm text-white/40 underline" onClick={onClose}>Cancel</button>
         </div>
         <p className="mt-1 text-xs text-white/60">

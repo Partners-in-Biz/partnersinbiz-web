@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useRef, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
@@ -44,7 +45,7 @@ export function DocumentContextPreview({
           }
         },
         () => {
-          /* ignore permission/offline — HTTP reload still works via refreshRevision */
+          /* ignore permission/offline - HTTP reload still works via refreshRevision */
         },
       )
     } catch {
@@ -94,9 +95,9 @@ export function DocumentContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-xl border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading document preview…
         </span>
       </div>
@@ -104,7 +105,7 @@ export function DocumentContextPreview({
   }
   if (state === 'error' || !document || !version) {
     return (
-      <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-4 text-xs text-amber-100">
+      <div role="status" className="rounded-[6px] border border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-3 py-4 text-xs text-[var(--st-warning)]">
         The document preview is unavailable. Open the full document workspace to continue.
       </div>
     )
@@ -113,12 +114,12 @@ export function DocumentContextPreview({
   return (
     <div
       data-testid="context-document-renderer"
-      className="relative max-h-[58dvh] overflow-auto rounded-xl border border-[var(--color-card-border)] bg-black/15 [&_article]:!min-h-0 [&_article]:!rounded-none [&_article]:!px-4 [&_article]:!py-5 [&_h1]:!text-2xl [&_h2]:!text-xl"
+      className="relative max-h-[58dvh] overflow-auto rounded-[6px] border border-[var(--color-card-border)] bg-black/15 [&_article]:!min-h-0 [&_article]:!rounded-none [&_article]:!px-4 [&_article]:!py-5 [&_h1]:!text-2xl [&_h2]:!text-xl"
     >
       {reload.softRefreshing && (
         <div className="sticky top-0 z-10 flex justify-end p-1" aria-live="polite">
-          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-black/60 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
-            <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[12px]">progress_activity</span>
+          <span className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--color-card-border)] bg-black/60 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+            <Icon name="progress_activity" className="animate-spin text-[12px]" />
             Updating…
           </span>
         </div>

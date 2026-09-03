@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { StatCardWithChart, DonutChart, HorizontalBarChart, TrendAreaChart } from '@/components/ui/Charts'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 interface Project {
   id: string
@@ -93,14 +94,14 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
     active:      { label: 'Active',      color: 'var(--color-accent-v2)' },
     on_hold:     { label: 'On Hold',     color: 'var(--color-secondary)' },
-    completed:   { label: 'Completed',   color: 'var(--color-pib-green)' },
+    completed:   { label: 'Completed',   color: 'var(--st-success)' },
     archived:    { label: 'Archived',    color: 'var(--color-outline)' },
     in_progress: { label: 'In Progress', color: 'var(--color-accent-v2)' },
   }
   const s = map[status] ?? { label: status, color: 'var(--color-outline)' }
   return (
     <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-md"
       style={{ background: `${s.color}20`, color: s.color }}
     >
       {s.label}
@@ -245,9 +246,9 @@ export default function OrgDashboard() {
 
   // Social post status donut data
   const statusDonut = socialStats ? [
-    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--color-pib-green)' },
-    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--color-pib-blue)' },
-    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--color-pib-amber)' },
+    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--st-success)' },
+    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--sc-ink-soft)' },
+    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--sc-accent)' },
     { name: 'Draft', value: socialStats.byStatus.draft, color: 'var(--color-pib-text-muted)' },
   ].filter(d => d.value > 0) : []
 
@@ -256,7 +257,7 @@ export default function OrgDashboard() {
     ? Object.entries(socialStats.byPlatform).map(([platform, count]) => ({
         label: platform.charAt(0).toUpperCase() + platform.slice(1),
         value: count,
-        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--color-pib-amber)',
+        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--sc-accent)',
       }))
     : []
 
@@ -270,7 +271,7 @@ export default function OrgDashboard() {
       <PageHeader
         accent="cyan"
         eyebrow="Admin org dashboard"
-        title={`${getGreeting()} — ${displayOrgName}`}
+        title={`${getGreeting()}  -  ${displayOrgName}`}
         description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         actions={(
           <Link href={`/admin/org/${slug}/projects`} className="btn-pib-primary btn-pib-sm font-label">
@@ -286,7 +287,7 @@ export default function OrgDashboard() {
             <p className="pib-label">
               Admin control plane
             </p>
-            <h2 className="mt-1 text-base font-headline font-semibold text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-base font-headline font-medium text-[var(--color-pib-text)]">
               Control what the selected organisation can access and when work ships.
             </h2>
           </div>
@@ -304,20 +305,14 @@ export default function OrgDashboard() {
                   {enabledPortalModules} of {PORTAL_MODULE_ROWS.length} client-facing modules enabled.
                 </p>
               </div>
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
-                <span className="material-symbols-outlined text-[16px]">visibility</span>
-              </span>
+              <Icon name="visibility" />
             </div>
             <div className="mt-3 space-y-2">
               {portalModules.map((module) => (
                 <div key={module.key} className="flex items-center justify-between gap-3 text-xs">
                   <span className="text-[var(--color-pib-text)]">{module.label}</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 font-label uppercase tracking-wide ${
-                      module.enabled
-                        ? 'bg-emerald-500/15 text-[var(--color-pib-green)]'
-                        : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
-                    }`}
+                    className={`rounded-md px-2 py-0.5 font-label uppercase tracking-wide ${ module.enabled ? 'bg-emerald-500/15 text-[var(--st-success)]' : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]' }`}
                   >
                     {module.enabled ? 'Enabled' : 'Hidden'}
                   </span>
@@ -334,14 +329,12 @@ export default function OrgDashboard() {
                   {members.length} people can use or administer this organisation.
                 </p>
               </div>
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
-                <span className="material-symbols-outlined text-[16px]">groups</span>
-              </span>
+              <Icon name="groups" />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {Object.entries(roleCounts).length > 0 ? Object.entries(roleCounts).map(([role, count]) => (
                 <div key={role} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2">
-                  <p className="text-base font-headline font-bold text-[var(--color-pib-text)]">{count}</p>
+                  <p className="text-base font-headline font-medium text-[var(--color-pib-text)]">{count}</p>
                   <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     {roleLabel(role)}
                   </p>
@@ -365,9 +358,7 @@ export default function OrgDashboard() {
                   Approval gates and send windows that control client-side publishing.
                 </p>
               </div>
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
-                <span className="material-symbols-outlined text-[16px]">rule_settings</span>
-              </span>
+              <Icon name="rule_settings" />
             </div>
             <dl className="mt-3 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-3">
@@ -401,7 +392,7 @@ export default function OrgDashboard() {
             <p className="pib-label">
               Live operator workload
             </p>
-            <h2 className="mt-1 text-base font-headline font-semibold text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-base font-headline font-medium text-[var(--color-pib-text)]">
               Who is working on what right now
             </h2>
           </div>
@@ -412,11 +403,11 @@ export default function OrgDashboard() {
 
         <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
           <div className="pib-card-section p-4">
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{activeTaskCards.length}</p>
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">{activeTaskCards.length}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">active tasks across {activeAgents} assigned operators</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {statusEntries.length > 0 ? statusEntries.map(([status, count]) => (
-                <span key={status} className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span key={status} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {statusLabel(status)} {count}
                 </span>
               )) : (
@@ -433,16 +424,16 @@ export default function OrgDashboard() {
                 className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--color-row-hover)] md:flex-row md:items-center md:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{task.title}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{task.title}</p>
                   <p className="truncate text-xs text-[var(--color-pib-text-muted)]">
                     {task.projectName || 'No linked project'}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
-                  <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
+                  <span className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
                     {task.assigneeAgentId || 'Unassigned'}
                   </span>
-                  <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
+                  <span className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
                     {statusLabel(task.agentStatus)}
                   </span>
                 </div>
@@ -484,7 +475,7 @@ export default function OrgDashboard() {
             />
             <StatCardWithChart
               label="Approval Rate"
-              value={socialStats?.approvalRate ? `${Math.round(socialStats.approvalRate)}%` : '—'}
+              value={socialStats?.approvalRate ? `${Math.round(socialStats.approvalRate)}%` : ' - '}
               sub="all time"
             />
           </>
@@ -591,7 +582,7 @@ export default function OrgDashboard() {
                 <p className="pib-label">
                   Publishing Trend
                 </p>
-                <p className="mt-0.5 text-base font-headline font-semibold text-[var(--color-pib-text)]">
+                <p className="mt-0.5 text-base font-headline font-medium text-[var(--color-pib-text)]">
                   {socialStats.last30Days} posts
                 </p>
               </div>
@@ -600,7 +591,7 @@ export default function OrgDashboard() {
               </span>
             </div>
             {hasLast30DaysData ? (
-              <TrendAreaChart data={last30DaysData} height={140} color="var(--color-pib-green)" />
+              <TrendAreaChart data={last30DaysData} height={140} color="var(--st-success)" />
             ) : (
               <div className="flex h-32 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                 No posts in the last 30 days.

@@ -34,7 +34,7 @@ export function OrgTeamPanel({ slug }: { slug: string }) {
   }, [slug])
 
   if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading team…</Surface>
-  if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
+  if (error) return <Surface className="text-[var(--st-danger)] text-sm">{error}</Surface>
 
   return (
     <Surface header={<span className="font-label">Team members ({members.length})</span>}>
@@ -50,7 +50,7 @@ export function OrgTeamPanel({ slug }: { slug: string }) {
                   {m.isOwner && <span className="ml-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-accent)]">Owner</span>}
                 </p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] truncate">
-                  {m.email || '—'}{m.jobTitle ? ` · ${m.jobTitle}` : ''}
+                  {m.email || ' - '}{m.jobTitle ? ` · ${m.jobTitle}` : ''}
                 </p>
               </div>
               <StatusPill tone={ROLE_TONE[m.role] ?? 'neutral'}>{m.role}</StatusPill>

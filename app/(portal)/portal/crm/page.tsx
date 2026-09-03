@@ -14,6 +14,7 @@ import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
 import { canAccessModule, normalizeMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 type CrmDashboard = {
   openDealsCount?: number
@@ -380,7 +381,7 @@ function CrmLeadershipRiskBrief({
       header={
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <p className="pib-label mb-0">Executive controls</p>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
           <p className="min-w-0 text-xs leading-5 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
         </div>
       }
@@ -394,15 +395,13 @@ function CrmLeadershipRiskBrief({
             aria-label={`${risk.actionLabel} to fix CRM risk: ${risk.label}`}
             className="group flex gap-2.5 p-3 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span className="pib-icon-tint shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined text-[16px]">{risk.icon}</span>
-            </span>
+            <Icon name={risk.icon} />
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{risk.label}</span>
+              <span className="block text-sm text-[var(--color-pib-text)]">{risk.label}</span>
               <span className="mt-0.5 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{risk.description}</span>
               <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                 {risk.actionLabel}
-                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
+                <Icon name="arrow_forward" />
               </span>
             </span>
           </Link>
@@ -426,12 +425,10 @@ function ActivityAttributionReview({
     <div className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-accent-soft)] px-3 py-2.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-2.5">
-          <span className="pib-icon-tint shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">hub</span>
-          </span>
+          <Icon name="hub" />
           <div>
             <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Activity hygiene</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Activity attribution needs review</h2>
+            <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">Activity attribution needs review</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {itemCopy} Managers need those touches clearly attributed before activity can drive accountable follow-up.
             </p>
@@ -442,7 +439,7 @@ function ActivityAttributionReview({
           aria-label="Review unlinked CRM activity from command center"
           className="btn-pib-secondary btn-pib-sm shrink-0"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
+          <Icon name="contacts" />
           Review follow-up
         </Link>
       </div>
@@ -522,11 +519,11 @@ export default function PortalCrmPage() {
           <>
             <CrmSearchBar orgScope={routeScope} className="w-56" />
             <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary btn-pib-sm">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
+              <Icon name="contacts" />
               Contacts
             </Link>
             <Link href={crmPortalPath('/portal/deals')} className="btn-pib-primary btn-pib-sm">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">view_kanban</span>
+              <Icon name="view_kanban" />
               Pipeline
             </Link>
           </>
@@ -617,9 +614,7 @@ export default function PortalCrmPage() {
             aria-label="Add a new contact"
             className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span className="pib-icon-tint shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined text-[16px]">person_add</span>
-            </span>
+            <Icon name="person_add" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
               <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
@@ -630,9 +625,7 @@ export default function PortalCrmPage() {
             aria-label="Send an email"
             className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span className="pib-icon-tint shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined text-[16px]">mail</span>
-            </span>
+            <Icon name="mail" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
               <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
@@ -643,9 +636,7 @@ export default function PortalCrmPage() {
             aria-label="Create a segment"
             className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span className="pib-icon-tint shrink-0" aria-hidden="true">
-              <span className="material-symbols-outlined text-[16px]">group_work</span>
-            </span>
+            <Icon name="group_work" />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
               <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
@@ -708,10 +699,8 @@ export default function PortalCrmPage() {
             </div>
           ) : !dashboard?.topOpenDeals?.length ? (
             <div className="p-4 text-center">
-              <span className="pib-icon-tint mx-auto" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">monetization_on</span>
-              </span>
-              <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
+              <Icon name="monetization_on" />
+              <h2 className="mt-2 text-sm text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Create a deal so leadership can see value, owner, and next-step accountability from this command center.
               </p>
@@ -720,7 +709,7 @@ export default function PortalCrmPage() {
                 aria-label="Create first deal from CRM command center"
                 className="btn-pib-primary btn-pib-sm mt-3"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_circle</span>
+                <Icon name="add_circle" />
                 Create first deal
               </Link>
             </div>
@@ -761,10 +750,8 @@ export default function PortalCrmPage() {
             </div>
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-4 text-center">
-              <span className="pib-icon-tint mx-auto" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">history</span>
-              </span>
-              <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Relationship activity missing</h2>
+              <Icon name="history" />
+              <h2 className="mt-2 text-sm text-[var(--color-pib-text)]">Relationship activity missing</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
@@ -773,7 +760,7 @@ export default function PortalCrmPage() {
                 aria-label="Open stale contacts from CRM command center"
                 className="btn-pib-primary btn-pib-sm mt-3"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
+                <Icon name="contacts" />
                 Open contacts
               </Link>
             </div>
@@ -784,9 +771,7 @@ export default function PortalCrmPage() {
                 const href = activityHref(activity, crmPortalPath)
                 const content = (
                   <>
-                    <span className="pib-icon-tint mt-0.5 shrink-0" aria-hidden="true">
-                      <span className="material-symbols-outlined text-[14px]">radio_button_checked</span>
-                    </span>
+                    <Icon name="radio_button_checked" />
                     <div className="min-w-0">
                       <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
                       <p className="mt-0.5 font-mono text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -836,9 +821,7 @@ export default function PortalCrmPage() {
                 aria-label={hubActionLabel(action.label)}
                 className="group flex items-center gap-2.5 px-3 py-2 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
               >
-                <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                  <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
-                </span>
+                <Icon name={action.icon} />
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
                     <h3 className="truncate text-sm font-medium text-[var(--color-pib-text)]">{action.label}</h3>
@@ -852,7 +835,7 @@ export default function PortalCrmPage() {
                 </span>
                 <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                   Open
-                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
+                  <Icon name="arrow_forward" />
                 </span>
               </Link>
             ))}

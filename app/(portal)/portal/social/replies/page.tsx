@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -50,7 +52,7 @@ export default function RepliesPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <header>
-          <p className="eyebrow">Social · Replies</p>
+          <p className="sc-tiny">Social · Replies</p>
           <h1 className="pib-page-title mt-2">Reply Suggestions</h1>
           <p className="pib-page-sub">AI-generated reply ideas for trending topics</p>
         </header>
@@ -74,7 +76,7 @@ export default function RepliesPage() {
         </div>
       ) : suggestions.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">forum</span>
+          <Icon name="forum" />
           <h2 className="pib-empty-state-title">No reply suggestions available.</h2>
         </div>
       ) : (
@@ -85,8 +87,8 @@ export default function RepliesPage() {
               className="pib-card space-y-4 flex flex-col"
             >
               <div className="flex items-center gap-3">
-                <span className="pib-icon-tint-rose">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
+                <span>
+                  <Icon name="forum" />
                 </span>
                 <h3 className="pib-label">
                   {suggestion.topic}

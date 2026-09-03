@@ -51,7 +51,7 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[var(--color-pib-text)]">Preflight checklist</h3>
+        <h3 className="text-lg font-medium text-[var(--color-pib-text)]">Preflight checklist</h3>
         <button
           onClick={onRefresh}
           disabled={loading}
@@ -62,23 +62,23 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
       </div>
 
       {!report ? (
-        <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {loading ? 'Running preflight…' : 'Click "Re-run" to scan this email.'}
         </div>
       ) : (
         <>
           {/* Top-line banner */}
           {report.pass ? (
-            <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/10 p-4">
-              <p className="text-lg font-semibold text-emerald-300">Ready to send</p>
+            <div className="rounded-md border border-emerald-400/50 bg-emerald-500/10 p-4">
+              <p className="text-lg font-medium text-emerald-300">Ready to send</p>
               <p className="text-xs text-emerald-200/80 mt-1">
                 {report.warningCount} warning{report.warningCount === 1 ? '' : 's'} ·{' '}
                 {report.infoCount} info note{report.infoCount === 1 ? '' : 's'}
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-red-400/50 bg-red-500/10 p-4">
-              <p className="text-lg font-semibold text-red-300">
+            <div className="rounded-md border border-red-400/50 bg-red-500/10 p-4">
+              <p className="text-lg font-medium text-red-300">
                 {report.errorCount} issue{report.errorCount === 1 ? '' : 's'} need attention
               </p>
               <p className="text-xs text-red-200/80 mt-1">
@@ -124,12 +124,12 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
 
 const SEVERITY_STYLES: Record<PreflightSeverity, string> = {
   error: 'border-red-400/40 bg-red-500/5',
-  warning: 'border-amber-400/40 bg-amber-500/5',
+  warning: 'border-amber-400/40 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)]',
   info: 'border-sky-400/40 bg-sky-500/5',
 }
 const SEVERITY_TEXT: Record<PreflightSeverity, string> = {
   error: 'text-red-300',
-  warning: 'text-amber-300',
+  warning: 'text-[var(--st-warning)]',
   info: 'text-sky-300',
 }
 
@@ -144,7 +144,7 @@ function IssueCard({
     <div className={`rounded-lg border p-3 ${SEVERITY_STYLES[issue.severity]}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <p className={`text-sm font-semibold ${SEVERITY_TEXT[issue.severity]}`}>
+          <p className={`text-sm font-medium ${SEVERITY_TEXT[issue.severity]}`}>
             {issue.title}
           </p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{issue.detail}</p>

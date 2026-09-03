@@ -9,6 +9,7 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ProfileLinksFields } from '@/components/crm/ProfileLinksFields'
 import {
+import { Icon } from '@/components/studio'
   companySocialFromValues,
   sanitizeOtherLinks,
   type ProfileLink,
@@ -219,7 +220,7 @@ export interface CompanyEditDrawerProps {
   mode: 'create' | 'edit'
   orgScope?: PortalOrgRouteScope
   teamMembers?: CompanyTeamMember[]
-  /** Custom-field definitions for the `company` resource — when present, render the dynamic section. */
+  /** Custom-field definitions for the `company` resource - when present, render the dynamic section. */
   customFieldDefinitions?: CustomFieldDefinition[]
 }
 
@@ -242,10 +243,10 @@ function Field({ label, htmlFor, required, error, children }: {
   return (
     <div className="space-y-1">
       <label htmlFor={htmlFor} className="block text-[11px] font-label text-[var(--color-pib-text-muted)]">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}{required && <span className="text-[var(--st-danger)] ml-0.5">*</span>}
       </label>
       {control}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--st-danger)]">{error}</p>}
     </div>
   )
 }
@@ -346,14 +347,14 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, te
       <div className="relative flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-card)]">
         {/* Header */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4">
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+          <h2 className="text-sm text-[var(--color-pib-text)]">{title}</h2>
           <button
             type="button"
             aria-label={`Close ${title} drawer`}
             onClick={onClose}
             className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[19px]">close</span>
+            <Icon name="close" className="text-[19px]" />
           </button>
         </div>
 
@@ -695,7 +696,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, te
           >
             {saving ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <Icon name="progress_activity" className="text-[16px] animate-spin" />
                 Saving…
               </>
             ) : (

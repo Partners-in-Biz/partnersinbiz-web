@@ -37,8 +37,8 @@ function Avatar({ name }: { name: string }) {
     .join('')
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-ink)] flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-cyan)' }}
+      className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-medium text-[var(--color-pib-ink)] flex-shrink-0"
+      style={{ backgroundColor: 'var(--sc-ink-soft)' }}
     >
       {initials || '?'}
     </div>
@@ -107,7 +107,7 @@ export default function PlatformUsersPage() {
     return m
   }, [orgs])
 
-  // Hide the platform_owner org from selectable client list — it's the
+  // Hide the platform_owner org from selectable client list  -  it's the
   // implicit "home" org of every staff account, not a client they manage.
   const clientOrgs = useMemo(
     () => orgs.filter((o) => o.type !== 'platform_owner'),
@@ -329,7 +329,7 @@ export default function PlatformUsersPage() {
       )}
 
       {notice && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}
@@ -374,7 +374,7 @@ export default function PlatformUsersPage() {
               className="w-4 h-4"
             />
             <span className="text-sm text-[var(--color-pib-text)]">
-              <strong>Super admin</strong> — full platform-admin access to every client workspace. The API stores this as an empty allowedOrgIds list.
+              <strong>Super admin</strong>  -  full platform-admin access to every client workspace. The API stores this as an empty allowedOrgIds list.
             </span>
           </label>
 
@@ -426,7 +426,7 @@ export default function PlatformUsersPage() {
 
           {setupLink && (
             <div className="pib-card p-3 text-xs">
-              <p className="pib-label text-[var(--color-pib-green)] mb-1">User created</p>
+              <p className="pib-label text-[var(--st-success)] mb-1">User created</p>
               <p className="text-[var(--color-pib-text-muted)]">A welcome email with a password setup link has been sent. You can also share this link directly:</p>
               <code className="block mt-2 break-all bg-[var(--color-pib-surface-2)] p-2 rounded text-[11px]">{setupLink}</code>
             </div>
@@ -449,7 +449,7 @@ export default function PlatformUsersPage() {
       )}
 
       {/* Search */}
-      <input
+      <input aria-label="Search by name or email"
         type="text"
         placeholder="Search by name or email..."
         value={search}
@@ -460,9 +460,9 @@ export default function PlatformUsersPage() {
       {/* List */}
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-16 rounded-xl" />
-          <Skeleton className="h-16 rounded-xl" />
-          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-md" />
+          <Skeleton className="h-16 rounded-md" />
+          <Skeleton className="h-16 rounded-md" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
@@ -481,7 +481,7 @@ export default function PlatformUsersPage() {
                     <Avatar name={u.displayName || u.email} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-[var(--color-pib-text)] truncate">
+                        <span className="text-sm font-medium text-[var(--color-pib-text)] truncate">
                           {u.displayName || '(no name)'}
                         </span>
                         <ScopeBadge user={u} />
@@ -560,7 +560,7 @@ export default function PlatformUsersPage() {
                 {showPassword && (
                   <div className="mt-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
+                      <input aria-label="New password, minimum 8 characters"
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -588,7 +588,7 @@ export default function PlatformUsersPage() {
                       return (
                         <span
                           key={id}
-                          className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]"
+                          className="text-[11px] px-2 py-0.5 rounded-md bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]"
                         >
                           {o?.name ?? id}
                         </span>
@@ -620,7 +620,7 @@ export default function PlatformUsersPage() {
                         className="w-4 h-4"
                       />
                       <span className="text-sm text-[var(--color-pib-text)]">
-                        <strong>Super admin</strong> — full platform-admin access to every client workspace. Save with allowedOrgIds as an empty list.
+                        <strong>Super admin</strong>  -  full platform-admin access to every client workspace. Save with allowedOrgIds as an empty list.
                       </span>
                     </label>
 

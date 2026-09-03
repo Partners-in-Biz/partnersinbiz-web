@@ -19,7 +19,7 @@ const ADMIN_ROLES = ['superadmin', 'support', 'finance', 'content'] as const
 
 const PERMISSION_MATRIX: Record<string, string[]> = {
   superadmin: [
-    'Full platform access — all organisations',
+    'Full platform access - all organisations',
     'Manage admins, roles, and deactivation',
     'Edit platform settings, maintenance, and alerts',
     'Billing, legal, moderation, and infrastructure',
@@ -45,7 +45,7 @@ const PERMISSION_MATRIX: Record<string, string[]> = {
 const ROLE_BADGE: Record<string, string> = {
   superadmin: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
   support: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-  finance: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+  finance: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
   content: 'bg-teal-500/10 text-teal-300 border-teal-500/20',
 }
 
@@ -131,36 +131,36 @@ export default function AdminsPage() {
         <h1 className="pib-page-title mt-2">Admin Users</h1>
       </header>
 
-      {feedback && <div className="pib-card py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>}
-      {error && <div className="pib-card py-2 text-xs text-[var(--color-error)]">{error}</div>}
+      {feedback && <div className="st-panel py-2 text-xs text-[var(--st-success)]">{feedback}</div>}
+      {error && <div className="st-panel py-2 text-xs text-[var(--color-error)]">{error}</div>}
 
       {/* Invite */}
-      <div className="pib-card space-y-3">
-        <p className="pib-label">Invite admin</p>
+      <div className="st-panel space-y-3">
+        <p className="sc-tiny">Invite admin</p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@partnersinbiz.online" className="pib-input md:col-span-2" />
-          <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Full name" className="pib-input" />
-          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="pib-select">
+          <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@partnersinbiz.online" className="st-input md:col-span-2" aria-label="Invite email" />
+          <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Full name" className="st-input" aria-label="Invite full name" />
+          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="st-select" aria-label="Invite role">
             {ADMIN_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className="flex justify-end">
-          <button type="button" onClick={invite} disabled={inviting || !inviteEmail} className="btn-pib-primary disabled:opacity-60">
+          <button type="button" onClick={invite} disabled={inviting || !inviteEmail} className="st-btn st-btn--primary disabled:opacity-60">
             {inviting ? 'Inviting…' : 'Invite admin'}
           </button>
         </div>
       </div>
 
       {/* Admin table */}
-      <div className="pib-card">
-        <p className="pib-label mb-3">Admins</p>
+      <div className="st-panel">
+        <p className="sc-tiny mb-3">Admins</p>
         {loading ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading admins…</p>
         ) : admins.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">No admins found.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
-            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 pib-label">
+          <div className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 sc-tiny">
               <span className="col-span-4">Admin</span>
               <span className="col-span-2">Role</span>
               <span className="col-span-2">Status</span>
@@ -171,20 +171,21 @@ export default function AdminsPage() {
               <div key={a.uid} className="grid grid-cols-12 gap-2 items-center border-b border-[var(--color-pib-line)] px-3 py-3 text-sm last:border-b-0 hover:bg-[var(--color-row-hover)]">
                 <div className="col-span-4 min-w-0">
                   <p className="text-[var(--color-pib-text)] truncate">{a.email || a.uid}</p>
-                  <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{a.name || '—'}</p>
+                  <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{a.name || '-'}</p>
                 </div>
                 <div className="col-span-2">
                   <select
                     value={a.adminRole}
                     disabled={busyUid === a.uid}
                     onChange={(e) => patchAdmin(a.uid, { adminRole: e.target.value }, `Role updated for ${a.email}`)}
-                    className={`rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-widest ${ROLE_BADGE[a.adminRole] ?? 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}
+                    className={`rounded border px-2 py-1 text-[10px] font-label uppercase tracking-widest ${ROLE_BADGE[a.adminRole] ?? 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}
+                    aria-label={`Role for ${a.email || a.uid}`}
                   >
                     {ADMIN_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <span className={`pib-pill ${a.active ? 'pib-pill-success' : 'pib-pill-danger'}`}>
+                  <span className={`st-status ${a.active ? 'st-status st-status--success' : 'st-status st-status--danger'}`}>
                     {a.active ? 'Active' : 'Disabled'}
                   </span>
                 </div>
@@ -206,12 +207,12 @@ export default function AdminsPage() {
       </div>
 
       {/* Permission matrix */}
-      <div className="pib-card">
-        <p className="pib-label mb-3">Permission matrix (reference)</p>
+      <div className="st-panel">
+        <p className="sc-tiny mb-3">Permission matrix (reference)</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {ADMIN_ROLES.map((role) => (
-            <div key={role} className="rounded-xl border border-[var(--color-pib-line)] p-4">
-              <span className={`inline-block text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-full border ${ROLE_BADGE[role]}`}>{role}</span>
+            <div key={role} className="rounded-[6px] border border-[var(--color-pib-line)] p-4">
+              <span className={`inline-block text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded border ${ROLE_BADGE[role]}`}>{role}</span>
               <ul className="mt-3 space-y-1.5">
                 {PERMISSION_MATRIX[role].map((cap) => (
                   <li key={cap} className="text-xs text-[var(--color-pib-text-muted)] flex gap-2">

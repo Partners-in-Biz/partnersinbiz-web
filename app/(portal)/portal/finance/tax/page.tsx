@@ -168,14 +168,14 @@ export default function FinanceTaxPage() {
             ].map(([label, n]) => (
               <div key={String(label)} className="pib-stat-card">
                 <p className="pib-label">{label}</p>
-                <p className="mt-3 text-2xl font-semibold">{n}</p>
+                <p className="mt-3 text-2xl">{n}</p>
               </div>
             ))}
           </section>
 
           <section className="grid gap-4 xl:grid-cols-3">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Create tax code</h2>
+              <h2 className="text-base">Create tax code</h2>
               <label className="block text-sm">Code
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={code} onChange={(e) => setCode(e.target.value)} />
               </label>
@@ -187,7 +187,7 @@ export default function FinanceTaxPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Open tax period</h2>
+              <h2 className="text-base">Open tax period</h2>
               <label className="block text-sm">Label
                 <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} />
               </label>
@@ -201,11 +201,11 @@ export default function FinanceTaxPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Calculate tax</h2>
+              <h2 className="text-base">Calculate tax</h2>
               <label className="block text-sm">Tax code
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={calcTaxCodeId} onChange={(e) => setCalcTaxCodeId(e.target.value)}>
                   <option value="">Select…</option>
-                  {(bundle?.taxCodes || []).map((t) => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
+                  {(bundle?.taxCodes || []).map((t) => <option key={t.id} value={t.id}>{t.code} - {t.name}</option>)}
                 </select>
               </label>
               <label className="block text-sm">Exclusive amount (rands)
@@ -224,7 +224,7 @@ export default function FinanceTaxPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Tax codes</h2>
+              <h2 className="mb-3 text-base">Tax codes</h2>
               {(bundle?.taxCodes || []).length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No tax codes yet.</p>
               ) : (
@@ -239,7 +239,7 @@ export default function FinanceTaxPage() {
               )}
             </div>
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Tax periods & returns</h2>
+              <h2 className="mb-3 text-base">Tax periods & returns</h2>
               {(bundle?.taxPeriods || []).length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No tax periods yet.</p>
               ) : (

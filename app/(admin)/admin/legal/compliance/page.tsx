@@ -1,6 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  Choice,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Textarea,
+  Toolbar,
+} from '@/components/studio'
 
 interface ReportConfig {
   id: string
@@ -79,8 +92,13 @@ export default function CompliancePage() {
   }
 
   async function createConfig() {
-    if (!name.trim()) { setError('Name is required'); return }
-    setBusy(true); setError(null); setFeedback(null)
+    if (!name.trim()) {
+      setError('Name is required')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
       const res = await fetch('/api/v1/admin/legal/compliance', {
         method: 'POST',
@@ -90,7 +108,8 @@ export default function CompliancePage() {
       const body = await res.json()
       if (!res.ok) throw new Error(body?.error || 'Create failed')
       setFeedback('Report config created')
-      setName(''); setContents([])
+      setName('')
+      setContents([])
       await loadConfigs()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Create failed')
@@ -100,7 +119,9 @@ export default function CompliancePage() {
   }
 
   async function generate(id: string) {
-    setBusy(true); setError(null); setFeedback(null)
+    setBusy(true)
+    setError(null)
+    setFeedback(null)
     try {
       const res = await fetch(`/api/v1/admin/legal/compliance/${id}/generate`, { method: 'POST' })
       const body = await res.json()
@@ -116,7 +137,8 @@ export default function CompliancePage() {
 
   async function deleteConfig(id: string) {
     if (!confirm('Delete this report config?')) return
-    setBusy(true); setError(null)
+    setBusy(true)
+    setError(null)
     try {
       const res = await fetch(`/api/v1/admin/legal/compliance/${id}`, { method: 'DELETE' })
       const body = await res.json()
@@ -131,121 +153,126 @@ export default function CompliancePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Legal</p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Automated Compliance Reporting</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Configure scheduled compliance reports and generate snapshots with live platform numbers. Reports store structured data; a PDF renderer can be layered on later.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="Legal"
+        title="Automated compliance reporting."
+        description="Configure scheduled compliance reports and generate snapshots with live platform numbers."
+      />
 
-      {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>}
-      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+      {feedback ? <Notice tone="success">{feedback}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      {/* Create config */}
-      <div className="pib-card space-y-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New report config</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="block md:col-span-1">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Name</span>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Quarterly GDPR audit"
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
-          </label>
-          <label className="block">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Type</span>
-            <select value={type} onChange={(e) => setType(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]">
-              {TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Schedule</span>
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]">
-              {SCHEDULES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
+      <Panel className="space-y-4">
+        <p className="sc-tiny">New report config</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Field id="compliance-name" label="Name">
+            <Input aria-label="Name" id="compliance-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Quarterly GDPR audit"
+            />
+          </Field>
+          <Field id="compliance-type" label="Type">
+            <Select aria-label="Type" id="compliance-type" value={type} onChange={(e) => setType(e.target.value)}>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace('_', ' ')}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id="compliance-schedule" label="Schedule">
+            <Select aria-label="Schedule" id="compliance-schedule" value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+              {SCHEDULES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
-        <div>
-          <span className="text-xs text-[var(--color-pib-text-muted)]">Contents</span>
-          <div className="flex flex-wrap gap-2 mt-2">
+        <div className="space-y-2">
+          <p className="sc-tiny">Contents</p>
+          <Toolbar>
             {CONTENT_KEYS.map((c) => (
-              <button key={c.key} type="button" onClick={() => toggleContent(c.key)}
-                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
-                  contents.includes(c.key)
-                    ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
-                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-                }`}>
-                {contents.includes(c.key) ? '✓ ' : ''}{c.label}
-              </button>
+              <Choice key={c.key} selected={contents.includes(c.key)} onClick={() => toggleContent(c.key)}>
+                {contents.includes(c.key) ? `${c.label} selected` : c.label}
+              </Choice>
             ))}
-          </div>
+          </Toolbar>
         </div>
-        <button type="button" disabled={busy} onClick={createConfig}
-          className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: 'var(--color-pib-accent)' }}>
+        <Button type="button" disabled={busy} onClick={createConfig}>
           Create config
-        </button>
-      </div>
+        </Button>
+      </Panel>
 
-      {/* Config list */}
-      <div className="pib-card space-y-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Report configs</p>
+      <Panel className="space-y-4">
+        <p className="sc-tiny">Report configs</p>
         {loading ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+          <Skeleton height="6rem" />
         ) : configs.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No report configs yet.</p>
+          <EmptyState title="No report configs yet." description="Create a config to start generating reports." />
         ) : (
           configs.map((c) => (
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--color-pib-line)]">
+            <div
+              key={c.id}
+              className="flex flex-col gap-4 rounded-[6px] border border-[var(--sc-line)] p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{c.name}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
+                <p className="sc-body text-[var(--sc-ink)] truncate">{c.name}</p>
+                <p className="sc-tiny mt-1">
                   {c.type.replace('_', ' ')} · {c.schedule}
                   {c.lastGeneratedAt ? ` · last ${String(c.lastGeneratedAt).slice(0, 10)}` : ' · never run'}
                   {c.nextRunAt ? ` · next ${String(c.nextRunAt).slice(0, 10)}` : ''}
                 </p>
               </div>
-              <div className="flex gap-2 shrink-0 ml-3">
-                <button type="button" disabled={busy} onClick={() => generate(c.id)}
-                  className="text-xs font-medium px-2.5 py-1 rounded-md text-white disabled:opacity-50" style={{ background: 'var(--color-pib-accent)' }}>
+              <Toolbar>
+                <Button type="button" size="sm" disabled={busy} onClick={() => generate(c.id)}>
                   Generate now
-                </button>
-                <button type="button" disabled={busy} onClick={() => deleteConfig(c.id)}
-                  className="text-xs font-medium px-2.5 py-1 rounded-md border border-red-500/30 text-red-300 hover:bg-red-500/10 disabled:opacity-50">
+                </Button>
+                <Button type="button" variant="danger" size="sm" disabled={busy} onClick={() => deleteConfig(c.id)}>
                   Delete
-                </button>
-              </div>
+                </Button>
+              </Toolbar>
             </div>
           ))
         )}
-      </div>
+      </Panel>
 
-      {/* Runs / audit trail */}
-      <div className="pib-card space-y-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Generated reports</p>
+      <Panel className="space-y-4">
+        <p className="sc-tiny">Generated reports</p>
         {runs.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No reports generated yet.</p>
+          <EmptyState title="No reports generated yet." description="Run a config to produce a snapshot." />
         ) : (
           runs.map((r) => (
-            <div key={r.id} className="rounded-lg border border-[var(--color-pib-line)]">
-              <button type="button" onClick={() => setExpanded(expanded === r.id ? null : r.id)}
-                className="w-full text-left p-3 hover:bg-[var(--color-row-hover)] transition-colors rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{r.reportName || r.reportType || 'Report'}</span>
-                  <span className="text-[11px] text-[var(--color-pib-text-muted)]/70">{r.generatedAt ? String(r.generatedAt).slice(0, 19).replace('T', ' ') : ''}</span>
+            <div key={r.id} className="rounded-[6px] border border-[var(--sc-line)]">
+              <button
+                type="button"
+                onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                className="w-full rounded-[6px] p-4 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="sc-body text-[var(--sc-ink)]">{r.reportName || r.reportType || 'Report'}</span>
+                  <span className="st-num sc-tiny">
+                    {r.generatedAt ? String(r.generatedAt).slice(0, 19).replace('T', ' ') : ''}
+                  </span>
                 </div>
-                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{r.summary}</p>
+                <p className="sc-tiny mt-1">{r.summary}</p>
               </button>
-              {expanded === r.id && r.data && (
-                <pre className="text-xs text-[var(--color-pib-text-muted)] font-mono bg-[var(--color-pib-surface-2)] m-3 mt-0 p-3 rounded-lg overflow-x-auto">
-                  {JSON.stringify(r.data, null, 2)}
-                </pre>
-              )}
+              {expanded === r.id && r.data ? (
+                <Textarea
+                  readOnly
+                  rows={12}
+                  className="m-4 mt-0 font-mono text-xs"
+                  value={JSON.stringify(r.data, null, 2)}
+                  aria-label="Report data"
+                />
+              ) : null}
             </div>
           ))
         )}
-      </div>
+      </Panel>
     </div>
   )
 }

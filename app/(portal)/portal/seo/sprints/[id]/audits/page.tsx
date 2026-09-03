@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,8 +24,8 @@ export default async function PortalAuditsTab({ params }: { params: Promise<{ id
     <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
-          <p className="eyebrow">Audit snapshots</p>
-          <h2 className="text-lg font-semibold mt-1">Audits</h2>
+          <p className="sc-tiny">Audit snapshots</p>
+          <h2 className="text-lg mt-1">Audits</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Baseline and milestone snapshots showing traffic, rankings, and report links.
           </p>
@@ -43,13 +44,13 @@ export default async function PortalAuditsTab({ params }: { params: Promise<{ id
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {audits.map((audit) => (
-            <article key={audit.id} className="pib-card p-5">
+            <article key={audit.id} className="st-panel p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="eyebrow !text-[10px]">{audit.snapshotDay === 1 ? 'Baseline' : `Day ${audit.snapshotDay}`}</p>
-                  <h3 className="font-headline text-xl font-semibold mt-2">{Number(audit.traffic?.impressions ?? 0).toLocaleString('en-ZA')} impressions</h3>
+                  <p className="sc-tiny !text-[10px]">{audit.snapshotDay === 1 ? 'Baseline' : `Day ${audit.snapshotDay}`}</p>
+                  <h3 className="font-headline text-xl mt-2">{Number(audit.traffic?.impressions ?? 0).toLocaleString('en-ZA')} impressions</h3>
                 </div>
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[18px]">query_stats</span></span>
+                <Icon name="query_stats" />
               </div>
               <div className="grid grid-cols-3 gap-3 mt-5">
                 <MiniMetric label="Clicks" value={String(audit.traffic?.clicks ?? 0)} />
@@ -63,7 +64,7 @@ export default async function PortalAuditsTab({ params }: { params: Promise<{ id
                   rel="noopener"
                   className="pib-btn-secondary mt-5 inline-flex"
                 >
-                  <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                  <Icon name="open_in_new" />
                   Open report
                 </a>
               )}
@@ -79,10 +80,10 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }
@@ -90,7 +91,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
-      <p className="eyebrow !text-[9px]">{label}</p>
+      <p className="sc-tiny !text-[9px]">{label}</p>
       <p className="font-medium text-sm tabular-nums mt-1">{value}</p>
     </div>
   )
@@ -98,9 +99,9 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-6 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
+    <div className="st-panel p-6 text-center">
+      <Icon name={icon} />
+      <h3 className="font-headline text-lg mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
     </div>
   )

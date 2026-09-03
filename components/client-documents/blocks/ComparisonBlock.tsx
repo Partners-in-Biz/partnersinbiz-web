@@ -17,7 +17,7 @@ export function ComparisonBlock({
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
-        <h2 className="mb-6 text-2xl font-semibold text-[var(--doc-accent)] md:text-4xl">
+        <h2 className="mb-6 text-2xl font-medium text-[var(--doc-accent)] md:text-4xl">
           {block.title}
         </h2>
       )}
@@ -32,7 +32,7 @@ export function ComparisonBlock({
               {content.headers.map((h, i) => (
                 <th
                   key={i}
-                  className="px-4 py-3 text-center font-semibold break-words"
+                  className="px-4 py-3 text-center font-medium break-words"
                   style={{
                     background: i === highlight ? 'var(--doc-accent-soft)' : undefined,
                     color: i === highlight ? 'var(--doc-accent)' : 'var(--doc-text)',

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { SITE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
-import { RebuildStage } from '@/components/marketing/stage/RebuildStage'
-import { US_STAGE } from '@/lib/marketing/stage-content'
+import { StudioStage } from '@/components/marketing/stage/StudioStage'
+import { US_STUDIO } from '@/lib/marketing/studio-content'
 
 /**
  * `/us` is the United States stage only. The 4-Week Site ($9,500) and
@@ -68,7 +68,7 @@ export default function UsHomePage() {
     <>
       <JsonLd data={breadcrumbSchema([{ name: 'Home', url: '/' }, { name: 'United States', url: '/us' }])} />
       <JsonLd data={offersSchema} />
-      <RebuildStage content={US_STAGE} />
+      <StudioStage content={US_STUDIO} />
     </>
   )
 }

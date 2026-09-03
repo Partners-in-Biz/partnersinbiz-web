@@ -3,6 +3,7 @@
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CustomFieldInput } from '@/components/crm/CustomFieldInput'
 import { CustomFieldValue } from '@/components/crm/CustomFieldValue'
+import { Icon } from '@/components/studio'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
             aria-label={emptyAction.ariaLabel}
             className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[14px]">edit_note</span>
+            <Icon name="edit_note" className="text-[14px]" />
             {emptyAction.label}
           </button>
         )}
@@ -87,7 +88,7 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
             aria-label={action.ariaLabel}
             className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[14px]">edit_note</span>
+            <Icon name="edit_note" className="text-[14px]" />
             {action.label}
           </button>
         </div>
@@ -103,7 +104,7 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
                 <label className="block text-[11px] font-label text-[var(--color-pib-text-muted)]">
                   {def.label}
                   {def.required && mode === 'edit' && (
-                    <span className="text-red-400 ml-0.5">*</span>
+                    <span className="text-[var(--st-danger)] ml-0.5">*</span>
                   )}
                 </label>
                 {mode === 'edit' ? (

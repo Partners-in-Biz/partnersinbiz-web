@@ -56,7 +56,7 @@ export default function MessageThread({ messages, enquiryId, onSent }: Props) {
             <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={[
-                  'max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-snug',
+                  'max-w-[80%] px-4 py-2.5 rounded-md text-sm leading-snug',
                   mine
                     ? 'bg-[var(--color-pib-accent)] text-black rounded-br-md'
                     : 'bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] text-[var(--color-pib-text)] rounded-bl-md',
@@ -70,12 +70,12 @@ export default function MessageThread({ messages, enquiryId, onSent }: Props) {
         })}
       </div>
       <div className="flex gap-2">
-        <input
+        <input aria-label="Send a message or update"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder="Send a message or update…"
-          className="pib-input flex-1 !rounded-full !py-2.5"
+          className="pib-input flex-1 rounded-md !py-2.5"
         />
         <button onClick={send} disabled={sending || !text.trim()} className="pib-btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
           {sending ? '…' : 'Send'}

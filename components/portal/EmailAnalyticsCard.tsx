@@ -21,7 +21,7 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
     const now = new Date()
     const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const to = now.toISOString()
-    // For client role, omit orgId — server uses the user's bound org. Admins
+    // For client role, omit orgId  -  server uses the user's bound org. Admins
     // pass it explicitly.
     const orgParam = orgId ? `orgId=${orgId}&` : ''
     fetch(`/api/v1/email-analytics/overview?${orgParam}from=${from}&to=${to}`)
@@ -31,12 +31,12 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
   }, [orgId])
 
   if (loading) {
-    return <div className="h-32 rounded-xl bg-[var(--color-pib-surface-soft)] animate-pulse" />
+    return <div className="h-32 rounded-md bg-[var(--color-pib-surface-soft)] animate-pulse" />
   }
 
   if (!data) {
     return (
-      <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
+      <div className="rounded-md bg-[var(--color-pib-surface-soft)] p-4">
         <h3 className="text-sm font-medium text-[var(--color-pib-text)] mb-1">Email analytics</h3>
         <p className="text-[var(--color-pib-text-muted)] text-xs">No email activity yet.</p>
       </div>
@@ -52,10 +52,10 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
   ]
 
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
+    <div className="rounded-md bg-[var(--color-pib-surface-soft)] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Email (last 30 days)</h3>
-        <Link href="/portal/email-analytics" className="text-xs text-amber-500 hover:underline">
+        <Link href="/portal/email-analytics" className="text-xs text-[var(--st-warning)] hover:underline">
           View full report →
         </Link>
       </div>
@@ -63,7 +63,7 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
         {tiles.map((t) => (
           <div key={t.label} className="bg-[var(--color-pib-surface)] rounded-lg p-2">
             <div className="pib-label">{t.label}</div>
-            <div className="text-base font-semibold text-[var(--color-pib-text)]">{t.value}</div>
+            <div className="text-base font-medium text-[var(--color-pib-text)]">{t.value}</div>
           </div>
         ))}
       </div>

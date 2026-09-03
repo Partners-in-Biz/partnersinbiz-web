@@ -29,6 +29,10 @@ jest.mock('@/components/crm/NotificationBell', () => ({
   ),
 }))
 
+jest.mock('@/components/theme/ThemeToggle', () => ({
+  ThemeToggle: () => <button type="button" aria-label="Switch to Ink">Theme</button>,
+}))
+
 describe('AdminTopbarNav account display', () => {
   it('keeps the account email out of the top navbar', () => {
     render(
@@ -42,6 +46,7 @@ describe('AdminTopbarNav account display', () => {
 
     expect(screen.queryByText('peet@example.com')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open notifications' })).toHaveAttribute('data-mode', 'admin')
+    expect(screen.getByRole('button', { name: 'Switch to Ink' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /logout/i })).toBeInTheDocument()
   })
 })

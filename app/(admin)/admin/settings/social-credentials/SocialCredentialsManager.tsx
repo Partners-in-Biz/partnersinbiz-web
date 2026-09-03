@@ -1,7 +1,8 @@
 'use client'
+import { Status } from '@/components/studio'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { Surface, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 interface RotationLogEntry {
@@ -181,7 +182,7 @@ export function SocialCredentialsManager() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
+      <header className="st-panel p-6">
         <p className="eyebrow">Integrations</p>
         <h1 className="pib-page-title mt-2">Social API credentials</h1>
         <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
@@ -191,10 +192,10 @@ export function SocialCredentialsManager() {
         </p>
       </header>
 
-      {error && <div className="pib-card p-5 text-sm text-[var(--color-error)]">{error}</div>}
+      {error && <div className="st-panel p-5 text-sm text-[var(--color-error)]">{error}</div>}
 
       {loading ? (
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading credentials…</div>
+        <div className="st-panel p-8 text-sm text-[var(--color-pib-text-muted)]">Loading credentials…</div>
       ) : (
         <>
           {summary && (
@@ -206,9 +207,9 @@ export function SocialCredentialsManager() {
                 { label: 'Webhook tokens', value: summary.withWebhookToken },
                 { label: 'Inbox secret', value: summary.inboxWebhookSecret ? 'Present' : 'Missing' },
               ].map((m) => (
-                <div key={m.label} className="pib-card p-5">
-                  <p className="pib-label">{m.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+                <div key={m.label} className="st-panel p-5">
+                  <p className="sc-tiny">{m.label}</p>
+                  <p className="mt-3 text-2xl font-medium text-[var(--color-pib-text)]">{m.value}</p>
                 </div>
               ))}
             </section>
@@ -225,30 +226,30 @@ export function SocialCredentialsManager() {
                     <div className="flex w-full items-center justify-between gap-2">
                       <span className="font-label">{p.label}</span>
                       <div className="flex items-center gap-2">
-                        <StatusPill tone={p.configured ? 'success' : 'danger'}>
+                        <Status tone={p.configured ? 'success' : 'danger'}>
                           {p.configured ? 'Configured' : 'Missing'}
-                        </StatusPill>
-                        <StatusPill tone={p.enabled ? 'neutral' : 'warn'}>
+                        </Status>
+                        <Status tone={p.enabled ? 'info' : 'warning'}>
                           {p.enabled ? 'Enabled' : 'Disabled'}
-                        </StatusPill>
+                        </Status>
                       </div>
                     </div>
                   }
                 >
                   <dl className="space-y-2 text-sm">
-                    <Row label="Client ID" value={<code className="text-[var(--color-pib-text)]">{p.clientIdMasked ?? '—'}</code>} />
+                    <Row label="Client ID" value={<code className="text-[var(--color-pib-text)]">{p.clientIdMasked ?? '-'}</code>} />
                     <Row label="Client secret" value={p.hasClientSecret ? 'Present (env)' : 'Missing'} />
                     <Row label="Callback" value={<code className="break-all text-xs text-[var(--color-pib-text-muted)]">{p.callbackUrl}</code>} />
-                    <Row label="Scopes" value={p.scopes.length ? `${p.scopes.length} scope${p.scopes.length === 1 ? '' : 's'}` : '—'} />
+                    <Row label="Scopes" value={p.scopes.length ? `${p.scopes.length} scope${p.scopes.length === 1 ? '' : 's'}` : '-'} />
                     <Row label="API version pin" value={p.apiVersion ?? <span className="text-[var(--color-pib-text-muted)]">none</span>} />
                     <Row label="Webhook token" value={p.webhookTokenMasked ? <code className="text-[var(--color-pib-text)]">{p.webhookTokenMasked}</code> : <span className="text-[var(--color-pib-text-muted)]">none</span>} />
-                    <Row label="Last rotated" value={p.lastRotatedAt ? formatDateTime(p.lastRotatedAt) : '—'} />
+                    <Row label="Last rotated" value={p.lastRotatedAt ? formatDateTime(p.lastRotatedAt) : '-'} />
                   </dl>
 
                   {p.scopes.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
                       {p.scopes.map((s) => (
-                        <span key={s} className="pib-pill pib-pill-cyan text-[10px]">{s}</span>
+                        <span key={s} className="st-status st-status st-status--info text-[10px]">{s}</span>
                       ))}
                     </div>
                   )}
@@ -259,7 +260,7 @@ export function SocialCredentialsManager() {
                       <ul className="mt-2 space-y-1">
                         {p.rotationLog.map((entry, i) => (
                           <li key={`${p.key}-rot-${i}`} className="text-xs text-[var(--color-pib-text-muted)]">
-                            <span className="opacity-70">{formatDateTime(entry.at)}</span> — {entry.note}
+                            <span className="opacity-70">{formatDateTime(entry.at)}</span> - {entry.note}
                           </li>
                         ))}
                       </ul>
@@ -267,14 +268,14 @@ export function SocialCredentialsManager() {
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button type="button" className="btn-pib-secondary text-xs" disabled={testingKey === p.key} onClick={() => void runTest(p)}>
+                    <button type="button" className="st-btn st-btn--secondary text-xs" disabled={testingKey === p.key} onClick={() => void runTest(p)}>
                       {testingKey === p.key ? 'Testing…' : 'Test handshake'}
                     </button>
-                    <button type="button" className="btn-pib-ghost text-xs" onClick={() => openEdit(p)}>Edit settings</button>
-                    <button type="button" className="btn-pib-ghost text-xs" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'webhook' }) }}>
+                    <button type="button" className="st-btn st-btn--ghost text-xs" onClick={() => openEdit(p)}>Edit settings</button>
+                    <button type="button" className="st-btn st-btn--ghost text-xs" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'webhook' }) }}>
                       Rotate webhook
                     </button>
-                    <button type="button" className="btn-pib-ghost text-xs text-[var(--color-pib-amber)]" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
+                    <button type="button" className="st-btn st-btn--ghost text-xs text-[var(--sc-accent)]" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
                       Rotate secret
                     </button>
                   </div>
@@ -293,8 +294,8 @@ export function SocialCredentialsManager() {
         onClose={() => setEditing(null)}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-pib-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="button" className="btn-pib-primary" disabled={saving} onClick={saveSettings}>
+            <button type="button" className="st-btn st-btn--secondary" onClick={() => setEditing(null)}>Cancel</button>
+            <button type="button" className="st-btn st-btn--primary" disabled={saving} onClick={saveSettings}>
               {saving ? 'Saving…' : 'Save settings'}
             </button>
           </div>
@@ -308,11 +309,11 @@ export function SocialCredentialsManager() {
           </label>
           <label className="block">
             <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">API version pin</span>
-            <input className="pib-input mt-1 w-full" placeholder="e.g. v19.0" value={formApiVersion} onChange={(e) => setFormApiVersion(e.target.value)} />
+            <input className="st-input mt-1 w-full" placeholder="e.g. v19.0" value={formApiVersion} onChange={(e) => setFormApiVersion(e.target.value)} />
           </label>
           <label className="block">
             <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Notes</span>
-            <textarea className="pib-input mt-1 w-full" rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
+            <textarea className="st-input mt-1 w-full" rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
           </label>
         </div>
       </DialogDrawer>
@@ -320,18 +321,18 @@ export function SocialCredentialsManager() {
       {/* Test result drawer */}
       <DialogDrawer
         open={testResult !== null}
-        title={testResult ? `${testResult.label} — handshake ${testResult.ok ? 'passed' : 'failed'}` : ''}
+        title={testResult ? `${testResult.label} - handshake ${testResult.ok ? 'passed' : 'failed'}` : ''}
         description="OAuth configuration + provider reachability check. No tokens were persisted."
         onClose={() => setTestResult(null)}
-        footer={<div className="flex justify-end"><button type="button" className="btn-pib-secondary" onClick={() => setTestResult(null)}>Close</button></div>}
+        footer={<div className="flex justify-end"><button type="button" className="st-btn st-btn--secondary" onClick={() => setTestResult(null)}>Close</button></div>}
       >
         {testResult && (
           <div className="space-y-3">
             <ul className="space-y-2">
               {testResult.checks.map((c, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <StatusPill tone={c.ok ? 'success' : 'danger'}>{c.ok ? 'OK' : 'Fail'}</StatusPill>
-                  <span><span className="text-[var(--color-pib-text)]">{c.name}</span> <span className="text-[var(--color-pib-text-muted)]">— {c.detail}</span></span>
+                  <Status tone={c.ok ? 'success' : 'danger'}>{c.ok ? 'OK' : 'Fail'}</Status>
+                  <span><span className="text-[var(--color-pib-text)]">{c.name}</span> <span className="text-[var(--color-pib-text-muted)]">- {c.detail}</span></span>
                 </li>
               ))}
             </ul>
@@ -349,7 +350,7 @@ export function SocialCredentialsManager() {
       {/* Rotate drawer */}
       <DialogDrawer
         open={rotateTarget !== null}
-        title={rotateTarget ? `Rotate ${rotateTarget.target === 'webhook' ? 'webhook token' : 'client secret'} — ${rotateTarget.p.label}` : ''}
+        title={rotateTarget ? `Rotate ${rotateTarget.target === 'webhook' ? 'webhook token' : 'client secret'} - ${rotateTarget.p.label}` : ''}
         description={
           rotateTarget?.target === 'webhook'
             ? 'Generates a new webhook verification token and stores it. The old token stops working immediately.'
@@ -358,9 +359,9 @@ export function SocialCredentialsManager() {
         onClose={closeRotate}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-pib-secondary" onClick={closeRotate}>{rotateResult ? 'Done' : 'Cancel'}</button>
+            <button type="button" className="st-btn st-btn--secondary" onClick={closeRotate}>{rotateResult ? 'Done' : 'Cancel'}</button>
             {!rotateResult && (
-              <button type="button" className="btn-pib-primary" disabled={rotating} onClick={confirmRotate}>
+              <button type="button" className="st-btn st-btn--primary" disabled={rotating} onClick={confirmRotate}>
                 {rotating ? 'Rotating…' : 'Confirm rotation'}
               </button>
             )}
@@ -372,18 +373,18 @@ export function SocialCredentialsManager() {
           {!rotateResult ? (
             <label className="block">
               <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Reason / note (optional)</span>
-              <textarea className="pib-input mt-1 w-full" rows={2} value={rotateNote} onChange={(e) => setRotateNote(e.target.value)} placeholder="Why are you rotating?" />
+              <textarea className="st-input mt-1 w-full" rows={2} value={rotateNote} onChange={(e) => setRotateNote(e.target.value)} placeholder="Why are you rotating?" />
             </label>
           ) : (
             <div className="space-y-2">
               {rotateResult.newWebhookToken && (
                 <div>
                   <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New webhook token (shown once)</p>
-                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-[var(--color-pib-green)]">{rotateResult.newWebhookToken}</code>
+                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-[var(--st-success)]">{rotateResult.newWebhookToken}</code>
                 </div>
               )}
               {rotateResult.instruction && (
-                <p className="text-sm text-[var(--color-pib-amber)]">{rotateResult.instruction}</p>
+                <p className="text-sm text-[var(--sc-accent)]">{rotateResult.instruction}</p>
               )}
               {rotateResult.envName && (
                 <code className="block rounded bg-[var(--color-pib-surface-2)] p-2 text-xs text-[var(--color-pib-text-muted)]">{rotateResult.envName}</code>

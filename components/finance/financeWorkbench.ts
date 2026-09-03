@@ -29,7 +29,7 @@ export function newFinanceId(prefix: string) {
 }
 
 export function formatMinor(amount: number | undefined | null, currency = 'ZAR') {
-  if (typeof amount !== 'number' || Number.isNaN(amount)) return '—'
+  if (typeof amount !== 'number' || Number.isNaN(amount)) return '-'
   return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency,

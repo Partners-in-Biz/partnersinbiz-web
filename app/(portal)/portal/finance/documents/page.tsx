@@ -207,7 +207,7 @@ export default function FinanceDocumentsPage() {
         expectedVersion: 0,
         ...requestIdentity('bt'),
       })
-      scope.setMessage('Bank transaction imported (observed only — no payment initiated)')
+      scope.setMessage('Bank transaction imported (observed only - no payment initiated)')
     })
   }
 
@@ -279,7 +279,7 @@ export default function FinanceDocumentsPage() {
       active="documents"
       orgScope={scope.orgScope}
       title="Documents & reconciliation"
-      description="AR/AP depth: invoices, bills, credit/debit notes, recurring schedules, statement export drafts, bulk ops, aging, attachments — record only; no external payment initiate or mass email."
+      description="AR/AP depth: invoices, bills, credit/debit notes, recurring schedules, statement export drafts, bulk ops, aging, attachments - record only; no external payment initiate or mass email."
       error={scope.error}
       message={scope.message}
       loading={scope.loading}
@@ -311,32 +311,32 @@ export default function FinanceDocumentsPage() {
             ].map(([label, n]) => (
               <div key={String(label)} className="pib-stat-card">
                 <p className="pib-label">{label}</p>
-                <p className="mt-3 text-2xl font-semibold">{n}</p>
+                <p className="mt-3 text-2xl">{n}</p>
               </div>
             ))}
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
             <div className="pib-card p-4">
-              <h2 className="mb-2 text-base font-semibold">AR aging</h2>
+              <h2 className="mb-2 text-base">AR aging</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ar?.totalOutstandingMinor ?? 0, currency)}</p>
               <div className="grid grid-cols-5 gap-2 text-center text-xs">
                 {(bundle?.aging?.ar?.buckets || []).map((b: any) => (
                   <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
                     <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
-                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                    <p className="mt-1">{formatMinor(b.amountMinor ?? 0, currency)}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div className="pib-card p-4">
-              <h2 className="mb-2 text-base font-semibold">AP aging</h2>
+              <h2 className="mb-2 text-base">AP aging</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ap?.totalOutstandingMinor ?? 0, currency)}</p>
               <div className="grid grid-cols-5 gap-2 text-center text-xs">
                 {(bundle?.aging?.ap?.buckets || []).map((b: any) => (
                   <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
                     <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
-                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                    <p className="mt-1">{formatMinor(b.amountMinor ?? 0, currency)}</p>
                   </div>
                 ))}
               </div>
@@ -350,7 +350,7 @@ export default function FinanceDocumentsPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Create customer invoice (draft)</h2>
+              <h2 className="text-base">Create customer invoice (draft)</h2>
               <div className="grid gap-2 md:grid-cols-2">
                 <label className="text-sm">Customer company id
                   <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={invCustomerId} onChange={(e) => setInvCustomerId(e.target.value)} placeholder="CRM company id" />
@@ -367,13 +367,13 @@ export default function FinanceDocumentsPage() {
                 <label className="text-sm">Tax code
                   <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={invTaxCodeId} onChange={(e) => setInvTaxCodeId(e.target.value)}>
                     <option value="">Select…</option>
-                    {taxCodes.map((t) => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
+                    {taxCodes.map((t) => <option key={t.id} value={t.id}>{t.code} - {t.name}</option>)}
                   </select>
                 </label>
                 <label className="text-sm">Revenue account
                   <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={invRevenueAccountId} onChange={(e) => setInvRevenueAccountId(e.target.value)}>
                     <option value="">Select…</option>
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
                   </select>
                 </label>
               </div>
@@ -381,7 +381,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Bank account</h2>
+              <h2 className="text-base">Bank account</h2>
               <div className="grid gap-2 md:grid-cols-2">
                 <label className="text-sm">Code
                   <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={bankCode} onChange={(e) => setBankCode(e.target.value)} />
@@ -402,11 +402,11 @@ export default function FinanceDocumentsPage() {
 
           <section className="grid gap-4 xl:grid-cols-3">
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Import bank transaction</h2>
+              <h2 className="text-base">Import bank transaction</h2>
               <label className="block text-sm">Bank account
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={txnBankId} onChange={(e) => setTxnBankId(e.target.value)}>
                   <option value="">Select…</option>
-                  {(bundle?.bankAccounts || []).map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                  {(bundle?.bankAccounts || []).map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
                 </select>
               </label>
               <label className="block text-sm">Amount (rands, signed)
@@ -419,7 +419,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Observe external payment</h2>
+              <h2 className="text-base">Observe external payment</h2>
               <label className="block text-sm">Direction
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={payDirection} onChange={(e) => setPayDirection(e.target.value as 'receipt' | 'disbursement')}>
                   <option value="receipt">Receipt (money in)</option>
@@ -447,7 +447,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Start reconciliation</h2>
+              <h2 className="text-base">Start reconciliation</h2>
               <label className="block text-sm">Bank account
                 <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={reconBankId} onChange={(e) => setReconBankId(e.target.value)}>
                   <option value="">Select…</option>
@@ -474,7 +474,7 @@ export default function FinanceDocumentsPage() {
 
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Invoices</h2>
+              <h2 className="mb-3 text-base">Invoices</h2>
               <FinanceResponsiveTable
                 ariaLabel="Customer invoices"
                 density={density}
@@ -514,7 +514,7 @@ export default function FinanceDocumentsPage() {
                           Issue
                         </button>
                       ) : (
-                        '—'
+                        '-'
                       ),
                   },
                 ]}
@@ -522,7 +522,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Payments</h2>
+              <h2 className="mb-3 text-base">Payments</h2>
               <FinanceResponsiveTable
                 ariaLabel="Observed payments"
                 density={density}
@@ -564,7 +564,7 @@ export default function FinanceDocumentsPage() {
                           Verify
                         </button>
                       ) : (
-                        '—'
+                        '-'
                       ),
                   },
                 ]}
@@ -572,7 +572,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Bank transactions</h2>
+              <h2 className="mb-3 text-base">Bank transactions</h2>
               <FinanceResponsiveTable
                 ariaLabel="Bank transactions"
                 density={density}
@@ -602,7 +602,7 @@ export default function FinanceDocumentsPage() {
             </div>
 
             <div className="pib-card p-4">
-              <h2 className="mb-3 text-base font-semibold">Reconciliations</h2>
+              <h2 className="mb-3 text-base">Reconciliations</h2>
               <FinanceResponsiveTable
                 ariaLabel="Bank reconciliations"
                 density={density}
@@ -644,7 +644,7 @@ export default function FinanceDocumentsPage() {
                           Submit
                         </button>
                       ) : (
-                        '—'
+                        '-'
                       ),
                   },
                 ]}

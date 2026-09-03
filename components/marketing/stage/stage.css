@@ -6,25 +6,7 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 .sc-stage {
-  --sc-canvas: #f3efe6;
-  --sc-surface: #e7e1d4;
-  --sc-ink: #1a1714;
-  --sc-ink-soft: #4e4841;
-  --sc-accent: #e4572e;
-  --sc-accent-ink: #1a1714;
-  --sc-line: rgba(26, 23, 20, 0.14);
-  --sc-line-strong: rgba(26, 23, 20, 0.32);
-  --sc-edge-light: rgba(255, 255, 255, 0.55);
-  --sc-shadow: 10px 10px 0 rgba(26, 23, 20, 0.12);
-
-  --sc-u: 4px;
-  --sc-pad: clamp(calc(var(--sc-u) * 5), 4vw, calc(var(--sc-u) * 16));
-  --sc-section-pad: clamp(calc(var(--sc-u) * 14), 10vw, calc(var(--sc-u) * 40));
-
-  --sc-measure: 60ch;
-  --sc-font: var(--font-sans), system-ui, sans-serif;
-  --sc-font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-
+  /* Tokens live on :root in app/studio-tokens.css; stage keeps layout + grain. */
   position: relative;
   min-height: 100svh;
   background: var(--sc-canvas);
@@ -33,16 +15,6 @@
   font-family: var(--sc-font);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-
-/* Paper takes the whole document while a stage is mounted (overscroll, gutters). */
-body:has(.sc-stage) {
-  background: #f3efe6;
-  color: #1a1714;
-}
-body:has(.sc-stage) ::selection {
-  background: #e4572e;
-  color: #1a1714;
 }
 
 /* 4-5% grain over everything on the stage. */
@@ -58,51 +30,14 @@ body:has(.sc-stage) ::selection {
   background-size: 180px 180px;
 }
 
-/* ── Type ───────────────────────────────────────────────────────────────── */
+/* Flat stage: same tokens, no grain (lead/embed shells). */
+.sc-stage--flat::after {
+  content: none;
+  display: none;
+}
 
-.sc-h1 {
-  font-size: clamp(2rem, 1.1rem + 3.4vw, 4.25rem);
-  line-height: 0.98;
-  letter-spacing: -0.035em;
-  font-weight: 500;
-  text-wrap: balance;
-  max-width: 14ch;
-  margin: 0;
-}
-.sc-h1--peak {
-  font-size: clamp(2.25rem, 1rem + 5vw, 6rem);
-  letter-spacing: -0.04em;
-  max-width: 13ch;
-}
-.sc-dek {
-  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
-  line-height: 1.3;
-  letter-spacing: -0.012em;
-  color: var(--sc-ink-soft);
-  max-width: 34ch;
-  text-wrap: pretty;
-  margin: calc(var(--sc-u) * 5) 0 0;
-}
-.sc-body {
-  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
-  line-height: 1.5;
-  color: var(--sc-ink-soft);
-  max-width: var(--sc-measure);
-  text-wrap: pretty;
-}
-.sc-body strong,
-.sc-body b {
-  color: var(--sc-ink);
-  font-weight: 500;
-}
-.sc-tiny {
-  font-family: var(--sc-font-mono);
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sc-ink-soft);
-}
+/* ── Type extras (base type classes live in studio-tokens.css) ───────────── */
+
 .sc-price {
   font-size: clamp(2.5rem, 1.2rem + 6vw, 7rem);
   line-height: 0.95;
@@ -131,6 +66,9 @@ body:has(.sc-stage) ::selection {
 .sc-cta:focus-visible {
   outline: 2px solid var(--sc-accent);
   outline-offset: 4px;
+}
+.sc-cta {
+  white-space: nowrap;
 }
 .sc-link {
   color: inherit;
@@ -189,8 +127,12 @@ body:has(.sc-stage) ::selection {
   position: relative;
   aspect-ratio: 3 / 2;
   overflow: hidden;
+  flex-shrink: 0;
   background: var(--sc-surface);
   box-shadow: var(--sc-shadow);
+}
+.sc-photo--hero {
+  max-width: 18rem;
 }
 .sc-photo::after {
   content: '';
@@ -228,7 +170,9 @@ body:has(.sc-stage) ::selection {
   --rise: clamp(0, calc(var(--a5) * 4), 1);
   --peak-op: calc(var(--rise) * (1 - var(--hush-peak)));
   --hush-peak: clamp(0, calc(var(--a6) * 2.5), 1);
-  --close-op: clamp(0, calc((var(--a6) - 0.4) / 0.4), 1);
+  /* The panel finishes its slide before the close is fully legible. */
+  --slide: clamp(0, calc(var(--a6) / 0.8), 1);
+  --close-op: clamp(0, calc((var(--a6) - 0.6) / 0.35), 1);
 }
 
 .sc-frame {
@@ -265,7 +209,7 @@ body:has(.sc-stage) ::selection {
   inset: 0;
   z-index: 2;
   background: var(--sc-surface);
-  transform: translate3d(calc(50% * (1 - var(--a6))), 0, 0);
+  transform: translate3d(calc(50% * (1 - var(--slide))), 0, 0);
   will-change: transform;
 }
 .sc-panel::before {
@@ -284,9 +228,6 @@ body:has(.sc-stage) ::selection {
 }
 
 /* Groups that share a fade. */
-.sc-group {
-  display: contents;
-}
 .sc-dead-copy,
 .sc-own-copy {
   opacity: calc(1 - var(--hush));
@@ -303,6 +244,7 @@ body:has(.sc-stage) ::selection {
   opacity: var(--v);
   transform: translate3d(0, calc((1 - var(--v)) * 10px), 0);
   margin: 0;
+  flex-shrink: 0;
   color: var(--sc-ink-soft);
   font-size: 0.9375rem;
   line-height: 1.4;
@@ -323,14 +265,14 @@ body:has(.sc-stage) ::selection {
 .sc-tell--broken {
   display: grid;
   place-items: center;
-  aspect-ratio: 5 / 2;
-  max-width: 24rem;
+  aspect-ratio: 4 / 1;
+  max-width: 18rem;
   border: 1px dashed var(--sc-line-strong);
   font-family: var(--sc-font-mono);
   font-size: 0.75rem;
 }
 .sc-tell--photo {
-  max-width: 24rem;
+  max-width: 14rem;
 }
 .sc-dead-list {
   display: flex;
@@ -344,10 +286,11 @@ body:has(.sc-stage) ::selection {
 /* Right: the rebuild. Lines and CTA arrive during Relief. --i is line index. */
 .sc-line {
   --i: 0;
-  --v: clamp(0, calc((var(--a3) - 0.35 - var(--i) * 0.14) * 6), 1);
+  --v: clamp(0, calc((var(--a3) - 0.2 - var(--i) * 0.12) * 6), 1);
   opacity: var(--v);
   transform: translate3d(0, calc((1 - var(--v)) * 12px), 0);
   margin: 0;
+  flex-shrink: 0;
 }
 .sc-own-lines {
   display: flex;
@@ -364,6 +307,7 @@ body:has(.sc-stage) ::selection {
   --w: clamp(0, calc((var(--a3) - 0.15) / 0.6), 1);
   --stage1: calc(1 - clamp(0, calc(var(--a3) * 4), 1));
   position: relative;
+  max-width: 22rem;
 }
 .sc-wipe__layer {
   position: absolute;
@@ -414,6 +358,10 @@ body:has(.sc-stage) ::selection {
   margin-top: calc(var(--sc-u) * 7);
   max-width: 40ch;
 }
+.sc-peak-credit {
+  margin-top: calc(var(--sc-u) * 4);
+  color: var(--sc-accent);
+}
 
 /* Tape device. Stands in for the loop until an mp4 arrives. Draws left to right. */
 .sc-tape {
@@ -462,9 +410,39 @@ body:has(.sc-stage) ::selection {
   gap: calc(var(--sc-u) * 4);
   max-width: var(--sc-measure);
 }
+.sc-close__stack {
+  color: var(--sc-ink-soft);
+  max-width: 52ch;
+}
+.sc-close__cta {
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.35;
+  max-width: 40ch;
+}
 .sc-close__small {
   max-width: var(--sc-measure);
   font-size: 0.9375rem;
+}
+
+/* Short viewports: keep the close CTA and the H1s inside the frame. */
+@media (max-height: 960px) {
+  .sc-tell--photo {
+    display: none;
+  }
+}
+@media (max-height: 820px) {
+  .sc-cell {
+    padding-top: calc(var(--sc-u) * 16);
+  }
+  .sc-close__stack {
+    display: none;
+  }
+  .sc-photo--hero {
+    max-width: 15rem;
+  }
+  .sc-wipe {
+    max-width: 17rem;
+  }
 }
 @media (min-width: 900px) {
   .sc-close__inner {
@@ -538,65 +516,8 @@ body:has(.sc-stage) ::selection {
   margin: 0;
 }
 
-/* ── Paper pages (book-a-call): same tokens, existing widget restyled. ──── */
-.sc-paper {
-  --color-pib-bg: #f3efe6;
-  --color-pib-surface: #e7e1d4;
-  --color-pib-surface-2: #ded7c8;
-  --color-pib-card: #e7e1d4;
-  --color-pib-text: #1a1714;
-  --color-pib-text-muted: #4e4841;
-  --color-pib-text-faint: #6f685f;
-  --color-pib-line: rgba(26, 23, 20, 0.14);
-  --color-pib-line-strong: rgba(26, 23, 20, 0.32);
-  --color-pib-accent: #e4572e;
-  --color-pib-accent-hover: #c94a25;
-  --color-pib-accent-soft: rgba(228, 87, 46, 0.1);
-  --pib-control-height: 2.75rem;
-}
-.sc-paper .bento-card {
-  border-radius: 6px;
-  box-shadow: var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light);
-}
-.sc-paper .bento-card:hover {
-  transform: none;
-  background: var(--color-pib-surface);
-}
-.sc-paper .bento-card::before {
-  display: none;
-}
-.sc-paper .btn-pib-accent {
-  border-radius: 4px;
-  color: var(--sc-accent-ink);
-  font-size: 1rem;
-}
-.sc-paper .btn-pib-accent:hover {
-  transform: none;
-  color: #f3efe6;
-}
-.sc-paper .btn-pib-secondary {
-  border-radius: 4px;
-  font-size: 1rem;
-}
-.sc-paper .btn-pib-secondary:hover {
-  background: rgba(26, 23, 20, 0.05);
-  border-color: var(--sc-line-strong);
-}
-.sc-paper .eyebrow {
-  color: var(--sc-accent);
-}
-.sc-paper input,
-.sc-paper textarea {
-  border-radius: 4px !important;
-  color: var(--sc-ink);
-}
-.sc-paper input::placeholder,
-.sc-paper textarea::placeholder {
-  color: rgba(78, 72, 65, 0.6);
-}
-.sc-paper .text-red-400 {
-  color: #b3401d;
-}
+/* .sc-paper classname stays on auth/public/lead/embed shells as a layout
+   marker only — no CSS rule. Paper tokens are the default on :root. */
 .sc-paper-page {
   min-height: 100svh;
   padding: calc(var(--sc-u) * 28) var(--sc-pad) var(--sc-section-pad);
@@ -659,7 +580,7 @@ body:has(.sc-stage) ::selection {
     font-size: clamp(2.25rem, 1rem + 9vw, 3.5rem);
   }
   .sc-panel {
-    transform: translate3d(0, calc(50% * (1 - var(--a6))), 0);
+    transform: translate3d(0, calc(50% * (1 - var(--slide))), 0);
   }
   .sc-panel::before {
     top: -1px;
@@ -687,8 +608,12 @@ body:has(.sc-stage) ::selection {
   .sc-tell {
     font-size: 0.8125rem;
   }
-  .sc-own-copy .sc-photo {
-    max-width: 16rem;
+  .sc-wipe {
+    max-width: 8rem;
+  }
+  .sc-own-lines {
+    gap: calc(var(--sc-u) * 1);
+    font-size: 0.9375rem;
   }
   .sc-peak-photo {
     padding-top: calc(var(--sc-u) * 14);
@@ -703,14 +628,15 @@ body:has(.sc-stage) ::selection {
   }
   .sc-close {
     padding-top: calc(var(--sc-u) * 14);
-    align-content: start;
     overflow: hidden;
   }
   .sc-close__inner {
     gap: calc(var(--sc-u) * 6);
   }
-  .sc-wordmark {
-    left: var(--sc-pad);
+}
+@media (max-width: 700px) and (max-height: 760px) {
+  .sc-wipe {
+    display: none;
   }
 }
 
@@ -742,5 +668,470 @@ body:has(.sc-stage) ::selection {
   .sc-rebuild[data-sc-act='resolve'] .sc-cell--dead,
   .sc-rebuild[data-sc-act='resolve'] .sc-cell--own {
     opacity: calc(1 - var(--close-op));
+  }
+}
+
+/* ── Public shell: every non-stage page on paper. ───────────────────────── */
+.sc-public {
+  display: flow-root;
+}
+.sc-public main {
+  padding-top: calc(var(--sc-u) * 14);
+}
+
+/* Navbar: wordmark, four text links, one CTA. */
+.sc-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: transparent;
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+.sc-nav--scrolled {
+  background: rgba(243, 239, 230, 0.92);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 var(--sc-line);
+}
+.sc-nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 6);
+  height: calc(var(--sc-u) * 14);
+  padding: 0 var(--sc-pad);
+  max-width: 82.5rem;
+  margin: 0 auto;
+}
+.sc-nav__wordmark {
+  text-decoration: none;
+  color: var(--sc-ink);
+  flex-shrink: 0;
+}
+.sc-nav__links {
+  display: none;
+  gap: calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sc-u) * 5);
+}
+.sc-nav__login {
+  display: none;
+}
+.sc-nav__cta {
+  display: none;
+  font-size: 0.9375rem;
+}
+.sc-nav__burger {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  margin-right: calc(var(--sc-u) * -2);
+  background: transparent;
+  border: 0;
+  color: var(--sc-ink);
+}
+.sc-nav__burger span {
+  display: block;
+  width: 20px;
+  height: 1px;
+  background: currentColor;
+  transition: transform 240ms ease;
+  transform-origin: center;
+}
+.sc-nav__burger span.is-open:first-child {
+  transform: translateY(3px) rotate(45deg);
+}
+.sc-nav__burger span.is-open:last-child {
+  transform: translateY(-3px) rotate(-45deg);
+}
+.sc-nav__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(26, 23, 20, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+.sc-nav__scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sc-nav__sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(88%, 24rem);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 8);
+  padding: calc(var(--sc-u) * 24) var(--sc-pad) calc(var(--sc-u) * 10);
+  background: var(--sc-canvas);
+  box-shadow: -1px 0 0 var(--sc-line);
+  transform: translateX(100%);
+  transition: transform 260ms ease-out;
+}
+.sc-nav__sheet.is-open {
+  transform: translateX(0);
+}
+.sc-nav__sheet-links {
+  display: grid;
+}
+.sc-nav__sheet-link {
+  padding: calc(var(--sc-u) * 4) 0;
+  border-bottom: 1px solid var(--sc-line);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--sc-ink-soft);
+  text-decoration: none;
+}
+.sc-nav__sheet-link[aria-current='page'] {
+  color: var(--sc-ink);
+}
+.sc-nav__sheet-foot {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+@media (min-width: 900px) {
+  .sc-nav__links,
+  .sc-nav__cta {
+    display: inline-flex;
+  }
+  .sc-nav__login {
+    display: inline;
+  }
+  .sc-nav__burger,
+  .sc-nav__scrim,
+  .sc-nav__sheet {
+    display: none;
+  }
+}
+
+/* Footer: one closing sentence, three quiet columns, the legal row. */
+.sc-footer {
+  margin-top: var(--sc-section-pad);
+  border-top: 1px solid var(--sc-line);
+  background: var(--sc-canvas);
+}
+.sc-footer__inner {
+  max-width: 82.5rem;
+  margin: 0 auto;
+  padding: var(--sc-section-pad) var(--sc-pad) calc(var(--sc-u) * 10);
+  display: grid;
+  gap: calc(var(--sc-u) * 14);
+}
+.sc-footer__close {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--sc-ink);
+}
+.sc-footer__cols {
+  display: grid;
+  gap: calc(var(--sc-u) * 10);
+}
+.sc-footer__label {
+  margin: 0 0 calc(var(--sc-u) * 3);
+}
+.sc-footer__list {
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+  color: var(--sc-ink-soft);
+}
+.sc-footer__address {
+  margin: calc(var(--sc-u) * 5) 0 0;
+  font-style: normal;
+  font-size: 0.9375rem;
+}
+.sc-footer__legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 6);
+  padding-top: calc(var(--sc-u) * 5);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-footer__legal p {
+  margin: 0;
+}
+.sc-footer__legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-footer__legal nav {
+  margin-left: auto;
+}
+@media (min-width: 700px) {
+  .sc-footer__cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Paper article pages (services, pricing, about, work): running text and an
+   asymmetric two-column rhythm. Never a grid of equal cards. */
+.sc-article {
+  max-width: 82.5rem;
+  margin: 0 auto;
+  /* Clears the 56px nav with a breath of paper above the kicker. */
+  padding: calc(var(--sc-u) * 26) var(--sc-pad) 0;
+  display: grid;
+  /* minmax(0, 1fr) so a long unbreakable child cannot widen the column past the viewport. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sc-section-pad);
+}
+/* Running-text CTAs wrap on paper pages; nowrap is for the stage only. */
+.sc-article .sc-cta {
+  white-space: normal;
+}
+.sc-article__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--sc-u) * 5);
+  max-width: 60rem;
+}
+.sc-article__head .sc-h1 {
+  max-width: 16ch;
+}
+.sc-article__lede {
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  line-height: 1.4;
+  color: var(--sc-ink-soft);
+  max-width: 48ch;
+  margin: 0;
+  text-wrap: pretty;
+}
+.sc-article__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--sc-u) * 8);
+  align-items: start;
+  padding-top: calc(var(--sc-u) * 8);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-article__row--flip .sc-article__aside {
+  order: -1;
+}
+.sc-article__aside {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.sc-article__h3 {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  margin: 0;
+}
+.sc-article__body {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.sc-article__body p {
+  margin: 0;
+}
+.sc-article__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.5;
+  color: var(--sc-ink-soft);
+}
+.sc-article__list li {
+  padding-left: calc(var(--sc-u) * 5);
+  position: relative;
+}
+.sc-article__list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: calc(var(--sc-u) * 3);
+  height: 2px;
+  background: var(--sc-accent);
+}
+.sc-article__price {
+  font-size: clamp(2rem, 1.2rem + 3vw, 3.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  margin: 0;
+}
+.sc-article__proof {
+  border-left: 2px solid var(--sc-accent);
+  padding-left: calc(var(--sc-u) * 4);
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+}
+.sc-article__proof p {
+  margin: 0;
+}
+.sc-article__photo {
+  width: min(100%, 26rem);
+}
+
+/* Plates: real screenshots with the terracotta drop, the same move as the home. */
+.sc-plate {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  background: var(--sc-surface);
+  /* Same drop as the home and the pinned sections. */
+  box-shadow: 12px 12px 0 var(--sc-accent);
+  flex-shrink: 0;
+}
+.sc-plate img {
+  object-fit: cover;
+  object-position: top center;
+}
+.sc-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(26, 23, 20, 0.18);
+  z-index: 2;
+}
+.sc-plate__caption {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 22px);
+  margin: 0;
+  white-space: nowrap;
+}
+.sc-plate--wide {
+  width: 100%;
+  max-width: none;
+}
+/* A plate with a caption needs room below it. */
+.sc-plate:has(.sc-plate__caption) {
+  margin-bottom: calc(var(--sc-u) * 8);
+}
+
+/* Page head with a plate: copy left, plate right over an offset block. */
+.sc-article__head--plated {
+  max-width: none;
+  gap: calc(var(--sc-u) * 12);
+}
+.sc-article__head-copy {
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+  max-width: 60rem;
+}
+.sc-article__head-art {
+  position: relative;
+  padding: 7% 7% 0 0;
+}
+.sc-article__head-art .sc-plate {
+  position: relative;
+  z-index: 1;
+}
+.sc-block {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 78%;
+  height: 78%;
+  background: var(--sc-accent);
+}
+@media (min-width: 900px) {
+  .sc-article__head--plated {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    align-items: center;
+    gap: calc(var(--sc-u) * 16);
+  }
+  .sc-article__head-art {
+    padding: 9% 0 0 9%;
+  }
+  .sc-block {
+    right: calc(var(--sc-pad) * -1);
+    width: 82%;
+    height: 82%;
+  }
+}
+.sc-article__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.sc-article__table th,
+.sc-article__table td {
+  text-align: left;
+  vertical-align: top;
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 3) calc(var(--sc-u) * 3) 0;
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-article__table th {
+  font-weight: 500;
+  color: var(--sc-ink);
+}
+.sc-article__table td {
+  color: var(--sc-ink-soft);
+}
+.sc-article__table thead th {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-soft);
+  border-bottom-color: var(--sc-line-strong);
+}
+.sc-article__quote {
+  margin: 0;
+  display: grid;
+  gap: calc(var(--sc-u) * 3);
+}
+.sc-article__quote p {
+  margin: 0;
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.35;
+  color: var(--sc-ink);
+  text-wrap: pretty;
+}
+.sc-article__quote footer {
+  color: var(--sc-ink-soft);
+}
+.sc-article__cta {
+  margin: 0;
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.35;
+  max-width: 40ch;
+  color: var(--sc-ink);
+}
+@media (min-width: 900px) {
+  .sc-article__row {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: calc(var(--sc-u) * 14);
+  }
+  .sc-article__row--flip {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+  .sc-article__row--flip .sc-article__aside {
+    order: 0;
   }
 }

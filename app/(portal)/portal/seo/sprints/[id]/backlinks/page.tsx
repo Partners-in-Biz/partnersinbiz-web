@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export default async function BacklinksTab({ params }: { params: Promise<{ id: s
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="pib-label mb-2">Authority pipeline</p>
-          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Backlinks</h2>
+          <h2 className="text-2xl text-[var(--color-pib-text)]">Backlinks</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="pib-pill">{links.length} total</span>
@@ -46,12 +47,12 @@ export default async function BacklinksTab({ params }: { params: Promise<{ id: s
         <section key={type} className="pib-card-section">
           <div className="pib-card-section-header flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold capitalize text-[var(--color-pib-text)]">
+              <h3 className="text-sm capitalize text-[var(--color-pib-text)]">
                 {type.replace('_', ' ')}
               </h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{items.length} opportunities</p>
             </div>
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">hub</span></span>
+            <Icon name="hub" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -70,12 +71,12 @@ export default async function BacklinksTab({ params }: { params: Promise<{ id: s
                   <tr key={l.id} className="transition-colors hover:bg-white/[0.03]">
                     <td className="px-4 py-3 font-medium text-[var(--color-pib-text)]">{l.source}</td>
                     <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{l.domain}</td>
-                    <td className="px-4 py-3">{l.theirDR ?? '—'}</td>
+                    <td className="px-4 py-3">{l.theirDR ?? ' - '}</td>
                     <td className="px-4 py-3">
                       <span className={STATUS_PILL[l.status] ?? 'pib-pill'}>{l.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs">{l.submittedAt ? new Date(l.submittedAt).toLocaleDateString() : '—'}</td>
-                    <td className="px-4 py-3 text-xs">{l.liveAt ? new Date(l.liveAt).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3 text-xs">{l.submittedAt ? new Date(l.submittedAt).toLocaleDateString() : ' - '}</td>
+                    <td className="px-4 py-3 text-xs">{l.liveAt ? new Date(l.liveAt).toLocaleDateString() : ' - '}</td>
                   </tr>
                 ))}
               </tbody>

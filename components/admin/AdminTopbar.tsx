@@ -1,57 +1,74 @@
 import type { ReactNode } from 'react'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { Avatar, Crumbs, Icon } from '@/components/studio'
 
 interface AdminTopbarProps {
   userEmail: string
   userUid: string
   orgId: string
   onMenuClick?: () => void
+  /** @deprecated Layout switcher is retired. Prop kept for API compatibility. */
   onToggleLayout?: () => void
+  onOpenSearch?: () => void
   messageAction?: ReactNode
 }
 
-export function AdminTopbar({ userEmail, userUid, orgId, onMenuClick, messageAction }: AdminTopbarProps) {
+export function AdminTopbar({
+  userEmail,
+  userUid,
+  orgId,
+  onMenuClick,
+  onOpenSearch,
+  messageAction,
+}: AdminTopbarProps) {
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
 
   return (
-    <header className="pib-glass-bar pib-topbar-dense sticky top-0 z-30 justify-between px-3 md:px-4 shrink-0">
-      <div className="flex items-center gap-2">
+    <header
+      className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--sc-line)] bg-[var(--sc-canvas)] px-3 md:px-4"
+      style={{ height: 'calc(var(--sc-u) * 14)' }}
+    >
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="md:hidden flex flex-col justify-center items-center h-8 w-8 gap-[3px] rounded-md hover:bg-white/[0.06] transition-colors -ml-1"
+          className="md:hidden flex min-h-11 min-w-11 flex-col items-center justify-center gap-[3px] rounded hover:bg-black/[0.05] transition-colors -ml-1"
         >
-          <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-          <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-          <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
+          <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
+          <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
+          <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
         </button>
-        <span className="eyebrow !text-[10px]">Admin console</span>
-        <span className="hidden sm:inline w-1 h-1 rounded-full bg-[var(--color-pib-line-strong)]" />
-        <span className="hidden sm:inline text-xs text-[var(--color-pib-text-muted)]">
-          Partners in Biz
-        </span>
+        <Crumbs
+          items={[
+            { label: 'Admin console' },
+            { label: 'Partners in Biz' },
+          ]}
+        />
       </div>
-      <div className="flex items-center gap-2 md:gap-2.5">
+      <div className="flex items-center gap-1 md:gap-1.5">
+        {onOpenSearch ? (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            data-tip="Search (⌘K)"
+            data-tip-side="bottom"
+            aria-label="Search"
+            className="flex h-11 w-11 items-center justify-center rounded text-[var(--sc-ink-soft)] hover:bg-black/[0.05] hover:text-[var(--sc-ink)] transition-colors"
+          >
+            <Icon name="search" />
+          </button>
+        ) : null}
+        <ThemeToggle />
         <NotificationBell mode="admin" orgId={orgId} userId={userUid} />
         {messageAction}
-        {/* Temporarily hidden while the admin layout switcher is being revisited.
-        <button
-          onClick={onToggleLayout}
-          title="Switch to topbar layout"
-          className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-        >
-          <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
-        </button>
-        */}
-        <div className="h-7 w-7 rounded-full border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-cyan-soft)] flex items-center justify-center text-[11px] font-medium text-[#5EEAD4]">
-          {initials || '·'}
-        </div>
+        <Avatar initials={initials || '·'} size="sm" alt="" />
         <a
           href="/api/auth/logout"
-          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors inline-flex items-center gap-1"
+          className="inline-flex items-center gap-1 text-xs text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)] transition-colors"
         >
-          <span className="material-symbols-outlined text-[16px]">logout</span>
+          <Icon name="logout" />
           <span className="hidden sm:inline">Sign out</span>
         </a>
       </div>

@@ -1,7 +1,7 @@
 // app/lead/layout.tsx
 //
 // Minimal HTML layout for the public /lead/* pages (e.g. DOI confirmation).
-// Overrides the marketing root layout so we get a clean white screen with
+// Overrides the marketing root layout so we get a clean paper screen with
 // no agency-site navigation.
 
 import type { Metadata } from 'next'
@@ -14,8 +14,10 @@ export const metadata: Metadata = {
 export default function LeadLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, padding: 0, background: '#f8fafc' }}>
-        {children}
+      <body style={{ margin: 0, padding: 0 }}>
+        <div className="sc-stage sc-paper sc-stage--flat">
+          {children}
+        </div>
       </body>
     </html>
   )

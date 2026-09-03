@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -68,7 +70,7 @@ function tsToDate(ts: any): Date | null {
 
 function timeAgo(ts: any): string {
   const date = tsToDate(ts)
-  if (!date) return '—'
+  if (!date) return ' - '
 
   const now = new Date()
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
@@ -83,7 +85,7 @@ function timeAgo(ts: any): string {
 function PlatformBadge({ platform }: { platform: string }) {
   const color = PLATFORM_COLORS[platform.toLowerCase()] || 'bg-[var(--color-pib-line-strong)]'
   return (
-    <div className={`w-3 h-3 rounded-full ${color}`} title={platform} />
+    <div className={`w-3 h-3 rounded ${color}`} title={platform} />
   )
 }
 
@@ -266,7 +268,7 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <header>
-          <p className="eyebrow">Social · Inbox</p>
+          <p className="sc-tiny">Social · Inbox</p>
           <h1 className="pib-page-title mt-2">Social Inbox</h1>
           <p className="pib-page-sub">Manage engagement and replies</p>
         </header>
@@ -299,19 +301,19 @@ export default function InboxPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Unread</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{unreadCount}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{unreadCount}</p>
         </div>
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Comments</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{commentCount}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{commentCount}</p>
         </div>
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Mentions</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{mentionCount}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{mentionCount}</p>
         </div>
         <div className="pib-stat-card">
           <p className="pib-label mb-1">Messages</p>
-          <p className="text-2xl font-bold text-[var(--color-pib-text)]">{dmCount}</p>
+          <p className="text-2xl text-[var(--color-pib-text)]">{dmCount}</p>
         </div>
       </div>
 
@@ -327,7 +329,7 @@ export default function InboxPage() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedPlatform(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+              className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                 selectedPlatform === null
                   ? 'bg-[var(--color-accent-v2)] text-black'
                   : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -339,7 +341,7 @@ export default function InboxPage() {
               <button
                 key={platform}
                 onClick={() => setSelectedPlatform(platform)}
-                className={`px-3 py-1.5 rounded-full text-sm font-label flex items-center gap-2 transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-label flex items-center gap-2 transition-colors ${
                   selectedPlatform === platform
                     ? 'bg-[var(--color-accent-v2)] text-black'
                     : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -358,7 +360,7 @@ export default function InboxPage() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedType(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+              className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                 selectedType === null
                   ? 'bg-[var(--color-accent-v2)] text-black'
                   : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -370,7 +372,7 @@ export default function InboxPage() {
               <button
                 key={t}
                 onClick={() => setSelectedType(t as EngagementType)}
-                className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                   selectedType === t
                     ? 'bg-[var(--color-accent-v2)] text-black'
                     : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -388,7 +390,7 @@ export default function InboxPage() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setSelectedStatus(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+              className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                 selectedStatus === null
                   ? 'bg-[var(--color-accent-v2)] text-black'
                   : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -400,7 +402,7 @@ export default function InboxPage() {
               <button
                 key={s}
                 onClick={() => setSelectedStatus(s as EngagementStatus)}
-                className={`px-3 py-1.5 rounded-full text-sm font-label transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-label transition-colors ${
                   selectedStatus === s
                     ? 'bg-[var(--color-accent-v2)] text-black'
                     : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -440,7 +442,7 @@ export default function InboxPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">inbox</span>
+          <Icon name="inbox" />
           <h2 className="pib-empty-state-title">No inbox items</h2>
         </div>
       ) : (
@@ -459,7 +461,7 @@ export default function InboxPage() {
                     <img
                       src={item.fromUser.avatarUrl}
                       alt={item.fromUser.name}
-                      className="w-10 h-10 rounded-full shrink-0"
+                      className="w-10 h-10 rounded shrink-0"
                     />
                   )}
                   <div className="flex-1 min-w-0">
@@ -529,7 +531,7 @@ export default function InboxPage() {
                     placeholder="Type your reply..."
                     className="pib-textarea w-full"
                     rows={2}
-                  />
+                   aria-label="Type your reply..."/>
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => handleReply(item.id)}

@@ -30,7 +30,7 @@ function WorkQueueItemCard({ item, actions }: { item: WorkQueueItem; actions: Re
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{KIND_LABEL[item.kind]}</p>
-          <h4 className="break-words font-headline text-base font-semibold text-[var(--color-pib-text)]">{item.title}</h4>
+          <h4 className="break-words font-headline text-base text-[var(--color-pib-text)]">{item.title}</h4>
         </div>
         <StatusPill status={itemStatus(item)} />
       </div>
@@ -59,7 +59,7 @@ export function YouTubeStudioWorkQueue({ groups, renderItemActions }: YouTubeStu
         const items = groups[group.key]
         return (
           <section key={group.key} className="space-y-3">
-            <h3 className="flex items-center gap-2 font-headline text-lg font-semibold text-[var(--color-pib-text)]">
+            <h3 className="flex items-center gap-2 font-headline text-lg text-[var(--color-pib-text)]">
               {group.label}
               <span className="text-sm font-normal text-[var(--color-pib-text-muted)]">({items.length})</span>
             </h3>

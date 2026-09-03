@@ -128,7 +128,7 @@ export function AssetGrid({
     <div className="space-y-10">
       {showVideos && videos.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-lg font-semibold">Videos ({videos.length})</h2>
+          <h2 className="text-lg">Videos ({videos.length})</h2>
           <div className="space-y-8">
             {videos.map((post) => (
               <div key={post.id} className="card p-5 space-y-4">
@@ -139,7 +139,7 @@ export function AssetGrid({
                       'Untitled video'}
                   </h3>
                   <span className="pib-pill pib-pill-rose">
-                    {post.status ?? '—'}
+                    {post.status ?? ' - '}
                   </span>
                 </div>
                 <VideoTriptych post={post} brand={brand} />
@@ -168,7 +168,7 @@ export function AssetGrid({
 
       {showBlogs && blogs.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Blogs ({blogs.length})</h2>
+          <h2 className="text-lg">Blogs ({blogs.length})</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {blogs.map((blog) => (
               <div key={blog.id} className="space-y-2">
@@ -182,7 +182,7 @@ export function AssetGrid({
 
       {showSocial && social.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Social ({social.length})</h2>
+          <h2 className="text-lg">Social ({social.length})</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {social.map((post) => (
               <div key={post.id} className="space-y-2">

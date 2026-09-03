@@ -2,6 +2,7 @@
 
 import type { PublicMessageModelOption } from '@/lib/messages/model-catalog'
 import type { ModelRuntimeSelection } from './ModelProviderPicker'
+import { Icon } from '@/components/studio'
 
 interface PinnedModelStripProps {
   models: PublicMessageModelOption[]
@@ -25,9 +26,9 @@ export default function PinnedModelStrip({
   if (models.length === 0) return null
 
   return (
-    <div className="mb-3 rounded-xl border border-[var(--color-card-border)] bg-white/[0.03] p-2" data-testid="pinned-model-strip">
+    <div className="mb-3 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-2" data-testid="pinned-model-strip">
       <div className="pib-label mb-2 flex items-center gap-1.5 px-1">
-        <span className="material-symbols-outlined text-[13px]">star</span>
+        <Icon name="star" className="text-[13px]" />
         Pinned models
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -37,7 +38,7 @@ export default function PinnedModelStrip({
             && (!selected.llmConnectionId || selected.llmConnectionId === model.connectionId)
           const pinned = pinnedKeys.includes(keyFor(model))
           return (
-            <span key={keyFor(model)} className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-[var(--color-card-border)] bg-black/10">
+            <span key={keyFor(model)} className="inline-flex max-w-full items-center overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
               <button
                 type="button"
                 onClick={() => onSelect(model)}
@@ -56,7 +57,7 @@ export default function PinnedModelStrip({
                 className="grid h-6 w-6 place-items-center text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 aria-label={pinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
               >
-                <span className="material-symbols-outlined text-[13px]">{pinned ? 'close' : 'star'}</span>
+                <Icon name={pinned ? 'close' : 'star'} className="text-[13px]" />
               </button>
             </span>
           )

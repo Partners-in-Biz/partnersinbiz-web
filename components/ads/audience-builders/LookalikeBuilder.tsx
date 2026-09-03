@@ -31,7 +31,7 @@ export function LookalikeBuilder({ orgId, onComplete, onCancel }: Props) {
           setSources((body.data as AdCustomAudience[]) ?? [])
         }
       } catch {
-        // silently ignore — user can still see empty dropdown
+        // silently ignore - user can still see empty dropdown
       } finally {
         if (!cancelled) setLoadingSources(false)
       }
@@ -111,7 +111,7 @@ export function LookalikeBuilder({ orgId, onComplete, onCancel }: Props) {
           disabled={submitting || loadingSources}
         >
           <option value="">
-            {loadingSources ? 'Loading…' : sources.length === 0 ? 'No READY audiences' : '— Select —'}
+            {loadingSources ? 'Loading…' : sources.length === 0 ? 'No READY audiences' : ' -  Select - '}
           </option>
           {sources.map((ca) => (
             <option key={ca.id} value={ca.id}>
@@ -125,10 +125,10 @@ export function LookalikeBuilder({ orgId, onComplete, onCancel }: Props) {
       </label>
 
       <label className="block text-sm">
-        <span className="font-medium">Similarity — {percent}%</span>
+        <span className="font-medium">Similarity - {percent}%</span>
         <input
           type="range"
-          className="mt-1 w-full accent-[#F5A623]"
+          className="mt-1 w-full accent-[var(--sc-accent)]"
           min={1}
           max={10}
           step={1}

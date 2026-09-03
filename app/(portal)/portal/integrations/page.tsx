@@ -14,7 +14,7 @@ export default async function PortalIntegrationsPage({
 }) {
   const params = await searchParams
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <IntegrationsGrid orgId={params?.orgId} />
       <IntegrationsWorkspace orgId={params?.orgId} />
     </div>

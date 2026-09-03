@@ -18,15 +18,15 @@ export interface NavItem {
 
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
-  { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert',    group: 'work' },
+  { label: 'Mission control', href: '/admin/briefings',    icon: 'crisis_alert',    group: 'work' },
   { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases',    group: 'work', activePatterns: ['/admin/announcements', '/admin/changelog'] },
-  { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive',   group: 'work' },
+  { label: 'Loop engine',     href: '/admin/loop-engine',  icon: 'all_inclusive',   group: 'work' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', group: 'work', activePatterns: ['/admin/organizations', '/admin/org'] },
   { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg', group: 'work' },
-  { label: 'Demo Orgs', href: '/admin/demo-orgs', icon: 'science', group: 'work' },
+  { label: 'Demo orgs', href: '/admin/demo-orgs', icon: 'science', group: 'work' },
   { label: 'Billing', href: '/admin/billing/revenue', icon: 'payments', group: 'data', activePatterns: ['/admin/billing', '/admin/plans', '/admin/partners'] },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'work', activePatterns: ['/admin/agents', '/admin/hermes'] },
-  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
+  { label: 'Skill lab', href: '/admin/skill-lab', icon: 'science', group: 'data' },
   { label: 'Content', href: '/admin/content/seo', icon: 'article', group: 'data', activePatterns: ['/admin/content'] },
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
@@ -35,12 +35,12 @@ export const OPERATOR_NAV: NavItem[] = [
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Home',            href: '/admin/dashboard',    icon: 'space_dashboard' },
-  { label: 'Mission Control', href: '/admin/briefings',    icon: 'crisis_alert' },
+  { label: 'Mission control', href: '/admin/briefings',    icon: 'crisis_alert' },
   { label: 'Updates',         href: '/admin/updates',      icon: 'new_releases' },
-  { label: 'Loop Engine',     href: '/admin/loop-engine',  icon: 'all_inclusive' },
+  { label: 'Loop engine',     href: '/admin/loop-engine',  icon: 'all_inclusive' },
   { label: 'Organisations', href: '/admin/organizations', icon: 'groups', activePatterns: ['/admin/organizations', '/admin/org'] },
   { label: 'Onboarding', href: '/admin/onboarding', icon: 'how_to_reg' },
-  { label: 'Demo Orgs', href: '/admin/demo-orgs', icon: 'science' },
+  { label: 'Demo orgs', href: '/admin/demo-orgs', icon: 'science' },
   {
     label: 'Billing', href: '/admin/billing/revenue', icon: 'payments',
     children: [
@@ -67,7 +67,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     ],
     activePatterns: ['/admin/agents', '/admin/hermes'],
   },
-  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
+  { label: 'Skill lab', href: '/admin/skill-lab', icon: 'science' },
   {
     label: 'Content', href: '/admin/content/seo', icon: 'article',
     children: [
@@ -101,9 +101,9 @@ export function workspaceNav(slug: string): NavItem[] {
     { label: 'Projects',  href: `/admin/org/${slug}/projects`,   icon: 'rocket_launch', group: 'work' },
     { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description', group: 'work' },
     { label: 'Research', href: `/admin/org/${slug}/research`, icon: 'travel_explore', group: 'work' },
-    { label: 'Book Studio', href: `/admin/org/${slug}/book-studio`, icon: 'auto_stories', group: 'work', activePatterns: [`/admin/org/${slug}/book-studio`] },
-    { label: 'Mobile Apps', href: `/admin/org/${slug}/mobile-apps`, icon: 'smartphone', group: 'work' },
-    { label: 'YouTube Studio', href: `/admin/org/${slug}/youtube-studio`, icon: 'smart_display', group: 'work' },
+    { label: 'Book studio', href: `/admin/org/${slug}/book-studio`, icon: 'auto_stories', group: 'work', activePatterns: [`/admin/org/${slug}/book-studio`] },
+    { label: 'Mobile apps', href: `/admin/org/${slug}/mobile-apps`, icon: 'smartphone', group: 'work' },
+    { label: 'YouTube studio', href: `/admin/org/${slug}/youtube-studio`, icon: 'smart_display', group: 'work' },
     {
       label: 'Marketing',
       href: `/admin/org/${slug}/marketing`,

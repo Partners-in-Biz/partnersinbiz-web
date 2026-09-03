@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 import { useCallback, useEffect, useState } from 'react'
 
@@ -47,14 +48,14 @@ interface Thresholds {
 
 const STATUS_DOT: Record<string, string> = {
   ok: 'bg-emerald-500',
-  degraded: 'bg-amber-500',
+  degraded: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]',
   down: 'bg-red-500',
   'not-configured': 'bg-white/30',
 }
 const STATUS_TEXT: Record<string, string> = {
   ok: 'text-emerald-400',
-  degraded: 'text-amber-400',
-  down: 'text-red-400',
+  degraded: 'text-[var(--st-warning)]',
+  down: 'text-[var(--st-danger)]',
   'not-configured': 'text-[var(--color-pib-text-muted)]',
 }
 
@@ -78,7 +79,7 @@ function fmtUptime(s: number): string {
 function timeAgo(iso: string | null): string {
   if (!iso) return 'never'
   const d = Date.now() - new Date(iso).getTime()
-  if (Number.isNaN(d)) return '—'
+  if (Number.isNaN(d)) return '-'
   const s = Math.floor(d / 1000)
   if (s < 60) return `${s}s ago`
   const m = Math.floor(s / 60)
@@ -171,14 +172,14 @@ export default function InfrastructureClient() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">System</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Infrastructure</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Infrastructure</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-            VPS agent hosts and platform services. Metrics are pulled live from each Hermes sidecar — fields the
+            VPS agent hosts and platform services. Metrics are pulled live from each Hermes sidecar - fields the
             sidecar does not expose are shown as &ldquo;not instrumented&rdquo;. Refreshes every 60s.
           </p>
         </div>
-        <button onClick={load} className="pib-btn-ghost text-sm font-label flex items-center gap-1.5 shrink-0">
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
+        <button onClick={load} className="st-btn st-btn--ghost text-sm font-label flex items-center gap-1.5 shrink-0">
+          <Icon name="refresh" />
           Refresh
         </button>
       </div>
@@ -189,19 +190,19 @@ export default function InfrastructureClient() {
 
       {/* Agent / host cards */}
       <div>
-        <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Agent Hosts</h2>
+        <h2 className="font-headline font-medium text-[var(--color-pib-text)] mb-3">Agent Hosts</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {loading
-            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
+            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-[6px]" />)
             : servers.length === 0
               ? <p className="text-sm text-[var(--color-pib-text-muted)]">No agents registered.</p>
               : servers.map((srv) => (
-                  <div key={srv.agentId} className="pib-card p-4">
+                  <div key={srv.agentId} className="st-panel p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_DOT[srv.status]}`} />
-                          <h3 className="font-headline font-semibold text-[var(--color-pib-text)]">{srv.name}</h3>
+                          <span className={`inline-block w-2.5 h-2.5 rounded ${STATUS_DOT[srv.status]}`} />
+                          <h3 className="font-headline font-medium text-[var(--color-pib-text)]">{srv.name}</h3>
                         </div>
                         <p className="text-xs font-mono text-[var(--color-pib-text-muted)] mt-0.5">{srv.host}</p>
                       </div>
@@ -239,17 +240,17 @@ export default function InfrastructureClient() {
 
       {/* Platform services */}
       {!loading && platformServices.length > 0 && (
-        <div className="pib-card p-4">
-          <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Platform Services</h2>
+        <div className="st-panel p-4">
+          <h2 className="font-headline font-medium text-[var(--color-pib-text)] mb-3">Platform Services</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {platformServices.map((svc) => (
               <div key={svc.key} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5">
                 <span className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
-                  <span className={`inline-block w-2 h-2 rounded-full ${STATUS_DOT[svc.status]}`} />
+                  <span className={`inline-block w-2 h-2 rounded ${STATUS_DOT[svc.status]}`} />
                   {svc.name}
                 </span>
                 <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
-                  {svc.latencyInstrumented ? (svc.latencyMs === null ? '—' : `${svc.latencyMs} ms`) : 'not instrumented'}
+                  {svc.latencyInstrumented ? (svc.latencyMs === null ? '-' : `${svc.latencyMs} ms`) : 'not instrumented'}
                 </span>
               </div>
             ))}
@@ -259,9 +260,9 @@ export default function InfrastructureClient() {
 
       {/* Alert thresholds */}
       {thresholds && (
-        <form onSubmit={saveAlerts} className="pib-card p-4 space-y-3">
+        <form onSubmit={saveAlerts} className="st-panel p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-headline font-semibold text-[var(--color-pib-text)]">Alert Thresholds</h2>
+            <h2 className="font-headline font-medium text-[var(--color-pib-text)]">Alert Thresholds</h2>
             <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
@@ -284,7 +285,7 @@ export default function InfrastructureClient() {
                 <input
                   type="number"
                   min={1}
-                  className="pib-input w-full text-sm font-mono"
+                  className="st-input w-full text-sm font-mono"
                   value={thresholds[key]}
                   disabled={!isSuperAdmin}
                   onChange={(e) => setThresholds({ ...thresholds, [key]: Number(e.target.value) })}
@@ -294,13 +295,13 @@ export default function InfrastructureClient() {
           </div>
           {isSuperAdmin ? (
             <div className="flex items-center gap-3">
-              <button type="submit" disabled={saving} className="pib-btn-primary text-sm font-label disabled:opacity-50">
+              <button type="submit" disabled={saving} className="st-btn st-btn--primary text-sm font-label disabled:opacity-50">
                 {saving ? 'Saving…' : 'Save thresholds'}
               </button>
               {savedMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{savedMsg}</span>}
             </div>
           ) : (
-            <p className="text-xs text-[var(--color-pib-text-muted)]">Super admin only — view only.</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Super admin only - view only.</p>
           )}
         </form>
       )}

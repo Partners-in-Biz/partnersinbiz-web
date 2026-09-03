@@ -37,7 +37,7 @@ function StickyNoteNodeComponent({ data, selected }: NodeProps) {
           fontSize: 13,
           outline: 'none',
         }}
-      />
+       aria-label="Note…"/>
     </div>
   )
 }

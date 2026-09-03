@@ -3,7 +3,7 @@
 // components/email-analytics/charts.tsx
 //
 // Pure-SVG, dependency-free charts for the email analytics dashboard.
-// Dark theme + amber accent. Series are kept simple — { date, value } or
+// Dark theme + amber accent. Series are kept simple  -  { date, value } or
 // { label, value }. Layout numbers are intentionally hardcoded so the file
 // stays under ~150 lines total.
 
@@ -155,7 +155,7 @@ export function heatmapShade(value: number): string {
 }
 
 /**
- * Returns the readable text colour to use on top of a heatmap cell — light
+ * Returns the readable text colour to use on top of a heatmap cell  -  light
  * on dark cells (high values), dim on faint cells (low values).
  */
 export function heatmapTextColor(value: number): string {
@@ -187,9 +187,9 @@ export function CountBar({
             {rightLabel ?? value.toLocaleString()}
           </span>
         </div>
-        <div className="h-1.5 mt-1 rounded-full bg-[var(--color-pib-line)] overflow-hidden">
+        <div className="h-1.5 mt-1 rounded bg-[var(--color-pib-line)] overflow-hidden">
           <div
-            className="h-full bg-[var(--color-pib-blue)]"
+            className="h-full bg-[var(--sc-ink-soft)]"
             style={{ width: `${pct}%` }}
           />
         </div>

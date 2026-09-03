@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Portal Agent Org Chart — active organisation auto-selected.
+ * Portal Agent Org Chart - active organisation auto-selected.
  * Org owners/admins can build a different hierarchy per client org.
  *
  * Uses usePortalOrgScope so URL orgId and the shell workspace switcher stay
@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AgentOrgChartClient from '@/components/agents/org-chart/AgentOrgChartClient'
+import { ButtonLink, Icon, Notice, Title } from '@/components/studio'
 import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
@@ -104,29 +105,25 @@ export default function PortalAgentOrgChartPage() {
 
   if (!routeScope.orgId || !ready) {
     return (
-      <div className="p-6 text-sm text-[var(--color-pib-text-muted)]">Loading organisation…</div>
+      <div className="p-5 text-sm text-[var(--sc-ink-soft)]">Loading organisation…</div>
     )
   }
 
   if (bootError || !orgId) {
     return (
-      <div className="space-y-3 p-6">
-        <h1 className="text-xl font-semibold text-[var(--color-pib-text)]">Agent org chart</h1>
-        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-          {bootError || 'No active organisation'}
-        </div>
-        <Link href={agentsHref} className="text-sm text-cyan-300 hover:underline">
-          Back to Agents
-        </Link>
+      <div className="space-y-4 p-5">
+        <Title as="h1">Agent org chart</Title>
+        <Notice tone="danger">{bootError || 'No active organisation'}</Notice>
+        <ButtonLink href={agentsHref} variant="ghost" size="sm">Back to Agents</ButtonLink>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-pib-text-muted)]">
-        <Link href={agentsHref} className="inline-flex items-center gap-1 hover:text-[var(--color-pib-text)]">
-          <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+    <div className="space-y-4 p-4 md:p-5">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--sc-ink-soft)]">
+        <Link href={agentsHref} className="inline-flex items-center gap-1 hover:text-[var(--sc-ink)]">
+          <Icon name="arrow_back" />
           Agents
         </Link>
         <span aria-hidden>·</span>
@@ -144,7 +141,7 @@ export default function PortalAgentOrgChartPage() {
         allowLiveRuntimeSync={isPlatformAdmin}
         seedTemplate={orgId === 'pib-platform-owner' ? 'platform' : 'minimal'}
         title="Agent organisation"
-        description="Build this organisation’s agent hierarchy. Seats can bind to linked-machine agent profiles. Ask Pip to provision profiles from a structure brief (skill: pib-agent-org-setup)."
+        description="Build this organisation's agent hierarchy. Seats can bind to linked-machine agent profiles. Ask Pip to provision profiles from a structure brief (skill: pib-agent-org-setup)."
       />
     </div>
   )

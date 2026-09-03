@@ -1,6 +1,6 @@
 'use client'
 // components/ads/linkedin/audience-builders/AppAudienceInfoCard.tsx
-// LinkedIn App audience — info-only card with workaround guidance — Phase 3 Batch 3
+// LinkedIn App audience - info-only card with workaround guidance - Phase 3 Batch 3
 
 interface Props {
   onSwitchToCustomerList?: () => void
@@ -11,7 +11,7 @@ export function LinkedinAppAudienceInfoCard({ onSwitchToCustomerList, onCancel }
   return (
     <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-6 space-y-4">
       <div>
-        <h3 className="text-base font-semibold">App audiences on LinkedIn</h3>
+        <h3 className="text-base font-medium">App audiences on LinkedIn</h3>
         <p className="text-sm text-white/60 mt-1">
           LinkedIn does not offer a native App audience equivalent to Meta or Google.
         </p>

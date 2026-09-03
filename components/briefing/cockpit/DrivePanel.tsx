@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 import { driveFileUrl } from './googleDeepLinks'
 import type { DriveFile } from './useRecentDrive'
@@ -69,8 +70,8 @@ export function DrivePanel({ status, files, loading }: Props) {
           rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 transition-colors hover:bg-[var(--color-card-hover)]"
         >
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0">
-            <span className="material-symbols-outlined text-[15px]">{mimeIcon(f.mimeType)}</span>
+          <span aria-hidden="true" className="shrink-0">
+            <Icon name={mimeIcon(f.mimeType)} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-medium text-[var(--color-pib-text)]">{f.name}</div>

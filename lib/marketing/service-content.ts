@@ -1,0 +1,413 @@
+import { CASE_STUDIES, SERVICES } from '@/lib/seo/site'
+import { WORK_SHOTS, type StageStill } from './stage-content'
+
+/**
+ * Copy for `/services` and `/services/[slug]`. Outcome first, then who it is
+ * for, then what ships, the price with what it buys, one real proof line, and
+ * the questions people ask. No em dashes, no filler verbs, one CTA label.
+ */
+
+export type ServiceSlug = (typeof SERVICES)[number]['slug']
+type CaseSlug = (typeof CASE_STUDIES)[number]['slug']
+
+export interface ServiceProof {
+  caseSlug: CaseSlug
+  /** One true sentence about the result. */
+  line: string
+}
+
+export interface ServiceContent {
+  slug: ServiceSlug
+  /** Short outcome, used on the index and as the H1. Under 10 words. */
+  headline: string
+  /** The one-paragraph pitch under the H1. */
+  lede: string
+  /** Who this is for. Three short paragraphs, running text. */
+  who: string[]
+  /** What ships. Short lines. */
+  deliverables: string[]
+  /** How it runs, in four steps. */
+  steps: { title: string; body: string }[]
+  proof: ServiceProof
+  price: {
+    /** As shown, e.g. "From R35,000". */
+    label: string
+    amount?: number
+    terms: string
+    /** What the price buys. */
+    includes: string[]
+    /** What the cheap alternative costs you. Optional. */
+    contrast?: string
+  }
+  faqs: { q: string; a: string }[]
+  relatedInsightSlugs: string[]
+  /** A real screenshot of this service's proof case, when one exists. Falls back to SERVICE_PLATES. */
+  plate?: StageStill
+}
+
+const ZAR = (n: number) => `R${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)}`
+
+/**
+ * One plate per service, shared by the filmstrip and the detail page so the two
+ * never disagree. Real screenshots only; where the proof case has no shot, the
+ * nearest one that does, credited honestly.
+ */
+export const SERVICE_PLATES: Record<ServiceSlug, { shot: StageStill; credit: string }> = {
+  'web-development': { shot: WORK_SHOTS.ahsLaw, credit: 'AHS Law. Number one on Google in eight weeks.' },
+  'web-applications': { shot: WORK_SHOTS.athleet, credit: 'Athleet. Club platform live for three clubs in under four weeks.' },
+  'mobile-apps': { shot: WORK_SHOTS.velox, credit: 'Velox. In the App Store and on Google Play.' },
+  'ai-integration': { shot: WORK_SHOTS.lumen, credit: 'Lumen. AI-generated reading passages in three languages.' },
+  'growth-systems': { shot: WORK_SHOTS.scrolledBrain, credit: 'Scrolled Brain. A 38% sign-up rate on the new landing page.' },
+  'bespoke-builds': { shot: WORK_SHOTS.lumen, credit: 'Lumen. Reading trainer shipped to both stores from one codebase.' },
+}
+
+export function plateFor(slug: ServiceSlug): { shot: StageStill; credit: string } {
+  const content = SERVICE_CONTENT[slug]
+  if (content.plate) {
+    const study = caseFor(content.proof.caseSlug)
+    return { shot: content.plate, credit: `${study.client}, ${study.industry}.` }
+  }
+  return SERVICE_PLATES[slug]
+}
+
+export const SERVICE_CONTENT: Record<ServiceSlug, ServiceContent> = {
+  'web-development': {
+    slug: 'web-development',
+    headline: 'A site that makes the phone ring.',
+    lede:
+      'A marketing site is the salesperson that works at 3am. We build the kind that opens the conversation: found on Google, fast on a phone, with an enquiry form that lands on your WhatsApp. Live in 2 to 4 weeks, and you own it outright.',
+    who: [
+      'An established business with a tired site. Customers are asking who built it. We replace it with something you are proud to send.',
+      'A startup before the fundraise. The site must not undermine the deck. We build it in two to four weeks so it is ready before the meetings are.',
+      'An agency that needs a build partner. Bring the Figma. We bring the Next.js build, the CMS, and a handover your client will thank you for.',
+    ],
+    deliverables: [
+      'Up to eight pages, written and designed for your business. No template.',
+      'Search set up properly: schema, sitemap, OpenGraph, a page Google can read.',
+      'Lead capture to your WhatsApp, inbox, or CRM.',
+      'Analytics from the first visit.',
+      'A CMS or markdown so you can edit copy yourself.',
+      'Deployed on your Vercel, in your GitHub, on your domain.',
+    ],
+    steps: [
+      { title: 'Brief', body: 'A 60-minute call. Audience, goals, pages, references. Fixed quote in three days.' },
+      { title: 'Design', body: 'Figma in five to seven days. One round of feedback built in.' },
+      { title: 'Build', body: 'A preview link from day one. WhatsApp updates while we ship.' },
+      { title: 'Launch', body: 'DNS cut-over, analytics live, Search Console verified. We watch the first day with you.' },
+    ],
+    proof: {
+      caseSlug: 'ahs-law',
+      line: 'AHS Law reached number one on Google for its primary practice term within eight weeks. Enquiries doubled. Mobile load 1.4 seconds.',
+    },
+    price: {
+      label: `From ${ZAR(35000)}`,
+      amount: 35000,
+      terms: 'Fixed. Half to start, half at launch. Live in 2 to 4 weeks.',
+      includes: [
+        'Up to eight pages, custom designed and written with you',
+        'On-page SEO, schema and sitemap',
+        'Lead capture and analytics wired',
+        'CMS or markdown editing',
+        'Deploy on your Vercel, code in your GitHub',
+        '30-day warranty after launch',
+      ],
+      contrast:
+        'The R8,000 site skips the writing, the search work and the lead capture, and you never own it. It looks cheaper for about six months.',
+    },
+    faqs: [
+      { q: 'Do you use templates?', a: 'No. Every site is designed for your brand and your audience, and the code is written by hand, not generated by a page builder.' },
+      { q: `What is included in ${ZAR(35000)}?`, a: 'Up to eight pages of custom design, the Next.js build, CMS or markdown editing, on-page SEO, analytics, lead-capture forms, and a deploy on your Vercel account. Blog systems, multiple languages and custom integrations are quoted on top.' },
+      { q: 'How long until launch?', a: 'Two to four weeks from kick-off, depending on how ready your content is. We keep it moving with weekly checkpoints.' },
+      { q: 'Will it rank on Google?', a: 'The technical foundation will not be the bottleneck: structured data, sitemap and OpenGraph are wired correctly and Lighthouse SEO scores 95 or better out of the gate. Ranking then depends on your content, your links and time.' },
+      { q: 'Do I own the code?', a: 'Yes. The repository lives on your GitHub, the deploy on your Vercel, the CMS on your account. You can fire us the day after launch and nothing breaks.' },
+      { q: 'What if I need changes after launch?', a: 'Edit copy yourself in the CMS, put us on a small retainer, or pay as you go at R950 an hour. Most clients pick the retainer.' },
+      { q: 'Can you migrate from WordPress, Wix or Squarespace?', a: 'Yes. We export or scrape the content, redirect the old URLs so you keep your rankings, and ship the new site.' },
+    ],
+    relatedInsightSlugs: [
+      'website-minimum-price-south-africa',
+      'south-african-website-cost-2026',
+      'website-maintenance-not-one-time',
+    ],
+  },
+
+  'web-applications': {
+    slug: 'web-applications',
+    headline: 'The spreadsheet became a job. Replace it with software.',
+    lede:
+      'When the off-the-shelf SaaS does not fit and the spreadsheet has become someone\'s full-time job, you need a real platform. We build production CRMs, dashboards, internal tools and bespoke SaaS with the discipline of a funded product team, and you own every line.',
+    who: [
+      'An operations team that has outgrown Notion, Airtable and the duct tape. You need real auth, real audit trails, real reporting.',
+      'A founder who sells the same engagement over and over. Wrap it in software, charge for it monthly, stop trading hours for revenue.',
+      'A scale-up that got to product-market fit on Bubble or Retool. Now you need something built to last, in code you own.',
+    ],
+    deliverables: [
+      'Auth and roles: email, OAuth, organisations, permissions.',
+      'A typed database and API, Firestore or Supabase.',
+      'A dashboard designed for your workflow, not a generic admin theme.',
+      'Admin tooling so you can run support without us.',
+      'An audit log: every action attributed, timestamped, queryable.',
+      'Tests on the critical paths, CI, preview deploys on every pull request.',
+      'Monitoring, error tracking and a runbook at launch.',
+    ],
+    steps: [
+      { title: 'Discovery', body: 'Two weeks. We map the workflow, sketch the data model, write the spec.' },
+      { title: 'Architecture', body: 'Figma for the screens, an ERD for the data, a decision record for every hard choice.' },
+      { title: 'Build in slices', body: 'Weekly previews. You use the app while we build it, so the spec evolves with real use.' },
+      { title: 'Launch', body: 'Production release, then a 60-day stabilisation window for the rough edges.' },
+    ],
+    proof: {
+      caseSlug: 'loyalty-plus',
+      line: 'Loyalty Plus: a ten-year-old B2B loyalty platform rebuilt with zero minutes of downtime on cut-over. Page loads went from eight seconds to under two.',
+    },
+    price: {
+      label: `From ${ZAR(120000)}`,
+      amount: 120000,
+      terms: 'Fixed scope, quoted after a two-week discovery. Most projects land between R180,000 and R450,000.',
+      includes: [
+        'Two-week discovery sprint',
+        'Auth, roles and audit log',
+        'Custom dashboard and admin',
+        'API and outbound webhooks',
+        '60-day stabilisation after launch',
+      ],
+      contrast:
+        'A no-code build is cheaper until the platform changes its pricing, sunsets a feature, or you need to hire someone who can extend it.',
+    },
+    faqs: [
+      { q: 'How is this different from a Bubble or Retool app?', a: 'We write real code. Any Next.js engineer can extend it, your data sits in a database you own, and nothing breaks when a no-code vendor changes its pricing.' },
+      { q: 'How long does an MVP take?', a: 'Six to twelve weeks depending on scope. You have a usable preview from the end of week two, not a reveal at the end.' },
+      { q: `Why does it start at ${ZAR(120000)}?`, a: 'A real web app needs auth, a database, an API, an admin panel, monitoring and a deploy pipeline before it does anything useful. R120,000 is the floor for doing all of that properly.' },
+      { q: 'Can you work with our engineers?', a: 'Yes. We own a slice of the codebase, review pull requests, write decision records, and hand over progressively.' },
+      { q: 'What if requirements change mid-build?', a: 'They will. We build in two-week slices with weekly previews so the spec evolves with use. Big changes are scoped and quoted as change orders.' },
+      { q: 'Who owns the IP?', a: 'You do. Everything ships to your GitHub, your Vercel and your database, and the contract assigns IP on delivery.' },
+    ],
+    relatedInsightSlugs: ['website-vs-app-south-africa-sme', 'next-js-16-for-business-websites', 'building-an-ai-agent-that-bills'],
+  },
+
+  'mobile-apps': {
+    slug: 'mobile-apps',
+    headline: 'One codebase. Both stores. Your customers in their pocket.',
+    lede:
+      'A real mobile app, not a wrapped website. iOS and Android share the business logic, ship from one team, and stay in sync. Offline that works, push that lands, and a path to both stores that we walk with you.',
+    who: [
+      'A SaaS whose customers want it on their phone. We build the companion app on the backend you already have.',
+      'A retailer or service business going digital first: loyalty, bookings, ordering, member portals.',
+      'A startup that needs a real app in testers\' hands fast. TestFlight in week three.',
+    ],
+    deliverables: [
+      'iOS and Android builds from one codebase.',
+      'Native-feel UI: platform conventions where they matter, your brand where it counts.',
+      'Offline as a first-class state: cached reads, queued writes, conflict handling.',
+      'Push notifications, segmented and actionable.',
+      'Sign in with Apple, Google and email, with Face ID and Touch ID.',
+      'Crash reporting and analytics events.',
+      'Store submission for both platforms: listings, screenshots, review responses.',
+    ],
+    steps: [
+      { title: 'Scope', body: 'We define version one ruthlessly. Mobile rewards focus.' },
+      { title: 'Build', body: 'Internal builds on TestFlight and the Play internal track from week one.' },
+      { title: 'Beta', body: 'A real cohort uses the app for two weeks. We fix what they hit.' },
+      { title: 'Submit', body: 'Listings written, screenshots produced, Apple\'s questions answered.' },
+    ],
+    proof: {
+      caseSlug: 'velox',
+      line: 'Velox: a mental maths trainer with a 60-second challenge loop, subscriptions and store-ready iOS and Android builds from a single codebase.',
+    },
+    price: {
+      label: `From ${ZAR(180000)}`,
+      amount: 180000,
+      terms: 'One number, both stores. Quoted after scope.',
+      includes: [
+        'Single codebase for iOS and Android',
+        'Push, auth and offline support',
+        'Store submission for both platforms',
+        '60-day support after launch',
+      ],
+    },
+    faqs: [
+      { q: 'Why not native Swift and Kotlin?', a: 'For most apps the user cannot tell the difference, and you ship to both platforms for roughly half the cost. When a project needs a native module, we write it.' },
+      { q: 'Can you publish to the App Store and Play Store?', a: 'Yes. Developer accounts, listings, screenshots, privacy declarations and the review process. Apple rejections are part of the job.' },
+      { q: 'Will it share a backend with my web app?', a: 'Almost always. The same API or Firestore that powers your web app powers the mobile app. One source of truth.' },
+      { q: 'How do updates work after launch?', a: 'JavaScript-only changes ship over the air within minutes. Native changes go through normal store review.' },
+      { q: `Is ${ZAR(180000)} for both platforms?`, a: 'Yes. One number, both stores.' },
+      { q: 'Do you design the app too?', a: 'Yes. Mobile design is its own discipline, and we design it in Figma before writing code.' },
+    ],
+    relatedInsightSlugs: ['website-vs-app-south-africa-sme', 'south-african-website-cost-2026'],
+  },
+
+  'ai-integration': {
+    slug: 'ai-integration',
+    headline: 'AI that does the work. Not a chat box that talks about it.',
+    lede:
+      'Most "AI features" are a chat window bolted onto a sidebar. We build the other kind: agents that draft the emails, triage the tickets, summarise the calls and write the reports. Production grade, with guardrails, evaluations and a paper trail.',
+    who: [
+      'An operations team drowning in triage: inbound enquiries, support tickets, document review.',
+      'A sales team doing manual outreach: first-touch emails, meeting prep, pipeline updates the senior people should not be typing.',
+      'A founder whose product is the AI. You need someone who has shipped agents to production, not someone who read the cookbook last week.',
+    ],
+    deliverables: [
+      'A custom agent on Claude or GPT with tool use, scoped to one workflow.',
+      'Retrieval over your own documents, with citations.',
+      'Guardrails: input validation, output schemas, hallucination checks.',
+      'An evaluation suite that catches regressions before your users do.',
+      'An audit log of every prompt, response and tool call.',
+      'Cost monitoring per tenant, with budget alerts and model fallbacks.',
+      'Wired to where the work lives: Slack, Gmail, your CRM, your CMS.',
+    ],
+    steps: [
+      { title: 'Pick the workflow', body: 'The one with the highest leverage and the clearest success criteria.' },
+      { title: 'Prototype', body: 'A working agent in two weeks, plus the evaluation suite that proves it works.' },
+      { title: 'Harden', body: 'Guardrails, monitoring, cost controls, retries, fallbacks.' },
+      { title: 'Release', body: 'Live behind a flag for one cohort, then rolled out as the numbers earn it.' },
+    ],
+    proof: {
+      caseSlug: 'scrolledbrain',
+      line: 'Scrolled Brain: a marketing site wired to a custom analytics stack from day one. Mobile Lighthouse 94, sign-up rate 38%.',
+    },
+    price: {
+      label: `From ${ZAR(75000)}`,
+      amount: 75000,
+      terms: 'One production workflow. Fixed after a use-case design call.',
+      includes: [
+        'One production agent or workflow',
+        'Retrieval over your knowledge base',
+        'Evaluation suite with regression tests',
+        'Audit log and cost monitoring',
+        '30-day tuning window after launch',
+      ],
+    },
+    faqs: [
+      { q: 'How is this different from a ChatGPT plugin?', a: 'A plugin is a chat box. Our agents take actions: file the ticket, send the email, update the record, draft the document. Chat is the input, the work is the value.' },
+      { q: 'Claude or GPT?', a: 'Both, depending on the job. We benchmark on your data and pick the model that wins on quality, latency and cost. Most production agents end up using two or three.' },
+      { q: 'How do you prevent hallucinations?', a: 'You design for them: strict output schemas, retrieval-grounded answers with citations, evaluations that catch regressions, and a human in the loop for high-stakes actions.' },
+      { q: 'What about data privacy?', a: 'Zero-retention API endpoints by default. Your data is not used for training. For sensitive work we can deploy through Bedrock or Azure for regional compliance.' },
+      { q: 'What does it cost to run?', a: 'Most agents we deploy run between R500 and R8,000 a month in API spend depending on volume. You see cost per query, per tenant, per workflow.' },
+      { q: 'How do you know it is working?', a: 'Golden-answer evaluations, production metrics on success and human-override rates, and the business number we agreed on: tickets closed, emails sent, hours saved.' },
+    ],
+    relatedInsightSlugs: ['ai-integration-roi-south-africa-sme', 'ai-chatbot-case-study-sme', 'building-an-ai-agent-that-bills'],
+  },
+
+  'growth-systems': {
+    slug: 'growth-systems',
+    headline: 'Marketing that runs while you run the business.',
+    lede:
+      'Content scheduling, email sequences, analytics and CRM workflows that talk to each other. We build the plumbing so the work compounds without daily babysitting, and you can see which of it brings in clients.',
+    who: [
+      'A marketing team without engineers. You have the strategy; you need the tools wired so they run on their own.',
+      'A founder doing their own marketing. You write the posts. You should not also be the publishing platform, the CRM and the analytics tool.',
+      'An agency that sells strategy and creative and needs the systems that deliver it for clients.',
+    ],
+    deliverables: [
+      'A content queue that posts to LinkedIn, X, Instagram and TikTok.',
+      'Email sequences for onboarding, nurture and re-engagement.',
+      'CRM wiring: contacts, leads and deals synced without copy and paste.',
+      'A dashboard that answers your questions, with funnel tracking that shows where leads die.',
+      'Slack or WhatsApp alerts for new leads, hot deals and churn signals.',
+      'Weekly reports generated for you or your clients.',
+    ],
+    steps: [
+      { title: 'Audit', body: 'Every tool you use, every leak in the funnel, every manual handover, mapped.' },
+      { title: 'Design', body: 'A diagram of the new plumbing. You approve it before we wire anything.' },
+      { title: 'Build', body: 'Two weeks for the connectors, schedulers and dashboards.' },
+      { title: 'Run', body: 'A monthly retainer to tune, extend and measure what moves the number.' },
+    ],
+    proof: {
+      caseSlug: 'scrolledbrain',
+      line: 'Scrolled Brain: analytics in production on day one and a 38% sign-up rate, about three times the previous baseline.',
+    },
+    price: {
+      label: `From ${ZAR(45000)} a month`,
+      amount: 45000,
+      terms: 'Monthly retainer. Twenty hours of build and tuning, cancel with 30 days\' notice.',
+      includes: [
+        '20 hours of senior build time a month',
+        'Content scheduling system',
+        'Email sequence templates',
+        'Analytics dashboard',
+        'Monthly performance review',
+      ],
+    },
+    faqs: [
+      { q: 'How is this different from Zapier?', a: 'Zapier connects two tools. When you have nine tools, brittle webhooks and a Monday dashboard, you need software with monitoring, retries and an audit trail.' },
+      { q: 'Can you use my existing CRM?', a: 'Yes. HubSpot, Pipedrive, Salesforce, or our own. We will tell you honestly if the CRM is the bottleneck.' },
+      { q: 'Do you write the content?', a: 'No. We build the system that publishes it and recommend writers if you need them.' },
+      { q: 'Can I cancel?', a: 'Yes, with 30 days\' notice. We export everything to your accounts before we go.' },
+      { q: 'Do you run ad campaigns?', a: 'No. We build the analytics that lets your ad team see what works.' },
+      { q: 'How do you measure success?', a: 'Three numbers agreed at the start, usually leads a month, cost per lead and conversion to deal, on a dashboard you can open any time.' },
+    ],
+    relatedInsightSlugs: ['social-media-automation-sme', 'social-automation-roi-measurement', 'ai-integration-roi-south-africa-sme'],
+  },
+
+  'bespoke-builds': {
+    slug: 'bespoke-builds',
+    headline: 'For the software nobody has built yet.',
+    lede:
+      'Sometimes the answer is not a website, an app or an integration. It is a piece of software that does not exist. For that work we act as a senior engineering partner: architecture, a prototype of the hard part, an honest cost, and a build if the numbers hold.',
+    who: [
+      'A founder with a complex idea that no SaaS solves. You need a partner who thinks about the architecture with you.',
+      'A technical team that wants a senior second opinion on architecture, AI strategy or build versus buy.',
+      'A pre-funding founder open to an equity-style partnership for the right idea.',
+    ],
+    deliverables: [
+      'An architecture: system diagram, decision records, build, buy or borrow recommendations.',
+      'A working prototype that proves the hard part works.',
+      'A written spec any senior engineer can pick up.',
+      'A hands-on build of the whole thing, or just the spine.',
+      'Code review and mentoring for your team on the parts we do not touch.',
+      'Honest infrastructure cost projections at one times, ten times and a hundred times scale.',
+      'A launch playbook so nobody gets woken at 3am.',
+    ],
+    steps: [
+      { title: 'Deep dive', body: 'A long, candid conversation. Sometimes the answer is "do not build this".' },
+      { title: 'Discovery', body: 'Two to four weeks. Architecture, prototype and an honest cost.' },
+      { title: 'Build', body: 'We build it, or we hand your team a spec they can run with.' },
+      { title: 'Partner', body: 'Advisory, fractional CTO or a standing engagement, whatever the work needs.' },
+    ],
+    proof: {
+      caseSlug: 'athleet',
+      line: 'Athleet: a multi-tenant club management platform live for three pilot clubs in under four weeks.',
+    },
+    price: {
+      label: `Discovery from ${ZAR(85000)}`,
+      amount: 85000,
+      terms: 'Quoted on the work, not a price card. Fractional CTO from R45,000 a month. Equity-style partnerships considered.',
+      includes: [
+        'Discovery sprint with architecture and prototype',
+        'An honest build estimate you can take anywhere',
+        'Senior engineering only, no juniors',
+        'NDA and IP assignment as standard',
+      ],
+    },
+    faqs: [
+      { q: 'What does bespoke mean here?', a: 'Work that does not fit the other five shapes. Usually a complex platform, an AI-native product, a research project, or a long partnership where the scope evolves quarterly.' },
+      { q: 'Will you take equity instead of cash?', a: 'For the right project, yes, usually blended: cash for direct costs, equity for the upside. We have to believe in the founder and the wedge.' },
+      { q: 'Do you do fractional CTO work?', a: 'Yes. Two to four days a month for early-stage teams: architecture, hiring, AI strategy, technical due diligence. From R45,000 a month.' },
+      { q: 'Can I hire you for the discovery only?', a: 'Yes. A two to four week discovery sprint is fixed price from R85,000 and produces an architecture, a prototype of the hardest part and an honest estimate you can take to any team.' },
+      { q: 'What if you tell me not to build it?', a: 'Then you have saved a lot of money. We have stopped three projects at discovery in the last year.' },
+      { q: 'Why is there no fixed price?', a: 'Our smallest bespoke engagement was an R85,000 discovery. Our largest was a R2.4 million build over nine months. The shape decides the price.' },
+    ],
+    relatedInsightSlugs: ['next-js-16-for-business-websites', 'building-an-ai-agent-that-bills', 'ai-integration-roi-south-africa-sme'],
+  },
+}
+
+/** Index order: lead with the productized site, then the firm. */
+export const SERVICE_ORDER: ServiceSlug[] = [
+  'web-development',
+  'web-applications',
+  'mobile-apps',
+  'ai-integration',
+  'growth-systems',
+  'bespoke-builds',
+]
+
+export function serviceMeta(slug: ServiceSlug) {
+  const meta = SERVICES.find((s) => s.slug === slug)
+  if (!meta) throw new Error(`Unknown service ${slug}`)
+  return meta
+}
+
+export function caseFor(slug: CaseSlug) {
+  const study = CASE_STUDIES.find((c) => c.slug === slug)
+  if (!study) throw new Error(`Unknown case study ${slug}`)
+  return study
+}

@@ -4,9 +4,9 @@ import { use, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
-import { DocumentTheme } from '@/components/client-documents/theme/DocumentTheme'
 import { SignatureCapture } from '@/components/client-documents/SignatureCapture'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
+import { Button, Checkbox, Notice, Panel, Skeleton, Steps } from '@/components/studio'
 
 interface SignatureRequestSummary {
   id: string
@@ -26,6 +26,8 @@ type State =
     }
   | { kind: 'signed' }
   | { kind: 'error'; message: string }
+
+const SIGN_STEPS = ['Review', 'Sign', 'Done'] as const
 
 function unwrap(body: unknown): Record<string, unknown> | null {
   if (!body || typeof body !== 'object') return null
@@ -127,89 +129,90 @@ export default function SignDocumentPage({ params }: { params: Promise<{ shareTo
 
   if (state.kind === 'loading') {
     return (
-      <DocumentTheme>
-        <div className="grid min-h-screen place-items-center text-[var(--doc-muted)]">Loading…</div>
-      </DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+        <Skeleton height={120} />
+      </main>
     )
   }
 
   if (state.kind === 'error') {
     return (
-      <DocumentTheme>
-        <div className="mx-auto mt-32 max-w-sm px-6 text-center text-[var(--doc-text)]">
-          <span className="material-symbols-outlined mb-2 text-3xl text-rose-400" aria-hidden>
-            error
-          </span>
-          <p>{state.message}</p>
-        </div>
-      </DocumentTheme>
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+        <Panel>
+          <h1 className="sc-article__h2">Could not open signing link.</h1>
+          <div className="mt-4">
+            <Notice tone="danger">{state.message}</Notice>
+          </div>
+        </Panel>
+      </main>
     )
   }
 
   if (state.kind === 'signed') {
     return (
-      <DocumentTheme>
-        <div className="mx-auto mt-32 max-w-sm px-6 text-center text-[var(--doc-text)]">
-          <span className="material-symbols-outlined mb-2 text-4xl text-emerald-400" aria-hidden>
-            verified
-          </span>
-          <h1 className="font-display text-2xl">Document signed</h1>
-          <p className="mt-2 text-sm text-[var(--doc-muted)]">
+      <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+        <Panel>
+          <Steps steps={SIGN_STEPS} current={2} />
+          <h1 className="sc-article__h2 mt-8">Document signed.</h1>
+          <p className="sc-body mt-4">
             Thank you. Your electronic signature has been recorded and a copy has been saved.
           </p>
-        </div>
-      </DocumentTheme>
+        </Panel>
+      </main>
     )
   }
 
   const canSubmit = Boolean(signature.dataUrl) && signature.typedName.trim().length > 0 && agreed && !submitting
 
   return (
-    <div className="min-h-screen bg-[#f4f4f5]">
+    <div>
       <DocumentRenderer document={state.document} version={state.version} />
 
-      <div className="sticky bottom-0 z-10 border-t border-[var(--color-pib-line,#e5e7eb)] bg-white/95 backdrop-blur">
-        <div className="mx-auto max-w-2xl px-6 py-6">
-          <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted,#6b7280)]">
+      <div className="sticky bottom-0 z-10 border-t border-[var(--sc-line)] bg-[var(--sc-canvas)]">
+        <div className="mx-auto max-w-2xl px-8 py-8">
+          <Steps steps={SIGN_STEPS} current={1} />
+          <p className="sc-tiny mt-8">
             Signature requested for {state.request.signerName || 'you'}
           </p>
-          <h2 className="mb-3 font-display text-xl text-[#111827]">Sign “{state.document.title}”</h2>
+          <h2 className="st-title mt-2">Sign {state.document.title}.</h2>
           {state.request.message ? (
-            <p className="mb-4 rounded-lg bg-[#f9fafb] px-3 py-2 text-sm text-[#374151]">{state.request.message}</p>
+            <div className="mt-4">
+              <Notice>{state.request.message}</Notice>
+            </div>
           ) : null}
 
-          <SignatureCapture
-            defaultTypedName={state.request.signerName}
-            onChange={setSignature}
-          />
+          <div className="mt-4">
+            <SignatureCapture
+              defaultTypedName={state.request.signerName}
+              onChange={setSignature}
+            />
+          </div>
 
-          <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm text-[#374151]">
-            <input
-              type="checkbox"
+          <div className="mt-4">
+            <Checkbox
+              label={`I, ${state.request.signerName || 'the undersigned'}, agree that this electronic signature is the legal equivalent of my handwritten signature on this document.`}
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 accent-[var(--color-pib-accent,#111827)]"
             />
-            <span>
-              I, {state.request.signerName || 'the undersigned'}, agree that this electronic signature is the legal
-              equivalent of my handwritten signature on this document.
-            </span>
-          </label>
+          </div>
 
           {submitError ? (
-            <p className="mt-3 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {submitError}
-            </p>
+            <div className="mt-4">
+              <Notice tone="danger">{submitError}</Notice>
+            </div>
           ) : null}
 
-          <button
-            type="button"
-            onClick={handleSign}
-            disabled={!canSubmit}
-            className="mt-4 w-full rounded-lg bg-[#111827] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {submitting ? 'Submitting…' : 'Sign document'}
-          </button>
+          <div className="mt-4">
+            <Button
+              type="button"
+              block
+              onClick={handleSign}
+              disabled={!canSubmit}
+              loading={submitting}
+            >
+              Sign document
+            </Button>
+          </div>
         </div>
       </div>
     </div>

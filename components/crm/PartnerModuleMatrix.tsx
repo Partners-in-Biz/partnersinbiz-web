@@ -17,7 +17,7 @@ type PartnerModuleMatrixProps = {
 }
 
 /**
- * Relationship module matrix — toggles which company_workspace modules are
+ * Relationship module matrix - toggles which company_workspace modules are
  * shared with the linked org. Defaults match DEFAULT_COMPANY_WORKSPACE_MODULES.
  */
 export function PartnerModuleMatrix({

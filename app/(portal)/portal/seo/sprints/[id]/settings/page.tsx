@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { Icon } from '@/components/studio'
 
 type GscProperty = {
   siteUrl: string
@@ -141,9 +142,9 @@ export default function SettingsTab() {
 
   if (loadError) {
     return (
-      <div className="pib-card max-w-3xl border-red-500/40 bg-red-500/10 text-sm text-red-100">
-        <div className="flex items-center gap-2 font-semibold text-red-50">
-          <span className="material-symbols-outlined text-base">error</span>
+      <div className="st-panel max-w-3xl border-red-500/40 bg-red-500/10 text-sm text-red-100">
+        <div className="flex items-center gap-2 text-red-50">
+          <Icon name="error" />
           Could not load sprint settings
         </div>
         <p className="mt-2 text-red-100/80">{loadError}</p>
@@ -168,9 +169,9 @@ export default function SettingsTab() {
   return (
     <div className="max-w-5xl space-y-5">
       {justConnectedGsc && (
-        <div className="pib-card border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+        <div className="st-panel border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">check_circle</span>
+            <Icon name="check_circle" />
             <span>Google Search Console connected. Select the matching property below.</span>
           </div>
         </div>
@@ -179,18 +180,18 @@ export default function SettingsTab() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="pib-label mb-2">Sprint controls</p>
-          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Settings</h2>
+          <h2 className="text-2xl text-[var(--color-pib-text)]">Settings</h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Manage automation boundaries and data connections for this SEO sprint.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className={gscConnected ? 'pib-pill pib-pill-success' : 'pib-pill pib-pill-warn'}>
-            <span className="material-symbols-outlined text-sm">{gscConnected ? 'link' : 'link_off'}</span>
+            <Icon name={gscConnected ? 'link' : 'link_off'} />
             GSC {gscConnected ? 'connected' : 'not connected'}
           </span>
           <span className={pagespeedEnabled ? 'pib-pill pib-pill-info' : 'pib-pill'}>
-            <span className="material-symbols-outlined text-sm">speed</span>
+            <Icon name="speed" />
             PageSpeed {pagespeedEnabled ? 'on' : 'off'}
           </span>
         </div>
@@ -199,7 +200,7 @@ export default function SettingsTab() {
       <section className="pib-card-section">
         <div className="pib-card-section-header flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Autopilot mode</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Autopilot mode</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Choose how much execution Pip can do without review.</p>
           </div>
           {saving && <span className="pib-pill">Saving</span>}
@@ -215,7 +216,7 @@ export default function SettingsTab() {
                 disabled={saving}
                 aria-pressed={selected}
                 className={[
-                  'min-h-[132px] rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
+                  'min-h-[132px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
                   selected
                     ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)]'
                     : 'border-[var(--color-pib-line)] bg-white/[0.02] hover:border-[var(--color-pib-line-strong)] hover:bg-white/[0.04]',
@@ -223,16 +224,16 @@ export default function SettingsTab() {
               >
                 <span
                   className={[
-                    'mb-3 grid h-9 w-9 place-items-center rounded-xl border',
+                    'mb-3 grid h-9 w-9 place-items-center border',
                     selected
-                      ? 'border-[rgba(245,166,35,0.45)] bg-[rgba(245,166,35,0.16)] text-[var(--color-pib-accent-hover)]'
+                      ? 'border-[color-mix(in_srgb,var(--sc-accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_16%,transparent)] text-[var(--color-pib-accent-hover)]'
                       : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]',
                   ].join(' ')}
                 >
-                  <span className="material-symbols-outlined text-[20px]">{mode.icon}</span>
+                  <Icon name={mode.icon} />
                 </span>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[var(--color-pib-text)]">{mode.label}</span>
+                  <span className="text-sm text-[var(--color-pib-text)]">{mode.label}</span>
                   {selected && <span className="pib-pill pib-pill-accent !px-2 !py-0.5">Active</span>}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{mode.detail}</p>
@@ -244,18 +245,18 @@ export default function SettingsTab() {
 
       <section className="pib-card-section">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Integrations</h3>
+          <h3 className="text-sm text-[var(--color-pib-text)]">Integrations</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Connect the data sources this sprint uses for audits and execution.</p>
         </div>
 
         <div className="pib-card-section-row flex-col items-stretch gap-4 lg:flex-row lg:items-start">
           <div className="flex min-w-0 gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[20px]">search</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
+              <Icon name="search" />
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">Google Search Console</h4>
+                <h4 className="text-sm text-[var(--color-pib-text)]">Google Search Console</h4>
                 <span className={gscConnected ? 'pib-pill pib-pill-success' : 'pib-pill pib-pill-warn'}>
                   {gscConnected ? 'Connected' : 'Not connected'}
                 </span>
@@ -270,14 +271,14 @@ export default function SettingsTab() {
             onClick={connectGsc}
             className="pib-btn-secondary shrink-0 justify-center text-xs font-label"
           >
-            <span className="material-symbols-outlined text-base">sync</span>
+            <Icon name="sync" />
             {sprint.integrations?.gsc?.connected ? 'Reconnect' : 'Connect'}
           </button>
         </div>
 
         {sprint.integrations?.gsc?.connected && (
           <div className="border-b border-[var(--color-pib-line)] px-4 pb-4 sm:px-5">
-            <div className="rounded-2xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+            <div className="border border-[var(--color-pib-line)] bg-black/10 p-4">
               <label className="pib-label" htmlFor="gsc-property">
                 Search Console property
               </label>
@@ -298,13 +299,13 @@ export default function SettingsTab() {
               </select>
               {gscError && (
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-red-300">
-                  <span className="material-symbols-outlined text-sm">error</span>
+                  <Icon name="error" />
                   {gscError}
                 </p>
               )}
               {!gscError && gscPropertyUrl && (
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-green-300">
-                  <span className="material-symbols-outlined text-sm">verified</span>
+                  <Icon name="verified" />
                   This sprint is mapped to {gscPropertyUrl}.
                 </p>
               )}
@@ -314,18 +315,18 @@ export default function SettingsTab() {
 
         <div className="pib-card-section-row flex-col items-stretch gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[20px]">speed</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
+              <Icon name="speed" />
             </span>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">PageSpeed Insights</h4>
+                <h4 className="text-sm text-[var(--color-pib-text)]">PageSpeed Insights</h4>
                 <span className={pagespeedEnabled ? 'pib-pill pib-pill-info' : 'pib-pill'}>{pagespeedEnabled ? 'Enabled' : 'Disabled'}</span>
               </div>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Use Core Web Vitals and lab checks during sprint health passes.</p>
             </div>
           </div>
-          <label className="inline-flex cursor-pointer items-center justify-between gap-3 rounded-full border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-pib-line-strong)] sm:justify-start">
+          <label className="inline-flex cursor-pointer items-center justify-between gap-3 rounded border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-pib-line-strong)] sm:justify-start">
             <input
               type="checkbox"
               className="peer sr-only"
@@ -339,13 +340,13 @@ export default function SettingsTab() {
             />
             <span
               className={[
-                'relative h-5 w-9 rounded-full transition',
+                'relative h-5 w-9 rounded transition',
                 pagespeedEnabled ? 'bg-[var(--color-pib-accent)]' : 'bg-white/10',
               ].join(' ')}
             >
               <span
                 className={[
-                  'absolute top-0.5 h-4 w-4 rounded-full transition',
+                  'absolute top-0.5 h-4 w-4 rounded transition',
                   pagespeedEnabled ? 'left-4 bg-black' : 'left-0.5 bg-[var(--color-pib-text)]',
                 ].join(' ')}
               />
@@ -358,11 +359,11 @@ export default function SettingsTab() {
       <section className="pib-card-section border-red-500/25">
         <div className="pib-card-section-row flex-col items-stretch gap-4 sm:flex-row sm:items-center">
           <div className="flex gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-red-500/25 bg-red-500/10 text-red-300">
-              <span className="material-symbols-outlined text-[20px]">archive</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center border border-red-500/25 bg-red-500/10 text-red-300">
+              <Icon name="archive" />
             </span>
             <div>
-              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Archive sprint</h3>
+              <h3 className="text-sm text-[var(--color-pib-text)]">Archive sprint</h3>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Hide this sprint from active SEO operations.</p>
             </div>
           </div>
@@ -373,16 +374,16 @@ export default function SettingsTab() {
               await fetch(`/api/v1/seo/sprints/${id}/archive`, { method: 'POST' })
               window.location.href = '/portal/seo'
             }}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-red-500/35 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10"
+            className="inline-flex items-center justify-center gap-2 rounded border border-red-500/35 px-4 py-2 text-xs text-red-300 transition hover:bg-red-500/10"
           >
-            <span className="material-symbols-outlined text-base">archive</span>
+            <Icon name="archive" />
             Archive sprint
           </button>
         </div>
       </section>
 
       {message && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm text-[var(--color-pib-text)] shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm text-[var(--color-pib-text)]">
           {message}
         </div>
       )}

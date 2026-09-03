@@ -1,5 +1,5 @@
 // app/(admin)/admin/agents/page.tsx
-// Auth is handled by the (admin) layout — no additional check needed here.
+// Auth is handled by the (admin) layout - no additional check needed here.
 
 import AgentsBoardClient from './AgentsBoardClient'
 

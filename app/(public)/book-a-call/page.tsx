@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
-import { SITE } from '@/lib/seo/site'
+import { CTA_LABEL, SITE } from '@/lib/seo/site'
 import BookingWidget from './BookingWidget'
 import { marketFromId } from '@/lib/seo/market-offers'
-import { STAGE_STILLS, CTA_TEXT } from '@/lib/marketing/stage-content'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
 import { MarketLinks, Wordmark } from '@/components/marketing/stage/StageChrome'
+import { Plate } from '@/components/marketing/paper/Article'
+import { ScrollIn } from '@/components/marketing/paper/ScrollIn'
 import '@/components/marketing/stage/stage.css'
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default async function BookACallPage({
   const homeHref = isUs ? '/us' : '/'
   const waHref = `https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`
 
-  const eyebrow = market ? 'The 4-Week Site' : 'A marketing site from R35,000'
+  const eyebrow = market ? 'The 4-Week Site' : 'A site that makes the phone ring'
   const dek = isUs
     ? 'No sales pitch. We confirm fit for the 4-Week Site and the 90-Day Fill, then you start on Stripe.'
     : market
@@ -53,16 +54,20 @@ export default async function BookACallPage({
         <div className="sc-paper-page__inner">
           <header className="sc-paper-page__head">
             <p className="sc-tiny">{eyebrow}</p>
-            <h1 className="sc-h1">{CTA_TEXT}</h1>
+            <h1 className="sc-h1">{CTA_LABEL}</h1>
             <p className="sc-dek">{dek}</p>
-            <div className="sc-photo sc-paper-page__photo">
-              <Image
-                src={STAGE_STILLS.rebuildDesk.src}
-                alt={STAGE_STILLS.rebuildDesk.alt}
-                fill
-                sizes="(max-width: 700px) 90vw, 22rem"
-                priority
-              />
+            {/* The page's one terracotta block, laid out the way ArticleHead does it. */}
+            <div className="sc-article__head-art">
+              <ScrollIn className="sc-in--head-art">
+                <div className="sc-block" aria-hidden="true" />
+                <Plate
+                  src={WORK_SHOTS.ahsLaw.src}
+                  alt={WORK_SHOTS.ahsLaw.alt}
+                  caption="AHS Law. Number one on Google in eight weeks."
+                  wide
+                  priority
+                />
+              </ScrollIn>
             </div>
           </header>
 

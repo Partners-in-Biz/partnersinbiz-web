@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useState, useRef } from 'react'
@@ -45,7 +47,7 @@ const CATEGORIES = ['work', 'personal', 'ai', 'sport', 'sa', 'other']
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORMS.find(p => p.id === platform)
   if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
-  return <span className={`${cfg.color} text-white text-[10px] px-1.5 py-0.5 rounded font-bold`}>{cfg.short}</span>
+  return <span className={`${cfg.color} text-white text-[10px] px-1.5 py-0.5 rounded `}>{cfg.short}</span>
 }
 
 function emptyRow(): BulkPostRow {
@@ -177,7 +179,7 @@ export default function BulkComposePage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <header>
-        <p className="eyebrow">Social · Bulk</p>
+        <p className="sc-tiny">Social · Bulk</p>
         <h1 className="pib-page-title mt-2">Bulk Compose</h1>
         <p className="pib-page-sub">Create multiple social posts at once or import from CSV</p>
       </header>
@@ -206,8 +208,8 @@ export default function BulkComposePage() {
       {/* CSV Import */}
       <div className="pib-card space-y-4">
         <div className="flex items-center gap-3">
-          <span className="pib-icon-tint-rose">
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">upload_file</span>
+          <span>
+            <Icon name="upload_file" />
           </span>
           <h2 className="pib-label">Import from CSV</h2>
         </div>
@@ -219,8 +221,9 @@ export default function BulkComposePage() {
           type="file"
           accept=".csv,text/csv"
           onChange={handleCsvUpload}
-          className="block text-sm text-[var(--color-pib-text-muted)] file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border-0 file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-xs file:font-medium file:cursor-pointer"
-        />
+          aria-label="Upload CSV"
+          className="block text-sm text-[var(--color-pib-text-muted)] file:mr-3 file:px-3 file:py-1.5 file:rounded file:border-0 file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-xs file:font-medium file:cursor-pointer"
+         aria-label="Upload file"/>
 
         {csvPreview && (
           <div className="space-y-2">
@@ -281,15 +284,16 @@ export default function BulkComposePage() {
               value={row.content}
               onChange={(e) => updateRow(i, { content: e.target.value })}
               placeholder="Write your post content..."
+              aria-label="Post content"
               className="pib-textarea w-full resize-none"
-            />
+             aria-label="Write your post content..."/>
 
             <div className="flex flex-wrap gap-1.5">
               {PLATFORMS.map(p => (
                 <button
                   key={p.id}
                   onClick={() => togglePlatform(i, p.id)}
-                  className={`px-2 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                  className={`px-2 py-1 rounded text-[10px]  transition-colors ${
                     row.platforms.includes(p.id)
                       ? `${p.color} text-white`
                       : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -303,16 +307,17 @@ export default function BulkComposePage() {
             <div className="flex flex-wrap gap-3 items-center">
               <input
                 type="datetime-local"
+                aria-label="Schedule date and time"
                 value={row.scheduledAt}
                 min={minDateTime}
                 onChange={(e) => updateRow(i, { scheduledAt: e.target.value })}
                 className="pib-input text-xs"
-              />
+               aria-label="Date and time"/>
               <select
                 value={row.category}
                 onChange={(e) => updateRow(i, { category: e.target.value })}
-                className="pib-select text-xs capitalize"
-              >
+                className="pib-select text-xs capitalize" aria-label="Category"
+               aria-label="Input">
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>

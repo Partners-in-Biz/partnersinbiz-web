@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export interface MessageModelOption {
   id: string
@@ -201,14 +202,14 @@ export function ModelProviderPicker({
         title={catalog?.canSelect === false ? 'Model selection is visible but locked for this role' : 'Select model/provider'}
         aria-label={`Select model and provider: ${activeLabel}`}
         className={[
-          'inline-flex min-w-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.08] text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.12] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
+          'inline-flex min-w-0 items-center gap-1.5 rounded-md border border-white/20 bg-white/[0.08] text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.12] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
           compact ? 'h-8 max-w-[min(100%,18rem)] px-2.5 text-[12px]' : 'h-8 px-2.5 text-xs',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[15px]">memory</span>
+        <Icon name="memory" className="text-[15px]" />
         <span className={compact ? 'max-w-[min(14rem,calc(100vw-8rem))] truncate' : 'max-w-[160px] truncate'}>{activeLabel}</span>
-        {catalog?.canSelect === false && <span className="material-symbols-outlined text-[13px]">lock</span>}
-        <span className="material-symbols-outlined text-[14px]">expand_more</span>
+        {catalog?.canSelect === false && <Icon name="lock" className="text-[13px]" />}
+        <Icon name="expand_more" className="text-[14px]" />
       </button>
 
       {open && (
@@ -227,9 +228,9 @@ export function ModelProviderPicker({
             data-presentation={sheet ? 'sheet' : 'popover'}
             className={
               sheet
-                ? 'fixed inset-x-0 bottom-0 z-[91] flex max-h-[min(34rem,80dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-white/15 bg-[#161616] pb-[env(safe-area-inset-bottom)] shadow-2xl'
+                ? 'fixed inset-x-0 bottom-0 z-[91] flex max-h-[min(34rem,80dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-white/15 bg-[#161616] pb-[env(safe-area-inset-bottom)] '
                 : [
-                    'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#161616] shadow-2xl',
+                    'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-md border border-white/15 bg-[#161616] ',
                     placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
                   ].join(' ')
             }
@@ -237,7 +238,7 @@ export function ModelProviderPicker({
           <div className="shrink-0 border-b border-[var(--color-card-border)] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-semibold text-[var(--color-pib-text)]">Model & provider</div>
+                <div className="text-xs font-medium text-[var(--color-pib-text)]">Model & provider</div>
                 <div className="text-[11px] text-[var(--color-pib-text-muted)]">
                   {catalogCountLabel}
                 </div>
@@ -246,19 +247,19 @@ export function ModelProviderPicker({
                 <button
                   type="button"
                   onClick={onRefresh}
-                  className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                  className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                   aria-label="Refresh models"
                 >
-                  <span className="material-symbols-outlined text-[16px]">refresh</span>
+                  <Icon name="refresh" className="text-[16px]" />
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 aria-label="Close model picker"
               >
-                <span className="material-symbols-outlined text-[16px]">close</span>
+                <Icon name="close" className="text-[16px]" />
               </button>
             </div>
             <input
@@ -269,7 +270,7 @@ export function ModelProviderPicker({
               className="mt-3 h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none focus:border-primary/60"
             />
             {catalog?.warning && (
-              <div className="mt-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+              <div className="mt-2 rounded-lg border border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-1.5 text-[11px] text-[var(--st-warning)]">
                 {catalog.warning}
               </div>
             )}
@@ -280,7 +281,7 @@ export function ModelProviderPicker({
                 title={advisory.detail}
                 className={`mt-2 rounded-lg border px-2 py-1.5 text-[11px] ${
                   advisory.phase === 'peak'
-                    ? 'border-amber-400/25 bg-amber-500/10 text-amber-100'
+                    ? 'border-amber-400/25 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                     : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
                 }`}
               >
@@ -301,7 +302,7 @@ export function ModelProviderPicker({
               }}
               className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+              <Icon name="auto_awesome" className="text-[15px]" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">Auto model</span>
                 <span className="block truncate text-[10px] text-[var(--color-pib-text-muted)]">
@@ -311,9 +312,7 @@ export function ModelProviderPicker({
                 </span>
               </span>
               {!activeModel && (
-                <span className="material-symbols-outlined text-[16px] text-primary" aria-label="Selected model">
-                  check
-                </span>
+                <Icon name="check" className="text-[16px] text-primary" label="Selected model" />
               )}
             </button>
             {filteredModels.length === 0 && (
@@ -334,10 +333,10 @@ export function ModelProviderPicker({
                         <button
                           type="button"
                           onClick={() => togglePin(model)}
-                          className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                          className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                           aria-label={isPinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
                         >
-                          <span className="material-symbols-outlined text-[15px]">{isPinned ? 'star' : 'star_outline'}</span>
+                          <Icon name={isPinned ? 'star' : 'star_outline'} className="text-[15px]" />
                         </button>
                         <button
                           type="button"
@@ -357,13 +356,13 @@ export function ModelProviderPicker({
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate text-xs font-medium text-[var(--color-pib-text)]">{model.displayName}</span>
                             {model.active && model.available && (
-                              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Auto default</span>
+                              <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Auto default</span>
                             )}
                             {model.connected && (
-                              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-200">Connected</span>
+                              <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-200">Connected</span>
                             )}
                             {!model.available && (
-                              <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Needs credentials</span>
+                              <span className="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Needs credentials</span>
                             )}
                           </div>
                           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
@@ -374,9 +373,7 @@ export function ModelProviderPicker({
                           )}
                         </button>
                         {selected && (
-                          <span className="material-symbols-outlined pr-1 text-[16px] text-primary" aria-label="Selected model">
-                            check
-                          </span>
+                          <Icon name="check" className="pr-1 text-[16px] text-primary" label="Selected model" />
                         )}
                       </div>
                     )
@@ -391,16 +388,16 @@ export function ModelProviderPicker({
               type="button"
               onClick={onRefresh}
               disabled={!onRefresh}
-              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-40"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-40"
             >
-              <span className="material-symbols-outlined text-[14px]">refresh</span>
+              <Icon name="refresh" className="text-[14px]" />
               Refresh Models
             </button>
             <a
               href={catalog?.connectProvidersUrl || '/portal/settings/llm-providers'}
-              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
             >
-              <span className="material-symbols-outlined text-[14px]">tune</span>
+              <Icon name="tune" className="text-[14px]" />
               Connect providers…
             </a>
           </div>

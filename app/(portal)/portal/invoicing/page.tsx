@@ -1,12 +1,32 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import {
+  Button,
+  ButtonLink,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+  Textarea,
+  Toolbar,
+} from '@/components/studio'
 
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'overdue' | 'cancelled'
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'rejected' | 'expired' | 'converted'
 type BillingTab = 'invoices' | 'quotes'
+type StatusTone = 'success' | 'warning' | 'danger' | 'info' | undefined
 
 type LineItem = { description?: string; quantity?: number; unitPrice?: number; amount?: number }
 
@@ -57,28 +77,44 @@ type DraftForm = { date: string; taxRate: string; notes: string; description: st
 
 type EditingTarget = { kind: BillingTab; id: string } | null
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
+const INVOICE_STATUS_TONE: Record<InvoiceStatus, StatusTone> = {
+  draft: undefined,
+  sent: 'info',
+  viewed: 'info',
+  payment_pending_verification: 'warning',
+  paid: 'success',
+  overdue: 'danger',
+  cancelled: undefined,
 }
 
-const INVOICE_STATUS_MAP: Record<InvoiceStatus, { label: string; pill: string }> = {
-  draft: { label: 'Draft', pill: 'pib-pill' },
-  sent: { label: 'Sent', pill: 'pib-pill pib-pill-blue' },
-  viewed: { label: 'Viewed', pill: 'pib-pill pib-pill-violet' },
-  payment_pending_verification: { label: 'Payment review', pill: 'pib-pill pib-pill-warn' },
-  paid: { label: 'Paid', pill: 'pib-pill pib-pill-success' },
-  overdue: { label: 'Overdue', pill: 'pib-pill pib-pill-danger' },
-  cancelled: { label: 'Cancelled', pill: 'pib-pill' },
+const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  viewed: 'Viewed',
+  payment_pending_verification: 'Payment review',
+  paid: 'Paid',
+  overdue: 'Overdue',
+  cancelled: 'Cancelled',
 }
 
-const QUOTE_STATUS_MAP: Record<string, { label: string; pill: string }> = {
-  draft: { label: 'Draft', pill: 'pib-pill' },
-  sent: { label: 'Sent', pill: 'pib-pill pib-pill-blue' },
-  accepted: { label: 'Accepted', pill: 'pib-pill pib-pill-success' },
-  declined: { label: 'Declined', pill: 'pib-pill pib-pill-warn' },
-  rejected: { label: 'Rejected', pill: 'pib-pill pib-pill-warn' },
-  expired: { label: 'Expired', pill: 'pib-pill pib-pill-danger' },
-  converted: { label: 'Converted', pill: 'pib-pill pib-pill-violet' },
+const QUOTE_STATUS_TONE: Record<string, StatusTone> = {
+  draft: undefined,
+  sent: 'info',
+  accepted: 'success',
+  declined: 'warning',
+  rejected: 'warning',
+  expired: 'danger',
+  converted: 'info',
+}
+
+const QUOTE_STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  rejected: 'Rejected',
+  expired: 'Expired',
+  converted: 'Converted',
 }
 
 function formatCurrency(amount = 0, currency = 'ZAR') {
@@ -86,10 +122,10 @@ function formatCurrency(amount = 0, currency = 'ZAR') {
 }
 
 function formatDate(ts: unknown) {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const candidate = ts as { _seconds?: number; seconds?: number }
   const d = candidate._seconds || candidate.seconds ? new Date((candidate._seconds ?? candidate.seconds ?? 0) * 1000) : new Date(ts as string)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function dateInputValue(value: unknown): string {
@@ -124,6 +160,10 @@ async function fetchJson(url: string) {
   return res.json().catch(() => null)
 }
 
+function filterLabel(value: string) {
+  return value === 'all' ? 'All' : value.replace(/_/g, ' ')
+}
+
 export default function InvoicingPage() {
   const [sentInvoices, setSentInvoices] = useState<Invoice[]>([])
   const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>([])
@@ -137,7 +177,6 @@ export default function InvoicingPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Merge sent and received for display, but keep ledgers separate for accounting
   const invoices = useMemo(() => mergeById<Invoice>([sentInvoices, receivedInvoices]), [sentInvoices, receivedInvoices])
 
   useEffect(() => {
@@ -165,10 +204,7 @@ export default function InvoicingPage() {
 
   const visibleInvoices = filter === 'all' ? invoices : invoices.filter(i => i.status === filter)
   const visibleQuotes = filter === 'all' ? quotes : quotes.filter(q => q.status === filter)
-  // AR (Accounts Receivable): Revenue from OUR sent invoices (we issued, they pay us)
-  // Only count sent invoices that are paid, exclude drafts and received invoices
   const totalRevenue = sentInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total ?? 0), 0)
-  // AR Outstanding: What customers owe us on sent invoices (sent/viewed/overdue/pending verification)
   const outstanding = sentInvoices.filter(i => ['sent', 'viewed', 'overdue', 'payment_pending_verification'].includes(i.status)).reduce((s, i) => s + (i.total ?? 0), 0)
   const overdueCount = sentInvoices.filter(i => i.status === 'overdue').length
   const filterOptions = useMemo(() => {
@@ -216,7 +252,6 @@ export default function InvoicingPage() {
       setSavingId(null)
       return
     }
-    // Update both ledgers (sent and received) as the same invoice may appear in both
     setSentInvoices(current => current.map(item => item.id === invoice.id ? { ...item, ...body } : item))
     setReceivedInvoices(current => current.map(item => item.id === invoice.id ? { ...item, ...body } : item))
     setEditing(null)
@@ -247,137 +282,286 @@ export default function InvoicingPage() {
   }
 
   const renderDraftEditor = (onSave: () => void) => (
-    <div className="col-span-12 rounded-2xl border border-[var(--color-pib-line)] p-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="pib-label">Date
-          <input type="date" value={draftForm.date} onChange={e => setDraftForm(c => ({ ...c, date: e.target.value }))} className="pib-input mt-1 w-full" />
-        </label>
-        <label className="pib-label">Tax rate
-          <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={e => setDraftForm(c => ({ ...c, taxRate: e.target.value }))} className="pib-input mt-1 w-full" />
-        </label>
-        <label className="pib-label sm:col-span-2">Line item description
-          <input value={draftForm.description} onChange={e => setDraftForm(c => ({ ...c, description: e.target.value }))} className="pib-input mt-1 w-full" />
-        </label>
-        <label className="pib-label">Quantity
-          <input type="number" min="1" value={draftForm.quantity} onChange={e => setDraftForm(c => ({ ...c, quantity: e.target.value }))} className="pib-input mt-1 w-full" />
-        </label>
-        <label className="pib-label">Unit price
-          <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={e => setDraftForm(c => ({ ...c, unitPrice: e.target.value }))} className="pib-input mt-1 w-full" />
-        </label>
-        <label className="pib-label sm:col-span-2">Notes
-          <textarea value={draftForm.notes} onChange={e => setDraftForm(c => ({ ...c, notes: e.target.value }))} className="pib-textarea mt-1 w-full" rows={2} />
-        </label>
+    <Panel flat className="space-y-4 p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="draft-date" label="Date">
+          <Input id="draft-date" type="date" value={draftForm.date} aria-label="Date" onChange={e => setDraftForm(c => ({ ...c, date: e.target.value }))} />
+        </Field>
+        <Field id="draft-tax" label="Tax rate">
+          <Input id="draft-tax" type="number" min="0" max="100" value={draftForm.taxRate} aria-label="Tax rate" onChange={e => setDraftForm(c => ({ ...c, taxRate: e.target.value }))} />
+        </Field>
+        <div className="sm:col-span-2">
+          <Field id="draft-description" label="Line item description">
+            <Input id="draft-description" value={draftForm.description} aria-label="Line item description" onChange={e => setDraftForm(c => ({ ...c, description: e.target.value }))} />
+          </Field>
+        </div>
+        <Field id="draft-quantity" label="Quantity">
+          <Input id="draft-quantity" type="number" min="1" value={draftForm.quantity} aria-label="Quantity" onChange={e => setDraftForm(c => ({ ...c, quantity: e.target.value }))} />
+        </Field>
+        <Field id="draft-unit-price" label="Unit price">
+          <Input id="draft-unit-price" type="number" min="0" step="0.01" value={draftForm.unitPrice} aria-label="Unit price" onChange={e => setDraftForm(c => ({ ...c, unitPrice: e.target.value }))} />
+        </Field>
+        <div className="sm:col-span-2">
+          <Field id="draft-notes" label="Notes">
+            <Textarea id="draft-notes" value={draftForm.notes} aria-label="Notes" onChange={e => setDraftForm(c => ({ ...c, notes: e.target.value }))} rows={2} />
+          </Field>
+        </div>
       </div>
-      {error ? <p className="mt-3 text-xs text-[var(--color-error)]">{error}</p> : null}
-      <div className="mt-3 flex justify-end gap-2">
-        <button type="button" onClick={() => setEditing(null)} className="btn-pib-ghost">Cancel</button>
-        <button type="button" onClick={onSave} disabled={Boolean(savingId)} className="btn-pib-primary">
-          {savingId ? 'Saving…' : 'Save Draft'}
-        </button>
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
+        <Button type="button" size="sm" onClick={onSave} loading={Boolean(savingId)}>
+          {savingId ? 'Saving…' : 'Save draft'}
+        </Button>
       </div>
-    </div>
+    </Panel>
   )
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Invoicing · Billing</p>
-          <h1 className="pib-page-title mt-2">Billing</h1>
-          <p className="pib-page-sub">{loading ? '—' : `${invoices.length} invoices · ${quotes.length} quotes`}</p>
-        </div>
-        <Link href="/portal/invoicing/new" className="btn-pib-primary">+ New Invoice</Link>
-      </header>
-
-      {!loading && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="pib-stat-card"><p className="pib-label mb-1">Revenue Collected</p><p className="text-2xl font-semibold text-[var(--color-pib-accent)]">{formatCurrency(totalRevenue, 'ZAR')}</p></div>
-          <div className="pib-stat-card"><p className="pib-label mb-1">Outstanding</p><p className="text-2xl font-semibold">{formatCurrency(outstanding, 'ZAR')}</p></div>
-          <div className="pib-stat-card"><p className="pib-label mb-1">Overdue</p><p className={`text-2xl font-semibold ${overdueCount > 0 ? 'text-[var(--color-error)]' : ''}`}>{overdueCount}</p></div>
-        </div>
-      )}
-
-      <div role="tablist" aria-label="Billing tabs" className="pib-tabs pib-tabs-segmented">
-        {(['invoices', 'quotes'] as const).map(nextTab => (
-          <button key={nextTab} type="button" role="tab" aria-selected={tab === nextTab} onClick={() => { setTab(nextTab); setFilter('all'); setEditing(null) }} className={`pib-tab capitalize ${tab === nextTab ? 'pib-tab-active' : ''}`}>
-            {nextTab === 'invoices' ? `Invoices (${invoices.length})` : `Quotes (${quotes.length})`}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        {filterOptions.map(s => (
-          <button key={s} onClick={() => setFilter(s)} className={`capitalize transition-colors ${filter === s ? 'pib-pill pib-pill-cyan' : 'pib-pill'}`}>
-            {s.replace(/_/g, ' ')}
-          </button>
-        ))}
-      </div>
-
-      <div className="pib-surface pib-surface-table overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 border-b border-[var(--color-pib-line)] px-5 py-3">
-          <p className="col-span-2 pib-label">#</p>
-          <p className="col-span-3 pib-label">Client</p>
-          <p className="col-span-2 pib-label">Status</p>
-          <p className="col-span-2 pib-label">Amount</p>
-          <p className="col-span-1 pib-label">Date</p>
-          <p className="col-span-2 pib-label text-right">Actions</p>
-        </div>
-
-        {loading ? (
-          <div className="divide-y divide-[var(--color-pib-line)]">{[1, 2, 3].map(i => <div key={i} className="px-5 py-4"><Skeleton className="h-5 w-48" /></div>)}</div>
-        ) : tab === 'invoices' ? (
-          visibleInvoices.length === 0 ? <EmptyState label="No invoices found." /> : <div className="divide-y divide-[var(--color-pib-line)]">{visibleInvoices.map(inv => {
-            const status = INVOICE_STATUS_MAP[inv.status] ?? { label: inv.status, pill: 'pib-pill' }
-            return <div key={inv.id} className="grid grid-cols-12 items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
-              <p className="col-span-2 font-mono text-sm">{inv.invoiceNumber ?? inv.id}</p>
-              <p className="col-span-3 truncate text-sm">{orgMap[inv.orgId ?? ''] ?? inv.orgId ?? '—'}</p>
-              <div className="col-span-2"><StatusPill status={status} /></div>
-              <p className="col-span-2 text-sm font-medium">{formatCurrency(inv.total ?? 0, inv.currency ?? 'ZAR')}</p>
-              <p className="col-span-1 text-sm text-[var(--color-pib-text-muted)]">{formatDate(inv.dueDate)}</p>
-              <div className="col-span-2 flex flex-wrap justify-end gap-2 text-[10px] font-label uppercase tracking-wide">
-                {inv.canEdit ? <button type="button" onClick={() => startInvoiceEdit(inv)} className="text-[var(--color-pib-accent)]">Edit</button> : null}
-                {inv.canSend ? <button type="button" onClick={() => patchInvoice(inv, { status: 'sent' })} disabled={savingId === inv.id} className="text-[var(--color-pib-accent)]">Mark sent</button> : null}
-                {inv.canCancel ? <button type="button" onClick={() => patchInvoice(inv, { status: 'cancelled' })} disabled={savingId === inv.id} className="text-[var(--color-error)]">Cancel</button> : null}
-                <Link href={`/portal/invoicing/${inv.id}`} className="text-[var(--color-pib-accent)]">View</Link>
-              </div>
-              {editing?.kind === 'invoices' && editing.id === inv.id ? renderDraftEditor(() => saveInvoiceDraft(inv)) : null}
+  function renderInvoiceRow(inv: Invoice) {
+    const tone = INVOICE_STATUS_TONE[inv.status]
+    const label = INVOICE_STATUS_LABEL[inv.status] ?? inv.status
+    const isEditing = editing?.kind === 'invoices' && editing.id === inv.id
+    return (
+      <Fragment key={inv.id}>
+        <TR>
+          <TD><span className="st-num">{inv.invoiceNumber ?? inv.id}</span></TD>
+          <TD>{orgMap[inv.orgId ?? ''] ?? inv.orgId ?? '-'}</TD>
+          <TD><Status tone={tone}>{label}</Status></TD>
+          <TD><span className="st-num">{formatCurrency(inv.total ?? 0, inv.currency ?? 'ZAR')}</span></TD>
+          <TD>{formatDate(inv.dueDate)}</TD>
+          <TD>
+            <div className="flex flex-wrap justify-end gap-2">
+              {inv.canEdit ? <Button type="button" variant="ghost" size="sm" onClick={() => startInvoiceEdit(inv)}>Edit</Button> : null}
+              {inv.canSend ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => patchInvoice(inv, { status: 'sent' })} disabled={savingId === inv.id}>
+                  Mark sent
+                </Button>
+              ) : null}
+              {inv.canCancel ? (
+                <Button type="button" variant="danger" size="sm" onClick={() => patchInvoice(inv, { status: 'cancelled' })} disabled={savingId === inv.id}>
+                  Cancel
+                </Button>
+              ) : null}
+              <Link href={`/portal/invoicing/${inv.id}`} className="sc-tiny">View</Link>
             </div>
-          })}</div>
+          </TD>
+        </TR>
+        {isEditing ? (
+          <TR>
+            <TD colSpan={6}>{renderDraftEditor(() => saveInvoiceDraft(inv))}</TD>
+          </TR>
+        ) : null}
+      </Fragment>
+    )
+  }
+
+  function renderQuoteRow(quote: Quote) {
+    const tone = QUOTE_STATUS_TONE[quote.status]
+    const label = QUOTE_STATUS_LABEL[quote.status] ?? quote.status
+    const isEditing = editing?.kind === 'quotes' && editing.id === quote.id
+    return (
+      <Fragment key={quote.id}>
+        <TR>
+          <TD><span className="st-num">{quote.quoteNumber ?? quote.id}</span></TD>
+          <TD>{orgMap[quote.orgId ?? ''] ?? quote.orgId ?? '-'}</TD>
+          <TD><Status tone={tone}>{label}</Status></TD>
+          <TD><span className="st-num">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</span></TD>
+          <TD>{formatDate(quote.validUntil)}</TD>
+          <TD>
+            <div className="flex flex-wrap justify-end gap-2">
+              {quote.canEdit ? <Button type="button" variant="ghost" size="sm" onClick={() => startQuoteEdit(quote)}>Edit</Button> : null}
+              {quote.canSend ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => patchQuote(quote, { status: 'sent' })} disabled={savingId === quote.id}>
+                  Send
+                </Button>
+              ) : null}
+              {quote.canAccept ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => patchQuote(quote, { status: 'accepted' })} disabled={savingId === quote.id}>
+                  Accept
+                </Button>
+              ) : null}
+              {quote.canDecline ? (
+                <Button type="button" variant="danger" size="sm" onClick={() => patchQuote(quote, { status: 'declined' })} disabled={savingId === quote.id}>
+                  Decline
+                </Button>
+              ) : null}
+            </div>
+          </TD>
+        </TR>
+        {isEditing ? (
+          <TR>
+            <TD colSpan={6}>{renderDraftEditor(() => saveQuoteDraft(quote))}</TD>
+          </TR>
+        ) : null}
+      </Fragment>
+    )
+  }
+
+  function renderMobileInvoice(inv: Invoice) {
+    const tone = INVOICE_STATUS_TONE[inv.status]
+    const label = INVOICE_STATUS_LABEL[inv.status] ?? inv.status
+    return (
+      <Panel flat key={inv.id} className="space-y-4 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="st-num" style={{ color: 'var(--sc-ink)' }}>{inv.invoiceNumber ?? inv.id}</p>
+            <p className="sc-body mt-1">{orgMap[inv.orgId ?? ''] ?? inv.orgId ?? '-'}</p>
+          </div>
+          <Status tone={tone}>{label}</Status>
+        </div>
+        <p className="st-num">{formatCurrency(inv.total ?? 0, inv.currency ?? 'ZAR')}</p>
+        <p className="sc-tiny">Due {formatDate(inv.dueDate)}</p>
+        <div className="flex flex-wrap gap-2">
+          {inv.canEdit ? <Button type="button" variant="ghost" size="sm" onClick={() => startInvoiceEdit(inv)}>Edit</Button> : null}
+          {inv.canSend ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => patchInvoice(inv, { status: 'sent' })} disabled={savingId === inv.id}>
+              Mark sent
+            </Button>
+          ) : null}
+          <Link href={`/portal/invoicing/${inv.id}`} className="sc-tiny">View</Link>
+        </div>
+        {editing?.kind === 'invoices' && editing.id === inv.id ? renderDraftEditor(() => saveInvoiceDraft(inv)) : null}
+      </Panel>
+    )
+  }
+
+  function renderMobileQuote(quote: Quote) {
+    const tone = QUOTE_STATUS_TONE[quote.status]
+    const label = QUOTE_STATUS_LABEL[quote.status] ?? quote.status
+    return (
+      <Panel flat key={quote.id} className="space-y-4 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="st-num" style={{ color: 'var(--sc-ink)' }}>{quote.quoteNumber ?? quote.id}</p>
+            <p className="sc-body mt-1">{orgMap[quote.orgId ?? ''] ?? quote.orgId ?? '-'}</p>
+          </div>
+          <Status tone={tone}>{label}</Status>
+        </div>
+        <p className="st-num">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p>
+        <p className="sc-tiny">Valid until {formatDate(quote.validUntil)}</p>
+        <div className="flex flex-wrap gap-2">
+          {quote.canEdit ? <Button type="button" variant="ghost" size="sm" onClick={() => startQuoteEdit(quote)}>Edit</Button> : null}
+          {quote.canSend ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => patchQuote(quote, { status: 'sent' })} disabled={savingId === quote.id}>
+              Send
+            </Button>
+          ) : null}
+        </div>
+        {editing?.kind === 'quotes' && editing.id === quote.id ? renderDraftEditor(() => saveQuoteDraft(quote)) : null}
+      </Panel>
+    )
+  }
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-8">
+      <PageHeader
+        eyebrow="Invoicing"
+        title="Billing."
+        description={loading ? 'Loading invoices and quotes.' : `${invoices.length} invoices and ${quotes.length} quotes.`}
+        actions={
+          <ButtonLink href="/portal/invoicing/new" size="sm">
+            New invoice
+          </ButtonLink>
+        }
+      />
+
+      {!loading ? (
+        <section className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Revenue collected" value={formatCurrency(totalRevenue, 'ZAR')} />
+          <StatCard label="Outstanding" value={formatCurrency(outstanding, 'ZAR')} />
+          <StatCard label="Overdue" value={String(overdueCount)} />
+        </section>
+      ) : null}
+
+      <Toolbar>
+        <PageTabs
+          ariaLabel="Billing tabs"
+          tabs={[
+            { value: 'invoices', label: `Invoices (${invoices.length})` },
+            { value: 'quotes', label: `Quotes (${quotes.length})` },
+          ]}
+          value={tab}
+          onValueChange={(id) => {
+            setTab(id as BillingTab)
+            setFilter('all')
+            setEditing(null)
+          }}
+        />
+        <PageTabs
+          ariaLabel="Status filter"
+          tabs={filterOptions.map((s) => ({ value: s, label: filterLabel(s) }))}
+          value={filter}
+          onValueChange={setFilter}
+        />
+      </Toolbar>
+
+      {loading ? (
+        <Panel flat className="space-y-4 p-5">
+          <Skeleton height={20} width="12rem" />
+          <Skeleton height={20} width="100%" />
+          <Skeleton height={20} width="80%" />
+        </Panel>
+      ) : tab === 'invoices' ? (
+        visibleInvoices.length === 0 ? (
+          <EmptyState
+            title="No invoices found."
+            description="Create an invoice to bill a client."
+            action={<ButtonLink href="/portal/invoicing/new" variant="secondary" size="sm">Create invoice</ButtonLink>}
+          />
         ) : (
-          visibleQuotes.length === 0 ? <EmptyState label="No quotes found." /> : <div className="divide-y divide-[var(--color-pib-line)]">{visibleQuotes.map(quote => {
-            const status = QUOTE_STATUS_MAP[quote.status] ?? { label: quote.status, pill: 'pib-pill' }
-            return <div key={quote.id} className="grid grid-cols-12 items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
-              <p className="col-span-2 font-mono text-sm">{quote.quoteNumber ?? quote.id}</p>
-              <p className="col-span-3 truncate text-sm">{orgMap[quote.orgId ?? ''] ?? quote.orgId ?? '—'}</p>
-              <div className="col-span-2"><StatusPill status={status} /></div>
-              <p className="col-span-2 text-sm font-medium">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p>
-              <p className="col-span-1 text-sm text-[var(--color-pib-text-muted)]">{formatDate(quote.validUntil)}</p>
-              <div className="col-span-2 flex flex-wrap justify-end gap-2 text-[10px] font-label uppercase tracking-wide">
-                {quote.canEdit ? <button type="button" onClick={() => startQuoteEdit(quote)} className="text-[var(--color-pib-accent)]">Edit</button> : null}
-                {quote.canSend ? <button type="button" onClick={() => patchQuote(quote, { status: 'sent' })} disabled={savingId === quote.id} className="text-[var(--color-pib-accent)]">Send</button> : null}
-                {quote.canAccept ? <button type="button" onClick={() => patchQuote(quote, { status: 'accepted' })} disabled={savingId === quote.id} className="text-[var(--color-pib-accent)]">Accept</button> : null}
-                {quote.canDecline ? <button type="button" onClick={() => patchQuote(quote, { status: 'declined' })} disabled={savingId === quote.id} className="text-[var(--color-error)]">Decline</button> : null}
-              </div>
-              {editing?.kind === 'quotes' && editing.id === quote.id ? renderDraftEditor(() => saveQuoteDraft(quote)) : null}
+          <>
+            <div className="hidden md:block">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>#</TH>
+                    <TH>Client</TH>
+                    <TH>Status</TH>
+                    <TH>Amount</TH>
+                    <TH>Date</TH>
+                    <TH><span className="sr-only">Actions</span></TH>
+                  </TR>
+                </THead>
+                <tbody>
+                  {visibleInvoices.map(renderInvoiceRow)}
+                </tbody>
+              </Table>
             </div>
-          })}</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function StatusPill({ status }: { status: { label: string; pill: string } }) {
-  return <span className={status.pill}>{status.label}</span>
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="pib-empty-state border-0">
-      <h2 className="pib-empty-state-title">{label}</h2>
-      <div className="mt-5 flex justify-center">
-        <Link href="/portal/invoicing/new" className="btn-pib-secondary">Create your first invoice →</Link>
-      </div>
+            <div className="flex flex-col gap-4 md:hidden">
+              {visibleInvoices.map(renderMobileInvoice)}
+            </div>
+          </>
+        )
+      ) : visibleQuotes.length === 0 ? (
+        <EmptyState
+          title="No quotes found."
+          description="Create a quote to send pricing to a client."
+          action={<ButtonLink href="/portal/invoicing/new" variant="secondary" size="sm">Create invoice</ButtonLink>}
+        />
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>#</TH>
+                  <TH>Client</TH>
+                  <TH>Status</TH>
+                  <TH>Amount</TH>
+                  <TH>Date</TH>
+                  <TH><span className="sr-only">Actions</span></TH>
+                </TR>
+              </THead>
+              <tbody>
+                {visibleQuotes.map(renderQuoteRow)}
+              </tbody>
+            </Table>
+          </div>
+          <div className="flex flex-col gap-4 md:hidden">
+            {visibleQuotes.map(renderMobileQuote)}
+          </div>
+        </>
+      )}
     </div>
   )
 }

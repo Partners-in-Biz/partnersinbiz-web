@@ -56,7 +56,7 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
           <ul className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
             {usingAdSets.map((s) => (
               <li key={s.id} className="px-4 py-3 text-sm">
-                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[var(--color-pib-rose)]">
+                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[var(--st-danger)]">
                   {s.name}
                 </Link>
               </li>
@@ -66,7 +66,7 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
       </section>
 
       {ca.lastError && (
-        <section className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4 text-sm">
+        <section className="rounded-md border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4 text-sm">
           <div className="font-medium text-[var(--color-error)]">Last error</div>
           <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{ca.lastError}</div>
         </section>

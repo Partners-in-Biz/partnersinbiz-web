@@ -174,7 +174,7 @@ export function ExperimentEditor({ orgSlug, experimentId, initial, onSaved }: Pr
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {errors.length > 0 && (
-        <ul className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400 space-y-1">
+        <ul className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-[var(--st-danger)] space-y-1">
           {errors.map((e, i) => (
             <li key={i}>{e}</li>
           ))}
@@ -272,7 +272,7 @@ export function ExperimentEditor({ orgSlug, experimentId, initial, onSaved }: Pr
       {/* Variants */}
       <fieldset>
         <legend className="text-sm font-medium">
-          Variants ({variants.length}/4) — must sum to 100%
+          Variants ({variants.length}/4) - must sum to 100%
         </legend>
         <div className="mt-3 space-y-4">
           {variants.map((v, idx) => (
@@ -281,12 +281,12 @@ export function ExperimentEditor({ orgSlug, experimentId, initial, onSaved }: Pr
               className="rounded-lg border border-white/10 bg-white/3 p-4 space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono uppercase text-[#F5A623]">{v.id}</span>
+                <span className="text-xs font-mono uppercase text-[var(--sc-accent)]">{v.id}</span>
                 {variants.length > 2 && (
                   <button
                     type="button"
                     onClick={() => removeVariant(idx)}
-                    className="text-xs text-white/30 hover:text-red-400"
+                    className="text-xs text-white/30 hover:text-[var(--st-danger)]"
                   >
                     Remove
                   </button>
@@ -333,7 +333,7 @@ export function ExperimentEditor({ orgSlug, experimentId, initial, onSaved }: Pr
           <button
             type="button"
             onClick={addVariant}
-            className="mt-3 text-sm text-[#F5A623]/80 hover:text-[#F5A623]"
+            className="mt-3 text-sm text-[color-mix(in_srgb,var(--sc-accent)_80%,transparent)] hover:text-[var(--sc-accent)]"
             aria-label="Add variant"
           >
             + Add variant

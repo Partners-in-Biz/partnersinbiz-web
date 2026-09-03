@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,19 +33,19 @@ export default async function PortalProgressTab({ params }: { params: Promise<{ 
         <StatTile label="Blocked" value={String(blocked.length)} icon="block" />
       </section>
 
-      <section className="pib-card p-6">
+      <section className="st-panel p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="eyebrow">Sprint progress</p>
-            <h2 className="font-headline text-2xl font-semibold mt-2">Work moving through the 90-day plan</h2>
+            <p className="sc-tiny">Sprint progress</p>
+            <h2 className="font-headline text-2xl mt-2">Work moving through the 90-day plan</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
               Completed tasks, active work, and recent wins from the SEO sprint.
             </p>
           </div>
-          <p className="font-display text-4xl tabular-nums">{pct}%</p>
+          <p className="text-4xl tabular-nums">{pct}%</p>
         </div>
-        <div className="mt-6 h-3 rounded-full bg-[var(--color-pib-line)] overflow-hidden">
-          <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${pct}%` }} />
+        <div className="mt-6 h-3 rounded bg-[var(--color-pib-line)] overflow-hidden">
+          <div className="h-full rounded bg-[var(--color-pib-accent)]" style={{ width: `${pct}%` }} />
         </div>
       </section>
 
@@ -60,10 +61,10 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }
@@ -71,9 +72,9 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function TaskList({ title, icon, tasks, empty, showDate }: { title: string; icon: string; tasks: any[]; empty: string; showDate?: boolean }) {
   return (
-    <div className="pib-card p-5 space-y-4">
-      <h3 className="font-headline text-lg font-semibold flex items-center gap-2">
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+    <div className="st-panel p-5 space-y-4">
+      <h3 className="font-headline text-lg flex items-center gap-2">
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
         {title}
       </h3>
       {tasks.length === 0 ? (

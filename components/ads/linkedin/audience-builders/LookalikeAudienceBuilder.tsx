@@ -1,6 +1,6 @@
 'use client'
 // components/ads/linkedin/audience-builders/LookalikeAudienceBuilder.tsx
-// LinkedIn Lookalike (LOOKALIKE) audience builder — Phase 3 Batch 3
+// LinkedIn Lookalike (LOOKALIKE) audience builder - Phase 3 Batch 3
 
 import { useState, useEffect } from 'react'
 
@@ -20,7 +20,7 @@ interface SourceAudience {
 }
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 export function LinkedinLookalikeAudienceBuilder({ orgId, onCreated, onCancel }: Props) {
@@ -44,7 +44,7 @@ export function LinkedinLookalikeAudienceBuilder({ orgId, onCreated, onCancel }:
           setSources(body.data ?? [])
         }
       } catch {
-        // silently ignore — user can type URN manually
+        // silently ignore - user can type URN manually
       } finally {
         setLoadingSources(false)
       }
@@ -135,7 +135,7 @@ export function LinkedinLookalikeAudienceBuilder({ orgId, onCreated, onCancel }:
           value={name}
           onChange={(e) => setName(e.target.value)}
           aria-label="Audience name"
-          placeholder="e.g. Lookalike — Newsletter subscribers"
+          placeholder="e.g. Lookalike - Newsletter subscribers"
           disabled={state === 'submitting'}
         />
       </label>

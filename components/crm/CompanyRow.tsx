@@ -9,6 +9,7 @@ import {
 } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
+import { Icon } from '@/components/studio'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -138,8 +139,8 @@ export function CompanyRow({
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const strength = profileStrength(company)
   const health = typeof company.healthScore === 'number' ? company.healthScore : strength
-  const healthTone = health >= 75 ? 'text-emerald-300' : health >= 45 ? 'text-amber-200' : 'text-red-300'
-  const healthBarTone = health >= 75 ? 'bg-emerald-400' : health >= 45 ? 'bg-amber-300' : 'bg-red-400'
+  const healthTone = health >= 75 ? 'text-emerald-300' : health >= 45 ? 'text-[var(--st-warning)]' : 'text-red-300'
+  const healthBarTone = health >= 75 ? 'bg-emerald-400' : health >= 45 ? 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]' : 'bg-red-400'
   const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]') : ''
   const tierLabel = readableAccountLabel(company.tier)
   const websiteLabel = company.domain || company.website || ''
@@ -182,10 +183,10 @@ export function CompanyRow({
             width={32}
             height={32}
             unoptimized
-            className="w-8 h-8 rounded-full object-cover"
+            className="w-8 h-8 rounded object-cover"
           />
         ) : (
-          <div className="pib-icon-tint flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-label">
+          <div className="flex h-8 w-8 items-center justify-center rounded text-[10px] font-label">
             {initials(company.name)}
           </div>
         )}
@@ -242,8 +243,8 @@ export function CompanyRow({
             <span className={`font-mono text-xs ${healthTone}`}>{health}%</span>
             <span className="text-[10px] text-[var(--color-pib-text-muted)]">health</span>
           </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className={`h-full rounded-full ${healthBarTone}`} style={{ width: `${health}%` }} />
+          <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10">
+            <div className={`h-full rounded ${healthBarTone}`} style={{ width: `${health}%` }} />
           </div>
         </button>
       </td>
@@ -258,12 +259,12 @@ export function CompanyRow({
               onEditLifecycle(company.id)
             }}
             aria-label={`Edit lifecycle for ${company.name}`}
-            className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity hover:opacity-80 ${lcCls}`}
+            className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded transition-opacity hover:opacity-80 ${lcCls}`}
           >
             {lifecycleLabel}
           </button>
         ) : lifecycleLabel ? (
-          <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${lcCls}`}>
+          <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${lcCls}`}>
             {lifecycleLabel}
           </span>
         ) : null}
@@ -285,12 +286,12 @@ export function CompanyRow({
           </span>
           <div className="flex flex-wrap gap-1">
             {tierLabel && (
-              <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${tierCls}`}>
+              <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${tierCls}`}>
                 {tierLabel}
               </span>
             )}
             {company.size && (
-              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/5 text-[var(--color-pib-text-muted)]">
+              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded bg-white/5 text-[var(--color-pib-text-muted)]">
                 {company.size}
               </span>
             )}
@@ -336,10 +337,10 @@ export function CompanyRow({
               width={24}
               height={24}
               unoptimized
-              className="h-6 w-6 rounded-full object-cover"
+              className="h-6 w-6 rounded object-cover"
             />
           ) : accountOwnerRef?.displayName ? (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-pib-surface)] text-[9px] font-label text-[var(--color-pib-text-muted)]">
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--color-pib-surface)] text-[9px] font-label text-[var(--color-pib-text-muted)]">
               {initials(accountOwnerRef.displayName)}
             </div>
           ) : null}
@@ -362,7 +363,7 @@ export function CompanyRow({
               aria-label={`Complete account profile for ${company.name}`}
               className="pib-pill pib-pill-warn transition-opacity hover:opacity-80"
             >
-              <span className="material-symbols-outlined text-[13px]">fact_check</span>
+              <Icon name="fact_check" />
               Complete profile
             </button>
           )}

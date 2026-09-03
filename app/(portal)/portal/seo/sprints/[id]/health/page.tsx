@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export default async function HealthTab({ params }: { params: Promise<{ id: stri
     <div className="space-y-4" data-module-accent="green">
       <section className="pib-card-section">
         <div className="pib-card-section-header">
-          <h3 className="font-semibold text-sm text-[var(--color-pib-text)]">Integrations</h3>
+          <h3 className="text-sm text-[var(--color-pib-text)]">Integrations</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Connection health for the sprint data layer.</p>
         </div>
         <StatusRow
@@ -55,10 +56,10 @@ export default async function HealthTab({ params }: { params: Promise<{ id: stri
       <section className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-sm text-[var(--color-pib-text)]">Active signals</h3>
+            <h3 className="text-sm text-[var(--color-pib-text)]">Active signals</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{signals.length} open health signals</p>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">health_and_safety</span></span>
+          <Icon name="health_and_safety" />
         </div>
         {signals.length === 0 ? (
           <p className="px-4 py-5 text-sm text-[var(--color-pib-text-muted)]">No active health signals.</p>
@@ -73,7 +74,7 @@ export default async function HealthTab({ params }: { params: Promise<{ id: stri
                   {s.severity}
                 </span>
                 </div>
-                <pre className="mt-3 max-h-72 overflow-auto rounded-2xl border border-[var(--color-pib-line)] bg-black/20 p-3 text-xs text-[var(--color-pib-text-muted)]">{JSON.stringify(s.evidence, null, 2)}</pre>
+                <pre className="mt-3 max-h-72 overflow-auto border border-[var(--color-pib-line)] bg-black/20 p-3 text-xs text-[var(--color-pib-text-muted)]">{JSON.stringify(s.evidence, null, 2)}</pre>
               </li>
             ))}
           </ul>

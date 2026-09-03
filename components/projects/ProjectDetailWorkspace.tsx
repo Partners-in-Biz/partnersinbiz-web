@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
@@ -384,7 +386,7 @@ export function ProjectDetailWorkspace({
       if (newColumnId === 'done') {
         if (task.assigneeAgentId) next.agentStatus = 'done'
         // Mirror applyAgentColumnMoveState: done never auto-approves when a reviewer
-        // is assigned — the card lands back in Review (awaiting-review) so only an
+        // is assigned - the card lands back in Review (awaiting-review) so only an
         // explicit reviewer action can approve it.
         next.reviewStatus = hasReviewer ? 'pending' : 'approved'
         if (hasReviewer) next.columnId = 'review'
@@ -586,8 +588,8 @@ export function ProjectDetailWorkspace({
       {/* Header */}
       <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3 md:mb-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="pib-icon-tint-cyan mt-0.5 shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">folder_managed</span>
+          <span className="mt-0.5 shrink-0" aria-hidden="true">
+            <Icon name="folder_managed" />
           </span>
           <div className="min-w-0">
             <div className="mb-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-[var(--color-pib-text-muted)]">
@@ -595,7 +597,7 @@ export function ProjectDetailWorkspace({
               <span>/</span>
               <span className="truncate text-[var(--color-pib-text)]">{project?.name ?? '...'}</span>
             </div>
-            <h1 className="truncate text-lg font-headline font-bold text-[var(--color-pib-text)] md:text-xl">
+            <h1 className="truncate text-lg font-headline font-medium text-[var(--color-pib-text)] md:text-xl">
               {loading ? '...' : project?.name}
             </h1>
           </div>
@@ -615,7 +617,7 @@ export function ProjectDetailWorkspace({
               onClick={() => setShowNewTask('todo')}
               className="pib-btn-primary btn-pib-sm shrink-0 font-label"
             >
-              <span className="material-symbols-outlined text-[15px]">add_task</span>
+              <Icon name="add_task" />
               <span className="hidden sm:inline">New Task</span>
               <span className="sm:hidden">New</span>
             </button>
@@ -649,7 +651,7 @@ export function ProjectDetailWorkspace({
                       : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[15px]">{mode === 'board' ? 'view_kanban' : 'view_list'}</span>
+                  <Icon name={mode === 'board' ? 'view_kanban' : 'view_list'} />
                   {mode}
                 </button>
               ))}
@@ -658,10 +660,10 @@ export function ProjectDetailWorkspace({
               <button
                 type="button"
                 onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] px-2.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                 aria-pressed={boardSortMode === 'manual'}
               >
-                <span className="material-symbols-outlined text-[15px]">sort</span>
+                <Icon name="sort" />
                 {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
               </button>
             ) : (
@@ -681,7 +683,7 @@ export function ProjectDetailWorkspace({
                     }`}
                     aria-pressed={taskListSort === option.key}
                   >
-                    <span className="material-symbols-outlined text-[15px]">{option.icon}</span>
+                    <Icon name={option.icon} />
                     <span className="hidden sm:inline">{option.label}</span>
                     <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
                   </button>
@@ -724,17 +726,17 @@ export function ProjectDetailWorkspace({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{task.title}</p>
+                          <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{task.title}</p>
                           <p className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">{people}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
+                        <span className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
                           {stageLabel}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
-                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">event</span>{formatDate(task.dueDate)}</span>
-                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">schedule</span>{formatEstimate(task.estimateMinutes)}</span>
-                        {(task.attachments?.length ?? 0) > 0 && <span className="ml-auto inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">attach_file</span>{task.attachments?.length ?? 0}</span>}
+                        <span className="inline-flex items-center gap-1"><Icon name="event" />{formatDate(task.dueDate)}</span>
+                        <span className="inline-flex items-center gap-1"><Icon name="schedule" />{formatEstimate(task.estimateMinutes)}</span>
+                        {(task.attachments?.length ?? 0) > 0 && <span className="ml-auto inline-flex items-center gap-1"><Icon name="attach_file" />{task.attachments?.length ?? 0}</span>}
                       </div>
                     </button>
                   )
@@ -769,7 +771,7 @@ export function ProjectDetailWorkspace({
                           {task.labels?.length ? <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{task.labels.join(', ')}</p> : null}
                         </td>
                         <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
-                          <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
+                          <span className={`inline-flex rounded-md border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
                             {stageLabel}
                           </span>
                         </td>
@@ -837,7 +839,7 @@ export function ProjectDetailWorkspace({
             <p className="pib-label mb-1">
               {isAdmin ? 'Operator task-bus chat' : 'Project / Agent chat'}
             </p>
-            <h2 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Project chat</h2>
+            <h2 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Project chat</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
               Same chat engine as the sidebar, scoped to this project with streaming, approvals, voice, and file uploads.
             </p>
@@ -889,12 +891,12 @@ export function ProjectDetailWorkspace({
           onSave={handleSaveSettings}
           peopleAccessSlot={<ProjectPeopleAccessPanel projectId={projectId} />}
           adminTransferSlot={isAdmin ? (
-            <div className="rounded-[var(--radius-card)] border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
+            <div className="rounded-[var(--radius-card)] border border-amber-500/30 bg-[var(--st-warning)]/5 p-5 shadow-sm">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined mt-0.5 text-amber-300">move_up</span>
+                <Icon name="move_up" className="mt-0.5 text-[var(--st-warning)]" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-amber-200/80">Admin transfer</p>
-                  <h3 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Move project to another client</h3>
+                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--st-warning)]/80">Admin transfer</p>
+                  <h3 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">Move project to another client</h3>
                   <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     Use this when a project was created under the wrong client. The move updates project visibility, project Kanban tasks, standalone tasks linked by projectId, unbilled time/expenses, and related calendar events. Billed financial records are left on the original client for audit safety.
                   </p>
@@ -919,7 +921,7 @@ export function ProjectDetailWorkspace({
                   type="button"
                   onClick={handleMoveProject}
                   disabled={movingProject || !targetOrgId || targetOrgId === (project?.clientOrgId ?? project?.orgId)}
-                  className="rounded-[var(--radius-card)] border border-amber-400/50 px-4 py-3 text-sm font-label text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-[var(--radius-card)] border border-amber-400/50 px-4 py-3 text-sm font-label text-[var(--st-warning)] transition-colors hover:bg-[var(--st-warning)]/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {movingProject ? 'Moving…' : 'Move Project'}
                 </button>

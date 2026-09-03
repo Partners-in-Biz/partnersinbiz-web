@@ -7,7 +7,7 @@ interface CampaignCockpitFrameProps {
 }
 
 export function CampaignCockpitFrame({ brandColors, children }: CampaignCockpitFrameProps) {
-  const accent = brandColors?.accent ?? brandColors?.primary ?? '#F5A623'
+  const accent = brandColors?.accent ?? brandColors?.primary ?? 'var(--sc-accent)'
   const styleVars = {
     '--org-bg': brandColors?.background ?? 'var(--color-pib-bg)',
     '--org-surface': brandColors?.surface ?? 'var(--color-pib-surface)',

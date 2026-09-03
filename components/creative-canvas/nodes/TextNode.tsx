@@ -28,7 +28,7 @@ function TextNodeComponent({ data, selected }: NodeProps) {
             fontSize: 12,
             padding: 8,
           }}
-        />
+         aria-label="Type text…"/>
       </div>
     </BaseNodeCard>
   )

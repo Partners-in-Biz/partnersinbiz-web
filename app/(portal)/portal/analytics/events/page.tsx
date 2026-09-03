@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { FeatureGate } from '@/components/paywall/FeatureGate'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface AnalyticsEvent {
   id: string
@@ -21,7 +23,7 @@ interface AnalyticsEvent {
 }
 
 function formatTs(ts: unknown): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   const source = ts as { _seconds?: number; seconds?: number }
   const seconds = source._seconds ?? source.seconds
   const d = typeof seconds === 'number' ? new Date(seconds * 1000) : new Date(ts as string)
@@ -62,17 +64,17 @@ export default function AnalyticsEventsPage() {
     <FeatureGate feature="analytics">
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="events" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Events</p>
-        <h1 className="pib-page-title mt-2">Events</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Events"
+        title="Events."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="pib-label mb-1">Event name</label>
-          <input
+          <input name="text"
             type="text"
             value={eventFilter}
             onChange={e => setEventFilter(e.target.value)}
@@ -82,13 +84,13 @@ export default function AnalyticsEventsPage() {
         </div>
         <div>
           <label className="pib-label mb-1">From</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="pib-input text-sm" />
+          <input name="date" type="date" value={from} onChange={e => setFrom(e.target.value)} className="pib-input text-sm" />
         </div>
         <div>
           <label className="pib-label mb-1">To</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="pib-input text-sm" />
+          <input name="date" type="date" value={to} onChange={e => setTo(e.target.value)} className="pib-input text-sm" />
         </div>
-        <button onClick={fetchEvents} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
+        <button name="page-action-11" onClick={fetchEvents} disabled={!propertyId || loading} className="st-btn st-btn--primary text-sm">
           {loading ? 'Loading…' : 'Search'}
         </button>
         </div>
@@ -115,9 +117,9 @@ export default function AnalyticsEventsPage() {
                   <td className="px-3 py-2 font-mono text-[var(--color-pib-text)]">{ev.event}</td>
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono">{ev.distinctId.slice(0, 12)}…</td>
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono">{ev.sessionId.slice(0, 8)}…</td>
-                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.pageUrl ? new URL(ev.pageUrl).pathname : '—'}</td>
-                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.device ?? '—'}</td>
-                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.country ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.pageUrl ? new URL(ev.pageUrl).pathname : ' - '}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.device ?? ' - '}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.country ?? ' - '}</td>
                 </tr>
               ))}
             </tbody>
@@ -126,10 +128,7 @@ export default function AnalyticsEventsPage() {
       )}
 
       {!loading && events.length === 0 && propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
-          <p className="pib-empty-state-description">No events found.</p>
-        </div>
+        <EmptyState title="No events found." />
       )}
     </div>
     </FeatureGate>

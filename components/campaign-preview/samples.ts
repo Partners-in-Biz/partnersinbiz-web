@@ -13,8 +13,8 @@ const STOCK_AVATAR =
 
 export const sampleBrand: PreviewBrand = {
   palette: {
-    bg: '#0A0A0B',
-    accent: '#F5A623',
+    bg: 'var(--sc-ink)',
+    accent: 'var(--sc-accent)',
     alert: '#FF5A5F',
     text: '#EDEDED',
     muted: '#8B8B92',
@@ -30,7 +30,7 @@ export const sampleInstagramFeed: PreviewSocialPost = {
   id: 'sample-ig-feed-1',
   platform: 'instagram',
   content:
-    'Three small habits that quietly compound into massive growth — drop your favourite in the comments below 👇',
+    'Three small habits that quietly compound into massive growth  -  drop your favourite in the comments below 👇',
   hashtags: ['founders', 'growth', 'startup'],
   authorHandle: 'partnersinbiz',
   authorName: 'Partners in Biz',
@@ -81,7 +81,7 @@ export const sampleFacebookPost: PreviewSocialPost = {
   id: 'sample-fb-1',
   platform: 'facebook',
   content:
-    "We just shipped the new client cockpit — generate a full 90-day campaign in under a minute. Here's what's inside 👇",
+    "We just shipped the new client cockpit  -  generate a full 90-day campaign in under a minute. Here's what's inside 👇",
   hashtags: ['ProductUpdate'],
   authorName: 'Partners in Biz',
   authorAvatarUrl: STOCK_AVATAR,
@@ -195,13 +195,13 @@ That's it. That's the whole insight. But the implementation is where it gets int
 
 Most of your competitors are still running the old playbook. They're spending more on ads while their conversion rates drop. They're chasing SEO traffic that converts at 0.4%.
 
-Meanwhile, you're building a list of people who *trust you*. Who open your emails. Who read your essays. Who, when they have the problem you solve, don't even shop around — they just hire you.
+Meanwhile, you're building a list of people who *trust you*. Who open your emails. Who read your essays. Who, when they have the problem you solve, don't even shop around  -  they just hire you.
 
 > The compounding is brutal at first. Then magical.
 
 ## What to do this week
 
-1. Pick one channel. LinkedIn or YouTube — those are where service-business audiences live.
+1. Pick one channel. LinkedIn or YouTube  -  those are where service-business audiences live.
 2. Commit to one piece of content per week, for 90 days.
 3. After 90 days, look at the data. Adjust.
 

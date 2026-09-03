@@ -15,7 +15,7 @@ function focusWithoutScroll(element: HTMLElement | null | undefined) {
   }
 }
 
-export function AccessibleDialog({ label, onClose, children, className = 'w-full max-w-md rounded-xl bg-[var(--color-card)] p-5' }: { label: string; onClose(): void; children: ReactNode; className?: string }) {
+export function AccessibleDialog({ label, onClose, children, className = 'w-full max-w-md rounded-md bg-[var(--color-card)] p-5' }: { label: string; onClose(): void; children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
@@ -84,7 +84,7 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
         className={cn(
           // Default: allow simple dialogs to scroll their own content.
           // Sticky-footer callers (New conversation) pass overflow-hidden + flex-col
-          // so only an internal body scrolls — never the whole card.
+          // so only an internal body scrolls  -  never the whole card.
           'max-h-[calc(100dvh-1rem)] min-h-0 w-full overflow-y-auto overscroll-contain [overflow-anchor:none] sm:max-h-[calc(100dvh-2rem)]',
           className,
         )}
@@ -120,5 +120,5 @@ export function AccessibleMenu({ id, label, onClose, children }: { id: string; l
     if (event.key === 'End') next = items.length - 1
     if (next != null) { event.preventDefault(); focusWithoutScroll(items[next]) }
   }
-  return <div id={id} ref={ref} role="menu" aria-label={label} onKeyDown={keyDown} className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 rounded-xl border bg-[var(--color-card)] p-3">{children}</div>
+  return <div id={id} ref={ref} role="menu" aria-label={label} onKeyDown={keyDown} className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 rounded-md border bg-[var(--color-card)] p-3">{children}</div>
 }

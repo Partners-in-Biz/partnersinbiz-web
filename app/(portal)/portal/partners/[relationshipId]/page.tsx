@@ -1,8 +1,21 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
+import {
+  Button,
+  ButtonLink,
+  Field,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Status,
+  Textarea,
+  Title,
+} from '@/components/studio'
 
 interface Overview {
   relationshipId: string
@@ -55,8 +68,6 @@ function money(v: number, c: string): string {
   catch { return `${c} ${(v ?? 0).toFixed(2)}` }
 }
 
-const CARD = 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]'
-
 export default function PartnerOverviewPage({ params }: { params: Promise<{ relationshipId: string }> }) {
   const { relationshipId } = use(params)
 
@@ -96,7 +107,6 @@ export default function PartnerOverviewPage({ params }: { params: Promise<{ rela
           sharedWithMe: (proj?.sharedWithMe as ProjectAccess[]) ?? [],
         })
       }
-      // /api/v1/projects returns a bare array in `data`, not { projects }.
       const mineBody = await mineRes.json().catch(() => null) as Record<string, unknown> | null
       const mineList = Array.isArray(mineBody?.data) ? mineBody.data : Array.isArray(mineBody) ? mineBody : []
       if (mineRes.ok) setMyProjects(mineList as OrgProject[])
@@ -154,12 +164,20 @@ export default function PartnerOverviewPage({ params }: { params: Promise<{ rela
     } finally { setBusy(false) }
   }
 
-  if (loading) return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton height="3rem" />
+        <Skeleton height="8rem" />
+      </div>
+    )
+  }
+
   if (error && !overview) {
     return (
-      <div className="p-4">
-        <Link href="/portal/partners" className="text-xs text-[var(--color-pib-text-muted)]">← Back to partners</Link>
-        <p className="mt-3 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>
+      <div className="space-y-4">
+        <ButtonLink href="/portal/partners" variant="ghost" size="sm">Back to partners</ButtonLink>
+        <EmptyState title="Not available." description={error} />
       </div>
     )
   }
@@ -180,106 +198,99 @@ export default function PartnerOverviewPage({ params }: { params: Promise<{ rela
   ]
 
   return (
-    <div className="space-y-5 p-4">
-      <header>
-        <Link href="/portal/partners" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-          ← Back to partners
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-pib-text)]">
-            {overview.partnerOrgName}
-          </h1>
-          <SystemLinkBadge kind="org" size="md" />
-          <span className="pib-pill px-2 py-0.5 text-[10px]">{overview.status}</span>
-        </div>
-        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-          You share: {overview.sharedCapabilities.join(', ') || 'nothing yet'}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Link href={`/portal/partners/catalog/${relationshipId}`} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
-            Order from them
-          </Link>
-          <Link href="/portal/partners/orders" className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
-            Orders
-          </Link>
-          <Link href="/portal/partners/settlements" className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
-            Settlements
-          </Link>
-          {overview.companyId ? (
-            <Link href={`/portal/companies/${overview.companyId}`} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
-              Company record
-            </Link>
-          ) : null}
-        </div>
-      </header>
+    <div className="space-y-8">
+      <ButtonLink href="/portal/partners" variant="ghost" size="sm">Back to partners</ButtonLink>
 
-      {error ? <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
-      {notice ? <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{notice}</p> : null}
+      <PageHeader
+        title={`${overview.partnerOrgName}.`}
+        description={`You share: ${overview.sharedCapabilities.join(', ') || 'nothing yet'}.`}
+        meta={
+          <>
+            <SystemLinkBadge kind="org" size="md" />
+            <Status>{overview.status}</Status>
+          </>
+        }
+        actions={
+          <>
+            <ButtonLink href={`/portal/partners/catalog/${relationshipId}`} variant="secondary" size="sm">
+              Order from them
+            </ButtonLink>
+            <ButtonLink href="/portal/partners/orders" variant="ghost" size="sm">Orders</ButtonLink>
+            <ButtonLink href="/portal/partners/settlements" variant="ghost" size="sm">Settlements</ButtonLink>
+            {overview.companyId ? (
+              <ButtonLink href={`/portal/companies/${overview.companyId}`} variant="ghost" size="sm">
+                Company record
+              </ButtonLink>
+            ) : null}
+          </>
+        }
+      />
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((t) => (
-          <div key={t.label} className={`${CARD} p-3`}>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">{t.label}</p>
-            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{t.value}</p>
-          </div>
+          <StatCard key={t.label} label={t.label} value={t.value} />
         ))}
-      </section>
+      </div>
 
-      <section className={`${CARD} grid gap-4 p-4 sm:grid-cols-2`}>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Confirmed sales to them</p>
-          <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">
-            {money(overview.tradeValue.received, overview.tradeValue.currency)}
-          </p>
+      <Panel>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="sc-tiny">Confirmed sales to them</p>
+            <p className="st-num mt-1 text-[1.25rem] text-[var(--sc-ink)]">
+              {money(overview.tradeValue.received, overview.tradeValue.currency)}
+            </p>
+          </div>
+          <div>
+            <p className="sc-tiny">Confirmed purchases from them</p>
+            <p className="st-num mt-1 text-[1.25rem] text-[var(--sc-ink)]">
+              {money(overview.tradeValue.placed, overview.tradeValue.currency)}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Confirmed purchases from them</p>
-          <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">
-            {money(overview.tradeValue.placed, overview.tradeValue.currency)}
-          </p>
-        </div>
-      </section>
+      </Panel>
 
-      <section className={`${CARD} p-4`}>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">Shared projects</h2>
+      <Panel>
+        <Title>Shared projects</Title>
 
         {outForThisPartner.length === 0 && inFromThisPartner.length === 0 ? (
-          <p className="mb-3 text-sm text-[var(--color-pib-text-muted)]">No projects shared either way yet.</p>
+          <p className="mb-4 mt-4 sc-body">No projects shared either way yet.</p>
         ) : (
-          <div className="mb-3 grid gap-4 sm:grid-cols-2">
+          <div className="mb-4 mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">You shared</p>
+              <p className="mb-2 sc-tiny">You shared</p>
               {outForThisPartner.length === 0 ? (
-                <p className="text-xs text-[var(--color-pib-text-muted)]">None.</p>
+                <p className="sc-body text-[0.875rem]">None.</p>
               ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {outForThisPartner.map((p) => (
-                    <li key={p.id} className="flex items-center gap-2 text-xs">
-                      <Link href={`/portal/projects/${p.projectId}`} className="min-w-0 flex-1 truncate text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]">
+                    <li key={p.id} className="flex items-center gap-2 text-[0.875rem]">
+                      <ButtonLink href={`/portal/projects/${p.projectId}`} variant="ghost" size="sm" className="min-w-0 flex-1 truncate !justify-start !px-0">
                         {p.projectName || p.projectId}
-                      </Link>
-                      <span className="pib-pill px-1.5 py-0.5 text-[9px]">{p.role}</span>
-                      <button type="button" onClick={() => void unshareProject(p)} disabled={busy}
-                        className="text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50">
+                      </ButtonLink>
+                      <Status>{p.role}</Status>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void unshareProject(p)} disabled={busy}>
                         Remove
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
             <div>
-              <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">They shared</p>
+              <p className="mb-2 sc-tiny">They shared</p>
               {inFromThisPartner.length === 0 ? (
-                <p className="text-xs text-[var(--color-pib-text-muted)]">None.</p>
+                <p className="sc-body text-[0.875rem]">None.</p>
               ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {inFromThisPartner.map((p) => (
-                    <li key={p.id} className="flex items-center gap-2 text-xs">
-                      <Link href={`/portal/projects/${p.projectId}`} className="min-w-0 flex-1 truncate text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]">
+                    <li key={p.id} className="flex items-center gap-2 text-[0.875rem]">
+                      <ButtonLink href={`/portal/projects/${p.projectId}`} variant="ghost" size="sm" className="min-w-0 flex-1 truncate !justify-start !px-0">
                         {p.projectName || p.projectId}
-                      </Link>
-                      <span className="pib-pill px-1.5 py-0.5 text-[9px]">{p.role}</span>
+                      </ButtonLink>
+                      <Status>{p.role}</Status>
                     </li>
                   ))}
                 </ul>
@@ -288,64 +299,64 @@ export default function PartnerOverviewPage({ params }: { params: Promise<{ rela
           </div>
         )}
 
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1">
-            <label htmlFor="share-project" className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
-              Share a project with them
-            </label>
-            <select id="share-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}
-              className="w-full rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]">
-              <option value="">Choose a project…</option>
-              {shareable.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Field id="share-project" label="Share a project with them">
+              <Select id="share-project" aria-label="Share a project with them" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">Choose a project…</option>
+                {shareable.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </Select>
+            </Field>
           </div>
-          <button type="button" onClick={() => void shareProject()} disabled={busy || !projectId}
-            className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50">
+          <Button type="button" size="sm" onClick={() => void shareProject()} disabled={busy || !projectId} loading={busy && Boolean(projectId)}>
             Share
-          </button>
+          </Button>
         </div>
-        <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
+        <p className="mt-2 sc-tiny text-[var(--sc-ink-soft)]">
           Partners get contributor access at most, never owner or manager.
         </p>
-      </section>
+      </Panel>
 
-      <section className={`${CARD} p-4`}>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+      <Panel>
+        <Title>
           Conversation {messages.length > 0 ? `(${messages.length})` : ''}
-        </h2>
+        </Title>
         {messages.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No messages yet.</p>
+          <p className="mt-4 sc-body">No messages yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="mt-4 space-y-4">
             {messages.map((m) => (
-              <li key={m.id} className="rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
-                <div className="mb-1 flex flex-wrap items-baseline gap-2">
-                  <span className="text-xs font-medium text-[var(--color-pib-text)]">
+              <li key={m.id} className="st-panel st-panel--flat p-4">
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <span className="sc-body text-[var(--sc-ink)]">
                     {m.authorRef?.displayName || 'Someone'}
                   </span>
-                  <span className="pib-pill px-1.5 py-0.5 text-[9px]">
+                  <Status>
                     {m.authorOrgId === overview.partnerOrgId ? overview.partnerOrgName : 'You'}
-                  </span>
+                  </Status>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-pib-text-muted)]">{m.body}</p>
+                <p className="sc-body whitespace-pre-wrap">{m.body}</p>
               </li>
             ))}
           </ul>
         )}
 
-        <div className="mt-4">
-          <label htmlFor="partner-msg" className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
-            Message {overview.partnerOrgName}
-          </label>
-          <textarea id="partner-msg" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)}
-            placeholder="Anything about the relationship as a whole — pricing, timelines, introductions."
-            className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-accent-v2)]" />
-          <button type="button" onClick={() => void send()} disabled={busy || !draft.trim()}
-            className="mt-2 rounded-lg bg-[var(--color-accent-v2)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
-            {busy ? 'Sending…' : 'Send'}
-          </button>
+        <div className="mt-5 space-y-4">
+          <Field id="partner-msg" label={`Message ${overview.partnerOrgName}`}>
+            <Textarea
+              id="partner-msg"
+              aria-label={`Message ${overview.partnerOrgName}`}
+              rows={3}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Anything about the relationship as a whole: pricing, timelines, introductions."
+            />
+          </Field>
+          <Button type="button" onClick={() => void send()} disabled={busy || !draft.trim()} loading={busy}>
+            Send
+          </Button>
         </div>
-      </section>
+      </Panel>
     </div>
   )
 }

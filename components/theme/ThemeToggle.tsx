@@ -1,11 +1,13 @@
 'use client'
 
 import { useTheme } from './ThemeProvider'
+import { Icon } from '@/components/studio'
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme()
 
-  const label = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+  const nextLabel = theme === 'ink' ? 'Paper' : 'Ink'
+  const label = `Switch to ${nextLabel}`
 
   return (
     <button
@@ -14,11 +16,10 @@ export function ThemeToggle() {
       data-tip={label}
       data-tip-side="bottom"
       aria-label={label}
-      className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+      className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 px-1.5 text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)] transition-colors"
     >
-      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-        {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-      </span>
+      <Icon name={theme === 'ink' ? 'light_mode' : 'dark_mode'} />
+      <span className="sc-tiny hidden sm:inline">{theme === 'ink' ? 'Ink' : 'Paper'}</span>
     </button>
   )
 }

@@ -26,7 +26,7 @@ export function LinkCardBlock({ block, index }: { block: DocumentBlock; index: n
         href={content.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex gap-5 rounded-xl border p-5 transition-all hover:-translate-y-0.5"
+        className="group flex gap-5 rounded-md border p-5 transition-all hover:-translate-y-0.5"
         style={{ borderColor: 'var(--doc-border)', background: 'var(--doc-surface)' }}
       >
         {content.image && (
@@ -39,7 +39,7 @@ export function LinkCardBlock({ block, index }: { block: DocumentBlock; index: n
           />
         )}
         <div className="flex flex-col justify-center">
-          <p className="text-base font-semibold text-[var(--doc-text)] group-hover:text-[var(--doc-accent)]">
+          <p className="text-base font-medium text-[var(--doc-text)] group-hover:text-[var(--doc-accent)]">
             {content.title}
           </p>
           {content.description && (

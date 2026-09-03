@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import {
+  ButtonLink,
+  Panel,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+  Toolbar,
+} from '@/components/studio'
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted'
 
@@ -19,13 +32,22 @@ interface Quote {
 
 type DateLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
 
-const STATUS_MAP: Record<QuoteStatus, { label: string; pill: string }> = {
-  draft:     { label: 'Draft',     pill: 'pib-pill' },
-  sent:      { label: 'Sent',      pill: 'pib-pill pib-pill-info' },
-  accepted:  { label: 'Accepted',  pill: 'pib-pill pib-pill-success' },
-  declined:  { label: 'Declined',  pill: 'pib-pill pib-pill-danger' },
-  expired:   { label: 'Expired',   pill: 'pib-pill' },
-  converted: { label: 'Converted', pill: 'pib-pill pib-pill-accent' },
+const STATUS_TONE: Record<QuoteStatus, 'info' | 'success' | 'danger' | 'warning' | undefined> = {
+  draft: undefined,
+  sent: 'info',
+  accepted: 'success',
+  declined: 'danger',
+  expired: 'warning',
+  converted: 'success',
+}
+
+const STATUS_LABEL: Record<QuoteStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
+  converted: 'Converted',
 }
 
 function formatCurrency(amount: number, currency: string) {
@@ -38,7 +60,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function formatDate(ts: DateLike) {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const seconds = isRecord(ts) && typeof ts._seconds === 'number'
     ? ts._seconds
     : isRecord(ts) && typeof ts.seconds === 'number'
@@ -85,87 +107,103 @@ export default function QuotesPage() {
   const filtered = filter === 'all' ? quotes : quotes.filter(q => q.status === filter)
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">CRM · Sales</p>
-          <h1 className="pib-page-title mt-2">Quotes</h1>
-          <p className="pib-page-sub">{loading ? '—' : `${quotes.length} quotes`}</p>
-        </div>
-        <Link href="/portal/quotes/new" className="btn-pib-primary text-sm shrink-0">+ New Quote</Link>
-      </header>
+    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+      <PageHeader
+        eyebrow="CRM"
+        title="Quotes."
+        description={loading ? 'Loading quotes.' : `${quotes.length} quotes in this workspace.`}
+        actions={
+          <ButtonLink href="/portal/quotes/new" size="sm">
+            New quote
+          </ButtonLink>
+        }
+      />
 
-      {/* Filters */}
-      <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Quote status filter">
-        {(['all', 'draft', 'sent', 'accepted', 'declined', 'converted'] as const).map(s => (
-          <button
-            key={s}
-            role="tab"
-            aria-selected={filter === s}
-            onClick={() => setFilter(s)}
-            className={`pib-tab capitalize ${filter === s ? 'pib-tab-active' : ''}`}
-          >
-            {s === 'all' ? `All (${quotes.length})` : `${s} (${quotes.filter(q => q.status === s).length})`}
-          </button>
-        ))}
-      </div>
+      <Toolbar>
+        <PageTabs
+          ariaLabel="Quote status filter"
+          tabs={[
+            { value: 'all', label: `All (${quotes.length})` },
+            { value: 'draft', label: `Draft (${quotes.filter(q => q.status === 'draft').length})` },
+            { value: 'sent', label: `Sent (${quotes.filter(q => q.status === 'sent').length})` },
+            { value: 'accepted', label: `Accepted (${quotes.filter(q => q.status === 'accepted').length})` },
+            { value: 'declined', label: `Declined (${quotes.filter(q => q.status === 'declined').length})` },
+            { value: 'converted', label: `Converted (${quotes.filter(q => q.status === 'converted').length})` },
+          ]}
+          value={filter}
+          onValueChange={(id) => setFilter(id as QuoteStatus | 'all')}
+        />
+      </Toolbar>
 
-      {/* Table */}
-      <div className="pib-surface pib-surface-table">
-        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)]">
-          <p className="col-span-2 pib-label mb-0">#</p>
-          <p className="col-span-3 pib-label mb-0">Client</p>
-          <p className="col-span-2 pib-label mb-0">Status</p>
-          <p className="col-span-2 pib-label mb-0">Amount</p>
-          <p className="col-span-2 pib-label mb-0">Valid Until</p>
-          <p className="col-span-1 pib-label mb-0"></p>
-        </div>
-
-        {loading ? (
-          <div className="divide-y divide-[var(--color-pib-line)]">
-            {[1,2,3].map(i => <div key={i} className="px-5 py-4"><div className="pib-skeleton h-5 w-48" /></div>)}
+      {loading ? (
+        <Panel flat className="space-y-4 p-5">
+          <Skeleton height={20} width="12rem" />
+          <Skeleton height={20} width="100%" />
+          <Skeleton height={20} width="80%" />
+        </Panel>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="No quotes found."
+          description="Create a quote to send pricing to a client."
+          action={<ButtonLink href="/portal/quotes/new" variant="secondary" size="sm">Create quote</ButtonLink>}
+        />
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>#</TH>
+                  <TH>Client</TH>
+                  <TH>Status</TH>
+                  <TH>Amount</TH>
+                  <TH>Valid until</TH>
+                  <TH><span className="sr-only">Actions</span></TH>
+                </TR>
+              </THead>
+              <tbody>
+                {filtered.map((q) => (
+                  <TR key={q.id}>
+                    <TD><span className="st-num">{q.quoteNumber}</span></TD>
+                    <TD>{orgMap[q.orgId] ?? q.orgId}</TD>
+                    <TD>
+                      <Status tone={STATUS_TONE[q.status]}>
+                        {STATUS_LABEL[q.status] ?? q.status}
+                      </Status>
+                    </TD>
+                    <TD>
+                      <span className="st-num">{formatCurrency(q.total ?? 0, q.currency ?? 'USD')}</span>
+                    </TD>
+                    <TD>{formatDate(q.validUntil)}</TD>
+                    <TD>
+                      <Link href={`/portal/quotes/${q.id}`} className="sc-tiny">View</Link>
+                    </TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="pib-empty-state border-0">
-            <p className="pib-empty-state-description">No quotes found.</p>
-            <Link href="/portal/quotes/new" className="btn-pib-secondary text-sm mt-4">
-              Create your first quote →
-            </Link>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--color-pib-line)]">
-            {filtered.map(q => {
-              const status = STATUS_MAP[q.status] ?? { label: q.status, pill: 'pib-pill' }
-              return (
-                <div key={q.id} className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
-                  <div className="col-span-2">
-                    <p className="text-sm font-mono text-[var(--color-pib-text)]">{q.quoteNumber}</p>
+
+          <div className="flex flex-col gap-4 md:hidden">
+            {filtered.map((q) => (
+              <Panel flat key={q.id} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="st-num" style={{ color: 'var(--sc-ink)' }}>{q.quoteNumber}</p>
+                    <p className="sc-body mt-1">{orgMap[q.orgId] ?? q.orgId}</p>
                   </div>
-                  <div className="col-span-3 min-w-0">
-                    <p className="text-sm text-[var(--color-pib-text)] truncate">{orgMap[q.orgId] ?? q.orgId}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className={status.pill}>
-                      {status.label}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(q.total ?? 0, q.currency ?? 'USD')}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(q.validUntil)}</p>
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <Link href={`/portal/quotes/${q.id}`} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
-                      View →
-                    </Link>
-                  </div>
+                  <Status tone={STATUS_TONE[q.status]}>
+                    {STATUS_LABEL[q.status] ?? q.status}
+                  </Status>
                 </div>
-              )
-            })}
+                <p className="st-num mt-4">{formatCurrency(q.total ?? 0, q.currency ?? 'USD')}</p>
+                <p className="sc-tiny mt-2">Valid until {formatDate(q.validUntil)}</p>
+                <Link href={`/portal/quotes/${q.id}`} className="sc-tiny mt-4 inline-block">View</Link>
+              </Panel>
+            ))}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

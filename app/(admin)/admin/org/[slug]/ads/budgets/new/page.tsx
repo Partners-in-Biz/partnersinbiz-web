@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/budgets/new/page.tsx
-// Sub-4 Batch 2B — Create budget page
+// Sub-4 Batch 2B  -  Create budget page
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { BudgetCapEditor } from '@/components/ads/BudgetCapEditor'
 

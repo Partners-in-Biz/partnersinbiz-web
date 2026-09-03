@@ -118,7 +118,7 @@ export function AppCABuilder({ orgId, onComplete, onCancel }: Props) {
           disabled={submitting || loadingProperties}
         >
           <option value="">
-            {loadingProperties ? 'Loading…' : properties.length === 0 ? 'No properties' : '— Select —'}
+            {loadingProperties ? 'Loading…' : properties.length === 0 ? 'No properties' : ' -  Select - '}
           </option>
           {properties.map((p) => (
             <option key={p.id} value={p.id}>

@@ -5,6 +5,18 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Title,
+  Toolbar,
+} from '@/components/studio'
 
 interface ProfileData {
   firstName: string
@@ -75,25 +87,6 @@ export default function ProfilePage() {
     setSaving(false)
   }
 
-  function field(key: keyof ProfileData, label: string, required = false) {
-    const id = `profile-${key}`
-    return (
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="pib-label !mb-0">
-          {label}{required && ' *'}
-        </label>
-        <input
-          id={id}
-          type="text"
-          value={(profile[key] as string) ?? ''}
-          onChange={e => setProfile(p => ({ ...p, [key]: e.target.value }))}
-          required={required}
-          className="pib-input"
-        />
-      </div>
-    )
-  }
-
   const readyFields = countReadyFields(profile)
   const ownershipState = isFilled(profile.firstName) && isFilled(profile.lastName) && isFilled(profile.jobTitle)
     ? 'Profile ready'
@@ -103,123 +96,152 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-6 w-40 rounded bg-[var(--color-pib-surface-soft)]" />
-        <div className="pib-card space-y-3">
-          <div className="h-5 w-56 rounded bg-[var(--color-pib-surface-soft)]" />
-          <div className="h-4 w-full max-w-xl rounded bg-[var(--color-pib-surface-soft)]" />
-        </div>
+        <Skeleton height={24} width={160} />
+        <Panel className="space-y-3">
+          <Skeleton height={20} width={224} />
+          <Skeleton height={16} className="w-full max-w-xl" />
+        </Panel>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4" data-module-accent="cyan">
+    <div className="space-y-8">
       <PageHeader
-        accent="cyan"
-        eyebrow="Personal workspace"
-        title="My profile"
-        description="Manage the identity your team sees, then jump straight into your own user-owned marketing workspace. Personal social accounts stay separate from company and organisation publishing."
+        title="My profile."
+        description="Manage the identity your team sees, then jump into your own user-owned marketing workspace."
       />
 
-      <section role="region" aria-label="Profile command center" className="space-y-3">
-        <div className="pib-card space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <section role="region" aria-label="Profile command center" className="space-y-4">
+        <Panel className="space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="eyebrow !text-[10px]">Profile and attribution</p>
-              <h2 className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Profile command center</h2>
-              <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Profile and attribution</p>
+              <Title className="mt-1">Profile command center</Title>
+              <p className="sc-body mt-2 max-w-2xl text-[var(--sc-ink-soft)]">
                 This is your human identity across CRM handoffs, approvals, personal social drafts, and user-owned workspace activity.
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-soft)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+            <p className="sc-body rounded border border-[var(--sc-line)] px-4 py-3 text-[var(--sc-ink-soft)]">
               {formatRole(profile.role)}
-            </div>
+            </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
-            <div data-testid="profile-readiness-ready-fields" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{readyFields} ready fields</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Name, title, and contact coverage.</p>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div data-testid="profile-readiness-ready-fields" className="pib-stat-card st-panel--flat min-w-0 space-y-2 p-4">
+              <p className="st-num text-2xl text-[var(--sc-ink)]">{readyFields} ready fields</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">Name, title, and contact coverage.</p>
             </div>
-            <div data-testid="profile-readiness-name" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={fullName(profile)}>{fullName(profile)}</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Displayed on CRM records, comments, and personal drafts.</p>
+            <div data-testid="profile-readiness-name" className="pib-stat-card st-panel--flat min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm text-[var(--sc-ink)]" title={fullName(profile)}>{fullName(profile)}</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">Displayed on CRM records, comments, and personal drafts.</p>
             </div>
-            <div data-testid="profile-readiness-title" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={profile.jobTitle || 'Job title missing'}>{profile.jobTitle || 'Job title missing'}</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{ownershipState}</p>
+            <div data-testid="profile-readiness-title" className="pib-stat-card st-panel--flat min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm text-[var(--sc-ink)]" title={profile.jobTitle || 'Job title missing'}>{profile.jobTitle || 'Job title missing'}</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">{ownershipState}</p>
             </div>
-            <div data-testid="profile-readiness-contact" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={contactState}>{contactState}</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Used when workspace work needs a direct contact.</p>
+            <div data-testid="profile-readiness-contact" className="pib-stat-card st-panel--flat min-w-0 space-y-2 p-4">
+              <p className="truncate text-sm text-[var(--sc-ink)]" title={contactState}>{contactState}</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">Used when workspace work needs a direct contact.</p>
             </div>
           </div>
-        </div>
+        </Panel>
       </section>
 
-
       <section role="region" aria-label="Personal social marketing" className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="pib-card space-y-5 overflow-hidden">
+        <Panel className="space-y-5 overflow-hidden">
           <div className="flex items-start gap-4">
-            <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">person_play</span></span>
+            <Icon name="person_play" />
             <div>
-              <p className="eyebrow !text-[10px]">Your own channels</p>
-              <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Personal social marketing</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Your own channels</p>
+              <Title className="mt-2">Personal social marketing</Title>
+              <p className="sc-body mt-2 max-w-2xl text-[var(--sc-ink-soft)]">
                 Use this for posts, content vault, schedules, X MCP/bookmarks, and accounts that belong to you as a user. Company / organisation social remains the shared brand or client workspace.
               </p>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Link href="/portal/personal/marketing" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">space_dashboard</span></span>
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Open personal workspace</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Dashboard, vault, calendar, history, and X MCP setup.</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link href="/portal/personal/marketing" className="pib-stat-card st-panel--flat group min-w-0 space-y-2 p-4 transition hover:border-[var(--sc-ink)]">
+              <Icon name="space_dashboard" />
+              <p className="text-sm text-[var(--sc-ink)]">Open personal workspace</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">Dashboard, vault, calendar, history, and X MCP setup.</p>
             </Link>
-            <Link href="/portal/personal/social/compose" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">edit_square</span></span>
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Compose personal post</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Draft, schedule, preview, and publish from your accounts.</p>
+            <Link href="/portal/personal/social/compose" className="pib-stat-card st-panel--flat group min-w-0 space-y-2 p-4 transition hover:border-[var(--sc-ink)]">
+              <Icon name="edit_square" />
+              <p className="text-sm text-[var(--sc-ink)]">Compose personal post</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">Draft, schedule, preview, and publish from your accounts.</p>
             </Link>
-            <Link href="/portal/personal/social/accounts" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">add_link</span></span>
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">Connect personal accounts</p>
-              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">OAuth and X MCP are user-owned, not shared company tokens.</p>
+            <Link href="/portal/personal/social/accounts" className="pib-stat-card st-panel--flat group min-w-0 space-y-2 p-4 transition hover:border-[var(--sc-ink)]">
+              <Icon name="add_link" />
+              <p className="text-sm text-[var(--sc-ink)]">Connect personal accounts</p>
+              <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">OAuth and X MCP are user-owned, not shared company tokens.</p>
             </Link>
           </div>
-        </div>
-        <div className="pib-card space-y-3 bg-[var(--color-pib-surface-soft)]">
-          <p className="eyebrow !text-[10px]">Clear distinction</p>
-          <div className="space-y-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            <p><span className="font-semibold text-[var(--color-pib-text)]">Personal</span> is for your profile, bookmarks, personal voice, and accounts owned by your login.</p>
-            <p><span className="font-semibold text-[var(--color-pib-text)]">Company / organisation</span> is for shared brand/client publishing, approvals, and team-managed accounts.</p>
+        </Panel>
+        <Panel flat className="space-y-3">
+          <p className="sc-tiny">Clear distinction</p>
+          <div className="sc-body space-y-3 text-[var(--sc-ink-soft)]">
+            <p><span className="text-[var(--sc-ink)]">Personal</span> is for your profile, bookmarks, personal voice, and accounts owned by your login.</p>
+            <p><span className="text-[var(--sc-ink)]">Company / organisation</span> is for shared brand/client publishing, approvals, and team-managed accounts.</p>
           </div>
-          <Link href="/portal/social" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-pib-accent)]">
+          <ButtonLink href="/portal/social" variant="ghost" size="sm">
             Open company social instead
-            <span className="material-symbols-outlined text-base" aria-hidden>arrow_forward</span>
-          </Link>
-        </div>
+            <Icon name="arrow_forward" />
+          </ButtonLink>
+        </Panel>
       </section>
 
       <form onSubmit={handleSave} className="space-y-4">
-        <div className="pib-card space-y-4">
+        <Panel className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            {field('firstName', 'First name', true)}
-            {field('lastName', 'Last name', true)}
+            <Field id="profile-firstName" label="First name">
+              <Input
+                id="profile-firstName"
+                aria-label="First name"
+                type="text"
+                value={profile.firstName}
+                onChange={e => setProfile(p => ({ ...p, firstName: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field id="profile-lastName" label="Last name">
+              <Input
+                id="profile-lastName"
+                aria-label="Last name"
+                type="text"
+                value={profile.lastName}
+                onChange={e => setProfile(p => ({ ...p, lastName: e.target.value }))}
+                required
+              />
+            </Field>
           </div>
-          {field('jobTitle', 'Job title')}
-          {field('phone', 'Work phone')}
-        </div>
+          <Field id="profile-jobTitle" label="Job title">
+            <Input
+              id="profile-jobTitle"
+              aria-label="Job title"
+              type="text"
+              value={profile.jobTitle}
+              onChange={e => setProfile(p => ({ ...p, jobTitle: e.target.value }))}
+            />
+          </Field>
+          <Field id="profile-phone" label="Work phone">
+            <Input
+              id="profile-phone"
+              aria-label="Work phone"
+              type="text"
+              value={profile.phone}
+              onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
+            />
+          </Field>
+        </Panel>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="pib-btn-primary w-full justify-center disabled:opacity-60 sm:w-auto"
-        >
-          {saving ? 'Saving...' : saved ? 'Saved' : 'Save profile'}
-        </button>
+        <Toolbar className="sticky bottom-4 z-10 border border-[var(--sc-line)] bg-[var(--sc-surface)] p-4">
+          <Button type="submit" loading={saving}>
+            {saved ? 'Saved' : 'Save profile'}
+          </Button>
+        </Toolbar>
       </form>
     </div>
   )

@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { scopeFromSearchParams, scopedPortalPath } from '@/lib/portal/scoped-routing'
 import { CustomReportBuilder } from '@/components/reports/CustomReportBuilder'
+import { Icon, ButtonLink } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 export default function NewCustomReport() {
   const searchParams = useSearchParams()
@@ -17,30 +19,28 @@ export default function NewCustomReport() {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">Custom report</p>
-          <h1 className="pib-page-title mt-2">Report builder</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Assemble a report from sections — text, metrics, charts, tables and page breaks. Snapshot sections pull live numbers for the period.
-          </p>
-        </div>
-        <Link href={backHref} className="btn-pib-secondary !py-2 !px-4 !text-sm">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
-          Back to reports
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Custom report"
+        title="Report builder."
+        description="Assemble a report from sections: text, metrics, charts, tables and page breaks. Snapshot sections pull live numbers for the period."
+        actions={(
+          <ButtonLink href={backHref} variant="secondary" size="sm">
+            <Icon name="arrow_back" />
+            Back to reports
+          </ButtonLink>
+        )}
+      />
 
       {savedToken ? (
-        <div className="bento-card !p-6 text-center space-y-4">
-          <span className="material-symbols-outlined text-4xl text-emerald-300">check_circle</span>
-          <h2 className="font-display text-2xl">Report generated.</h2>
+        <div className="st-panel !p-6 text-center space-y-4">
+          <Icon name="check_circle" />
+          <h2 className="text-2xl">Report generated.</h2>
           <div className="flex items-center justify-center gap-3">
-            <Link href={`/reports/${savedToken}`} target="_blank" className="btn-pib-accent !py-2 !px-4 !text-sm">
+            <Link href={`/reports/${savedToken}`} target="_blank" className="st-btn st-btn--primary !py-2 !px-4 !text-sm">
               Open report
-              <span className="material-symbols-outlined text-base">arrow_outward</span>
+              <Icon name="arrow_outward" />
             </Link>
-            <Link href={backHref} className="btn-pib-secondary !py-2 !px-4 !text-sm">
+            <Link href={backHref} className="st-btn st-btn--secondary !py-2 !px-4 !text-sm">
               Back to reports
             </Link>
           </div>

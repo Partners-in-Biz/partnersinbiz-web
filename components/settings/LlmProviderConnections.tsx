@@ -16,7 +16,7 @@ import {
 
 function statusTone(status: string) {
   if (status === 'connected') return 'bg-emerald-500/15 text-emerald-300'
-  if (status === 'invalid' || status === 'reauth_required') return 'bg-amber-500/15 text-amber-200'
+  if (status === 'invalid' || status === 'reauth_required') return 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]'
   return 'bg-white/[0.06] text-[var(--color-pib-text-muted)]'
 }
 
@@ -69,7 +69,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
     if (!oauthSession) return
     const isDeviceFlow = oauthSession.status === 'pending'
     const isAwaitingCode = oauthSession.status === 'awaiting_code'
-    // Keep the sign-in banner in view for BOTH flows — previously it sat above
+    // Keep the sign-in banner in view for BOTH flows  -  previously it sat above
     // a long list while the connect form stayed open, so "Connect with OAuth"
     // looked dead. Claude's authorization_code flow (awaiting_code) needs the
     // same scroll so the paste-code box is visible when the user returns.
@@ -121,7 +121,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
     if (url) {
       const opened = window.open(url, '_blank', 'noopener,noreferrer')
       if (!opened) {
-        // Popup blocked — banner still has the link and code.
+        // Popup blocked  -  banner still has the link and code.
         setError('Browser blocked the sign-in tab. Use the link in “Complete sign-in” below and enter the code.')
       }
     }
@@ -134,7 +134,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       setCodeCopied(true)
       window.setTimeout(() => setCodeCopied(false), 2000)
     } catch {
-      setError('Could not copy code — select it manually.')
+      setError('Could not copy code  -  select it manually.')
     }
   }, [oauthSession?.userCode])
 
@@ -177,21 +177,21 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)] space-y-2">
+      <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)] space-y-2">
         <p>
           <span className="font-medium text-[var(--color-pib-text)]">Organisation VPS</span>
-          {' — '}
+          {'  -  '}
           {notes?.orgScope
             || 'Shared credentials sync only to this organisation’s VPS and are used by everyone on that VPS.'}
         </p>
         <p>
           <span className="font-medium text-[var(--color-pib-text)]">Linked computers</span>
-          {' — '}
+          {'  -  '}
           {notes?.userScope
             || 'Personal credentials sync only to computers owned by your account.'}
         </p>
         {syncTargets && syncTargets.targetCount === 0 && syncTargets.reasonIfEmpty ? (
-          <p className="text-amber-200/90">{syncTargets.reasonIfEmpty}</p>
+          <p className="text-[color-mix(in_srgb,var(--st-warning)_90%,transparent)]">{syncTargets.reasonIfEmpty}</p>
         ) : syncTargets && syncTargets.targetCount > 0 ? (
           <p>
             Organisation sync targets ready: {syncTargets.targetCount}
@@ -199,14 +199,14 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           </p>
         ) : null}
         {connections.length === 0 && notes?.hermesNative ? (
-          <p className="text-amber-100/90">{notes.hermesNative}</p>
+          <p className="text-[color-mix(in_srgb,var(--st-warning)_90%,transparent)]">{notes.hermesNative}</p>
         ) : notes?.hermesNative ? (
           <p>{notes.hermesNative}</p>
         ) : null}
         {notes?.cursor ? <p>{notes.cursor}</p> : null}
       </div>
       {error && (
-        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {error}
         </div>
       )}
@@ -215,14 +215,14 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           ref={oauthBannerRef}
           role="status"
           aria-live="polite"
-          className="rounded-xl border-2 border-[var(--color-pib-accent)]/50 bg-[var(--color-pib-accent-soft)] px-4 py-4 text-sm shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+          className="rounded-md border-2 border-[var(--color-pib-accent)]/50 bg-[var(--color-pib-accent-soft)] px-4 py-4 text-sm shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
         >
-          <p className="font-semibold text-[var(--color-pib-text)]">Complete sign-in</p>
+          <p className="font-medium text-[var(--color-pib-text)]">Complete sign-in</p>
           {oauthSession.flow === 'authorization_code' ? (
             <>
               <p className="mt-1 text-[var(--color-pib-text-muted)]">
-                Approve with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below. After
-                approving, Anthropic shows a page that says “Paste this into Claude Code” — that is the code you need.
+                Approve with {oauthProviderLabel}. A sign-in tab should have opened  -  if not, use the link below. After
+                approving, Anthropic shows a page that says “Paste this into Claude Code”  -  that is the code you need.
                 Copy it and paste it into the field below.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -268,7 +268,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           ) : (
             <>
               <p className="mt-1 text-[var(--color-pib-text-muted)]">
-                Approve this device with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below.
+                Approve this device with {oauthProviderLabel}. A sign-in tab should have opened  -  if not, use the link below.
               </p>
               {oauthSession.userCode ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -318,7 +318,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           return (
             <div
               key={provider.key}
-              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-3"
+              className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-3"
             >
               {matches.length > 0 ? (
                 matches.map((conn) => (
@@ -376,7 +376,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                 ) : (
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{provider.label}</p>
+                      <p className="text-sm font-medium text-[var(--color-pib-text)]">{provider.label}</p>
                       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{provider.description}</p>
                     </div>
                     <button
@@ -452,11 +452,11 @@ function ConnectedRow({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{connection.label}</span>
+          <span className="text-sm font-medium text-[var(--color-pib-text)]">{connection.label}</span>
           <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
             {isPersonal ? 'Personal · linked computer' : 'Organisation · VPS'}
           </span>
-          <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(connection.status)}`}>
+          <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${statusTone(connection.status)}`}>
             {connection.status}
           </span>
         </div>
@@ -493,7 +493,7 @@ function ConnectedRow({
       {visibleBindings.length > 0 ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           Live verified on {isPersonal ? 'your linked computers' : 'the organisation VPS'}:{' '}
-          <span className={readyCount === visibleBindings.length ? 'text-emerald-300' : 'text-amber-200'}>
+          <span className={readyCount === visibleBindings.length ? 'text-emerald-300' : 'text-[var(--st-warning)]'}>
             {readyCount}/{visibleBindings.length} profiles
           </span>
         </p>
@@ -503,16 +503,16 @@ function ConnectedRow({
           {visibleBindings.map((binding) => (
             <p key={binding.id} className="text-[11px] text-[var(--color-pib-text-muted)]">
               {binding.machineLabel} · {binding.agentId}:{' '}
-              <span className={binding.liveAuthVerified ? 'text-emerald-300' : binding.status === 'failed' ? 'text-red-200' : 'text-amber-200'}>
+              <span className={binding.liveAuthVerified ? 'text-emerald-300' : binding.status === 'failed' ? 'text-red-200' : 'text-[var(--st-warning)]'}>
                 {binding.liveAuthVerified ? 'Ready · live verified' : binding.status}
               </span>
-              {binding.lastError ? ` — ${binding.lastError}` : ''}
+              {binding.lastError ? `  -  ${binding.lastError}` : ''}
             </p>
           ))}
         </div>
       )}
       {connection.lastError && visibleBindings.length === 0 && (
-        <p className="text-xs text-amber-200">{connection.lastError}</p>
+        <p className="text-xs text-[var(--st-warning)]">{connection.lastError}</p>
       )}
       {rowError && <p role="alert" className="text-xs text-red-200">{rowError}</p>}
     </div>
@@ -561,7 +561,7 @@ function ConnectForm({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-[var(--color-pib-text)]">Connect {provider.label}</p>
+        <p className="text-sm font-medium text-[var(--color-pib-text)]">Connect {provider.label}</p>
         {provider.consoleUrl && (
           <a href={provider.consoleUrl} target="_blank" rel="noreferrer" className="text-xs text-[var(--color-pib-accent-hover)]">
             Open console →
@@ -569,7 +569,7 @@ function ConnectForm({
         )}
       </div>
       {provider.key === 'anthropic' && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+        <p className="rounded-lg border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-3 py-2 text-xs text-[color-mix(in_srgb,var(--st-warning)_90%,transparent)]">
           OAuth requires a Claude Max plan with purchased extra usage credits; Claude Pro cannot use this path. API key is
           the reliable alternative.
         </p>

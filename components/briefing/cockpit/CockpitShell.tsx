@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { DockedChat } from './DockedChat'
@@ -53,9 +55,9 @@ export function CockpitShell({
     >
       <header data-testid="briefings-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.06] text-[var(--color-pib-text)]"><span className="material-symbols-outlined text-[15px]">radar</span></span>
+          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.06] text-[var(--color-pib-text)]"><Icon name="radar" /></span>
           <div className="flex min-w-0 items-center gap-2">
-            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Briefings</h1>
+            <h1 className="truncate text-sm leading-tight text-[var(--color-pib-text)]">Briefings</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
           </div>
           <div className="hidden items-center gap-2 text-xs text-[var(--color-pib-text-muted)] lg:flex" aria-label="Briefings live signals">
@@ -67,7 +69,7 @@ export function CockpitShell({
         <div className="flex items-center gap-1.5">
           <HudChip className="sm:hidden">{itemCount} open</HudChip>
           <button type="button" onClick={onRefresh} disabled={loading} title="Refresh briefings" className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:opacity-50">
-            <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
+            <Icon name="refresh" className={loading ? 'animate-spin' : undefined} />
           </button>
           <button
             type="button"
@@ -75,7 +77,7 @@ export function CockpitShell({
             className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs transition ${showChat ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'}`}
             aria-label={showChat ? 'Close Pip briefing assistant' : 'Open Pip briefing assistant'}
           >
-            <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+            <Icon name="smart_toy" />
             <span className="hidden sm:inline">Ask Pip</span>
           </button>
         </div>

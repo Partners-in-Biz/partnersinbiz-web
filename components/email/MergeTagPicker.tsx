@@ -29,7 +29,7 @@ interface Props {
   onChange: (next: MergeTagFallbacks) => void
   /** Insert `{{tag}}` at the editor's cursor. When omitted the insert chips are hidden. */
   onInsert?: (tag: string) => void
-  /** Tags currently referenced by the campaign content — drives the "needs fallback" hints. */
+  /** Tags currently referenced by the campaign content  -  drives the "needs fallback" hints. */
   usedTags?: string[]
   disabled?: boolean
 }
@@ -52,10 +52,10 @@ export default function MergeTagPicker({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-3 text-[var(--color-pib-text)]">
+    <div className="rounded-md border border-white/10 bg-black/40 p-4 space-y-3 text-[var(--color-pib-text)]">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-amber-300">Merge tags</h3>
+          <h3 className="text-lg font-medium text-[var(--st-warning)]">Merge tags</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             Personalise with contact fields. Set a fallback for when a field is empty.
           </p>
@@ -63,7 +63,7 @@ export default function MergeTagPicker({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs text-amber-300 hover:underline"
+          className="text-xs text-[var(--st-warning)] hover:underline"
         >
           {expanded ? 'Hide' : 'Show'}
         </button>
@@ -80,7 +80,7 @@ export default function MergeTagPicker({
                   disabled={disabled}
                   onClick={() => onInsert(tag.key)}
                   title={tag.description}
-                  className="rounded-md bg-white/5 px-2.5 py-1.5 text-xs font-mono text-amber-200 hover:bg-white/10 disabled:opacity-40"
+                  className="rounded-md bg-white/5 px-2.5 py-1.5 text-xs font-mono text-[var(--st-warning)] hover:bg-white/10 disabled:opacity-40"
                 >
                   {'{{'}{tag.key}{'}}'}
                 </button>
@@ -98,12 +98,12 @@ export default function MergeTagPicker({
                 <div
                   key={tag.key}
                   className={`grid grid-cols-[1fr_1.4fr] items-center gap-3 rounded-lg border px-3 py-2 ${
-                    needsFallback ? 'border-amber-500/40 bg-amber-500/5' : 'border-white/10 bg-white/[0.03]'
+                    needsFallback ? 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)]' : 'border-white/10 bg-white/[0.03]'
                   }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-amber-200">{'{{'}{tag.key}{'}}'}</span>
+                      <span className="font-mono text-xs text-[var(--st-warning)]">{'{{'}{tag.key}{'}}'}</span>
                       {isUsed && (
                         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-200">
                           in use
@@ -116,9 +116,9 @@ export default function MergeTagPicker({
                   </div>
                   <div>
                     {ALWAYS_RESOLVABLE.has(tag.key) ? (
-                      <span className="text-xs text-[var(--color-pib-text-muted)] italic">Always resolves — no fallback needed</span>
+                      <span className="text-xs text-[var(--color-pib-text-muted)] italic">Always resolves  -  no fallback needed</span>
                     ) : (
-                      <input
+                      <input aria-label="Always resolves - no fallback needed"
                         value={fb}
                         disabled={disabled}
                         placeholder={tag.defaultFallback ? `Fallback (e.g. "${tag.defaultFallback}")` : 'Fallback text'}
@@ -127,8 +127,8 @@ export default function MergeTagPicker({
                       />
                     )}
                     {needsFallback && (
-                      <p className="mt-1 text-[11px] text-amber-300">
-                        Used in this campaign but has no fallback — contacts missing this field will see a gap.
+                      <p className="mt-1 text-[11px] text-[var(--st-warning)]">
+                        Used in this campaign but has no fallback  -  contacts missing this field will see a gap.
                       </p>
                     )}
                   </div>

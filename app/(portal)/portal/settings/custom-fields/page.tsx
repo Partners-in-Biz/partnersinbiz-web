@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CustomFieldDefinitionsList } from '@/components/crm/CustomFieldDefinitionsList'
@@ -89,9 +91,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-2 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -304,7 +306,7 @@ export default function CustomFieldsPage() {
             onClick={openCreate}
             className="btn-pib-primary btn-pib-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            <Icon name="add" />
             New field
           </button>
         ) : undefined}
@@ -322,7 +324,7 @@ export default function CustomFieldsPage() {
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
         <div className="pib-card flex items-center gap-2 !py-3 text-xs text-[var(--color-pib-text-muted)]">
-          <span className="material-symbols-outlined text-[16px]">info</span>
+          <Icon name="info" />
           Only admins can manage custom fields.
         </div>
       )}
@@ -343,7 +345,8 @@ export default function CustomFieldsPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="pib-input min-w-[220px] flex-1"
+                aria-label="Search custom fields"
+                  className="pib-input min-w-[220px] flex-1"
                 placeholder="Search label, key, group, help..."
               />
               <select
@@ -373,7 +376,7 @@ export default function CustomFieldsPage() {
                   onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
                   className="btn-pib-ghost"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  <Icon name="filter_alt_off" />
                   Clear filters
                 </button>
               ) : null}
@@ -388,16 +391,16 @@ export default function CustomFieldsPage() {
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{groupedCount}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{groupedCount}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Grouped</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{missingHelpCount}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{missingHelpCount}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">No help</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] px-2 py-2">
-                <p className="font-display text-lg text-[var(--color-pib-text)]">{choiceCount}</p>
+              <div className="rounded border border-[var(--color-pib-line)] px-2 py-2">
+                <p className="text-lg text-[var(--color-pib-text)]">{choiceCount}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Choices</p>
               </div>
             </div>
@@ -413,7 +416,7 @@ export default function CustomFieldsPage() {
       {/* Tab content */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">
+          <h2 className="text-sm text-[var(--color-pib-text)]">
             Custom fields for {currentTab.label.toLowerCase()}s
           </h2>
           <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
@@ -429,12 +432,10 @@ export default function CustomFieldsPage() {
           <section className="pib-card">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="flex gap-3">
-                <span className="pib-icon-tint mt-0.5 shrink-0">
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-                </span>
+                <Icon name="warning" />
                 <div className="min-w-0">
                   <p className="pib-label">Source health</p>
-                  <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                  <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                     Custom field schema could not load
                   </h2>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{fetchError}</p>
@@ -446,7 +447,7 @@ export default function CustomFieldsPage() {
                 className="btn-pib-secondary shrink-0"
                 aria-label="Retry loading custom field schema"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                <Icon name="refresh" />
                 Retry
               </button>
             </div>
@@ -456,11 +457,9 @@ export default function CustomFieldsPage() {
             <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
               <div className="flex flex-col justify-between gap-6 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
                 <div>
-                  <span className="pib-icon-tint-cyan mb-3">
-                    <span className="material-symbols-outlined text-[15px]">data_object</span>
-                  </span>
+                  <Icon name="data_object" />
                   <p className="pib-label">Schema setup</p>
-                  <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+                  <h3 className="mt-1 text-base text-[var(--color-pib-text)]">
                     Design your first CRM data field
                   </h3>
                   <p className="mt-2 max-w-xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -473,11 +472,11 @@ export default function CustomFieldsPage() {
                     onClick={openCreate}
                     className="btn-pib-primary w-fit"
                   >
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                    <Icon name="add" />
                     Create the first {currentTab.label.toLowerCase()} field
                   </button>
                 ) : (
-                  <p className="rounded-xl border border-[var(--color-pib-line)] px-2.5 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                  <p className="rounded border border-[var(--color-pib-line)] px-2.5 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
                     Ask an admin to create the first {currentTab.label.toLowerCase()} field before teams standardise this schema.
                   </p>
                 )}
@@ -487,14 +486,14 @@ export default function CustomFieldsPage() {
                 {FIELD_SETUP_BLUEPRINT.map((item) => (
                   <div key={item.label} className="pib-card min-w-0 !p-4">
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <span className="pib-icon-tint-cyan shrink-0">
-                        <span className="material-symbols-outlined text-[15px]">{item.icon}</span>
+                      <span className="shrink-0">
+                        <Icon name={item.icon} />
                       </span>
                       <span className="pib-pill pib-pill-cyan">
                         {item.value}
                       </span>
                     </div>
-                    <h4 className="text-xs font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
+                    <h4 className="text-xs text-[var(--color-pib-text)]">{item.label}</h4>
                     <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{item.copy}</p>
                   </div>
                 ))}
@@ -503,7 +502,7 @@ export default function CustomFieldsPage() {
           </div>
         ) : filteredDefinitions.length === 0 ? (
           <div className="pib-empty-state">
-            <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+            <Icon name="search_off" />
             <p className="pib-label">Filtered schema view</p>
             <h3 className="pib-empty-state-title">No fields match this view.</h3>
             <p className="pib-empty-state-description">Clear the field filters to return to the full CRM schema.</p>
@@ -514,7 +513,7 @@ export default function CustomFieldsPage() {
                 className="btn-pib-secondary"
                 aria-label="Show all fields"
               >
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+                <Icon name="filter_alt_off" />
                 Show all fields
               </button>
             </div>
@@ -550,12 +549,10 @@ export default function CustomFieldsPage() {
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div className="min-w-0">
                 <p className="pib-label">Schema delete confirmation</p>
-                <h2 id="delete-field-title" className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+                <h2 id="delete-field-title" className="mt-0.5 text-sm text-[var(--color-pib-text)]">
                   Delete custom field &quot;{fieldDisplayName(pendingDeleteDef)}&quot;?
                 </h2>
                 <p id="delete-field-description" className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -580,9 +577,7 @@ export default function CustomFieldsPage() {
                 disabled={deletingId === pendingDeleteDef.id}
                 aria-label={`Confirm delete custom field ${fieldDisplayName(pendingDeleteDef)}`}
               >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                  delete
-                </span>
+                <Icon name="delete" />
                 {deletingId === pendingDeleteDef.id ? 'Deleting...' : 'Delete field'}
               </button>
             </div>

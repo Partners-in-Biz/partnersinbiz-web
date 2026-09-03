@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 import { useState } from 'react'
@@ -27,7 +28,7 @@ export function EmailCampaignDocumentLinker() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors w-full justify-center"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[6px] text-sm font-medium transition-colors w-full justify-center"
         style={{
           background: 'var(--color-pib-surface-2)',
           border: '1px solid var(--color-pib-line)',
@@ -42,9 +43,7 @@ export function EmailCampaignDocumentLinker() {
           ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-pib-text)'
         }}
       >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">
-          attach_file
-        </span>
+        <Icon name="attach_file" />
         {copied ? 'Link copied to clipboard!' : 'Insert document link'}
       </button>
 

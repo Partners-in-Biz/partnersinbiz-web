@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 // app/(admin)/admin/settings/page.tsx
 'use client'
 
@@ -57,14 +58,14 @@ function ChannelSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         checked
           ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/80'
           : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
+        className={`inline-block h-4 w-4 rounded bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
       />
     </button>
   )
@@ -203,19 +204,19 @@ export default function SettingsPage() {
 
       {/* Organisation */}
       {selectedOrgId && (
-        <div className="pib-card-section">
-          <div className="pib-card-section-header">
-            <span className="pib-label">
+        <div className="st-panel-section">
+          <div className="st-panel-section-header">
+            <span className="sc-tiny">
               Organisation
             </span>
           </div>
           {orgName && (
-            <div className="pib-card-section-row">
+            <div className="st-panel-section-row">
               <span className="text-sm text-[var(--color-pib-text-muted)]">Name</span>
               <span className="text-sm text-[var(--color-pib-text)] font-medium">{orgName}</span>
             </div>
           )}
-          <div className="pib-card-section-row">
+          <div className="st-panel-section-row">
             <span className="text-sm text-[var(--color-pib-text-muted)]">Org ID</span>
             <span className="flex items-center gap-2">
               <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded select-all">
@@ -239,8 +240,8 @@ export default function SettingsPage() {
       )}
 
       {/* Platform */}
-      <div className="pib-card space-y-2">
-        <p className="pib-label mb-3">Platform</p>
+      <div className="st-panel space-y-2">
+        <p className="sc-tiny mb-3">Platform</p>
         {PLATFORM_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin).map(item => (
           <Link key={item.href} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div>
@@ -253,21 +254,21 @@ export default function SettingsPage() {
       </div>
 
       {/* Account */}
-      <div className="pib-card-section">
-        <div className="pib-card-section-header">
-          <span className="pib-label">
+      <div className="st-panel-section">
+        <div className="st-panel-section-header">
+          <span className="sc-tiny">
             Account
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">Email</span>
           <span className="text-sm text-[var(--color-pib-text)] font-medium">
             {session?.email ?? 'Signed-in user'}
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">Role</span>
-          <span className="pib-pill pib-pill-success">
+          <span className="st-status st-status st-status--success">
             {session?.role ?? 'Admin'}
           </span>
         </div>
@@ -281,10 +282,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Notification preferences */}
-      <div className="pib-card-section">
-        <div className="pib-card-section-header">
+      <div className="st-panel-section">
+        <div className="st-panel-section-header">
           <div>
-            <span className="pib-label">
+            <span className="sc-tiny">
               Device push notifications
             </span>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 normal-case tracking-normal">
@@ -297,10 +298,10 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="pib-card-section">
-        <div className="pib-card-section-header">
+      <div className="st-panel-section">
+        <div className="st-panel-section-header">
           <div>
-            <span className="pib-label">
+            <span className="sc-tiny">
               Organisation alert preferences
             </span>
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 normal-case tracking-normal">
@@ -324,11 +325,11 @@ export default function SettingsPage() {
           ) : clientOrgs.length === 0 ? (
             <p className="text-sm text-[var(--color-pib-text-muted)]">No organisations are available for notification preferences.</p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+            <div className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]">
               <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-2">
-                <span className="col-span-6 pib-label">Organisation</span>
-                <span className="col-span-3 text-center pib-label">In-app / push</span>
-                <span className="col-span-3 text-center pib-label">Email</span>
+                <span className="col-span-6 sc-tiny">Organisation</span>
+                <span className="col-span-3 text-center sc-tiny">In-app / push</span>
+                <span className="col-span-3 text-center sc-tiny">Email</span>
               </div>
               {clientOrgs.map((org) => {
                 const channels = notificationPrefs[org.id] ?? DEFAULT_CHANNELS
@@ -367,20 +368,20 @@ export default function SettingsPage() {
       </div>
 
       {/* Integrations */}
-      <div id="integrations" className="pib-card-section">
-        <div className="pib-card-section-header">
-          <span className="pib-label">
+      <div id="integrations" className="st-panel-section">
+        <div className="st-panel-section-header">
+          <span className="sc-tiny">
             Integrations
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">Firebase / Firestore</span>
           <span className="flex items-center gap-2 text-sm text-green-400">
-            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+            <span className="w-2 h-2 rounded bg-green-500 inline-block" />
             Connected
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">Resend Email</span>
           <span className="text-sm text-[var(--color-pib-text-muted)]">
             Check Vercel env vars
@@ -389,22 +390,22 @@ export default function SettingsPage() {
       </div>
 
       {/* API Access */}
-      <div className="pib-card-section">
-        <div className="pib-card-section-header">
-          <span className="pib-label">
+      <div className="st-panel-section">
+        <div className="st-panel-section-header">
+          <span className="sc-tiny">
             API Access
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">AI API Key</span>
           <span className="text-sm text-[var(--color-pib-text-muted)] text-right">
             Set via <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-1.5 py-0.5 rounded">ADMIN_EMAIL</code> env var
           </span>
         </div>
-        <div className="pib-card-section-row">
+        <div className="st-panel-section-row">
           <span className="text-sm text-[var(--color-pib-text-muted)]">Session Cookie</span>
           <span className="text-sm text-[var(--color-pib-text-muted)] text-right">
-            14 days — configurable via{' '}
+            14 days - configurable via{' '}
             <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-1.5 py-0.5 rounded">
               SESSION_EXPIRY_DAYS
             </code>
@@ -413,8 +414,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Billing & Revenue */}
-      <div className="pib-card space-y-1">
-        <p className="pib-label mb-3">Billing &amp; Revenue</p>
+      <div className="st-panel space-y-1">
+        <p className="sc-tiny mb-3">Billing &amp; Revenue</p>
         {[
           { icon: 'payments', title: 'Plans & Pricing', desc: 'Manage subscription plans and pricing tiers. Plans: Starter, Growth, Scale, Enterprise.', cta: 'View plans' },
           { icon: 'confirmation_number', title: 'Coupon / Discount Codes', desc: 'Manage promotional discount codes.', cta: 'Configure' },
@@ -428,7 +429,7 @@ export default function SettingsPage() {
         ].map(item => (
           <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
+              <span aria-hidden="true" className=""><Icon name={item.icon} className="text-[18px]" /></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -440,8 +441,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Platform Communications */}
-      <div className="pib-card space-y-1">
-        <p className="pib-label mb-3">Platform Communications</p>
+      <div className="st-panel space-y-1">
+        <p className="sc-tiny mb-3">Platform Communications</p>
         {[
           { icon: 'campaign', title: 'Platform Broadcast', desc: 'Send platform-wide broadcasts to all active organisations.', href: '/admin/settings/broadcast' },
           { icon: 'notifications', title: 'Announcements', desc: 'Publish in-app announcement banners for all users.', href: '/admin/announcements' },
@@ -449,7 +450,7 @@ export default function SettingsPage() {
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
+              <span aria-hidden="true" className=""><Icon name={item.icon} className="text-[18px]" /></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -461,17 +462,17 @@ export default function SettingsPage() {
       </div>
 
       {/* Legal & Compliance */}
-      <div className="pib-card space-y-1">
-        <p className="pib-label mb-3">Legal &amp; Compliance</p>
+      <div className="st-panel space-y-1">
+        <p className="sc-tiny mb-3">Legal &amp; Compliance</p>
         {[
           { icon: 'gavel', title: 'Legal Documents', desc: 'Terms of service, privacy policy and legal document management.', href: '/admin/legal' },
-          { icon: 'privacy_tip', title: 'GDPR Compliance', desc: 'Data processing agreements, right-to-erasure workflows, and GDPR reporting.', href: '/admin/legal/gdpr' },
+          { icon: 'privacy_tip', title: 'GDPR Compliance', desc: 'Data processing agreements, right- workflows, and GDPR reporting.', href: '/admin/legal/gdpr' },
           { icon: 'assignment_turned_in', title: 'Automated Compliance Reporting', desc: 'Scheduled compliance reports for data protection audits.', href: '/admin/legal/compliance' },
           { icon: 'shield', title: 'Content Moderation', desc: 'Review flagged content and moderation queues.', href: '/admin/moderation' },
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
+              <span aria-hidden="true" className=""><Icon name={item.icon} className="text-[18px]" /></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -483,8 +484,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Infrastructure & Config */}
-      <div className="pib-card space-y-1">
-        <p className="pib-label mb-3">Infrastructure &amp; Config</p>
+      <div className="st-panel space-y-1">
+        <p className="sc-tiny mb-3">Infrastructure &amp; Config</p>
         {[
           { icon: 'admin_panel_settings', title: 'Admin Users', desc: 'Manage admin accounts, roles, and access.', href: '/admin/settings/admins' },
           { icon: 'dns', title: 'White-Label Domains', desc: 'Configure custom domains for client portal white-labelling.', href: '/admin/domains' },
@@ -496,7 +497,7 @@ export default function SettingsPage() {
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
+              <span aria-hidden="true" className=""><Icon name={item.icon} className="text-[18px]" /></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>

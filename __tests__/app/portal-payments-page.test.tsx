@@ -10,6 +10,13 @@ jest.mock('next/navigation', () => ({
 
 const fetchMock = jest.fn()
 
+const COMPANY_SCOPE =
+  'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+const INVOICES_URL = '/api/v1/invoices?view=received&orgId=lumen-org&companyId=company-1'
+const QUOTES_URL = '/api/v1/quotes?view=received&orgId=lumen-org&companyId=company-1'
+const INVOICES_ORG_ONLY = '/api/v1/invoices?view=received&orgId=lumen-org'
+const QUOTES_ORG_ONLY = '/api/v1/quotes?view=received&orgId=lumen-org'
+
 describe('PaymentsPage', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams()
@@ -18,11 +25,9 @@ describe('PaymentsPage', () => {
   })
 
   it('keeps invoice, quote, PDF, and quote actions scoped to the active company workspace', async () => {
-    mockSearchParams = new URLSearchParams(
-      'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
-    )
+    mockSearchParams = new URLSearchParams(COMPANY_SCOPE)
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
-      if (url === '/api/v1/invoices?view=received&orgId=lumen-org') {
+      if (url === INVOICES_URL) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
@@ -40,7 +45,7 @@ describe('PaymentsPage', () => {
           }),
         })
       }
-      if (url === '/api/v1/quotes?view=received&orgId=lumen-org') {
+      if (url === QUOTES_URL) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
@@ -60,7 +65,7 @@ describe('PaymentsPage', () => {
           }),
         })
       }
-      if (url === '/api/v1/quotes/quote-1?orgId=lumen-org' && init?.method === 'PATCH') {
+      if (url === '/api/v1/quotes/quote-1?orgId=lumen-org&companyId=company-1' && init?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
@@ -69,11 +74,11 @@ describe('PaymentsPage', () => {
     render(<PaymentsPage />)
 
     expect(await screen.findByText('Lumen workspace')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/invoices?view=received&orgId=lumen-org')
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/quotes?view=received&orgId=lumen-org')
+    expect(fetchMock).toHaveBeenCalledWith(INVOICES_URL)
+    expect(fetchMock).toHaveBeenCalledWith(QUOTES_URL)
     expect(await screen.findByRole('link', { name: 'Download INV-001 PDF' })).toHaveAttribute(
       'href',
-      '/api/v1/invoices/invoice-1/pdf?orgId=lumen-org',
+      '/api/v1/invoices/invoice-1/pdf?orgId=lumen-org&companyId=company-1',
     )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Quotes' }))
@@ -81,7 +86,7 @@ describe('PaymentsPage', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/quotes/quote-1?orgId=lumen-org',
+        '/api/v1/quotes/quote-1?orgId=lumen-org&companyId=company-1',
         expect.objectContaining({
           method: 'PATCH',
           body: JSON.stringify({ status: 'accepted' }),
@@ -93,7 +98,7 @@ describe('PaymentsPage', () => {
   it('lets non-paid invoices update status from the payments table while paid invoices stay locked', async () => {
     mockSearchParams = new URLSearchParams('orgId=lumen-org')
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
-      if (url === '/api/v1/invoices?view=received&orgId=lumen-org') {
+      if (url === INVOICES_ORG_ONLY) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
@@ -118,7 +123,7 @@ describe('PaymentsPage', () => {
           }),
         })
       }
-      if (url === '/api/v1/quotes?view=received&orgId=lumen-org') {
+      if (url === QUOTES_ORG_ONLY) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { quotes: [] } }) })
       }
       if (url === '/api/v1/invoices/draft-invoice?orgId=lumen-org' && init?.method === 'PATCH') {
@@ -142,7 +147,7 @@ describe('PaymentsPage', () => {
 
     fireEvent.click(draftStatus)
     const statusMenu = await screen.findByRole('listbox', { name: 'Change status for invoice COU-003' })
-    expect(statusMenu).toHaveClass('bg-[var(--color-pib-surface)]', 'text-[var(--color-pib-text)]')
+    expect(statusMenu).toHaveClass('bg-[var(--sc-surface)]', 'text-[var(--sc-ink)]')
     expect(screen.getByRole('option', { name: 'Paid' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('option', { name: 'Overdue' }))
@@ -174,11 +179,9 @@ describe('PaymentsPage', () => {
   })
 
   it('links draft invoice numbers to the invoice editing surface without linking non-draft invoices', async () => {
-    mockSearchParams = new URLSearchParams(
-      'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
-    )
+    mockSearchParams = new URLSearchParams(COMPANY_SCOPE)
     fetchMock.mockImplementation((url: string) => {
-      if (url === '/api/v1/invoices?view=received&orgId=lumen-org') {
+      if (url === INVOICES_URL) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
@@ -201,7 +204,7 @@ describe('PaymentsPage', () => {
           }),
         })
       }
-      if (url === '/api/v1/quotes?view=received&orgId=lumen-org') {
+      if (url === QUOTES_URL) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { quotes: [] } }) })
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
@@ -222,7 +225,7 @@ describe('PaymentsPage', () => {
 
     render(<PaymentsPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Finance command center' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Finance command center/ })).toBeInTheDocument()
     expect(await screen.findByText('Revenue protected')).toBeInTheDocument()
     expect(screen.getByText('Payment risk')).toBeInTheDocument()
     expect(screen.getByText('Active workspace')).toBeInTheDocument()

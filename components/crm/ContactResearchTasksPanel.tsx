@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export type ResearchTaskRow = {
   id: string
@@ -19,7 +20,7 @@ export type ResearchTaskRow = {
 function statusTone(status?: string): string {
   switch (status) {
     case 'pending':
-      return 'text-amber-200 border-amber-500/30 bg-amber-500/10'
+      return 'text-[var(--st-warning)] border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]'
     case 'leased':
       return 'text-sky-200 border-sky-500/30 bg-sky-500/10'
     case 'done':
@@ -34,11 +35,11 @@ function statusTone(status?: string): string {
 }
 
 function formatWhen(value: unknown): string {
-  if (!value) return '—'
+  if (!value) return ' - '
   try {
     if (typeof value === 'string' || typeof value === 'number') {
       const d = new Date(value)
-      return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+      return Number.isNaN(d.getTime()) ? ' - ' : d.toLocaleString()
     }
     if (typeof value === 'object') {
       const v = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
@@ -47,9 +48,9 @@ function formatWhen(value: unknown): string {
       if (typeof seconds === 'number') return new Date(seconds * 1000).toLocaleString()
     }
   } catch {
-    return '—'
+    return ' - '
   }
-  return '—'
+  return ' - '
 }
 
 export function ContactResearchTasksPanel({
@@ -106,12 +107,12 @@ export function ContactResearchTasksPanel({
   return (
     <section
       aria-label={`Research queue for ${contactName}`}
-      className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]"
+      className="overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-3.5">
         <div>
           <p className="eyebrow !text-[10px]">Resident loop</p>
-          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Research queue</h3>
+          <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Research queue</h3>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -127,9 +128,7 @@ export function ContactResearchTasksPanel({
             aria-label="Refresh research queue"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-              refresh
-            </span>
+            <Icon name="refresh" className="text-[16px]" />
           </button>
         </div>
       </div>
@@ -146,12 +145,7 @@ export function ContactResearchTasksPanel({
         </div>
       ) : tasks.length === 0 ? (
         <div className="p-5 text-center">
-          <span
-            className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]"
-            aria-hidden="true"
-          >
-            event_repeat
-          </span>
+          <Icon name="event_repeat" className="text-[22px] text-[var(--color-pib-text-muted)]" />
           <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">No open research tasks</p>
           <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Agents schedule rechecks with a rep-visible reason. The multi-machine worker leases due work,
@@ -164,7 +158,7 @@ export function ContactResearchTasksPanel({
             <article key={task.id} className="px-5 py-3.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusTone(task.status)}`}
+                  className={`rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(task.status)}`}
                 >
                   {task.status || 'unknown'}
                 </span>

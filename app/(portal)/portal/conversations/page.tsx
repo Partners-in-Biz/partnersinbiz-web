@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
@@ -129,7 +130,7 @@ export default function ConversationsPage() {
           <h1 className="pib-page-title mt-2">Conversations</h1>
         </header>
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-blue)]">forum</span>
+          <Icon name="forum" className="text-4xl text-[var(--sc-ink-soft)]" />
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {error ?? 'Could not load your workspace. Please try again.'}
           </p>
@@ -156,7 +157,7 @@ export default function ConversationsPage() {
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-[var(--color-pib-border)] bg-white/80 p-4 shadow-sm">
             <p className="eyebrow">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-text)]">{value}</p>
           </div>
         ))}
       </section>

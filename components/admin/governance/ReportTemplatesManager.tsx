@@ -38,7 +38,7 @@ const inputClass =
   'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
 function fmt(value: string | null): string {
-  if (!value) return '—'
+  if (!value) return ' - '
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? value : d.toISOString().replace('T', ' ').slice(0, 16)
 }
@@ -188,7 +188,7 @@ export function ReportTemplatesManager() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Report Templates</h1>
+        <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Report Templates</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Firestore-backed report templates with org assignment and full version history. Built-in defaults are
           read-only.
@@ -229,23 +229,23 @@ export function ReportTemplatesManager() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Name</label>
-            <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input aria-label="Name" className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
             <label className="text-xs text-[var(--color-pib-text-muted)]">Eyebrow</label>
-            <input className={inputClass} value={form.eyebrow} onChange={(e) => setForm({ ...form, eyebrow: e.target.value })} />
+            <input aria-label="Eyebrow" className={inputClass} value={form.eyebrow} onChange={(e) => setForm({ ...form, eyebrow: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Subject (use {'{org}'} and {'{period}'})</label>
-            <input className={inputClass} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+            <input aria-label="Eyebrow" className={inputClass} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Description</label>
-            <input className={inputClass} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <input aria-label="Description" className={inputClass} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs text-[var(--color-pib-text-muted)]">Body (optional intro copy)</label>
-            <textarea
+            <textarea aria-label="Body (optional intro copy)"
               rows={3}
               className={inputClass}
               value={form.body}
@@ -255,7 +255,7 @@ export function ReportTemplatesManager() {
           {editingId && !editingId.startsWith('builtin:') && (
             <div className="sm:col-span-2">
               <label className="text-xs text-[var(--color-pib-text-muted)]">Change note (version history)</label>
-              <input className={inputClass} value={form.changeNote} onChange={(e) => setForm({ ...form, changeNote: e.target.value })} />
+              <input aria-label="Change note (version history)" className={inputClass} value={form.changeNote} onChange={(e) => setForm({ ...form, changeNote: e.target.value })} />
             </div>
           )}
         </div>
@@ -271,7 +271,7 @@ export function ReportTemplatesManager() {
                   key={o.id}
                   type="button"
                   onClick={() => toggleOrg(o.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  className={`rounded-md border px-3 py-1 text-xs transition-colors ${
                     assigned.includes(o.id)
                       ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-[var(--color-pib-text)]'
                       : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
@@ -295,14 +295,14 @@ export function ReportTemplatesManager() {
           </button>
           {editingId?.startsWith('builtin:') && (
             <span className="text-xs text-[var(--color-pib-text-muted)]">
-              Editing from a built-in default — saving creates a new custom template.
+              Editing from a built-in default  -  saving creates a new custom template.
             </span>
           )}
         </div>
       </div>
 
       {/* Listing */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
         <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
             <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
@@ -336,7 +336,7 @@ export function ReportTemplatesManager() {
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[220px] break-words">{t.subject}</td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[180px]">
-                    {t.assignedOrgIds.length === 0 ? '—' : t.assignedOrgIds.map(orgName).join(', ')}
+                    {t.assignedOrgIds.length === 0 ? ' - ' : t.assignedOrgIds.map(orgName).join(', ')}
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">v{t.version}</td>
                   <td className="px-3 py-2">

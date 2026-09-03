@@ -8,6 +8,7 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Sequence } from '@/lib/sequences/types'
+import { Icon } from '@/components/studio'
 
 export default function SequenceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -99,7 +100,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
             onClick={handleCancel}
             className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            <Icon name="arrow_back" />
             Sequences
           </button>
           <p className="eyebrow">Email · Journey builder</p>
@@ -111,9 +112,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
         {sequence && (
           <div className="pib-card w-full max-w-sm">
             <div className="flex items-start gap-3">
-              <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">route</span>
-              </span>
+              <Icon name="route" />
               <div>
                 <p className="text-xs font-medium">
                   {sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}
@@ -133,9 +132,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
         <section className="pib-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5" aria-hidden="true">
-                <span className="material-symbols-outlined text-[18px]">warning</span>
-              </span>
+              <Icon name="warning" />
               <div>
                 <p className="pib-label">Source health</p>
                 <h2 className="pib-page-title mt-1 text-xl">
@@ -154,7 +151,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
                 aria-label="Retry loading sequence journey"
                 className="btn-pib-secondary"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                <Icon name="refresh" />
                 Retry
               </button>
               <button

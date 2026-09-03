@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/AppFoundation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
+import { Icon } from '@/components/studio'
+
 interface PersonaOption {
   key: string
   label: string
@@ -45,9 +47,9 @@ function unwrap<T>(body: unknown): T {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return ' - '
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return ' - '
   return d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
@@ -179,7 +181,7 @@ export default function DemoOrgsPage() {
         description="Tag client orgs as demos, seed realistic sample data, reset on a 24h cycle, and share no-login preview links."
         actions={
           <button type="button" className="btn-pib-primary btn-pib-sm" onClick={openTagModal}>
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <Icon name="add" className="text-[16px]" />
             Tag as demo
           </button>
         }
@@ -199,7 +201,7 @@ export default function DemoOrgsPage() {
 
       {loading ? (
         <div className="grid gap-3">
-          {[0, 1, 2].map((i) => <div key={i} className="pib-skeleton h-24 rounded-xl" />)}
+          {[0, 1, 2].map((i) => <div key={i} className="pib-skeleton h-24 rounded-md" />)}
         </div>
       ) : orgs.length === 0 ? (
         <Surface>
@@ -249,22 +251,22 @@ export default function DemoOrgsPage() {
                           >
                             Copy link
                           </button>
-                        ) : <span>—</span>}
+                        ) : <span> - </span>}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <button type="button" className="btn-pib-secondary" disabled={busy} onClick={() => runAction(org.id, 'seed')}>
-                      <span className="material-symbols-outlined text-[18px]">database</span>
+                      <Icon name="database" className="text-[18px]" />
                       {busy ? '…' : 'Seed'}
                     </button>
                     <button type="button" className="btn-pib-secondary" disabled={busy} onClick={() => runAction(org.id, 'reset')}>
-                      <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                      <Icon name="restart_alt" className="text-[18px]" />
                       {busy ? '…' : 'Reset (24h)'}
                     </button>
                     <button type="button" className="btn-pib-ghost" disabled={busy} onClick={() => runAction(org.id, 'untag')}>
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                      <Icon name="delete" className="text-[18px]" />
                       Untag
                     </button>
                   </div>

@@ -1,141 +1,90 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SITE } from '@/lib/seo/site'
+import { SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import { Reveal } from '@/components/marketing/Reveal'
-import { SectionHead } from '@/components/marketing/SectionHead'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
+import { SERVICE_CONTENT } from '@/lib/marketing/service-content'
+import {
+  Article,
+  ArticleHead,
+  ArticleList,
+  ArticleRow,
+  CtaSentence,
+  Plate,
+  Quote,
+} from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
 
+const TITLE = 'Pricing'
+const DESCRIPTION =
+  'Real numbers in rand. A marketing site from R35,000 in 2 to 4 weeks. Web apps from R120,000. Retainers from R15,000 a month. What each price buys, and what the cheap option costs you.'
+
 export const metadata: Metadata = {
-  title: 'Pricing',
-  description:
-    'Honest pricing in ZAR for marketing sites, web apps, and bespoke builds. Real numbers, no "let\'s talk" gatekeeping.',
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: '/pricing' },
   openGraph: {
-    title: 'Pricing — Partners in Biz',
-    description:
-      'Honest pricing in ZAR for marketing sites, web apps, retainers, and add-ons.',
+    title: `${TITLE} | ${SITE.name}`,
+    description: DESCRIPTION,
     url: `${SITE.url}/pricing`,
     type: 'website',
   },
 }
 
-const ZAR = (n: number) =>
-  new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    maximumFractionDigits: 0,
-  }).format(n)
+const ZAR = (n: number) => `R${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)}`
 
-interface Tier {
-  name: string
-  priceText: string
-  priceAmount?: number
-  tagline: string
-  features: string[]
-  cta: { label: string; href: string }
-  popular?: boolean
-}
+const SITE_TIER = SERVICE_CONTENT['web-development']
+const APP_TIER = SERVICE_CONTENT['web-applications']
+const BESPOKE_TIER = SERVICE_CONTENT['bespoke-builds']
 
-const TIERS: Tier[] = [
-  {
-    name: 'Marketing Site',
-    priceText: `from ${ZAR(35000)}`,
-    priceAmount: 35000,
-    tagline: 'Sub-2s LCP. Real lead capture. Built to be found.',
-    features: [
-      'Up to 8 pages',
-      'Full SEO setup (schema + sitemap + llms.txt)',
-      'Analytics + lead capture',
-      'Vercel deploy + handover',
-      '30-day warranty',
-    ],
-    cta: { label: 'Start a project', href: '/start-a-project' },
-  },
-  {
-    name: 'Web Application',
-    priceText: `from ${ZAR(120000)}`,
-    priceAmount: 120000,
-    tagline: 'Custom platforms shipped in weeks.',
-    popular: true,
-    features: [
-      'Discovery sprint (2 weeks)',
-      'Designed in Figma',
-      'Production code on Vercel',
-      'Auth + database + admin',
-      'Daily Loom updates',
-      'Launch checklist + handover',
-      'Properties: runtime config + analytics for the launched site',
-      '60-day warranty',
-    ],
-    cta: { label: 'Start a project', href: '/start-a-project' },
-  },
-  {
-    name: 'Bespoke Build',
-    priceText: 'Let’s scope it',
-    tagline: 'When the off-the-shelf answer is no.',
-    features: [
-      'Architecture review',
-      'Long-form engagement',
-      'Equity / retainer / fixed-scope options',
-      'Direct access to Peet',
-      'Quarterly business reviews',
-      'Properties control plane included',
-    ],
-    cta: { label: 'Book a call', href: SITE.cal.url },
-  },
-]
+const COMPARISON = [
+  { row: 'Price', cheap: 'R6,000 to R15,000', ours: 'From R35,000, fixed' },
+  { row: 'Design', cheap: 'A theme with your logo dropped in', ours: 'Designed and written for your business' },
+  { row: 'Search', cheap: 'Whatever the theme ships with', ours: 'Schema, sitemap, and pages Google can read' },
+  { row: 'Leads', cheap: 'A contact form to an inbox nobody checks', ours: 'Enquiries to your WhatsApp, with analytics' },
+  { row: 'Speed', cheap: 'Plugins stacked until it crawls', ours: 'Fast on a phone. AHS Law loads in 1.4 seconds' },
+  { row: 'Ownership', cheap: 'Their platform, their monthly fee', ours: 'Your GitHub, your Vercel, your domain' },
+  { row: 'After launch', cheap: 'A ticket queue', ours: 'A 30-day warranty and one person on WhatsApp' },
+] as const
 
 const RETAINERS = [
-  {
-    name: 'Lite',
-    price: 15000,
-    blurb: '8 hrs of dev + monitoring',
-  },
-  {
-    name: 'Growth',
-    price: 35000,
-    blurb: '20 hrs + roadmap reviews + experiments',
-  },
-  {
-    name: 'Embedded',
-    price: 75000,
-    blurb: '40 hrs + on-call + weekly meetings',
-  },
-]
+  { name: 'Lite', price: 15000, blurb: 'eight hours of development a month, plus hosting and monitoring' },
+  { name: 'Growth', price: 35000, blurb: 'twenty hours, roadmap reviews and growth experiments' },
+  { name: 'Embedded', price: 75000, blurb: 'forty hours, on-call, and a weekly meeting' },
+] as const
 
 const ADDONS = [
-  { name: 'Performance audit', price: ZAR(8000), icon: 'speed' },
-  { name: 'AI feature build-in', price: `from ${ZAR(25000)}`, icon: 'bolt' },
-  { name: 'Brand identity', price: `from ${ZAR(18000)}`, icon: 'palette' },
-  { name: 'SEO sprint', price: ZAR(12000), icon: 'travel_explore' },
-  { name: 'Migration to modern stack', price: `from ${ZAR(28000)}`, icon: 'swap_horiz' },
-]
+  { name: 'Performance audit', price: ZAR(8000) },
+  { name: 'SEO sprint', price: ZAR(12000) },
+  { name: 'Brand identity', price: `from ${ZAR(18000)}` },
+  { name: 'AI feature build-in', price: `from ${ZAR(25000)}` },
+  { name: 'Migration to a modern stack', price: `from ${ZAR(28000)}` },
+] as const
 
 const PRICING_FAQ = [
   {
-    q: 'Why no Stripe?',
-    a: 'For South African clients EFT is free, instant, and what businesses already use. Stripe adds 3.5% + R3 per txn for no benefit on a R120k invoice. PayPal handles international clients at the same 3.5%. We will integrate Stripe inside your product if you sell B2C — but not for invoicing us.',
-  },
-  {
     q: 'Are these starting prices?',
-    a: 'Yes. The "from" number assumes a clean brief and standard scope. Most projects land between the start and 2x — we share a fixed-scope quote within 3 working days, so you never get a surprise.',
+    a: 'Yes. The "from" number assumes a clean brief and standard scope. Most projects land between the start and twice it. You get a fixed-scope quote within three working days, so there is never a surprise.',
   },
   {
-    q: 'What’s not included?',
-    a: 'Hosting (Vercel ~$20/mo), database (Firebase / Supabase free or pay-as-you-go), and any third-party APIs you choose (Resend, Anthropic, etc.) are billed directly to your account — not marked up by us. Domain registration is on you.',
+    q: 'How do payments work?',
+    a: 'For a marketing site, half to start and half at launch. For larger builds, 40% to start, 30% at design sign-off, 30% at launch. Bespoke work runs on monthly milestones. EFT for South African clients, PayPal in USD or EUR for international ones.',
   },
   {
-    q: 'Can we do equity / revenue-share?',
-    a: 'For Bespoke Build engagements, yes. We take equity in roughly 1 in 5 projects. The bar is high: real founders, real traction signals, and a problem we want to solve. Equity is layered on a discounted cash rate, never instead of one.',
+    q: 'Why no Stripe for invoices?',
+    a: 'For South African clients EFT is free, instant, and what businesses already use. Stripe adds 3.5% plus R3 a transaction for no benefit on a R120,000 invoice. We will build Stripe into your product if you sell to consumers; we just do not use it to bill you.',
   },
   {
-    q: 'What about ongoing hosting costs?',
-    a: 'Most marketing sites run for under R500/month total infra. Web apps with auth and a database typically sit between R1k–R5k/month, scaling with usage. We design for cost from day one — no surprise R30k AWS bills.',
+    q: 'What is not included?',
+    a: 'Hosting (Vercel, about $20 a month), the database (Firebase or Supabase, free or pay as you go), your domain, and any third-party APIs you choose are billed to your own accounts. We do not mark them up.',
   },
   {
-    q: 'Do you do payment plans?',
-    a: 'Standard split is 40% to start, 30% at design sign-off, 30% at launch. For Bespoke Build we structure monthly milestones over the engagement length. International clients can pay via PayPal in USD/EUR at current FX.',
+    q: 'What does it cost to run?',
+    a: 'Most marketing sites run for under R500 a month. Web apps with auth and a database sit between R1,000 and R5,000 a month and scale with use. We design for cost from day one.',
+  },
+  {
+    q: 'Can we do equity or revenue share?',
+    a: 'For bespoke builds, sometimes. We take equity in roughly one in five of those projects. The bar is real founders, real traction, and a problem we want to solve. Equity sits on top of a discounted cash rate, never instead of one.',
   },
 ]
 
@@ -144,299 +93,130 @@ export default function PricingPage() {
     { name: 'Home', url: '/' },
     { name: 'Pricing', url: '/pricing' },
   ])
-  const faq = faqSchema(PRICING_FAQ)
-
-  const offers = TIERS.filter((t) => t.priceAmount).map((t) => ({
+  const offers = [SITE_TIER, APP_TIER].map((tier) => ({
     '@context': 'https://schema.org',
     '@type': 'Offer',
-    name: t.name,
-    description: t.tagline,
+    name: tier.headline,
     url: `${SITE.url}/pricing`,
     priceCurrency: 'ZAR',
-    price: t.priceAmount,
-    priceSpecification: {
-      '@type': 'PriceSpecification',
-      minPrice: t.priceAmount,
-      priceCurrency: 'ZAR',
-    },
+    price: tier.price.amount,
+    priceSpecification: { '@type': 'PriceSpecification', minPrice: tier.price.amount, priceCurrency: 'ZAR' },
     availability: 'https://schema.org/InStock',
     seller: { '@id': `${SITE.url}/#organization` },
   }))
+  const testimonial = TESTIMONIALS[1]
 
   return (
-    <main className="relative">
+    <Article>
       <JsonLd data={breadcrumb} />
-      <JsonLd data={faq} />
-      {offers.map((o, i) => (
-        <JsonLd key={i} data={o} />
+      <JsonLd data={faqSchema(PRICING_FAQ)} />
+      {offers.map((o) => (
+        <JsonLd key={o.name} data={o} />
       ))}
 
-      {/* Hero */}
-      <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
-        <div className="container-pib">
-          <Reveal>
-            <p className="eyebrow mb-6">Pricing</p>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1 className="h-display text-balance max-w-5xl">
-              Honest numbers. No &ldquo;let&rsquo;s talk&rdquo; gatekeeping.
-            </h1>
-          </Reveal>
-          <Reveal delay={160}>
-            <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
-              Most projects fall into one of these three shapes. If yours doesn&rsquo;t, we&rsquo;ll
-              scope it together — usually within 3 working days.
+      <ArticleHead
+        kicker="Pricing"
+        title="Real numbers. What each one buys."
+        lede="Three shapes cover most of the work. The price is on the page because you should be able to decide before the call, not after it."
+        plate={<Plate src={WORK_SHOTS.ahsLaw.src} alt={WORK_SHOTS.ahsLaw.alt} caption="AHS Law. A marketing site and a client portal." wide priority />}
+      />
+
+      <ArticleRow
+        title="A marketing site"
+        aside={
+          <>
+            <p className="sc-article__price">{SITE_TIER.price.label}</p>
+            <p className="sc-body">{SITE_TIER.price.terms}</p>
+            <Quote quote={testimonial.quote} by={testimonial.role} />
+          </>
+        }
+      >
+        <p>{SITE_TIER.lede}</p>
+        <ArticleList items={SITE_TIER.price.includes} />
+        <p>{SITE_TIER.price.contrast}</p>
+        <CtaSentence lead="Twenty minutes is enough to know if this is the right shape for you." />
+      </ArticleRow>
+
+      <ArticleRow title="What the R8,000 site costs you">
+        <p>
+          The cheap site is not cheap. It is a template with your logo, a form to an inbox, no search work, and a monthly
+          fee to a platform you do not control. Here is the honest comparison.
+        </p>
+        <table className="sc-article__table">
+          <thead>
+            <tr>
+              <th scope="col"> </th>
+              <th scope="col">The R8,000 site</th>
+              <th scope="col">Ours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON.map((r) => (
+              <tr key={r.row}>
+                <th scope="row">{r.row}</th>
+                <td>{r.cheap}</td>
+                <td>{r.ours}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ArticleRow>
+
+      <ArticleRow
+        title="A web application"
+        flip
+        aside={
+          <>
+            <p className="sc-article__price">{APP_TIER.price.label}</p>
+            <p className="sc-body">{APP_TIER.price.terms}</p>
+            <p className="sc-body">
+              <Link href="/services/web-applications" prefetch={false} className="sc-link">
+                What ships and how it runs
+              </Link>
             </p>
-          </Reveal>
-        </div>
-      </section>
+          </>
+        }
+      >
+        <p>{APP_TIER.lede}</p>
+        <ArticleList items={APP_TIER.price.includes} />
+        <p>{APP_TIER.price.contrast}</p>
+      </ArticleRow>
 
-      {/* Tiers */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6 items-stretch">
-            {TIERS.map((t, i) => (
-              <Reveal key={t.name} delay={i * 80}>
-                <div
-                  className={`bento-card h-full p-8 md:p-10 flex flex-col gap-6 relative ${
-                    t.popular
-                      ? 'border-[var(--color-pib-accent)] ring-1 ring-[var(--color-pib-accent)]'
-                      : ''
-                  }`}
-                >
-                  {t.popular && (
-                    <span className="pill pill-accent absolute -top-3 left-8">Most popular</span>
-                  )}
+      <ArticleRow
+        title="Bespoke and ongoing"
+        aside={
+          <>
+            <p className="sc-tiny">One-off extras</p>
+            <ArticleList items={ADDONS.map((a) => `${a.name}, ${a.price}`)} />
+          </>
+        }
+      >
+        <p>
+          <strong>Bespoke builds</strong> are quoted on the work, not a price card. A discovery sprint starts at{' '}
+          {ZAR(BESPOKE_TIER.price.amount ?? 85000)}. Fractional CTO from {ZAR(45000)} a month. Equity-style partnerships considered.
+        </p>
+        <p>
+          <strong>Retainers</strong> keep the work moving after launch and you can cancel any month.{' '}
+          {RETAINERS.map((r) => `${r.name} is ${ZAR(r.price)} a month for ${r.blurb}.`).join(' ')}
+        </p>
+        <p>
+          Every web application and bespoke build ships with{' '}
+          <Link href="/properties" prefetch={false} className="sc-link">
+            Properties
+          </Link>
+          , our runtime control plane: remote config, feature flags, a kill switch, and per-site analytics, all without a
+          redeploy.
+        </p>
+        <p className="sc-tiny">
+          Prices in rand. USD and EUR on request. EFT is free for South African clients; PayPal for international clients
+          at 3.5%.
+        </p>
+      </ArticleRow>
 
-                  <div>
-                    <h2 className="font-display text-2xl text-[var(--color-pib-text)]">
-                      {t.name}
-                    </h2>
-                    <p className="mt-2 text-sm text-[var(--color-pib-text-muted)] text-pretty">
-                      {t.tagline}
-                    </p>
-                  </div>
-
-                  <div className="font-display text-4xl text-[var(--color-pib-text)]">
-                    {t.priceText}
-                  </div>
-
-                  <ul className="space-y-3 flex-1 pt-4 border-t border-[var(--color-pib-line)]">
-                    {t.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-start gap-3 text-sm text-[var(--color-pib-text)]"
-                      >
-                        <span className="material-symbols-outlined text-base text-[var(--color-pib-accent)] mt-0.5 shrink-0">
-                          check
-                        </span>
-                        <span className="text-pretty">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {t.cta.href.startsWith('http') ? (
-                    <a
-                      href={t.cta.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={t.popular ? 'btn-pib-accent w-full justify-center' : 'btn-pib-secondary w-full justify-center'}
-                    >
-                      {t.cta.label}
-                      <span className="material-symbols-outlined text-base">arrow_outward</span>
-                    </a>
-                  ) : (
-                    <Link
-                      href={t.cta.href}
-                      className={t.popular ? 'btn-pib-accent w-full justify-center' : 'btn-pib-secondary w-full justify-center'}
-                    >
-                      {t.cta.label}
-                      <span className="material-symbols-outlined text-base">arrow_forward</span>
-                    </Link>
-                  )}
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Retainers */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="Retainer"
-            title="Already shipped? Keep growing."
-            subtitle="Standing monthly engagements for product iteration, monitoring, growth experiments and the work that never quite fits a project shape."
-          />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-            {RETAINERS.map((r, i) => (
-              <Reveal key={r.name} delay={i * 60}>
-                <div className="bento-card h-full p-7 flex flex-col gap-4">
-                  <h3 className="font-display text-xl text-[var(--color-pib-text)]">{r.name}</h3>
-                  <div className="font-display text-3xl text-[var(--color-pib-accent)]">
-                    {ZAR(r.price)}
-                    <span className="text-sm text-[var(--color-pib-text-muted)] font-sans ml-1">
-                      /month
-                    </span>
-                  </div>
-                  <p className="text-sm text-[var(--color-pib-text-muted)] text-pretty">
-                    {r.blurb}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Add-ons */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="Add-ons"
-            title="One-off offerings."
-            subtitle="Small, fixed-scope engagements you can drop into any project — or stand alone."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {ADDONS.map((a, i) => (
-              <Reveal key={a.name} delay={i * 50}>
-                <div className="bento-card p-6 flex items-start gap-4">
-                  <span
-                    className="material-symbols-outlined text-[var(--color-pib-accent)] shrink-0"
-                    style={{ fontSize: '28px' }}
-                  >
-                    {a.icon}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-[var(--color-pib-text)]">{a.name}</h4>
-                    <p className="text-sm font-mono text-[var(--color-pib-text-muted)] mt-1">
-                      {a.price}
-                    </p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Properties callout */}
-      <section id="properties" className="section pt-0">
-        <div className="container-pib">
-          <Reveal>
-            <div className="bento-card p-10 md:p-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-5">
-                <p className="eyebrow mb-4">Bundled · Properties</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
-                  Properties: <span className="text-[var(--color-pib-accent)]">runtime control plane</span> for the sites we ship.
-                </h3>
-                <p className="mt-6 text-[var(--color-pib-text-muted)] text-pretty">
-                  Included with every Web Application and Bespoke Build. Update store URLs, flip
-                  feature flags, see real analytics, and trigger nurture sequences — all without a
-                  redeploy.
-                </p>
-                <Link
-                  href="/properties"
-                  className="mt-6 inline-flex items-center gap-1.5 pib-link-underline text-[var(--color-pib-accent)] text-sm font-medium"
-                >
-                  Learn more about Properties
-                  <span className="material-symbols-outlined text-base">arrow_outward</span>
-                </Link>
-              </div>
-              <div className="lg:col-span-7">
-                <p className="text-xs uppercase tracking-widest text-[var(--color-pib-text-faint)] mb-4">
-                  What&rsquo;s included
-                </p>
-                <ul className="space-y-3">
-                  {[
-                    'Remote runtime config — change copy, URLs, JSON without a redeploy',
-                    'Per-property analytics dashboard with live event stream',
-                    'Feature flags scoped per property and per cohort',
-                    'Kill switch for incidents and planned outages',
-                    'Conversion events wired into linked email sequences',
-                    'Property-scoped short links for creator / affiliate attribution',
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-[var(--color-pib-text)]">
-                      <span className="material-symbols-outlined text-[var(--color-pib-accent)] mt-0.5 shrink-0">
-                        check_circle
-                      </span>
-                      <span className="text-pretty text-sm">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Currency note */}
-      <section className="pt-0 pb-10">
-        <div className="container-pib">
-          <Reveal>
-            <div className="bento-card p-6 flex items-start gap-4">
-              <span
-                className="material-symbols-outlined text-[var(--color-pib-accent)] shrink-0"
-                style={{ fontSize: '24px' }}
-              >
-                currency_exchange
-              </span>
-              <p className="text-sm text-[var(--color-pib-text-muted)] text-pretty">
-                <span className="text-[var(--color-pib-text)]">Currencies.</span> Default ZAR.
-                USD/EUR available on request. EFT preferred for SA clients (free); PayPal available
-                for international (3.5%).
-              </p>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="section">
-        <div className="container-pib">
-          <SectionHead
-            eyebrow="Pricing FAQ"
-            title="The questions every client asks."
-            subtitle="If yours is not here, write to us — we answer every email."
-          />
-          <FAQ items={PRICING_FAQ} />
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <Reveal>
-            <div className="bento-card p-10 md:p-14 flex flex-col md:flex-row md:items-center justify-between gap-8">
-              <div className="max-w-xl">
-                <p className="eyebrow mb-3">Ready to start?</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
-                  Four questions. Ninety seconds.
-                </h3>
-                <p className="mt-4 text-[var(--color-pib-text-muted)] text-pretty">
-                  Tell us what you&rsquo;re building. We reply within one business day.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-                <Link href="/start-a-project" className="btn-pib-accent">
-                  Start a project
-                  <span className="material-symbols-outlined text-base">arrow_outward</span>
-                </Link>
-                <a
-                  href={SITE.cal.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-pib-secondary"
-                >
-                  Book a call
-                </a>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-    </main>
+      <ArticleRow title="The questions every client asks">
+        <FAQ items={PRICING_FAQ} />
+        <CtaSentence lead="Tell us what you are building and we will tell you what it costs." />
+      </ArticleRow>
+    </Article>
   )
 }

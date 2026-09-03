@@ -156,7 +156,7 @@ export default function StatementImportPage() {
       })
       const batch = body?.data?.result?.batch
       setLastBatchId(batch?.id || id)
-      setMessage(`Parsed ${batch?.lineCount ?? 0} lines (${batch?.format}) — not yet imported`)
+      setMessage(`Parsed ${batch?.lineCount ?? 0} lines (${batch?.format}) - not yet imported`)
     })
   }
 
@@ -259,9 +259,9 @@ export default function StatementImportPage() {
         <div className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">{message}</div>
       )}
 
-      <section className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-2">
+      <section className="grid gap-4 border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-2">
         <div className="space-y-3">
-          <h2 className="font-semibold">Import statement file</h2>
+          <h2 className="">Import statement file</h2>
           <label className="block text-sm">
             Bank account
             <select
@@ -276,7 +276,7 @@ export default function StatementImportPage() {
               <option value="">Select…</option>
               {bankAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.code || a.id} — {a.name || 'account'}
+                  {a.code || a.id} - {a.name || 'account'}
                 </option>
               ))}
             </select>
@@ -328,7 +328,7 @@ export default function StatementImportPage() {
         </div>
 
         <div className="space-y-3">
-          <h2 className="font-semibold">Agent recon suggestions</h2>
+          <h2 className="">Agent recon suggestions</h2>
           <p className="text-sm text-zinc-600">
             Suggestions never auto-match or auto-post. Accept/dismiss records human intent only.
           </p>
@@ -398,8 +398,8 @@ export default function StatementImportPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-4">
-          <h3 className="mb-2 font-semibold">Batches</h3>
+        <div className="border border-zinc-200 bg-white p-4">
+          <h3 className="mb-2">Batches</h3>
           <ul className="space-y-2 text-sm">
             {batches.map((b) => (
               <li key={b.id} className="rounded border px-2 py-1">
@@ -414,10 +414,10 @@ export default function StatementImportPage() {
             {batches.length === 0 && <li className="text-zinc-500">No batches yet.</li>}
           </ul>
         </div>
-        <div className="rounded-xl border border-zinc-200 bg-white p-4">
-          <h3 className="mb-2 font-semibold">Parsed / imported lines</h3>
+        <div className="border border-zinc-200 bg-white p-4">
+          <h3 className="mb-2">Parsed / imported lines</h3>
           <p className="mb-2 text-xs text-zinc-500">
-            Showing {lines.length} of {totals.lines} (paged server-side — large imports do not dump 10k rows into the DOM)
+            Showing {lines.length} of {totals.lines} (paged server-side - large imports do not dump 10k rows into the DOM)
           </p>
           <ul className="max-h-72 space-y-1 overflow-auto text-xs">
             {lines.map((l) => (

@@ -270,7 +270,7 @@ function RelationshipField({
   return (
     <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text)]" htmlFor={`relationship-${config.key}`}>
+        <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text)]" htmlFor={`relationship-${config.key}`}>
           {config.title}
         </label>
         <p className="text-xs text-[var(--color-pib-text-muted)]">{config.help}</p>
@@ -279,7 +279,7 @@ function RelationshipField({
       {values.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {values.map((id) => (
-            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-pib-cyan-soft)] px-2 py-1 text-xs text-[#5EEAD4]">
+            <span key={id} className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-2 py-1 text-xs text-[#5EEAD4]">
               {labels[id] ?? id}
               <button type="button" aria-label={`Remove ${config.title} ${id}`} onClick={() => remove(id)} className="text-[10px]">×</button>
             </span>
@@ -301,12 +301,12 @@ function RelationshipField({
           placeholder={`Search ${config.title.toLowerCase()} in this tenant…`}
           className="min-w-0 flex-1 rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
         />
-        <button type="button" onClick={runSearch} disabled={loading} className="rounded border border-[var(--color-pib-line)] px-3 py-2 text-xs font-semibold disabled:opacity-50">
+        <button type="button" onClick={runSearch} disabled={loading} className="rounded border border-[var(--color-pib-line)] px-3 py-2 text-xs font-medium disabled:opacity-50">
           {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
 
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-[var(--st-danger)]">{error}</p>}
       {results.length > 0 && (
         <div className="mt-2 space-y-1" role="listbox" aria-label={`${config.title} results`}>
           {results.map((result) => (
@@ -378,7 +378,7 @@ export function DocumentRelationshipPanel({
   return (
     <section className="space-y-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-5">
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+        <h3 className="text-sm font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
           Document relationships
         </h3>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -387,7 +387,7 @@ export function DocumentRelationshipPanel({
       </div>
 
       {clientOrgIds.length > 1 && (
-        <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-200" role="alert">
+        <div className="rounded-md border border-amber-500/50 bg-[var(--st-warning)]/10 p-3 text-sm text-[var(--st-warning)]" role="alert">
           Client-visible warning: publishing this document would expose it to {clientOrgIds.length} linked client organisations.
         </div>
       )}
@@ -426,11 +426,11 @@ export function DocumentRelationshipPanel({
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="button" onClick={save} disabled={saving} className="rounded bg-[var(--color-pib-accent)] px-3 py-2 text-xs font-semibold text-black disabled:opacity-50">
+        <button type="button" onClick={save} disabled={saving} className="rounded bg-[var(--color-pib-accent)] px-3 py-2 text-xs font-medium text-black disabled:opacity-50">
           {saving ? 'Saving relationships…' : 'Save relationships'}
         </button>
         {saved && <span className="text-xs text-emerald-400">Relationships saved.</span>}
-        {error && <span className="text-xs text-red-400">{error}</span>}
+        {error && <span className="text-xs text-[var(--st-danger)]">{error}</span>}
       </div>
     </section>
   )

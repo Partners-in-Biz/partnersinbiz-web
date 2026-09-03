@@ -1,7 +1,15 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  ButtonLink,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Title,
+} from '@/components/studio'
 import { COMPANY_WORKSPACE_MODULES } from '@/lib/company-work/module-keys'
 
 type LinkedCompany = {
@@ -28,7 +36,7 @@ function unwrap(body: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Aggregate Shared work hub — projected company_workspace records grouped by
+ * Aggregate Shared work hub - projected company_workspace records grouped by
  * serving org and company.
  */
 export default function SharedWorkHubPage() {
@@ -46,7 +54,7 @@ export default function SharedWorkHubPage() {
         const companiesRes = await fetch('/api/v1/company-work/shared')
         const companiesBody = unwrap(await companiesRes.json().catch(() => null))
         if (!companiesRes.ok) {
-          setError((companiesBody?.error as string) || 'Could not load shared work')
+          setError((companiesBody?.error as string) || 'Could not load shared work.')
           return
         }
         const list = (companiesBody?.companies as LinkedCompany[]) ?? []
@@ -64,7 +72,7 @@ export default function SharedWorkHubPage() {
         if (cancelled) return
         setRecordsByModule(Object.fromEntries(settled))
       } catch {
-        if (!cancelled) setError('Could not load shared work')
+        if (!cancelled) setError('Could not load shared work.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -84,71 +92,55 @@ export default function SharedWorkHubPage() {
     return [...byServing.entries()]
   }, [companies])
 
-  if (loading) {
-    return (
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="mb-2 text-xl font-semibold text-[var(--color-pib-text)]">Shared work</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
-      </main>
-    )
-  }
-
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Partners</p>
-          <h1 className="text-xl font-semibold text-[var(--color-pib-text)]">Shared work</h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-            Progress your partners are projecting into your organisation from their CRM company books.
-          </p>
-        </div>
-        <Link href="/portal/partners" className="text-xs text-[var(--color-accent-v2)] hover:underline">
-          Back to Partners
-        </Link>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Partners"
+        title="Shared work."
+        description="Progress your partners are projecting into your organisation from their CRM company books."
+        actions={<ButtonLink href="/portal/partners" variant="ghost" size="sm">Back to partners</ButtonLink>}
+      />
 
-      {error ? <p className="mb-4 text-sm text-rose-300">{error}</p> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      {grouped.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-6 text-sm text-[var(--color-pib-text-muted)]">
-          Nothing shared with you yet. When a partner links their company to your organisation and enables modules, work appears here.
+      {loading ? (
+        <div className="space-y-4">
+          <Skeleton height="4rem" />
+          <Skeleton height="8rem" />
         </div>
+      ) : grouped.length === 0 ? (
+        <EmptyState
+          title="Nothing shared with you yet."
+          description="When a partner links their company to your organisation and enables modules, work appears here."
+        />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {grouped.map(([servingOrgId, group]) => (
-            <section
-              key={servingOrgId}
-              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4"
-            >
-              <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
-                From {group.servingOrgName}
-              </h2>
-              <div className="space-y-4">
+            <Panel key={servingOrgId}>
+              <Title>From {group.servingOrgName}</Title>
+              <div className="mt-4 space-y-4">
                 {group.companies.map((company) => {
                   const moduleRecords = company.modules.flatMap((module) =>
                     (recordsByModule[module] ?? []).filter((r) => r.companyId === company.companyId),
                   )
                   return (
-                    <div key={company.companyId} className="rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+                    <div key={company.companyId} className="st-panel st-panel--flat p-4">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{company.companyName}</h3>
-                        <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                        <h3 className="st-title text-[1rem]">{company.companyName}</h3>
+                        <span className="sc-tiny text-[var(--sc-ink-soft)]">
                           {company.modules.join(' · ') || 'no modules'}
                         </span>
                       </div>
                       {moduleRecords.length === 0 ? (
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">No shared records yet for the enabled modules.</p>
+                        <p className="sc-body text-[0.875rem]">No shared records yet for the enabled modules.</p>
                       ) : (
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-2">
                           {moduleRecords.map((record) => (
-                            <li key={`${record.module}:${record.id}`} className="text-sm text-[var(--color-pib-text)]">
-                              <span className="mr-2 rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase text-[var(--color-pib-text-muted)]">
-                                {record.module}
-                              </span>
+                            <li key={`${record.module}:${record.id}`} className="sc-body flex flex-wrap items-center gap-2 text-[0.875rem]">
+                              <Status>{record.module}</Status>
                               {String(record.fields.siteName || record.fields.name || record.fields.title || record.id)}
                               {record.fields.status ? (
-                                <span className="ml-2 text-[11px] text-[var(--color-pib-text-muted)]">
+                                <span className="sc-tiny text-[var(--sc-ink-soft)]">
                                   {String(record.fields.status)}
                                 </span>
                               ) : null}
@@ -160,10 +152,10 @@ export default function SharedWorkHubPage() {
                   )
                 })}
               </div>
-            </section>
+            </Panel>
           ))}
         </div>
       )}
-    </main>
+    </div>
   )
 }

@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -127,7 +129,7 @@ export default function SocialTemplatesPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <header>
-        <p className="eyebrow">Social · Templates</p>
+        <p className="sc-tiny">Social · Templates</p>
         <h1 className="pib-page-title mt-2">Post Templates</h1>
         <p className="pib-page-sub">
           Reusable post-text templates with <code className="text-[var(--color-accent-v2)]">{'{{variable}}'}</code> placeholders. Insert them from the composer with “Use template”.
@@ -154,7 +156,7 @@ export default function SocialTemplatesPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Product launch"
               className="pib-input w-full"
-            />
+             aria-label="e.g. Product launch"/>
           </div>
           <div>
             <label className="pib-label block mb-1">Category (optional)</label>
@@ -164,7 +166,7 @@ export default function SocialTemplatesPage() {
               onChange={(e) => setCategory(e.target.value)}
               placeholder="e.g. promotions"
               className="pib-input w-full"
-            />
+             aria-label="e.g. promotions"/>
           </div>
         </div>
         <div>
@@ -175,7 +177,7 @@ export default function SocialTemplatesPage() {
             onChange={(e) => setBody(e.target.value)}
             placeholder="Big news, {{company}}! We just launched {{product}}. Learn more: {{link}}"
             className="pib-textarea w-full resize-none"
-          />
+           aria-label="Big news, {{company}}! We just launched {{product}}. Learn more: {{link}}"/>
           {detectedVars.length > 0 && (
             <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1">
               Detected placeholders: <span className="text-[var(--color-accent-v2)]">{detectedVars.map((v) => `{{${v}}}`).join(' ')}</span>
@@ -207,7 +209,7 @@ export default function SocialTemplatesPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">description</span>
+          <Icon name="description" />
           <h2 className="pib-empty-state-title">No templates yet. Create your first one above.</h2>
         </div>
       ) : (
@@ -216,8 +218,8 @@ export default function SocialTemplatesPage() {
             <div key={template.id} className="pib-card">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  <span className="pib-icon-tint-rose shrink-0">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">description</span>
+                  <span className="shrink-0">
+                    <Icon name="description" />
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -95,7 +97,7 @@ function Toggle({
       aria-label={label}
       aria-pressed={on}
       className={[
-        'relative h-5 w-10 shrink-0 rounded-full transition-colors',
+        'relative h-5 w-10 shrink-0 rounded transition-colors',
         on ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-pib-line-strong)]',
         busy ? 'cursor-wait opacity-60' : '',
         disabled ? 'cursor-not-allowed opacity-50' : '',
@@ -103,7 +105,7 @@ function Toggle({
     >
       <span
         className={[
-          'absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
+          'absolute left-0.5 top-0.5 h-4 w-4 rounded bg-white shadow transition-transform',
           on ? 'translate-x-5' : 'translate-x-0',
         ].join(' ')}
       />
@@ -245,12 +247,12 @@ export default function PermissionsPage() {
           title="Permissions"
           description="Control which roles can access each feature."
         />
-        <section role="alert" className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-5">
-          <p className="eyebrow !text-[10px] text-amber-100">Permission source</p>
-          <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Permissions could not load</h2>
+        <section role="alert" className="rounded-lg border border-[var(--sc-line)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-5">
+          <p className="eyebrow !text-[10px] text-[var(--st-warning)]">Permission source</p>
+          <h2 className="mt-2 text-xl text-[var(--color-pib-text)]">Permissions could not load</h2>
           <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{matrixLoadError}</p>
           <button type="button" onClick={loadMatrix} className="pib-btn-secondary mt-4 text-sm">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+            <Icon name="refresh" />
             Retry loading permissions
           </button>
         </section>
@@ -272,15 +274,15 @@ export default function PermissionsPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-2xl">
             <p className="eyebrow !text-[10px]">Access control</p>
-            <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Role &times; feature matrix</h2>
+            <h2 className="mt-2 text-2xl text-[var(--color-pib-text)]">Role &times; feature matrix</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
               Toggle whether each role can access a feature. Changes apply once you save.
             </p>
           </div>
           <div className="flex items-center gap-3">
             {matrixSaved && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              <span className="inline-flex items-center gap-1.5 rounded bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+                <Icon name="check_circle" />
                 Saved
               </span>
             )}
@@ -291,7 +293,7 @@ export default function PermissionsPage() {
         </div>
 
         {matrixSaveError && (
-          <div role="alert" className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+          <div role="alert" className="rounded-lg border border-[var(--sc-line)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-4 text-sm text-[var(--st-warning)]">
             {matrixSaveError}
           </div>
         )}
@@ -320,8 +322,8 @@ export default function PermissionsPage() {
                 <tr key={feature} className="border-b border-[var(--color-pib-line)] last:border-0">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                        <span className="material-symbols-outlined text-[18px]">{FEATURE_LABELS[feature].icon}</span>
+                      <span aria-hidden="true">
+                        <Icon name={FEATURE_LABELS[feature].icon} />
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[var(--color-pib-text)]">{FEATURE_LABELS[feature].label}</p>
@@ -330,13 +332,11 @@ export default function PermissionsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4 text-center">
-                    <span
-                      className="material-symbols-outlined text-[18px] text-[var(--color-pib-success,#22c55e)]"
-                      aria-label={`Owner always has access to ${FEATURE_LABELS[feature].label}`}
-                      title="Owners always have full access"
-                    >
-                      {ownerRow[feature] ? 'lock' : 'lock_open'}
-                    </span>
+                    <Icon
+                      name={ownerRow[feature] ? 'lock' : 'lock_open'}
+                      label={`Owner always has access to ${FEATURE_LABELS[feature].label}`}
+                      className="text-[var(--st-success)]"
+                    />
                   </td>
                   {MATRIX_ROLES.map((role) => (
                     <td key={role} className="px-4 py-4">
@@ -357,18 +357,18 @@ export default function PermissionsPage() {
         </div>
       </section>
 
-      {/* Advanced guardrails — preserves the original 3-toggle CRM permissions API */}
+      {/* Advanced guardrails - preserves the original 3-toggle CRM permissions API */}
       <section role="region" aria-label="Advanced CRM guardrails" className="space-y-4">
         <div className="max-w-2xl">
           <p className="eyebrow !text-[10px]">Advanced guardrails</p>
-          <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">CRM action guardrails</h2>
+          <h2 className="mt-2 text-2xl text-[var(--color-pib-text)]">CRM action guardrails</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
             Fine-grained limits on high-risk member actions, beyond feature access. These save instantly.
           </p>
         </div>
 
         {guardrailError && (
-          <div role="alert" className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+          <div role="alert" className="rounded-lg border border-[var(--sc-line)] bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-4 text-sm text-[var(--st-warning)]">
             {guardrailError}
           </div>
         )}
@@ -376,7 +376,7 @@ export default function PermissionsPage() {
         <div className="overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03]">
           {GUARDRAILS.map((item) => (
             <div key={item.key} className="flex items-center gap-4 border-b border-[var(--color-pib-line)] px-5 py-4 last:border-0">
-              <span className="pib-icon-tint pib-icon-tint-cyan hidden sm:inline-flex" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
+              <span className="hidden sm:inline-flex" aria-hidden="true"><Icon name={item.icon} /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.description}</p>

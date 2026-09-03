@@ -47,7 +47,7 @@ const DAY2: Runbook[] = [
     summary: 'Invoice → partial payment allocate → credit note → statement totals. Bulk issue/void/allocate and aging live here.',
     href: '/portal/finance/documents',
     cta: 'Open AR/AP',
-    emptyState: 'No documents yet is normal after COA — create the first invoice or bill.',
+    emptyState: 'No documents yet is normal after COA - create the first invoice or bill.',
     gates: ['massEmailAllowed=false', 'No payment initiate'],
   },
   {
@@ -62,7 +62,7 @@ const DAY2: Runbook[] = [
   {
     id: 'E',
     title: 'E · Tax prepare',
-    summary: 'VAT codes, periods, prepare and approve return packages for download — never e-file to SARS from PiB.',
+    summary: 'VAT codes, periods, prepare and approve return packages for download - never e-file to SARS from PiB.',
     href: '/portal/finance/tax',
     cta: 'Tax workbench',
     gates: ['No SARS submit'],
@@ -101,7 +101,7 @@ const DAY2: Runbook[] = [
   {
     id: 'J',
     title: 'J · Budgets / cashflow',
-    summary: 'Budget versions, budget vs actual, cashflow planner lite. Planning only — no GL post from the planner.',
+    summary: 'Budget versions, budget vs actual, cashflow planner lite. Planning only - no GL post from the planner.',
     href: '/portal/finance/budgets',
     cta: 'Budgets',
     gates: ['Planning only'],
@@ -207,7 +207,7 @@ const PHASE6_WORLD: Runbook[] = [
     id: 'P6-A',
     title: 'P6-A · Multi-month close program',
     summary:
-      'Market proof: ≥3 closed periods across ≥2 entities with IC, payroll lock, bank recon history, packaging, and frozen TB continuity. Prefer proving kit or internal demo org — not live client tenants without Peet OK.',
+      'Market proof: ≥3 closed periods across ≥2 entities with IC, payroll lock, bank recon history, packaging, and frozen TB continuity. Prefer proving kit or internal demo org - not live client tenants without Peet OK.',
     href: '/portal/finance/proving',
     cta: 'Proving / program',
     emptyState: 'Seed demo company first (idempotent seedKey), then multi-period close fixture or manual M1→M3 loop.',
@@ -246,7 +246,7 @@ const PHASE6_WORLD: Runbook[] = [
     id: 'P6-D',
     title: 'P6-D · External accountant sign-off pack',
     summary:
-      'One-sitting walkthrough: multi-month TB, period-close blockers, bank recon, payroll statutory prepare, packaging download-only. Checklist artifact (typed name OK) — not wet-signature product. externalEgressAllowed=false.',
+      'One-sitting walkthrough: multi-month TB, period-close blockers, bank recon, payroll statutory prepare, packaging download-only. Checklist artifact (typed name OK) - not wet-signature product. externalEgressAllowed=false.',
     href: '/portal/finance/packaging',
     cta: 'Packaging',
     gates: ['Download only', 'No SARS submit', 'egress=false'],
@@ -266,7 +266,7 @@ const DIFFERENTIATORS: Runbook[] = [
   {
     id: 'M',
     title: 'M · Intercompany + cross-org',
-    summary: 'IC propose/confirm/eliminations and cross-org payment notify/confirm. Observe and confirm — never initiate external money movement.',
+    summary: 'IC propose/confirm/eliminations and cross-org payment notify/confirm. Observe and confirm - never initiate external money movement.',
     href: '/portal/finance/intercompany',
     cta: 'Intercompany',
     gates: ['No payment initiate'],
@@ -291,12 +291,12 @@ function RunbookSection({
 }) {
   return (
     <section className="space-y-3" data-testid="finance-runbook-section">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">{heading}</h3>
+      <h3 className="text-sm uppercase tracking-wide text-[var(--color-pib-text-muted)]">{heading}</h3>
       {items.map((item) => (
         <Card key={item.id} className="p-5" data-testid="finance-runbook-card">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{item.title}</h2>
+              <h2 className="text-base text-[var(--color-pib-text)]">{item.title}</h2>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{item.summary}</p>
               {item.emptyState ? (
                 <p className="mt-2 rounded-lg border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted,transparent)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
@@ -372,13 +372,13 @@ export default function FinanceRunbooksPage() {
       </div>
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-intro">
-        <h2 className="text-base font-semibold">How to use</h2>
+        <h2 className="text-base">How to use</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Follow setup first if the tenant is empty, then cutover, then day-2 lanes. For single-period month-end, use Phase 5 close
           lanes and the period-close command centre. For market-proof multi-month close, bank-feed daily product path, expense
           claims/rev-rec/grants/ESS/cash/job-cost, and external accountant sign-off, use Phase 6 lanes. Keep tenant scope on every
           finance URL. Commands send X-Org-Id with exact legal entity and book scope. For Quinn staging acceptance, use the Phase 6
-          acceptance pack under docs/operations/finance/ (Phase 5 pack remains the close baseline) — this page is the operator map,
+          acceptance pack under docs/operations/finance/ (Phase 5 pack remains the close baseline) - this page is the operator map,
           not a permanent CEO dashboard.
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -397,7 +397,7 @@ export default function FinanceRunbooksPage() {
       <RunbookSection heading="Differentiators and agent ops" items={DIFFERENTIATORS} orgScope={orgScope} />
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-hard-gates">
-        <h2 className="text-base font-semibold">Hard gates (always on)</h2>
+        <h2 className="text-base">Hard gates (always on)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
           <li>No SARS e-filing submit from Tax, Payroll, Packaging, Proving, or ESS.</li>
           <li>No external bank payment initiation from Documents, Expense claims, Statements, Bank feeds, Bank rules, Payroll, or Packaging.</li>
@@ -410,7 +410,7 @@ export default function FinanceRunbooksPage() {
       </Card>
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-acceptance">
-        <h2 className="text-base font-semibold">Acceptance pack pointer</h2>
+        <h2 className="text-base">Acceptance pack pointer</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Quinn runs automated verifies (verify:finance:security, test:finance:unit, portal-design-system-parity, workbench-delivery,
           proving, operator-depth, bank-feeds, payroll, job-costing, plus foundation modules and Phase 6 module scripts when present)

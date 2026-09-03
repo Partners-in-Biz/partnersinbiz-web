@@ -24,7 +24,7 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
     return <AdminMessagesGovernanceWorkspace orgSlug={slug} />
   }
 
-  // Auth — same pattern as WorkspaceLayout
+  // Auth  -  same pattern as WorkspaceLayout
   const cookieStore = await cookies()
   const sessionCookie = cookieStore.get(process.env.SESSION_COOKIE_NAME ?? '__session')?.value
   if (!sessionCookie) redirect('/login')

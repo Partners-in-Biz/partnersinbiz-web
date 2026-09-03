@@ -219,7 +219,7 @@ export function CampaignBlogDetailWorkspace({
   }
 
   if (loading) {
-    return <div className="pib-skeleton h-96 max-w-7xl mx-auto rounded-2xl" />
+    return <div className="pib-skeleton h-96 max-w-7xl mx-auto rounded-[6px]" />
   }
 
   if (loadError || !previewBlog) {
@@ -326,9 +326,9 @@ export function CampaignBlogDetailWorkspace({
       ) : null}
 
       {approval && approvalVisible ? (
-        <section className="pib-card sticky bottom-4 p-5 flex flex-col gap-3 backdrop-blur-md">
+        <section className="pib-card sticky bottom-4 p-5 flex flex-col gap-3">
           <div>
-            <p className="text-sm font-headline font-semibold">{approval.title}</p>
+            <p className="text-sm font-headline">{approval.title}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
               {comments.length === 0 ? approval.noCommentsCopy : approval.commentsCopy(comments.length)}
             </p>
@@ -336,10 +336,14 @@ export function CampaignBlogDetailWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-3">
             {approval.publishDate ? (
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
+                <label
+                  htmlFor="campaign-blog-publish-date"
+                  className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap"
+                >
                   {approval.publishDate.label ?? 'Publish date'}
                 </label>
                 <input
+                  id="campaign-blog-publish-date"
                   type="date"
                   value={publishDate}
                   min={publishDateMin}

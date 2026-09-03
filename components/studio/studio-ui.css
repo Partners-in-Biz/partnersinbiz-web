@@ -1,0 +1,618 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Studio UI: the app-side primitives (brand-system.md section 11). Tokens and
+   type live in app/studio-tokens.css (global). Radius is 4px on controls,
+   6px on raised paper, 0 everywhere else. Terracotta is reserved for focus
+   rings, the active rule and the running-text CTA underline; it is never a
+   fill on a button.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Panel: raised paper (section 6). ───────────────────────────────────── */
+.st-panel {
+  background: var(--sc-surface);
+  border-radius: var(--st-radius-raised);
+  box-shadow: var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light);
+  padding: calc(var(--sc-u) * 6);
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+}
+.st-panel--flat {
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+@media (min-width: 700px) {
+  .st-panel {
+    padding: calc(var(--sc-u) * 8);
+  }
+}
+
+/* ── Buttons. ───────────────────────────────────────────────────────────── */
+.st-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--sc-u) * 2);
+  min-height: var(--st-control-h);
+  padding: 0 calc(var(--sc-u) * 5);
+  border-radius: var(--st-radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.st-btn:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 4px;
+}
+.st-btn:disabled,
+.st-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.st-btn--primary {
+  background: var(--sc-ink);
+  color: var(--sc-canvas);
+  border-color: var(--sc-ink);
+}
+.st-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-ink) 94%, var(--sc-canvas));
+}
+.st-btn--secondary {
+  background: transparent;
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+}
+.st-btn--secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-ink) 5%, transparent);
+  border-color: var(--sc-ink);
+}
+.st-btn--ghost {
+  background: transparent;
+  color: var(--sc-ink-soft);
+  padding-inline: calc(var(--sc-u) * 2);
+}
+.st-btn--ghost:hover:not(:disabled) {
+  color: var(--sc-ink);
+  background: color-mix(in srgb, var(--sc-ink) 5%, transparent);
+}
+.st-btn--danger {
+  background: transparent;
+  color: var(--st-danger);
+  border-color: transparent;
+}
+.st-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--st-danger) 8%, transparent);
+}
+.st-btn--block {
+  width: 100%;
+}
+.st-btn--sm {
+  min-height: 2.25rem;
+  font-size: 0.875rem;
+  padding-inline: calc(var(--sc-u) * 3);
+}
+
+/* ── Fields (section 11.5). ─────────────────────────────────────────────── */
+.st-field {
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+}
+.st-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--sc-u) * 3);
+}
+.st-label__hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sc-font);
+  font-size: 0.8125rem;
+  color: var(--sc-ink-soft);
+}
+.st-input,
+.st-textarea,
+.st-select {
+  appearance: none;
+  width: 100%;
+  min-height: var(--st-control-h);
+  padding: 0 calc(var(--sc-u) * 3.5);
+  border-radius: var(--st-radius);
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-canvas);
+  color: var(--sc-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 120ms ease;
+}
+.st-textarea {
+  padding-block: calc(var(--sc-u) * 2.5);
+  min-height: calc(var(--st-control-h) * 2.2);
+  resize: vertical;
+}
+.st-input::placeholder,
+.st-textarea::placeholder {
+  color: color-mix(in srgb, var(--sc-ink-soft) 60%, transparent);
+}
+.st-input:hover,
+.st-textarea:hover,
+.st-select:hover {
+  border-color: var(--sc-ink);
+}
+.st-input:focus-visible,
+.st-textarea:focus-visible,
+.st-select:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 3px;
+  border-color: var(--sc-ink);
+}
+.st-input[aria-invalid='true'],
+.st-textarea[aria-invalid='true'] {
+  border-color: var(--st-danger);
+}
+.st-help {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--sc-ink-soft);
+  margin: 0;
+}
+.st-error {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--st-danger);
+  margin: 0;
+}
+
+/* ── Choice: a selectable option in a grid (dates, slots, plans). ──────── */
+.st-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--st-cols, 2), minmax(0, 1fr));
+  gap: calc(var(--sc-u) * 2);
+}
+@media (max-width: 480px) {
+  .st-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.st-choice {
+  appearance: none;
+  min-height: var(--st-control-h);
+  padding: calc(var(--sc-u) * 2.5) calc(var(--sc-u) * 3);
+  border-radius: var(--st-radius);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-canvas);
+  color: var(--sc-ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.st-choice--center {
+  text-align: center;
+}
+.st-choice--mono {
+  font-family: var(--sc-font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.st-choice:hover {
+  border-color: var(--sc-ink);
+}
+.st-choice[aria-pressed='true'] {
+  border-color: var(--sc-ink);
+  box-shadow: inset 3px 0 0 var(--sc-accent);
+}
+.st-choice:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 3px;
+}
+
+/* ── Steps: a tiny mono progress row. ───────────────────────────────────── */
+.st-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.st-steps__item {
+  color: color-mix(in srgb, var(--sc-ink-soft) 60%, transparent);
+  padding-bottom: calc(var(--sc-u) * 1);
+  border-bottom: 2px solid transparent;
+}
+.st-steps__item[aria-current='step'] {
+  color: var(--sc-ink);
+  border-bottom-color: var(--sc-accent);
+}
+.st-steps__item--done {
+  color: var(--sc-ink-soft);
+}
+
+/* ── Status dot + word (section 11.7). ──────────────────────────────────── */
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2);
+}
+.st-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-tone, var(--sc-ink-soft));
+}
+.st-status--success {
+  --st-tone: var(--st-success);
+}
+.st-status--warning {
+  --st-tone: var(--st-warning);
+}
+.st-status--danger {
+  --st-tone: var(--st-danger);
+}
+.st-status--info {
+  --st-tone: var(--st-info);
+}
+
+/* ── Notice: an inline message with a hairline, never a coloured fill. ─── */
+.st-notice {
+  display: grid;
+  gap: calc(var(--sc-u) * 1);
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-left: 2px solid var(--st-tone, var(--sc-ink));
+  background: color-mix(in srgb, var(--sc-ink) 3%, transparent);
+  color: var(--sc-ink);
+}
+.st-notice--success {
+  --st-tone: var(--st-success);
+}
+.st-notice--warning {
+  --st-tone: var(--st-warning);
+}
+.st-notice--danger {
+  --st-tone: var(--st-danger);
+}
+.st-notice--info {
+  --st-tone: var(--st-info);
+}
+
+/* ── Header row inside a panel or page: title left, actions right. ─────── */
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 4);
+  flex-wrap: wrap;
+}
+.st-stack {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.st-title {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ── Spinner: one hairline arc, ink. ────────────────────────────────────── */
+.st-spinner {
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: st-spin 700ms linear infinite;
+}
+@keyframes st-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-spinner {
+    animation-duration: 1.6s;
+  }
+  .st-btn,
+  .st-input,
+  .st-textarea,
+  .st-choice {
+    transition: none;
+  }
+}
+
+/* ── Table (Phase 1; kit Table wraps these in Phase 2). ─────────────────── */
+.st-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.st-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sc-surface);
+}
+.st-table th {
+  font-family: var(--sc-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-ink-soft);
+  font-weight: 400;
+  text-align: left;
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-bottom: 1px solid var(--sc-line-strong);
+}
+.st-table td {
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-bottom: 1px solid var(--sc-line);
+  color: var(--sc-ink);
+  font-size: 0.9375rem;
+}
+.st-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--sc-ink) 4%, transparent);
+}
+.st-table tfoot td {
+  border-bottom: 0;
+  border-top: 1px solid var(--sc-line-strong);
+  color: var(--sc-ink-soft);
+}
+
+/* ── Skeleton: paper pulse, 4px. ────────────────────────────────────────── */
+.st-skeleton {
+  display: block;
+  background: var(--sc-surface);
+  border-radius: var(--st-radius);
+  animation: st-skeleton-pulse 1.2s ease-in-out infinite;
+}
+@keyframes st-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-skeleton {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ── Checkbox / switch / radio ──────────────────────────────────────────── */
+.st-checkbox,
+.st-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2);
+  min-height: var(--st-control-h);
+  color: var(--sc-ink);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.st-checkbox input,
+.st-radio input {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-canvas);
+  border-radius: var(--st-radius);
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.st-radio input { border-radius: 50%; }
+.st-checkbox input:checked,
+.st-radio input:checked {
+  background: var(--sc-ink);
+  border-color: var(--sc-ink);
+  box-shadow: inset 0 0 0 3px var(--sc-canvas);
+}
+.st-checkbox input:focus-visible,
+.st-radio input:focus-visible,
+.st-switch input:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 4px;
+}
+.st-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2);
+  min-height: var(--st-control-h);
+  color: var(--sc-ink);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.st-switch input {
+  appearance: none;
+  width: 2.5rem;
+  height: 1.375rem;
+  margin: 0;
+  border-radius: var(--st-radius);
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-surface);
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.st-switch input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.375rem - 6px);
+  height: calc(1.375rem - 6px);
+  border-radius: 2px;
+  background: var(--sc-ink-soft);
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+.st-switch input:checked {
+  background: var(--sc-ink);
+  border-color: var(--sc-ink);
+}
+.st-switch input:checked::after {
+  transform: translateX(1.05rem);
+  background: var(--sc-canvas);
+}
+.st-radio-group {
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+}
+
+/* ── Menu ───────────────────────────────────────────────────────────────── */
+.st-menu {
+  position: relative;
+  display: inline-block;
+}
+.st-menu__list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + var(--sc-u));
+  left: 0;
+  min-width: 12rem;
+  margin: 0;
+  padding: calc(var(--sc-u) * 1) 0;
+  list-style: none;
+  background: var(--sc-surface);
+  border-radius: var(--st-radius-raised);
+  box-shadow: var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light);
+}
+.st-menu__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: calc(var(--sc-u) * 2.5) calc(var(--sc-u) * 4);
+  border: 0;
+  background: transparent;
+  color: var(--sc-ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.st-menu__item:hover,
+.st-menu__item[data-active='true'] {
+  background: color-mix(in srgb, var(--sc-ink) 5%, transparent);
+}
+.st-menu__item:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: -2px;
+}
+
+/* ── Data list ──────────────────────────────────────────────────────────── */
+.st-datalist {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+.st-datalist__item {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: calc(var(--sc-u) * 4);
+  padding: calc(var(--sc-u) * 3) 0;
+  border-bottom: 1px solid var(--sc-line);
+}
+.st-datalist__item:last-child { border-bottom: 0; }
+.st-datalist__item dt {
+  margin: 0;
+  color: var(--sc-ink-soft);
+}
+.st-datalist__item dd {
+  margin: 0;
+  color: var(--sc-ink);
+}
+
+/* ── Avatar ─────────────────────────────────────────────────────────────── */
+.st-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--st-radius);
+  background: var(--sc-surface);
+  color: var(--sc-ink);
+  font-family: var(--sc-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.st-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.st-avatar--sm { width: 2rem; height: 2rem; font-size: 0.625rem; }
+.st-avatar--lg { width: 3.5rem; height: 3.5rem; font-size: 0.875rem; }
+
+/* ── Toolbar / pagination / crumbs ──────────────────────────────────────── */
+.st-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--sc-u) * 3);
+  min-height: var(--st-control-h);
+}
+.st-toolbar__grow { flex: 1 1 auto; min-width: 0; }
+.st-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 4);
+  color: var(--sc-ink-soft);
+}
+.st-pagination__actions {
+  display: flex;
+  gap: calc(var(--sc-u) * 2);
+}
+.st-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.st-crumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+.st-crumbs a:hover { color: var(--sc-ink); }
+.st-crumbs__sep {
+  color: color-mix(in srgb, var(--sc-ink-soft) 60%, transparent);
+}
+
+/* ── Icon ───────────────────────────────────────────────────────────────── */
+.st-icon {
+  font-family: 'Material Symbols Outlined', sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+  color: currentColor;
+  flex: 0 0 auto;
+  user-select: none;
+}

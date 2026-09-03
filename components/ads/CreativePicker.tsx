@@ -95,11 +95,11 @@ export function CreativePicker({
       role="dialog"
       aria-modal="true"
       aria-labelledby="creative-picker-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
     >
-      <div className="w-full max-w-3xl rounded-lg border border-white/10 bg-[#0A0A0B] p-6 shadow-2xl">
+      <div className="w-full max-w-3xl rounded-lg border border-white/10 bg-[var(--sc-ink)] p-6">
         <div className="flex items-center justify-between">
-          <h2 id="creative-picker-title" className="text-lg font-semibold">
+          <h2 id="creative-picker-title" className="text-lg font-medium">
             Pick a creative
           </h2>
           <button type="button" className="text-sm text-white/40 underline" onClick={onClose}>
@@ -137,7 +137,7 @@ export function CreativePicker({
                     onClick={() => toggle(c.id)}
                     className={`rounded border p-2 text-left ${
                       selected.includes(c.id)
-                        ? 'border-[#F5A623] bg-[#F5A623]/5'
+                        ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                         : 'border-white/10 hover:bg-white/5'
                     }`}
                   >

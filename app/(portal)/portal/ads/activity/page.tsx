@@ -34,7 +34,7 @@ function isAdActivity(type: unknown): boolean {
 }
 
 async function loadAdActivity(orgId: string, pageLimit = 50): Promise<ActivityEntry[]> {
-  // Overfetch and post-filter — see /api/v1/portal/ads/activity/route.ts for rationale.
+  // Overfetch and post-filter  -  see /api/v1/portal/ads/activity/route.ts for rationale.
   const snap = await adminDb
     .collection('activity')
     .where('orgId', '==', orgId)
@@ -116,7 +116,7 @@ export default async function PortalAdsActivityPage({
 
   if (entries.length === 0) {
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
         No ad activity yet. Updates appear here as Partners in Biz launches campaigns + you approve them.
       </div>
     )
@@ -124,7 +124,7 @@ export default async function PortalAdsActivityPage({
 
   return (
     <section className="space-y-2">
-      <h2 className="eyebrow !text-[10px] mb-2">Activity · {entries.length}</h2>
+      <h2 className="sc-tiny !text-[10px] mb-2">Activity · {entries.length}</h2>
       <ul className="divide-y divide-[var(--color-pib-line)] rounded border border-[var(--color-pib-line)] bg-white/[0.02]">
         {entries.map((e) => {
           const subject = e.entityTitle ?? e.entityId ?? ''

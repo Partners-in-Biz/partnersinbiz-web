@@ -12,7 +12,7 @@ interface TypeMeta {
   type: AdCustomAudienceType
   label: string
   description: string
-  icon: string  // emoji or symbol for now — Phase 4b can swap to proper icons
+  icon: string  // emoji or symbol for now - Phase 4b can swap to proper icons
 }
 
 const TYPES: TypeMeta[] = [
@@ -62,11 +62,11 @@ export function CustomAudienceTypePicker({ onSelect, disabledTypes = [], disable
             className={`text-left rounded-lg border p-4 transition ${
               disabled
                 ? 'border-white/5 bg-white/[0.02] cursor-not-allowed opacity-50'
-                : 'border-white/10 hover:border-[#F5A623] hover:bg-white/5'
+                : 'border-white/10 hover:border-[var(--sc-accent)] hover:bg-white/5'
             }`}
             aria-label={label}
           >
-            <div aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose text-lg">{icon}</div>
+            <div aria-hidden="true" className="text-lg">{icon}</div>
             <h3 className="mt-2 font-medium">{label}</h3>
             <p className="mt-1 text-xs text-white/60">{description}</p>
             {disabled && disabledReason[type] && (

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { Icon } from '@/components/studio'
+
 type Skill = {
   name: string
   description?: string | null
@@ -101,7 +103,7 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
     <section className="pib-card space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Skills</h2>
+          <h2 className="text-lg font-medium text-[var(--color-pib-text)]">Skills</h2>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
             {skills.length} installed on VPS. Drop a .zip to install a new skill.
           </p>
@@ -127,12 +129,12 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
             : 'border-[var(--color-pib-line)] hover:border-primary/50'
         }`}
       >
-        <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">cloud_upload</span>
+        <Icon name="cloud_upload" className="text-3xl text-[var(--color-pib-text-muted)]" />
         <div className="text-sm text-[var(--color-pib-text)] text-center">
           {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
         </div>
         <div className="text-xs text-[var(--color-pib-text-muted)]">Max 50 MB. Gateway auto-restarts after install.</div>
-        <input
+        <input data-impeccable-disable="content-invisible-at-rest" aria-label="Upload file"
           ref={inputRef}
           type="file"
           accept=".zip"
@@ -163,10 +165,10 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
               <button
                 type="button"
                 onClick={() => remove(s.name)}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
+                className="text-xs text-[var(--st-danger)] hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
                 title="Delete skill"
               >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
+                <Icon name="delete" className="text-[16px]" />
               </button>
             </div>
           </div>

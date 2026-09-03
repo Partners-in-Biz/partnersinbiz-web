@@ -38,7 +38,7 @@ export function BotModeLanding({
     <div data-testid="bot-mode-landing" className="mx-auto flex max-w-3xl flex-col gap-6 px-2 py-6">
       <div>
         <p className="pib-label text-primary">{BOT_MODE_COPY.landingEyebrow}</p>
-        <h2 className="mt-1 text-xl font-semibold text-[var(--color-pib-text)]">{BOT_MODE_COPY.landingTitle}</h2>
+        <h2 className="mt-1 text-xl font-medium text-[var(--color-pib-text)]">{BOT_MODE_COPY.landingTitle}</h2>
         <p className="mt-2 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">{BOT_MODE_COPY.landingBody}</p>
       </div>
       <div>
@@ -54,7 +54,7 @@ export function BotModeLanding({
               onClick={() => onStartChannel?.(bot.id)}
               className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 text-left hover:border-primary/30 hover:bg-primary/[0.06]"
             >
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{bot.name}</span>
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">{bot.name}</span>
               <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">{bot.role}</span>
             </button>
           ))}

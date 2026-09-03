@@ -55,15 +55,15 @@ export interface ExperimentDetailPlain {
 }
 
 const STATUS_BADGE: Record<ExperimentStatus, string> = {
-  draft: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF]',
+  draft: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF]',
   running: 'bg-green-500/15 text-green-400',
   paused: 'bg-yellow-500/15 text-yellow-400',
   completed: 'bg-sky-500/15 text-sky-300',
-  winner_declared: 'bg-[#F5A623]/15 text-[#F5A623]',
+  winner_declared: 'bg-[color-mix(in_srgb,var(--sc-accent)_15%,transparent)] text-[var(--sc-accent)]',
 }
 
 function fmtDate(ts?: { seconds: number } | null) {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   return new Date(ts.seconds * 1000).toLocaleDateString()
 }
 
@@ -72,7 +72,7 @@ function fmtPercent(n: number) {
 }
 
 function fmtCents(cents?: number) {
-  if (cents == null) return '—'
+  if (cents == null) return ' - '
   return `$${(cents / 100).toFixed(2)}`
 }
 
@@ -207,7 +207,7 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
           ← Experiments
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{currentExperiment.name}</h1>
+          <h1 className="text-2xl font-medium">{currentExperiment.name}</h1>
           <span className={`rounded px-2 py-0.5 text-xs uppercase tracking-wide ${STATUS_BADGE[currentExperiment.status]}`}>
             {currentExperiment.status.replace('_', ' ')}
           </span>
@@ -234,11 +234,11 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
           aria-modal="false"
           aria-labelledby="experiment-detail-archive-title"
           aria-describedby="experiment-detail-archive-description"
-          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+          className="rounded-lg border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] p-4 shadow-sm"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <h2 id="experiment-detail-archive-title" className="text-sm font-semibold text-white">
+              <h2 id="experiment-detail-archive-title" className="text-sm font-medium text-white">
                 Archive experiment {currentExperiment.name} for {orgSlug}?
               </h2>
               <p id="experiment-detail-archive-description" className="text-sm text-white/65">
@@ -327,7 +327,7 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
             onClick={() => declareWinner(currentExperiment.significance?.winnerVariantId)}
             disabled={busy}
             aria-label={`Declare winner for experiment ${currentExperiment.name}`}
-            className="rounded border border-[#F5A623]/40 px-3 py-1.5 text-[#F5A623] hover:bg-[#F5A623]/10 disabled:opacity-40"
+            className="rounded border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] px-3 py-1.5 text-[var(--sc-accent)] hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40"
           >
             {actioning === 'declare-winner' ? 'Declaring…' : 'Declare winner'}
           </button>
@@ -338,7 +338,7 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
             onClick={requestArchive}
             disabled={busy}
             aria-label={`Archive experiment ${currentExperiment.name} for ${orgSlug}`}
-            className="rounded border border-white/10 px-3 py-1.5 text-white/40 hover:text-red-400 disabled:opacity-40"
+            className="rounded border border-white/10 px-3 py-1.5 text-white/40 hover:text-[var(--st-danger)] disabled:opacity-40"
           >
             Archive
           </button>
@@ -383,28 +383,28 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
                 return (
                   <tr
                     key={v.id}
-                    className={`${isWinner ? 'border-l-2 border-[#F5A623] bg-[#F5A623]/5' : ''}`}
+                    className={`${isWinner ? 'border-l-2 border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]' : ''}`}
                   >
                     <td className="py-2 pr-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs uppercase text-[#F5A623]">{v.id}</span>
+                        <span className="font-mono text-xs uppercase text-[var(--sc-accent)]">{v.id}</span>
                         <span className="text-white/80">{v.name}</span>
                         {isWinner && (
-                          <span className="rounded bg-[#F5A623]/20 px-1.5 py-0.5 text-[10px] text-[#F5A623]">
+                          <span className="rounded bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--sc-accent)]">
                             Winner
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="py-2 pr-4 text-white/60">{v.trafficPercent}%</td>
-                    <td className="py-2 pr-4">{r?.impressions ?? '—'}</td>
-                    <td className="py-2 pr-4">{r?.clicks ?? '—'}</td>
-                    <td className="py-2 pr-4">{r?.conversions ?? '—'}</td>
-                    <td className="py-2 pr-4">{r ? fmtCents(r.spendCents) : '—'}</td>
-                    <td className="py-2 pr-4">{r ? fmtPercent(r.ctr) : '—'}</td>
-                    <td className="py-2 pr-4">{r ? fmtCents(r.cpc) : '—'}</td>
-                    <td className="py-2 pr-4">{r ? fmtCents(r.cpa) : '—'}</td>
-                    <td className="py-2">{r ? fmtPercent(r.convRate) : '—'}</td>
+                    <td className="py-2 pr-4">{r?.impressions ?? ' - '}</td>
+                    <td className="py-2 pr-4">{r?.clicks ?? ' - '}</td>
+                    <td className="py-2 pr-4">{r?.conversions ?? ' - '}</td>
+                    <td className="py-2 pr-4">{r ? fmtCents(r.spendCents) : ' - '}</td>
+                    <td className="py-2 pr-4">{r ? fmtPercent(r.ctr) : ' - '}</td>
+                    <td className="py-2 pr-4">{r ? fmtCents(r.cpc) : ' - '}</td>
+                    <td className="py-2 pr-4">{r ? fmtCents(r.cpa) : ' - '}</td>
+                    <td className="py-2">{r ? fmtPercent(r.convRate) : ' - '}</td>
                   </tr>
                 )
               })}
@@ -441,7 +441,7 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
                 <tbody className="divide-y divide-white/5">
                   {results.map((r) => (
                     <tr key={r.id}>
-                      <td className="py-1.5 pr-3 font-mono uppercase text-[#F5A623]">{r.variantId}</td>
+                      <td className="py-1.5 pr-3 font-mono uppercase text-[var(--sc-accent)]">{r.variantId}</td>
                       <td className="py-1.5 pr-3 text-white/50">{r.fromDate}</td>
                       <td className="py-1.5 pr-3 text-white/50">{r.toDate}</td>
                       <td className="py-1.5 pr-3">{r.impressions}</td>

@@ -8,6 +8,8 @@ import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPic
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { BarSeries } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface HeatmapData {
   mode: string
@@ -48,12 +50,12 @@ export default function HeatmapsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="heatmaps" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Heatmaps</p>
-        <h1 className="pib-page-title mt-2">Heatmaps</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Heatmaps"
+        title="Heatmaps."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && (
           <>
@@ -61,7 +63,7 @@ export default function HeatmapsPage() {
             <div className="flex flex-wrap items-end gap-3">
               <div>
                 <label className="pib-label">Page URL</label>
-                <select
+                <select name="page-select-19"
                   value={selectedUrl}
                   onChange={e => setSelectedUrl(e.target.value)}
                   className="pib-select text-xs w-72"
@@ -76,7 +78,7 @@ export default function HeatmapsPage() {
                 <label className="pib-label">Device</label>
                 <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Device">
                   {([['', 'All'], ['desktop', 'Desktop'], ['mobile', 'Mobile']] as Array<[Device, string]>).map(([val, lbl]) => (
-                    <button
+                    <button name="page-action-20"
                       key={val || 'all'}
                       type="button"
                       role="tab"
@@ -95,10 +97,7 @@ export default function HeatmapsPage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">mouse</span>
-          <p className="pib-empty-state-description">Select a client and property to see heatmap data.</p>
-        </div>
+        <EmptyState title="Select a client and property to see heatmap data." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
@@ -106,7 +105,7 @@ export default function HeatmapsPage() {
       {propertyId && !loading && data && (
         <>
           {data.note && (
-            <div className="pib-card border-l-2 border-l-[var(--color-pib-blue)]">
+            <div className="st-panel border-l-2 border-l-[var(--sc-ink-soft)]">
               <p className="text-xs text-[var(--color-pib-text-muted)]">{data.note}</p>
             </div>
           )}
@@ -116,9 +115,9 @@ export default function HeatmapsPage() {
             <KpiCard label="Scroll samples" value={data.scrollSamples.toLocaleString()} />
           </div>
 
-          <div className="pib-card">
+          <div className="st-panel">
             <div className="mb-3 flex items-center gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">ads_click</span></span>
+              <Icon name="ads_click" />
               <h2 className="pib-label mb-0">Element clicks</h2>
             </div>
             <BarSeries data={data.clicks} xKey="selector" yKey="count" label="Clicks" />
@@ -133,9 +132,9 @@ export default function HeatmapsPage() {
             />
           </div>
 
-          <div className="pib-card">
+          <div className="st-panel">
             <div className="mb-3 flex items-center gap-3">
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">swipe_vertical</span></span>
+              <Icon name="swipe_vertical" />
               <h2 className="pib-label mb-0">Scroll depth</h2>
             </div>
             <BarSeries data={data.scrollBuckets} xKey="band" yKey="count" label="Sessions" />

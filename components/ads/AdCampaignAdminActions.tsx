@@ -98,9 +98,9 @@ export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, rev
           aria-modal="false"
           aria-labelledby="campaign-action-confirm-title"
           aria-describedby="campaign-action-confirm-description"
-          className="max-w-md rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 text-sm shadow-sm"
+          className="max-w-md rounded-lg border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] p-4 text-sm shadow-sm"
         >
-          <h2 id="campaign-action-confirm-title" className="font-semibold text-white">
+          <h2 id="campaign-action-confirm-title" className="font-medium text-white">
             {confirmAction === 'submit'
               ? `Submit campaign ${campaignId} for client review?`
               : `Delete campaign ${campaignId}?`}
@@ -124,7 +124,7 @@ export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, rev
               className={
                 confirmAction === 'delete'
                   ? 'rounded border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40'
-                  : 'rounded border border-[#F5A623]/40 bg-[#F5A623]/10 px-3 py-1.5 text-xs font-medium text-[#F5A623] hover:bg-[#F5A623]/20 disabled:opacity-40'
+                  : 'rounded border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--sc-accent)] hover:bg-[color-mix(in_srgb,var(--sc-accent)_20%,transparent)] disabled:opacity-40'
               }
               onClick={confirmAction === 'submit' ? confirmSubmitForReview : confirmDelete}
               disabled={busy !== null}
@@ -172,7 +172,7 @@ export function AdCampaignAdminActions({ orgId, orgSlug, campaignId, status, rev
           </button>
         )}
         {status !== 'ACTIVE' && !launchApproved && (
-          <p className="basis-full text-right text-xs text-amber-200/75">
+          <p className="basis-full text-right text-xs text-[color-mix(in_srgb,var(--st-warning)_75%,transparent)]">
             Launch and paid-spend controls stay locked until client approval is recorded in the portal.
           </p>
         )}

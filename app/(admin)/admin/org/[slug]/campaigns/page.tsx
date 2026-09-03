@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import { adminDb } from '@/lib/firebase/admin'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { serializeForClient } from '@/lib/campaigns/serialize'
@@ -76,15 +77,15 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
       actions={
         <>
           <Link href="/admin/campaigns" className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">palette</span>
+            <Icon name="palette" className="text-[18px]" />
             Content engine
           </Link>
           <Link href="/admin/broadcasts" className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">mail</span>
+            <Icon name="mail" className="text-[18px]" />
             Broadcast
           </Link>
           <Link href={`/admin/org/${slug}/ads/campaigns/new`} className="pib-btn-primary">
-            <span className="material-symbols-outlined text-[18px]">ads_click</span>
+            <Icon name="ads_click" className="text-[18px]" />
             Ad campaign
           </Link>
         </>

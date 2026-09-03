@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
 import { Suspense } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, getClientAuth } from '@/lib/firebase/config'
@@ -11,18 +9,19 @@ import { logout } from '@/lib/firebase/auth'
 import { LastPathTracker } from '@/components/pwa/LastPathTracker'
 import { clearLastPath } from '@/lib/pwa/lastPath'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
-import { SettingsNav } from '@/components/settings/SettingsNav'
-import { SupportDrawer } from '@/components/support/SupportDrawer'
-import { NotificationBell } from '@/components/crm/NotificationBell'
 import { PortalSubnav, type PortalSubnavItem } from '@/components/navigation/PortalSubnav'
 import { buildMarketingHubProps } from '@/components/navigation/marketingHubConfig'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
-import { ThemeToggle } from '@/components/theme/ThemeToggle'
-import { MessageDrawer } from '@/components/chat/MessageDrawer'
-import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from '@/components/command-palette/ShortcutsCheatSheet'
 import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider'
+import {
+  PortalSidebar,
+  PortalTopbar,
+  PortalFooter,
+  isPortalNavActive,
+  type PortalNavItem,
+} from '@/components/portal/shell'
 import { BotModeChromeToggle } from '@/components/messages/bot-mode/BotModeChromeToggle'
 import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
 import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
@@ -47,13 +46,7 @@ import {
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
 
-interface NavItem {
-  href: string
-  label: string
-  icon: string
-  group: 'work' | 'data' | 'comms'
-  activePatterns?: string[]
-}
+type NavItem = PortalNavItem
 
 const NAV_LINKS: NavItem[] = [
   { href: '/portal/dashboard', label: 'Overview',  icon: 'space_dashboard', group: 'work' },
@@ -183,12 +176,6 @@ const NAV_MODULES: Partial<Record<string, WorkspaceModuleKey>> = {
   '/portal/settings/webhooks': 'configuration',
 }
 
-const GROUP_LABELS: Record<NavItem['group'], string> = {
-  work: 'Workspace',
-  data: 'Insights',
-  comms: 'Account',
-}
-
 const CRM_ROUTE_PATTERNS = [
   '/portal/crm',
   '/portal/contacts',
@@ -266,12 +253,6 @@ function buildPersonalSubnavItems(): PortalSubnavItem[] {
   ]
 }
 
-function active(pathname: string, item: NavItem) {
-  const hrefPath = item.href.split('?')[0] ?? item.href
-  if (pathname === hrefPath || pathname.startsWith(hrefPath + '/')) return true
-  return item.activePatterns?.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/')) ?? false
-}
-
 function scopedPortalHref(
   path: string,
   orgId: string,
@@ -306,26 +287,6 @@ function resolvePortalAccessPolicy(user: unknown): MemberAccessPolicy {
     accessPolicy: payload.accessPolicy,
     accessScope: payload.accessScope,
   })
-}
-
-function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
-  const on = active(pathname, item)
-  return (
-    <Link
-      href={item.href}
-      title={collapsed ? item.label : undefined}
-      data-active={on ? 'true' : undefined}
-      className={[
-        'pib-nav-item relative w-full',
-        collapsed ? 'justify-center px-0 min-h-9' : '',
-      ].filter(Boolean).join(' ')}
-    >
-      <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
-        {item.icon}
-      </span>
-      {!collapsed && <span className="font-medium flex-1 truncate">{item.label}</span>}
-    </Link>
-  )
 }
 
 function buildCrmSubnavItems(buildHref: (path: string) => string): PortalSubnavItem[] {
@@ -470,11 +431,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         fallback={(
           <>
             <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-            <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-              </span>
+            <div className="min-h-screen bg-[var(--sc-canvas)] flex items-center justify-center">
+              <span className="st-status st-status--info sc-tiny" aria-live="polite">Loading</span>
             </div>
           </>
         )}
@@ -555,14 +513,14 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     function handler(e: KeyboardEvent) {
       const metaOrCtrl = e.metaKey || e.ctrlKey
 
-      // Cmd/Ctrl+K — command palette (works even while typing).
+      // Cmd/Ctrl+K  -  command palette (works even while typing).
       if (metaOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setCmdOpen(v => !v)
         return
       }
 
-      // Cmd/Ctrl+S — broadcast a save event for form pages to listen on.
+      // Cmd/Ctrl+S  -  broadcast a save event for form pages to listen on.
       if (metaOrCtrl && e.key.toLowerCase() === 's') {
         e.preventDefault()
         window.dispatchEvent(new CustomEvent('pib:save'))
@@ -572,7 +530,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       // The rest are single-key shortcuts: ignore when typing or modifiers held.
       if (metaOrCtrl || e.altKey || isTyping(e.target)) return
 
-      // ? — open the shortcuts cheat sheet.
+      // ?  -  open the shortcuts cheat sheet.
       if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -802,11 +760,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-        <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-          </span>
+        <div className="min-h-screen bg-[var(--sc-canvas)] flex items-center justify-center">
+          <span className="st-status st-status--info sc-tiny" aria-live="polite">Loading</span>
         </div>
       </>
     )
@@ -831,7 +786,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       : path
 
   const canManageTeamSettings = memberRole === 'owner' || memberRole === 'admin'
-  // US-207: client-role users get a stripped-down sidebar — Dashboard, Reports,
+  // US-207: client-role users get a stripped-down sidebar  -  Dashboard, Reports,
   // Documents only.
   const effectiveRole = memberRole || userRole
   const isClientRole = effectiveRole === 'client'
@@ -842,7 +797,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
     if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
     if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
-    // Wiki holds workspace knowledge notes and agent activity logs — owner/admin only.
+    // Wiki holds workspace knowledge notes and agent activity logs  -  owner/admin only.
     if (item.href === '/portal/wiki' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
@@ -945,234 +900,71 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const pageLabel = visibleNavLinks.find(n => isPortalNavActive(pathname, n))?.label ?? 'Overview'
+  const dashboardHref = scopedShellHref('/portal/dashboard')
+  const changelogHref = scopedShellHref('/portal/changelog')
+  const profileHref = scopedShellHref('/portal/settings/profile')
+  const displayName = profileName || name || email
+  const canAccessConfiguration = canAccessModule(memberAccessPolicy, 'configuration')
+  const mainClassName = isCockpitRoute
+    ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
+    : isMessagesRoute
+    ? 'flex-1 min-h-0 overflow-hidden p-[calc(var(--sc-u)*1)] w-full max-w-none'
+    : isWorkspaceRoute
+    ? 'flex-1 min-h-0 overflow-hidden p-[var(--sc-pad)] w-full max-w-none'
+    : isProjectsListRoute
+    ? 'flex-1 overflow-y-auto pib-app-shell-main w-full max-w-none'
+    : 'flex-1 overflow-y-auto pib-app-shell-main max-w-[1400px] mx-auto w-full'
+
+  const topbarShared = {
+    pathname,
+    dashboardHref,
+    changelogHref,
+    profileHref,
+    portalWorkspaceLabel,
+    pageLabel,
+    workspaceOptions,
+    activeOrgId,
+    orgName,
+    workspaceSwitcherLocked,
+    onOrgSwitch: handleOrgSwitch,
+    canOpenAdminView,
+    adminViewHref,
+    changelogUnread,
+    initials,
+    uid,
+    displayName,
+    currentPageContext,
+    allowAgentParticipants,
+    navItems,
+    drawerOpen,
+    onOpenDrawer: () => setDrawerOpen(true),
+    onCloseDrawer: () => setDrawerOpen(false),
+    onToggleDrawer: () => setDrawerOpen(v => !v),
+    onBack: () => router.back(),
+    onOpenCommandPalette: () => setCmdOpen(true),
+    onToggleLayout: toggleLayout,
+    onLogout: handleLogout,
+  }
+
+  // Legal links (/privacy-policy, /terms-of-service) render via PortalFooter.
   // ── Topbar mode ────────────────────────────────────────────────────────────
   if (layoutMode === 'topbar') {
     return (
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
         <div data-message-push-root className={[
-          'flex flex-col bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]',
+          'flex flex-col bg-[var(--sc-canvas)] text-[var(--sc-ink)]',
           isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
         ].join(' ')}>
           {tracker}
           {revealedChromeToggle}
-          <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 shrink-0">
-          <div className="flex items-center h-full px-3 gap-1.5 sm:px-4">
-            {/* Brand */}
-            <Link href={scopedShellHref('/portal/dashboard')} className="flex items-center gap-1.5 shrink-0 mr-1">
-              <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain" />
-              <span className="hidden sm:block font-display text-sm leading-none">Partners in Biz</span>
-              <span className="pill !text-[10px] !py-0.5 !px-1.5">{portalWorkspaceLabel}</span>
-            </Link>
-
-            {/* Workspace switcher */}
-            {workspaceOptions.length > 0 && (
-              <div className="hidden md:block shrink-0">
-                <ThemedSelect
-                  id="portal-topbar-workspace-switcher"
-                  ariaLabel="Switch portal workspace"
-                  value={activeOrgId}
-                  options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
-                  onValueChange={handleOrgSwitch}
-                  disabled={workspaceSwitcherLocked}
-                  className="min-w-[140px]"
-                  buttonClassName="!h-8 !text-xs"
-                  menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
-                />
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => router.back()}
-              aria-label="Go back"
-              title="Go back"
-              className="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-            >
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-            </button>
-
-            <div className="w-px h-4 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
-
-            {/* Nav — scrollable */}
-            <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
-              {navItems.map(item => {
-                const on = active(pathname, item)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    data-active={on ? 'true' : undefined}
-                    className="pib-nav-item whitespace-nowrap shrink-0"
-                  >
-                    <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
-                      {item.icon}
-                    </span>
-                    <span className="hidden lg:inline font-medium">{item.label}</span>
-                  </Link>
-                )
-              })}
-            </nav>
-
-            {/* Right side */}
-            <div className="flex items-center gap-1 ml-auto shrink-0">
-              {canOpenAdminView && (
-                <Link
-                  href={adminViewHref}
-                  data-tip="Switch to admin view"
-                  data-tip-side="bottom"
-                  aria-label="Switch to admin view"
-                  className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
-                </Link>
-              )}
-              <Link
-                href={scopedShellHref('/portal/changelog')}
-                data-tip={changelogUnread > 0 ? `What's new (${changelogUnread} unread)` : "What's new"}
-                data-tip-side="bottom"
-                aria-label="What's new"
-                className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
-              >
-                <span className="material-symbols-outlined text-[18px]">campaign</span>
-                {changelogUnread > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">
-                    {changelogUnread > 9 ? '9+' : changelogUnread}
-                  </span>
-                )}
-              </Link>
-              <button
-                onClick={() => setCmdOpen(true)}
-                data-tip="Search (⌘K)"
-                data-tip-side="bottom"
-                aria-label="Search"
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
-              >
-                <span className="material-symbols-outlined text-[18px]">search</span>
-              </button>
-              <ThemeToggle />
-              <NotificationBell />
-              <MessageDrawer
-                orgId={activeOrgId}
-                orgName={orgName}
-                currentUserUid={uid}
-                currentUserDisplayName={profileName || name || email}
-                currentPageContext={currentPageContext}
-                allowAgentParticipants={allowAgentParticipants}
-              />
-              <button
-                onClick={toggleLayout}
-                data-tip="Switch to sidebar layout"
-                data-tip-side="bottom"
-                aria-label="Switch to sidebar layout"
-                className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
-              </button>
-              <SupportDrawer
-                orgId={activeOrgId}
-                currentPageContext={currentPageContext}
-                triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-              />
-              <div className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)]">
-                <Link
-                  href={scopedShellHref('/portal/settings/profile')}
-                  data-tip="My profile"
-                  data-tip-side="bottom"
-                  aria-label="My profile"
-                  className="grid h-full w-full place-items-center rounded-full"
-                >
-                  {initials || '·'}
-                </Link>
-              </div>
-              <button
-                onClick={handleLogout}
-                data-tip="Sign out"
-                data-tip-side="bottom"
-                aria-label="Sign out"
-                className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1"
-              >
-                <span className="material-symbols-outlined text-[18px]">logout</span>
-              </button>
-              {/* Mobile hamburger — keep touch target */}
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(v => !v)}
-                aria-label="Open menu"
-                className="md:hidden flex flex-col justify-center items-center min-h-11 min-w-11 w-11 h-11 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors"
-              >
-                <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-                <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-                <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Mobile drawer in topbar mode */}
-        {drawerOpen && (
-          <div className="md:hidden fixed inset-0 z-40 flex flex-col">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-            <div className="pib-chrome-sticky relative z-10 mt-11 flex max-h-[80vh] flex-col gap-0.5 overflow-y-auto p-3">
-              {navItems.map(item => {
-                const on = active(pathname, item)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    data-active={on ? 'true' : undefined}
-                    className="pib-nav-item min-h-11 w-full"
-                  >
-                    <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>{item.icon}</span>
-                    <span className="flex-1 font-medium">{item.label}</span>
-                  </Link>
-                )
-              })}
-              <div className="h-px bg-[var(--color-pib-line)] my-1.5" />
-              <button
-                onClick={toggleLayout}
-                className="pib-nav-item min-h-11 w-full text-left"
-              >
-                <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
-                Switch to sidebar layout
-              </button>
-              {canOpenAdminView && (
-                <Link
-                  href={adminViewHref}
-                  className="pib-nav-item min-h-11 w-full"
-                >
-                  <span className="material-symbols-outlined text-[18px] inline-flex items-center justify-center min-w-[18px] min-h-[18px] leading-none">person</span>
-                  Switch to admin view
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
-
-        {areaSubnav}
-
-        <main className={isCockpitRoute
-          ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
-          : isMessagesRoute
-          ? 'flex-1 min-h-0 overflow-hidden p-1 md:p-1.5 w-full max-w-none'
-          : isWorkspaceRoute
-          ? 'flex-1 min-h-0 overflow-hidden px-3 py-3 md:px-5 md:py-4 w-full max-w-none'
-          : isProjectsListRoute
-          ? 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-6 md:py-6 w-full max-w-none'
-          : 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-8 md:py-8 max-w-[1400px] mx-auto w-full'
-        }><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
-
-        {!isWorkspaceRoute && !isCockpitRoute && (
-          <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
-            <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
-            <div className="flex items-center gap-4">
-              <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
-              <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
-            </div>
-          </footer>
-        )}
-        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
-        <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+          <PortalTopbar variant="topbar" {...topbarShared} />
+          {areaSubnav}
+          <main className={mainClassName}><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
+          {!isWorkspaceRoute && !isCockpitRoute && <PortalFooter />}
+          <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+          <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         </div>
       </>
     )
@@ -1183,307 +975,44 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     <>
       <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
       <div data-message-push-root className={[
-        'bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex',
+        'bg-[var(--sc-canvas)] text-[var(--sc-ink)] flex',
         isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
       ].join(' ')}>
         {tracker}
         {revealedChromeToggle}
-      {/* Mobile backdrop */}
-      <div
-        onClick={() => setDrawerOpen(false)}
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          drawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        aria-hidden="true"
-      />
-
-      {/* Sidebar */}
-      <aside
-        className={[
-          'shrink-0 flex flex-col border-r border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]',
-          'fixed top-0 left-0 h-screen z-50 transition-all duration-300 ease-in-out',
-          'md:sticky md:top-0 md:translate-x-0',
-          collapsed ? 'w-14' : 'w-[232px]',
-          drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-        ].join(' ')}
-      >
-        {/* Brand */}
-        <Link
-          href={scopedShellHref('/portal/dashboard')}
-          className={['flex items-center min-h-11 border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2 px-3 py-2'].join(' ')}
-        >
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain shrink-0" />
-          {!collapsed && (
-            <>
-              <div className="flex flex-col min-w-0">
-                <span className="font-display text-sm leading-tight">Partners in Biz</span>
-                {orgName && <span className="text-[10px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">{orgName}</span>}
-              </div>
-              <span className="ml-auto pill !text-[10px] !py-0.5 !px-1.5 shrink-0">{portalWorkspaceLabel}</span>
-            </>
-          )}
-        </Link>
-
-        {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center justify-between h-7 border-b border-[var(--color-pib-line)] shrink-0">
-          <button
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={[
-              'flex h-7 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'w-7 border-r border-[var(--color-pib-line)]',
-            ].join(' ')}
-          >
-            <span className="material-symbols-outlined text-[16px]">
-              {collapsed ? 'chevron_right' : 'chevron_left'}
-            </span>
-          </button>
-          {!collapsed && canOpenAdminView && (
-            <Link
-              href={adminViewHref}
-              title="Switch to admin view"
-              aria-label="Switch to admin view"
-              className="h-7 w-7 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-            >
-              <span className="material-symbols-outlined text-[16px]">person</span>
-            </Link>
-          )}
+        <PortalSidebar
+          pathname={pathname}
+          collapsed={collapsed}
+          drawerOpen={drawerOpen}
+          onCloseDrawer={() => setDrawerOpen(false)}
+          onToggleCollapsed={toggleCollapsed}
+          dashboardHref={dashboardHref}
+          orgName={orgName}
+          portalWorkspaceLabel={portalWorkspaceLabel}
+          canOpenAdminView={canOpenAdminView}
+          adminViewHref={adminViewHref}
+          workspaceOptions={workspaceOptions}
+          activeOrgId={activeOrgId}
+          workspaceSwitcherLocked={workspaceSwitcherLocked}
+          onOrgSwitch={handleOrgSwitch}
+          navItems={navItems}
+          grouped={grouped}
+          profileName={profileName}
+          name={name}
+          email={email}
+          initials={initials}
+          profileHref={profileHref}
+          memberRole={memberRole}
+          canAccessConfiguration={canAccessConfiguration}
+          onLogout={handleLogout}
+        />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <PortalTopbar variant="sidebar" {...topbarShared} />
+          {areaSubnav}
+          <main className={mainClassName}><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
+          {!isWorkspaceRoute && !isCockpitRoute && <PortalFooter />}
         </div>
-
-        {!collapsed && canOpenAdminView && (
-          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0 px-2 py-2">
-            <Link
-              href={adminViewHref}
-              title="Switch to admin view"
-              aria-label="Switch to admin view"
-              className="pib-nav-item min-h-11 w-full"
-            >
-              <span className="material-symbols-outlined text-[18px] shrink-0 opacity-70">person</span>
-              <span className="font-medium">Admin view</span>
-            </Link>
-          </div>
-        )}
-
-        {collapsed && canOpenAdminView && (
-          <div className="border-b border-[var(--color-pib-line)] shrink-0">
-            <Link
-              href={adminViewHref}
-              title="Switch to admin view"
-              aria-label="Switch to admin view"
-              className="mx-auto my-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px]">person</span>
-            </Link>
-          </div>
-        )}
-
-        {/* Workspace switcher — compact, near the top like the admin context. */}
-        {workspaceOptions.length > 0 && (
-          <div className="border-b border-[var(--color-pib-line)] shrink-0">
-            {collapsed ? (
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                title={`Workspace: ${orgName || 'Current workspace'}`}
-                className="mx-auto my-1.5 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
-              >
-                {(orgName || workspaceOptions.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
-              </button>
-            ) : (
-              <div className="px-2.5 py-2">
-                <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-1 block">
-                  Workspace
-                </label>
-                <ThemedSelect
-                  id="portal-workspace-switcher"
-                  ariaLabel="Switch portal workspace"
-                  value={activeOrgId}
-                  options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
-                  onValueChange={handleOrgSwitch}
-                  disabled={workspaceSwitcherLocked}
-                  className="w-full"
-                  buttonClassName="w-full"
-                  menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Nav — settings mode replaces normal nav */}
-        {pathname.startsWith('/portal/settings') ? (
-          <SettingsNav
-            name={profileName || name}
-            email={email}
-            initials={initials}
-            role={memberRole}
-            canAccessConfiguration={canAccessModule(memberAccessPolicy, 'configuration')}
-            collapsed={collapsed}
-          />
-        ) : (
-          <nav className={['flex-1 overflow-y-auto py-2.5', collapsed ? 'px-1.5 space-y-0.5' : 'px-2 space-y-3'].join(' ')}>
-            {collapsed
-              ? navItems.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
-              : grouped.map(({ group, items }) => (
-                  <div key={group} className="space-y-0.5">
-                    <p className="eyebrow !text-[10px] px-2 mb-1">{GROUP_LABELS[group]}</p>
-                    {items.map(item => <NavLink key={item.href} item={item} pathname={pathname} />)}
-                  </div>
-                ))
-            }
-          </nav>
-        )}
-
-        {/* User chip */}
-        <div className="border-t border-[var(--color-pib-line)] p-2 shrink-0">
-          {collapsed ? (
-            <div className="flex flex-col items-center gap-1.5">
-              <Link
-                href={scopedShellHref('/portal/settings/profile')}
-                title="My profile"
-                className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
-              >
-                {initials || '·'}
-              </Link>
-              <button onClick={handleLogout} title="Sign out" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1">
-                <span className="material-symbols-outlined text-[18px]">logout</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-1.5 py-1 rounded-lg">
-              <Link
-                href={scopedShellHref('/portal/settings/profile')}
-                title="My profile"
-                className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
-              >
-                {initials || '·'}
-              </Link>
-              <Link href={scopedShellHref('/portal/settings/profile')} className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
-                <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
-                <p className="text-[10px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
-              </Link>
-              <button
-                onClick={handleLogout}
-                data-tip="Sign out"
-                data-tip-side="right"
-                aria-label="Sign out"
-                className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1"
-              >
-                <span className="material-symbols-outlined text-[18px]">logout</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Topbar */}
-        <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 flex items-center gap-2 px-3 md:px-5">
-          {/* Mobile hamburger — keep touch target */}
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open menu"
-            className="md:hidden flex flex-col justify-center items-center min-h-11 min-w-11 w-11 h-11 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors -ml-1.5"
-          >
-            <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-            <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-            <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            aria-label="Go back"
-            data-tip="Go back"
-            data-tip-side="bottom"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-          </button>
-          <span className="eyebrow !text-[10px]">Client portal</span>
-          <span className="hidden sm:inline w-1 h-1 rounded-full bg-[var(--color-pib-line-strong)]" />
-          <span className="hidden sm:inline text-xs text-[var(--color-pib-text-muted)]">
-            {visibleNavLinks.find(n => active(pathname, n))?.label ?? 'Overview'}
-          </span>
-          <div className="ml-auto flex items-center gap-1">
-            {canOpenAdminView && (
-              <Link
-                href={adminViewHref}
-                data-tip="Switch to admin view"
-                data-tip-side="bottom"
-                aria-label="Switch to admin view"
-                className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">person</span>
-              </Link>
-            )}
-            <Link
-              href={scopedShellHref('/portal/changelog')}
-              data-tip={changelogUnread > 0 ? `What's new (${changelogUnread} unread)` : "What's new"}
-              data-tip-side="bottom"
-              aria-label="What's new"
-              className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
-            >
-              <span className="material-symbols-outlined text-[18px]">campaign</span>
-              {changelogUnread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">
-                  {changelogUnread > 9 ? '9+' : changelogUnread}
-                </span>
-              )}
-            </Link>
-            <button
-              onClick={() => setCmdOpen(true)}
-              data-tip="Search (⌘K)"
-              data-tip-side="bottom"
-              aria-label="Search"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
-            >
-              <span className="material-symbols-outlined text-[18px]">search</span>
-            </button>
-            <ThemeToggle />
-            <NotificationBell />
-            <MessageDrawer
-              orgId={activeOrgId}
-              orgName={orgName}
-              currentUserUid={uid}
-              currentUserDisplayName={profileName || name || email}
-              currentPageContext={currentPageContext}
-              allowAgentParticipants={allowAgentParticipants}
-            />
-            <SupportDrawer
-              orgId={activeOrgId}
-              currentPageContext={currentPageContext}
-              triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-            />
-          </div>
-        </header>
-
-        {areaSubnav}
-
-        <main className={isCockpitRoute
-          ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
-          : isMessagesRoute
-          ? 'flex-1 min-h-0 overflow-hidden p-1 md:p-1.5 w-full max-w-none'
-          : isWorkspaceRoute
-          ? 'flex-1 min-h-0 overflow-hidden px-3 py-3 md:px-5 md:py-4 w-full max-w-none'
-          : isProjectsListRoute
-          ? 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-6 md:py-6 w-full max-w-none'
-          : 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-8 md:py-8 max-w-[1400px] mx-auto w-full'
-        }><FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider></main>
-
-        {!isWorkspaceRoute && !isCockpitRoute && (
-          <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
-            <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
-            <div className="flex items-center gap-4">
-              <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
-              <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
-            </div>
-          </footer>
-        )}
-      </div>
-      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
         <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </div>
     </>

@@ -2,43 +2,32 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import type { ModuleAccent } from '@/components/ui/ModuleShell'
 
+import { Icon } from '@/components/studio'
+
 type StatCardProps = {
   label: ReactNode
   value: ReactNode
   detail?: ReactNode
   icon?: string
+  /** @deprecated Ignored. Studio has no per-card accent colour. */
   accent?: ModuleAccent
   className?: string
   href?: string
 }
 
-const ACCENT_TINT: Record<ModuleAccent, string> = {
-  amber: '',
-  accent: '',
-  violet: 'pib-icon-tint-violet',
-  rose: 'pib-icon-tint-rose',
-  blue: 'pib-icon-tint-blue',
-  green: 'pib-icon-tint-green',
-  cyan: 'pib-icon-tint-cyan',
-}
-
-/** Compact KPI card — dense cinematic kit. */
-export function StatCard({ label, value, detail, icon, accent = 'amber', className }: StatCardProps) {
+/** Compact KPI card  -  Studio `st-panel` with mono label and tabular value. */
+export function StatCard({ label, value, detail, icon, accent: _accent, className }: StatCardProps) {
+  void _accent
   return (
-    <article
-      data-module-accent={accent}
-      className={cn('pib-stat-card pib-enter', className)}
-    >
+    <article className={cn('st-panel', className)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="pib-label text-[10px] tracking-[0.14em] text-[var(--color-pib-text-muted)]">{label}</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-[var(--color-pib-text)]">{value}</p>
-          {detail ? <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{detail}</p> : null}
+          <p className="sc-tiny">{label}</p>
+          <p className="st-num mt-1 text-[1.75rem] leading-none text-[var(--sc-ink)]">{value}</p>
+          {detail ? <p className="sc-body mt-1 text-[0.875rem] text-[var(--sc-ink-soft)]">{detail}</p> : null}
         </div>
         {icon ? (
-          <span className={cn('pib-icon-tint', ACCENT_TINT[accent], 'shrink-0')} aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">{icon}</span>
-          </span>
+          <Icon name={icon} className="shrink-0 text-[20px] text-[var(--sc-ink-soft)]" />
         ) : null}
       </div>
     </article>

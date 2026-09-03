@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -87,7 +89,7 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
         description="Configure how this organisation creates, reviews, shares, and deletes documents. The client portal should show approved work; admins control document rules here."
         actions={(
           <Link href={`/admin/org/${encodeURIComponent(orgSlug)}/documents/new`} className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">note_add</span>
+            <Icon name="note_add" />
             New internal draft
           </Link>
         )}
@@ -97,13 +99,13 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow !text-[10px]">Document access</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use documents</h2>
+            <h2 className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">Who can use documents</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Every action exposes the same role choices so each organisation can choose its own access rules.
             </p>
           </div>
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
-            <span className="material-symbols-outlined text-[20px] leading-none">description</span>
+          <span aria-hidden="true" className="">
+            <Icon name="description" />
           </span>
         </div>
 
@@ -127,7 +129,7 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="eyebrow !text-[10px]">Document templates</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default templates plus organisation custom templates</h2>
+            <h2 className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">Default templates plus organisation custom templates</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Keep standard proposals, briefs, specs, reports, and agreements available by default. Add organisation-specific document templates here.
             </p>
@@ -137,10 +139,11 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
               value={newTemplateName}
               onChange={(event) => setNewTemplateName(event.target.value)}
               placeholder="Custom template"
+              aria-label="Custom template name"
               className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
             />
             <button type="button" onClick={addTemplate} className="pib-btn-secondary shrink-0">
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <Icon name="add" />
               Add
             </button>
           </div>
@@ -151,7 +154,7 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
             <div key={template.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.label}</h3>
+                  <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{template.label}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{template.description}</p>
                 </div>
                 <span className="pib-pill pib-pill-cyan !text-[10px]">
@@ -164,7 +167,7 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
                 onClick={() => removeTemplate(template.id)}
                 className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <span className="material-symbols-outlined text-[15px]">delete</span>
+                <Icon name="delete" />
                 {template.locked ? 'Default cannot be deleted yet' : 'Delete custom template'}
               </button>
             </div>
@@ -176,7 +179,7 @@ export function AdminDocumentsGovernanceWorkspace({ orgSlug }: AdminDocumentsGov
 
       <Surface className="p-5">
         <p className="eyebrow !text-[10px]">Document-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What document owners control inside a document</h2>
+        <h2 className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">What document owners control inside a document</h2>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These document-level permissions belong inside each document settings flow, separate from the portal document list.
         </p>

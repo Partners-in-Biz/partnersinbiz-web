@@ -9,8 +9,8 @@ import { useEffect, type RefObject } from 'react'
  * `position: static` (outside) as the user scrolls.
  *
  * Triggers when:
- *   - sectionRect.top < 80   (section has scrolled past the sticky line)
- *   - sectionRect.bottom > 200 (section is still occupying viewport)
+ * - sectionRect.top < 80   (section has scrolled past the sticky line)
+ * - sectionRect.bottom > 200 (section is still occupying viewport)
  */
 export function useStickyNumber(
   sectionRef: RefObject<HTMLElement | null>,

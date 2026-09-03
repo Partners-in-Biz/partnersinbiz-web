@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getCreativeCanvasByShareToken } from '@/lib/creative-canvas/store'
 import type { CreativeCanvasNode } from '@/lib/creative-canvas/types'
+import '@/components/studio/studio-ui.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,67 +58,61 @@ export default async function PublicCanvasSharePage({
   const edges = (canvas.edges ?? []).filter((edge) => nodeTitle.has(edge.sourceNodeId) && nodeTitle.has(edge.targetNodeId))
 
   return (
-    <div className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
-      <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
-        <header className="space-y-2">
-          <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-            Creative canvas · shared preview
-          </p>
-          <h1 className="text-3xl font-semibold">{canvas.title}</h1>
-          {canvas.purpose ? (
-            <p className="text-lg text-[var(--color-pib-text-muted)] max-w-2xl">{canvas.purpose}</p>
-          ) : null}
-        </header>
+    <main className="mx-auto max-w-6xl px-8 py-16">
+      <header className="pib-page-header">
+        <p className="sc-tiny">Creative canvas · shared preview</p>
+        <h1 className="sc-article__h2 mt-2">{canvas.title}</h1>
+        <p className="sc-body mt-2">
+          {canvas.purpose ? canvas.purpose : 'Read-only preview of this canvas.'}
+        </p>
+      </header>
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {nodes.map((node) => {
-            const image = nodeImage(node)
-            const text = nodeText(node)
-            return (
-              <article
-                key={node.id}
-                className="rounded-xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4 space-y-2"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                  {presentationLabel(node)}
+      <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {nodes.map((node) => {
+          const image = nodeImage(node)
+          const text = nodeText(node)
+          return (
+            <article key={node.id} className="st-panel st-panel--flat">
+              <p className="sc-tiny">{presentationLabel(node)}</p>
+              <h2 className="st-title mt-2">{node.title}</h2>
+              {image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={image}
+                  alt={node.source?.altText ?? node.title}
+                  className="mt-4 h-36 w-full object-cover"
+                  style={{ borderRadius: 'var(--st-radius)' }}
+                />
+              ) : null}
+              {text ? (
+                <p className="sc-body mt-4 line-clamp-6 whitespace-pre-wrap" style={{ fontSize: '0.875rem' }}>
+                  {text}
                 </p>
-                <h2 className="text-sm font-semibold">{node.title}</h2>
-                {image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={image}
-                    alt={node.source?.altText ?? node.title}
-                    className="h-36 w-full rounded-md object-cover"
-                  />
-                ) : null}
-                {text ? (
-                  <p className="text-xs text-[var(--color-pib-text-muted)] whitespace-pre-wrap line-clamp-6">{text}</p>
-                ) : null}
-              </article>
-            )
-          })}
-          {!nodes.length ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">This canvas has no content yet.</p>
-          ) : null}
-        </section>
-
-        {edges.length ? (
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Connections</h2>
-            <ul className="space-y-1 text-xs text-[var(--color-pib-text-muted)]">
-              {edges.map((edge) => (
-                <li key={edge.id}>
-                  {nodeTitle.get(edge.sourceNodeId)} → {nodeTitle.get(edge.targetNodeId)}
-                </li>
-              ))}
-            </ul>
-          </section>
+              ) : null}
+            </article>
+          )
+        })}
+        {!nodes.length ? (
+          <p className="sc-body">This canvas has no content yet.</p>
         ) : null}
+      </section>
 
-        <footer className="border-t border-[var(--color-pib-border)] pt-4 text-xs text-[var(--color-pib-text-muted)]">
-          Read-only preview shared via Partners in Biz.
-        </footer>
-      </div>
-    </div>
+      {edges.length ? (
+        <section className="mt-8">
+          <h2 className="st-title">Connections</h2>
+          <ul className="sc-body mt-4 space-y-1" style={{ fontSize: '0.875rem' }}>
+            {edges.map((edge) => (
+              <li key={edge.id}>
+                {nodeTitle.get(edge.sourceNodeId)} to {nodeTitle.get(edge.targetNodeId)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <footer className="mt-10 border-t border-[var(--sc-line)] pt-4">
+        <p className="sc-tiny">Read-only preview shared via Partners in Biz.</p>
+      </footer>
+    </main>
   )
 }

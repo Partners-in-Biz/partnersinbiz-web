@@ -1,6 +1,6 @@
 'use client'
 // components/ads/linkedin/audience-builders/WebsiteAudienceBuilder.tsx
-// LinkedIn Website (WEBSITE) audience builder — Phase 3 Batch 3
+// LinkedIn Website (WEBSITE) audience builder - Phase 3 Batch 3
 
 import { useState } from 'react'
 
@@ -20,7 +20,7 @@ interface Rule {
 }
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 const MATCH_TYPES: { value: MatchType; label: string }[] = [
@@ -162,7 +162,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
           <span className={labelCls}>URL rules (at least 1 required)</span>
           <button
             type="button"
-            className="text-xs text-[#F5A623] hover:underline"
+            className="text-xs text-[var(--sc-accent)] hover:underline"
             onClick={addRule}
             disabled={state === 'submitting'}
             aria-label="Add rule"
@@ -173,7 +173,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
         {rules.map((rule, i) => (
           <div key={i} className="flex gap-2 items-start">
             <select
-              className="rounded border border-white/10 bg-white/5 px-2 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60"
+              className="rounded border border-white/10 bg-white/5 px-2 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]"
               value={rule.matchType}
               onChange={(e) => updateRule(i, { matchType: e.target.value as MatchType })}
               aria-label={`Rule ${i + 1} match type`}
@@ -186,7 +186,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
               ))}
             </select>
             <input
-              className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60"
+              className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]"
               value={rule.url}
               onChange={(e) => updateRule(i, { url: e.target.value })}
               aria-label={`Rule ${i + 1} URL`}
@@ -196,7 +196,7 @@ export function LinkedinWebsiteAudienceBuilder({ orgId, onCreated, onCancel }: P
             {rules.length > 1 && (
               <button
                 type="button"
-                className="text-white/40 hover:text-red-400 px-1 py-2 text-xs"
+                className="text-white/40 hover:text-[var(--st-danger)] px-1 py-2 text-xs"
                 onClick={() => removeRule(i)}
                 disabled={state === 'submitting'}
                 aria-label={`Remove rule ${i + 1}`}

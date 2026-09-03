@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -90,7 +92,7 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
         description="Configure how this organisation manages channels, video production, source assets, publishing packets, approval gates, and portal exposure."
         actions={(
           <Link href={`/admin/org/${encodeURIComponent(orgSlug)}/projects`} className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+            <Icon name="rocket_launch" />
             Open project gates
           </Link>
         )}
@@ -99,14 +101,14 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
       <Surface className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow !text-[10px]">YouTube Studio access</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use YouTube Studio</h2>
+            <p className="sc-tiny !text-[10px]">YouTube Studio access</p>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">Who can use YouTube Studio</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Every action exposes the same role choices so each organisation can choose its own YouTube Studio rules.
             </p>
           </div>
-          <span className="pib-icon-tint pib-icon-tint-rose shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[20px] leading-none">smart_display</span>
+          <span className="shrink-0" aria-hidden="true">
+            <Icon name="smart_display" />
           </span>
         </div>
 
@@ -129,8 +131,8 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
       <Surface className="p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="eyebrow !text-[10px]">Production templates</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default YouTube Studio templates plus organisation custom templates</h2>
+            <p className="sc-tiny !text-[10px]">Production templates</p>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">Default YouTube Studio templates plus organisation custom templates</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Keep standard channel, series, video, shorts, and publishing workflows available by default. Add organisation-specific YouTube templates here.
             </p>
@@ -141,9 +143,9 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
               onChange={(event) => setNewTemplateName(event.target.value)}
               placeholder="Custom template"
               className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
-            />
+             aria-label="Custom template"/>
             <button type="button" onClick={addTemplate} className="pib-btn-secondary shrink-0">
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <Icon name="add" />
               Add
             </button>
           </div>
@@ -154,7 +156,7 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
             <div key={template.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.label}</h3>
+                  <h3 className="text-sm text-[var(--color-pib-text)]">{template.label}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{template.description}</p>
                 </div>
                 <span className="pib-pill pib-pill-rose">
@@ -167,7 +169,7 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
                 onClick={() => removeTemplate(template.id)}
                 className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <span className="material-symbols-outlined text-[15px]">delete</span>
+                <Icon name="delete" />
                 {template.locked ? 'Default cannot be deleted yet' : 'Delete custom template'}
               </button>
             </div>
@@ -178,8 +180,8 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
       </Surface>
 
       <Surface className="p-5">
-        <p className="eyebrow !text-[10px]">Video-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What owners control inside a channel or video project</h2>
+        <p className="sc-tiny !text-[10px]">Video-owner settings</p>
+        <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">What owners control inside a channel or video project</h2>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These project-level permissions belong inside each YouTube channel or video settings flow, separate from the admin module rules.
         </p>

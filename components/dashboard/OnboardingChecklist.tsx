@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
+import { Icon } from '@/components/studio'
+
 type StepKey = 'social' | 'domain' | 'contact' | 'analytics' | 'post'
 type ChecklistDone = Record<StepKey, boolean>
 
@@ -180,18 +182,18 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
 
   // Don't flash an empty card before the first data load resolves.
   if (!loaded) {
-    return <div className="pib-skeleton h-28 rounded-xl" aria-hidden />
+    return <div className="pib-skeleton h-28 rounded-md" aria-hidden />
   }
 
   if (allDone && collapsed) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="pib-icon-tint-green shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">task_alt</span>
+          <span className="shrink-0" aria-hidden="true">
+            <Icon name="task_alt" className="text-[16px]" />
           </span>
           <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">
-            You&apos;re all set — workspace fully onboarded.
+            You&apos;re all set  -  workspace fully onboarded.
           </p>
         </div>
         <button
@@ -209,12 +211,12 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
     <div className="pib-card space-y-3" data-module-accent="amber">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="pib-icon-tint mt-0.5 shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
+          <span className="mt-0.5 shrink-0" aria-hidden="true">
+            <Icon name="rocket_launch" className="text-[16px]" />
           </span>
           <div className="min-w-0">
             <p className="eyebrow !text-[10px]">Getting started</p>
-            <h2 className="mt-0.5 font-display text-lg text-[var(--color-pib-text)]">
+            <h2 className="mt-0.5 text-lg text-[var(--color-pib-text)]">
               {allDone ? "You're all set" : 'Finish setting up your workspace'}
             </h2>
             <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
@@ -224,7 +226,7 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <div
-            className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-pib-line)] font-mono text-xs text-[var(--color-pib-accent)]"
+            className="grid h-9 w-9 place-items-center rounded-md border border-[var(--color-pib-line)] font-mono text-xs text-[var(--color-pib-accent)]"
             aria-label={`${completedCount} of ${steps.length} steps complete`}
           >
             {completedCount}/{steps.length}
@@ -241,9 +243,9 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
         </div>
       </div>
 
-      <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+      <div className="h-1 w-full overflow-hidden rounded-md bg-[var(--color-pib-line)]">
         <div
-          className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all"
+          className="h-full rounded-md bg-[var(--color-pib-accent)] transition-all"
           style={{ width: `${(completedCount / steps.length) * 100}%` }}
         />
       </div>
@@ -253,14 +255,12 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
           const isDone = done[step.key]
           const content = (
             <>
-              <span
-                className={`shrink-0 material-symbols-outlined text-[18px] ${
+              <Icon
+                name={isDone ? 'check_circle' : 'radio_button_unchecked'}
+                className={`shrink-0 text-[18px] ${
                   isDone ? 'text-emerald-300' : 'text-[var(--color-pib-text-muted)]'
                 }`}
-                aria-hidden
-              >
-                {isDone ? 'check_circle' : 'radio_button_unchecked'}
-              </span>
+              />
               <span className="min-w-0 flex-1">
                 <span
                   className={`block text-sm font-medium ${
@@ -274,9 +274,7 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
                 <span className="block text-xs text-[var(--color-pib-text-muted)]">{step.description}</span>
               </span>
               {!isDone && (
-                <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]">
-                  arrow_forward
-                </span>
+                <Icon name="arrow_forward" className="shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" />
               )}
             </>
           )

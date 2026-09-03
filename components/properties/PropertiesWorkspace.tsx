@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/AppFoundation'
@@ -93,7 +95,7 @@ function readable(value: string) {
 function ConnectionStatusPill({ status }: { status: string }) {
   return (
     <span className={`pib-pill ${CONNECTION_STATUS[status] ?? ''}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span className="w-1.5 h-1.5 rounded-md bg-current" />
       {readable(status)}
     </span>
   )
@@ -105,7 +107,7 @@ function PropertyStatusPill({ status }: { status?: string | null }) {
 
   return (
     <span className={`pib-pill ${statusInfo.className}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span className="w-1.5 h-1.5 rounded-md bg-current" />
       {statusInfo.label}
     </span>
   )
@@ -136,10 +138,10 @@ function PropertyCard({
       <div className="pib-card-section-header flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{icon}</span>
+            <Icon name={icon} />
           </div>
           <div>
-            <h3 className="font-display text-base leading-tight">{property.name}</h3>
+            <h3 className="text-base leading-tight">{property.name}</h3>
             <p className="eyebrow !text-[10px] mt-1">{property.type} - {property.domain}</p>
           </div>
         </div>
@@ -158,9 +160,7 @@ function PropertyCard({
               className="flex items-center justify-between gap-3 px-5 py-3.5 bg-[var(--color-pib-surface)] hover:bg-[var(--color-pib-surface-2)] transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">
-                  {PROVIDER_ICON[connection.provider] ?? 'cable'}
-                </span>
+                <Icon name={PROVIDER_ICON[connection.provider] ?? 'cable'} />
                 <span className="text-sm truncate">{PROVIDER_LABEL[connection.provider] ?? connection.provider}</span>
               </div>
               <ConnectionStatusPill status={connection.status} />
@@ -329,20 +329,20 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
               <option key={org.id} value={org.id}>{org.name}</option>
             ))}
           </select>
-          {orgLoadError ? <p className="text-xs text-red-400 mt-1">Could not load clients. Refresh to retry.</p> : null}
+          {orgLoadError ? <p className="text-xs text-[var(--st-danger)] mt-1">Could not load clients. Refresh to retry.</p> : null}
         </div>
       ) : null}
 
       {loading ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className={isAdmin ? 'h-24 rounded-xl' : 'h-32'} />
+            <Skeleton key={index} className={isAdmin ? 'h-24 rounded-md' : 'h-32'} />
           ))}
         </div>
       ) : properties.length === 0 ? (
         <div className="pib-card p-6 text-center">
-          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">apartment</span>
-          <h2 className="font-display text-lg mt-3">{isAdmin && orgFilter ? 'No properties yet.' : 'No properties yet'}</h2>
+          <Icon name="apartment" />
+          <h2 className="text-lg mt-3">{isAdmin && orgFilter ? 'No properties yet.' : 'No properties yet'}</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-1.5">{emptyCopy}</p>
           {isAdmin && orgFilter ? (
             <Link href="/portal/properties/new" className="btn-pib-secondary btn-pib-sm inline-flex mt-4">

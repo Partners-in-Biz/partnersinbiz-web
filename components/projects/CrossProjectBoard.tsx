@@ -166,7 +166,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
             loading ? (
               <div key={column.id} className="flex w-60 shrink-0 flex-col">
                 <div className="mb-2 flex items-center gap-1.5 px-1">
-                  <div className="h-1.5 w-1.5 rounded-full" style={{ background: column.color }} />
+                  <div className="h-1.5 w-1.5 rounded-md" style={{ background: column.color }} />
                   <span className="pib-label">{column.name}</span>
                 </div>
                 <div className="flex flex-col gap-1.5">

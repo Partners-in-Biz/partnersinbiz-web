@@ -1,11 +1,11 @@
 'use client'
 // app/(admin)/admin/org/[slug]/ads/campaigns/new/NewCampaignClient.tsx
 // Platform picker + conditional wizard mount.
-// Sub-3a Phase 2 Batch 4 — additive edit, Meta path unchanged.
-// Sub-3a Phase 3 Batch 2 Agent D — extended to 3-way picker (+ Google Display).
-// Sub-3a Phase 4 Batch 2 Agent D — extended to 4-way picker (+ Google Shopping).
-// Sub-3b Phase 2 Batch 3C — extended to 5-way picker (+ LinkedIn).
-// Sub-3c Phase 2 Batch 3B — extended to 6-way picker (+ TikTok).
+// Sub-3a Phase 2 Batch 4  -  additive edit, Meta path unchanged.
+// Sub-3a Phase 3 Batch 2 Agent D  -  extended to 3-way picker (+ Google Display).
+// Sub-3a Phase 4 Batch 2 Agent D  -  extended to 4-way picker (+ Google Shopping).
+// Sub-3b Phase 2 Batch 3C  -  extended to 5-way picker (+ LinkedIn).
+// Sub-3c Phase 2 Batch 3B  -  extended to 6-way picker (+ TikTok).
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -46,11 +46,7 @@ export function NewCampaignClient({ orgId, orgSlug, currency }: Props) {
           {PLATFORM_OPTIONS.map((p) => (
             <label
               key={p.value}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm cursor-pointer transition-colors ${
-                platform === p.value
-                  ? 'border-[var(--color-pib-rose)] bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]'
-                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-2)]'
-              }`}
+              className={`flex items-center gap-2 rounded-md border px-4 py-2 text-sm cursor-pointer transition-colors ${ platform === p.value ? 'border-[var(--st-danger)] bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[var(--st-danger)]' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-2)]' }`}
             >
               <input
                 type="radio"

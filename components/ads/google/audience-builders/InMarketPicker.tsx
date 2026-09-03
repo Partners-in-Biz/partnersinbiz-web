@@ -1,6 +1,6 @@
 'use client'
 // components/ads/google/audience-builders/InMarketPicker.tsx
-// Google In-Market audience picker — Sub-3a Phase 5 Batch 3 F
+// Google In-Market audience picker - Sub-3a Phase 5 Batch 3 F
 
 import { useState, useEffect } from 'react'
 
@@ -18,7 +18,7 @@ interface BrowseAudience {
 type State = 'loading' | 'idle' | 'submitting' | 'done' | 'error'
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 export function InMarketPicker({ orgId }: Props) {
@@ -117,7 +117,7 @@ export function InMarketPicker({ orgId }: Props) {
           value={audienceName}
           onChange={(e) => setAudienceName(e.target.value)}
           aria-label="Audience name"
-          placeholder="e.g. Car Buyers — In-Market"
+          placeholder="e.g. Car Buyers - In-Market"
           disabled={state === 'submitting'}
         />
       </label>
@@ -143,7 +143,7 @@ export function InMarketPicker({ orgId }: Props) {
               <label
                 key={a.resourceName}
                 className={`flex cursor-pointer items-start gap-3 border-b border-white/5 px-4 py-2.5 text-sm last:border-b-0 hover:bg-white/5 ${
-                  selected?.resourceName === a.resourceName ? 'bg-[#F5A623]/5' : ''
+                  selected?.resourceName === a.resourceName ? 'bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]' : ''
                 }`}
               >
                 <input
@@ -167,7 +167,7 @@ export function InMarketPicker({ orgId }: Props) {
           )}
         </div>
         {selected && (
-          <p className="mt-1 text-xs text-[#F5A623]">Selected: {selected.name}</p>
+          <p className="mt-1 text-xs text-[var(--sc-accent)]">Selected: {selected.name}</p>
         )}
       </div>
 

@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -34,7 +35,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
-    running: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+    running: 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)]',
     completed: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
     failed: 'border-red-500/30 bg-red-500/10 text-red-300',
     rolled_back: 'border-purple-500/30 bg-purple-500/10 text-purple-300',
@@ -44,7 +45,7 @@ function statusBadge(status: string) {
 }
 
 function fmtWhen(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleString()
   } catch {
@@ -53,9 +54,9 @@ function fmtWhen(iso: string | null): string {
 }
 
 function fmtDuration(start: string | null, end: string | null): string {
-  if (!start || !end) return '—'
+  if (!start || !end) return '-'
   const ms = new Date(end).getTime() - new Date(start).getTime()
-  if (!Number.isFinite(ms) || ms < 0) return '—'
+  if (!Number.isFinite(ms) || ms < 0) return '-'
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
@@ -66,7 +67,7 @@ export default function MigrationsClient() {
   const [topError, setTopError] = useState<string | null>(null)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
-  // Run panel state — keyed by migration id (the one currently open).
+  // Run panel state - keyed by migration id (the one currently open).
   const [openId, setOpenId] = useState<string | null>(null)
   const [dryRun, setDryRun] = useState(true)
   const [orgId, setOrgId] = useState('')
@@ -141,7 +142,7 @@ export default function MigrationsClient() {
             }
           }
         } catch {
-          // transient — keep polling
+          // transient - keep polling
         }
       }, 1500)
     },
@@ -228,7 +229,7 @@ export default function MigrationsClient() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform · System
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Migration runner</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Migration runner</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Run registered data migrations with a dry-run preview, typed confirmation, and a live log.
             Destructive runs are restricted to super admins.
@@ -236,16 +237,16 @@ export default function MigrationsClient() {
         </div>
         <button
           onClick={() => loadMigrations()}
-          className="pib-btn-ghost text-sm font-label flex items-center gap-1.5 shrink-0"
+          className="st-btn st-btn--ghost text-sm font-label flex items-center gap-1.5 shrink-0"
           title="Refresh"
         >
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
+          <Icon name="refresh" />
           Refresh
         </button>
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
@@ -253,11 +254,11 @@ export default function MigrationsClient() {
       {loading ? (
         <div className="space-y-4">
           {Array.from({ length: 2 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-[6px]" />
           ))}
         </div>
       ) : migrations.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No migrations registered.
         </div>
       ) : (
@@ -267,13 +268,13 @@ export default function MigrationsClient() {
             const isOpen = openId === m.id
             const confirmMatches = confirmText === m.id
             return (
-              <div key={m.id} className="pib-card p-4 space-y-3">
+              <div key={m.id} className="st-panel p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{m.name}</h2>
+                      <h2 className="text-base font-medium text-[var(--color-pib-text)]">{m.name}</h2>
                       <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(m.status)}`}
+                        className={`rounded border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(m.status)}`}
                       >
                         {m.status}
                       </span>
@@ -284,9 +285,9 @@ export default function MigrationsClient() {
                   {isSuperAdmin && (
                     <button
                       onClick={() => (isOpen ? closePanel() : openPanel(m))}
-                      className="pib-btn-primary text-sm font-label flex items-center gap-1.5 shrink-0"
+                      className="st-btn st-btn--primary text-sm font-label flex items-center gap-1.5 shrink-0"
                     >
-                      <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                      <Icon name="play_arrow" />
                       {isOpen ? 'Close' : 'Run'}
                     </button>
                   )}
@@ -299,7 +300,7 @@ export default function MigrationsClient() {
                     <div className="mt-0.5">
                       {lr ? (
                         <span
-                          className={`rounded-full border px-1.5 py-0.5 text-[10px] ${statusBadge(lr.status)}`}
+                          className={`rounded border px-1.5 py-0.5 text-[10px] ${statusBadge(lr.status)}`}
                         >
                           {lr.status}
                           {lr.dryRun ? ' · dry' : ''}
@@ -319,7 +320,7 @@ export default function MigrationsClient() {
                   </div>
                   <div>
                     <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">Items</div>
-                    <div className="mt-0.5">{lr ? lr.itemsProcessed : '—'}</div>
+                    <div className="mt-0.5">{lr ? lr.itemsProcessed : '-'}</div>
                   </div>
                   {lr?.triggeredBy && (
                     <div className="col-span-2 sm:col-span-4">
@@ -333,9 +334,9 @@ export default function MigrationsClient() {
                 {isSuperAdmin && m.rollbackSupported && lr && lr.status === 'completed' && (
                   <button
                     onClick={() => rollback(lr)}
-                    className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 text-red-300"
+                    className="st-btn st-btn--ghost text-xs font-label flex items-center gap-1.5 text-red-300"
                   >
-                    <span className="material-symbols-outlined text-[14px]">undo</span>
+                    <Icon name="undo" />
                     Roll back last run
                   </button>
                 )}
@@ -348,9 +349,9 @@ export default function MigrationsClient() {
                         type="checkbox"
                         checked={dryRun}
                         onChange={(e) => setDryRun(e.target.checked)}
-                        className="accent-[var(--color-pib-primary,#6366f1)]"
+                        className="accent-[var(--sc-ink-soft,#6366f1)]"
                       />
-                      Dry run (preview only — no data changes)
+                      Dry run (preview only - no data changes)
                     </label>
 
                     <label className="space-y-1 block">
@@ -358,10 +359,10 @@ export default function MigrationsClient() {
                         Org ID {m.requiresOrgId ? '(required for a live run)' : '(optional)'}
                       </span>
                       <input
-                        className="pib-input w-full font-mono text-sm"
+                        className="st-input w-full font-mono text-sm"
                         value={orgId}
                         onChange={(e) => setOrgId(e.target.value)}
-                        placeholder="org_xxx — leave empty for an org-wide dry-run count"
+                        placeholder="org_xxx - leave empty for an org-wide dry-run count"
                       />
                     </label>
 
@@ -370,7 +371,7 @@ export default function MigrationsClient() {
                         Type <span className="font-mono text-[var(--color-pib-text)]">{m.id}</span> to confirm
                       </span>
                       <input
-                        className="pib-input w-full font-mono text-sm"
+                        className="st-input w-full font-mono text-sm"
                         value={confirmText}
                         onChange={(e) => setConfirmText(e.target.value)}
                         placeholder={m.id}
@@ -384,13 +385,13 @@ export default function MigrationsClient() {
                     )}
 
                     <div className="flex justify-end gap-2">
-                      <button onClick={closePanel} className="pib-btn-ghost text-xs font-label">
+                      <button onClick={closePanel} className="st-btn st-btn--ghost text-xs font-label">
                         Cancel
                       </button>
                       <button
                         onClick={() => startRun(m)}
                         disabled={!confirmMatches || starting}
-                        className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                        className="st-btn st-btn--primary text-xs font-label disabled:opacity-50"
                       >
                         {starting ? 'Running…' : dryRun ? 'Run dry-run' : 'Run live'}
                       </button>
@@ -401,12 +402,10 @@ export default function MigrationsClient() {
                       <div className="rounded-lg border border-[var(--color-pib-line-strong)]/40 bg-black/30 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(activeRun.status)}`}
+                            className={`rounded border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(activeRun.status)}`}
                           >
                             {activeRun.status === 'running' && (
-                              <span className="material-symbols-outlined text-[12px] animate-spin mr-1 align-middle">
-                                progress_activity
-                              </span>
+                              <Icon name="progress_activity" />
                             )}
                             {activeRun.status}
                           </span>

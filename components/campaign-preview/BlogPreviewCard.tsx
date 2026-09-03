@@ -94,7 +94,7 @@ export function BlogPreviewCard({
           />
         ) : null}
         <span
-          className="absolute top-3 left-3 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded-full backdrop-blur-sm"
+          className="absolute top-3 left-3 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded"
           style={{ background: meta.color, color: 'var(--color-pib-text)' }}
         >
           {meta.label}
@@ -104,7 +104,7 @@ export function BlogPreviewCard({
       {/* Body */}
       <div className="p-5 space-y-3 flex-1 flex flex-col">
         <div className="pib-label flex items-center gap-2">
-          <span>{date || '—'}</span>
+          <span>{date || ' - '}</span>
           {readTime ? (
             <>
               <span aria-hidden>·</span>
@@ -112,7 +112,7 @@ export function BlogPreviewCard({
             </>
           ) : null}
         </div>
-        <h3 className="text-lg md:text-xl font-headline font-semibold leading-tight line-clamp-2">
+        <h3 className="text-lg md:text-xl font-headline leading-tight line-clamp-2">
           {blog.title}
         </h3>
         {excerpt && (

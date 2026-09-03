@@ -7,6 +7,8 @@ import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { SimpleTable, CopyButton } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface Campaign {
   source: string
@@ -99,19 +101,19 @@ export default function UtmBuilderPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="utm-builder" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Campaigns</p>
-        <h1 className="pib-page-title mt-2">UTM Builder</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Campaigns"
+        title="UTM Builder."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">link</span></span>
+          <Icon name="link" />
           <h2 className="pib-label mb-0">Build a tagged URL</h2>
         </div>
         <div>
           <label className="pib-label">Destination URL</label>
-          <input
+          <input name="text"
             type="text"
             value={destination}
             onChange={e => setDestination(e.target.value)}
@@ -123,7 +125,7 @@ export default function UtmBuilderPage() {
           {UTM_FIELDS.map(f => (
             <div key={f.key}>
               <label className="pib-label">{f.label}</label>
-              <input
+              <input name="text"
                 type="text"
                 value={utm[f.key]}
                 onChange={e => setUtm(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -137,7 +139,7 @@ export default function UtmBuilderPage() {
         <div>
           <label className="pib-label mb-1">Generated URL</label>
           <div className="flex items-start gap-2">
-            <textarea
+            <textarea name="enter-a-destination-url-for-utm-tags"
               readOnly
               value={generated}
               placeholder="Enter a destination URL to generate a tagged link."
@@ -149,9 +151,9 @@ export default function UtmBuilderPage() {
         </div>
       </div>
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">campaign</span></span>
+          <Icon name="campaign" />
           <h2 className="pib-label mb-0">Campaign performance</h2>
         </div>
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
@@ -159,10 +161,7 @@ export default function UtmBuilderPage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">campaign</span>
-          <p className="pib-empty-state-description">Select a client and property to see campaign performance.</p>
-        </div>
+        <EmptyState title="Select a client and property to see campaign performance." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}

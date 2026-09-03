@@ -46,7 +46,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
   const [selectedSourceId, setSelectedSourceId] = useState<string>('')
   const [defaultTagsRaw, setDefaultTagsRaw] = useState('')
   const [fileName, setFileName] = useState<string>('')
-  // Raw parsed CSV grid (incl. header row) — the column mapping is applied on top.
+  // Raw parsed CSV grid (incl. header row) - the column mapping is applied on top.
   const [grid, setGrid] = useState<string[][]>([])
   const [headers, setHeaders] = useState<string[]>([])
   // colMap[i] = target contact field for CSV column i, or null to ignore it.
@@ -74,7 +74,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
     [grid, colMap],
   )
 
-  // Email is required by the import API — block submit until a column maps to it.
+  // Email is required by the import API - block submit until a column maps to it.
   const emailMapped = colMap.includes('email')
 
 
@@ -192,21 +192,22 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
   const previewRows = rows.slice(0, 5)
 
   return (
-    <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="border-b border-[var(--color-card-border)] px-3 py-2">
         <p className="pib-label mb-1">
           {orgName || 'Workspace'}
         </p>
-        <h1 className="text-base font-semibold text-[var(--color-pib-text)]">Import contacts from CSV</h1>
+        <h1 className="text-base font-medium text-[var(--color-pib-text)]">Import contacts from CSV</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">
           Bulk-import contacts into this organisation. Existing contacts (matched by
-          email) get their tags merged — names and other fields are not overwritten.
+          email) get their tags merged - names and other fields are not overwritten.
           CSV imports skip campaign auto-enrollment to avoid surprise sends.
         </p>
       </div>
 
 
-      <>          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
+      <>
+          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
             <div>
               <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
                 CSV file
@@ -215,11 +216,12 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 type="file"
                 accept=".csv,text/csv"
                 onChange={handleFileChange}
+                aria-label="CSV file"
                 className="block text-sm text-[var(--color-pib-text)] file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-[var(--color-pib-line)] file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-sm file:cursor-pointer"
               />
               {fileName && (
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                  {fileName} — parsed {rows.length} row{rows.length === 1 ? '' : 's'}
+                  {fileName} - parsed {rows.length} row{rows.length === 1 ? '' : 's'}
                 </p>
               )}
               {parseError && (
@@ -241,6 +243,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 value={defaultTagsRaw}
                 onChange={(e) => setDefaultTagsRaw(e.target.value)}
                 placeholder="e.g. q2-import, webinar-leads"
+                aria-label="Default tags"
                 className="pib-input"
               />
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -256,12 +259,13 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
               <select
                 value={selectedSourceId}
                 onChange={(e) => setSelectedSourceId(e.target.value)}
+                aria-label="Capture source (optional)"
                 className="pib-input"
               >
                 <option value="">(none)</option>
                 {sources.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} — {s.type}
+                    {s.name} - {s.type}
                   </option>
                 ))}
               </select>
@@ -321,7 +325,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 })}
               </div>
               {!emailMapped && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-[var(--st-warning)]">
                   Map one column to Email to enable validation and import.
                 </p>
               )}
@@ -418,7 +422,7 @@ function ResultCard({
   variant: 'dryrun' | 'done'
 }) {
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface-soft)] border border-[var(--color-pib-line)] p-4 space-y-3">
+    <div className="rounded-md bg-[var(--color-pib-surface-soft)] border border-[var(--color-pib-line)] p-4 space-y-3">
       <h2 className="text-sm font-medium text-[var(--color-pib-text)]">{title}</h2>
       <div className="grid grid-cols-3 gap-3">
         <Stat
@@ -460,7 +464,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
         {label}
       </p>
-      <p className="text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-lg font-medium text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }

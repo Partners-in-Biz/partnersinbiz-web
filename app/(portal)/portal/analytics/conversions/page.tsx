@@ -8,6 +8,8 @@ import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPic
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { LineSeries } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 type GoalType = 'event' | 'pageview' | 'duration'
 
@@ -130,16 +132,16 @@ export default function ConversionsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="conversions" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Conversions</p>
-        <h1 className="pib-page-title mt-2">Conversions</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Conversions"
+        title="Conversions."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
         <div className="flex justify-end">
-          <button onClick={fetchGoals} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
+          <button name="page-action-4" onClick={fetchGoals} disabled={!propertyId || loading} className="st-btn st-btn--primary text-sm">
             {loading ? 'Loading…' : 'Load Goals'}
           </button>
         </div>
@@ -147,18 +149,18 @@ export default function ConversionsPage() {
 
       {/* Create goal form */}
       {propertyId && (
-        <div className="pib-card space-y-4">
+        <div className="st-panel space-y-4">
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">flag</span></span>
+            <Icon name="flag" />
             <h2 className="pib-label mb-0">Create Goal</h2>
           </div>
           <div>
             <label className="pib-label mb-1">Name</label>
-            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Newsletter Signup" className="pib-input text-sm w-72" />
+            <input name="text" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Newsletter Signup" className="pib-input text-sm w-72" />
           </div>
           <div>
             <label className="pib-label mb-1">Type</label>
-            <select value={newType} onChange={e => setNewType(e.target.value as GoalType)} className="pib-select text-sm w-40">
+            <select name="page-select-5" value={newType} onChange={e => setNewType(e.target.value as GoalType)} className="pib-select text-sm w-40">
               <option value="event">event</option>
               <option value="pageview">pageview</option>
               <option value="duration">duration</option>
@@ -167,22 +169,22 @@ export default function ConversionsPage() {
           {newType === 'duration' ? (
             <div>
               <label className="pib-label mb-1">Min Duration (seconds)</label>
-              <input type="number" value={newMinDuration} onChange={e => setNewMinDuration(Number(e.target.value))} className="pib-input text-sm w-40" />
+              <input name="number" type="number" value={newMinDuration} onChange={e => setNewMinDuration(Number(e.target.value))} className="pib-input text-sm w-40" />
             </div>
           ) : (
             <div>
               <label className="pib-label mb-1">
                 {newType === 'pageview' ? 'Target (URL path)' : 'Target (event name)'}
               </label>
-              <input type="text" value={newTarget} onChange={e => setNewTarget(e.target.value)} placeholder={newType === 'pageview' ? '/thank-you' : 'signup_complete'} className="pib-input text-sm w-56" />
+              <input name="text" type="text" value={newTarget} onChange={e => setNewTarget(e.target.value)} placeholder={newType === 'pageview' ? '/thank-you' : 'signup_complete'} className="pib-input text-sm w-56" />
             </div>
           )}
           <div>
             <label className="pib-label mb-1">Value (ZAR)</label>
-            <input type="number" value={newValue} onChange={e => setNewValue(Number(e.target.value))} className="pib-input text-sm w-40" />
+            <input name="number" type="number" value={newValue} onChange={e => setNewValue(Number(e.target.value))} className="pib-input text-sm w-40" />
           </div>
           {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
-          <button onClick={createGoal} disabled={creating || !newName.trim()} className="btn-pib-primary text-sm">
+          <button name="page-action-6" onClick={createGoal} disabled={creating || !newName.trim()} className="st-btn st-btn--primary text-sm">
             {creating ? 'Creating…' : 'Create Goal'}
           </button>
         </div>
@@ -192,10 +194,10 @@ export default function ConversionsPage() {
       {goals.length > 0 && (
         <div className="space-y-4">
           {goals.map(g => (
-            <div key={g.id} className="pib-card space-y-3">
+            <div key={g.id} className="st-panel space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">flag</span></span>
+                  <Icon name="flag" />
                   <div>
                     <h3 className="text-sm font-medium text-[var(--color-pib-text)]">
                       {g.name} {!g.active && <span className="text-xs text-[var(--color-pib-text-muted)]">(inactive)</span>}
@@ -206,13 +208,13 @@ export default function ConversionsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => viewResults(g.id)} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-7" onClick={() => viewResults(g.id)} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     View Results
                   </button>
-                  <button onClick={() => toggleActive(g)} className="btn-pib-secondary text-xs px-3 py-1.5">
+                  <button name="page-action-8" onClick={() => toggleActive(g)} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                     {g.active ? 'Deactivate' : 'Activate'}
                   </button>
-                  <button onClick={() => deleteGoal(g.id)} className="btn-pib-ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
+                  <button name="page-action-9" onClick={() => deleteGoal(g.id)} className="st-btn st-btn--ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
                     Delete
                   </button>
                 </div>
@@ -228,7 +230,7 @@ export default function ConversionsPage() {
                         <KpiCard label="Completion Rate" value={`${results.completionRate}%`} />
                         <KpiCard label="Total Value" value={`R${results.totalValue.toLocaleString()}`} />
                       </div>
-                      <div className="pib-card">
+                      <div className="st-panel">
                         <h4 className="pib-label mb-3">Goal completions over time</h4>
                         <LineSeries data={results.series} xKey="date" yKey="completions" label="Completions" />
                       </div>
@@ -254,10 +256,7 @@ export default function ConversionsPage() {
       )}
 
       {!loading && goals.length === 0 && propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">flag</span>
-          <p className="pib-empty-state-description">No goals yet — create one above.</p>
-        </div>
+        <EmptyState title="No goals yet  -  create one above." />
       )}
     </div>
   )

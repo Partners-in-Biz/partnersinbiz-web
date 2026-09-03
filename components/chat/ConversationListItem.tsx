@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { BotInboxMeta } from '@/lib/messages/bot-channel'
 import { HoverTip } from '@/components/ui/HoverTip'
@@ -71,15 +72,15 @@ interface ConversationListItemProps {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  pip:   'bg-violet-400',
+  pip:   'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]',
   theo:  'bg-sky-400',
-  maya:  'bg-amber-400',
+  maya:  'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',
   sage:  'bg-emerald-400',
   nora:  'bg-rose-400',
-  ads:   'bg-amber-400',
+  ads:   'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',
   'qa-release': 'bg-emerald-400',
   support: 'bg-sky-400',
-  data: 'bg-violet-400',
+  data: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]',
   docs: 'bg-rose-400',
   seo:  'bg-emerald-400',
 }
@@ -186,33 +187,29 @@ export default function ConversationListItem({
         data-testid={`conversation-row-${c.id}`}
         aria-label={title}
         onClick={onClick}
-        className={`group min-h-11 w-full overflow-hidden rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${
-          active
-            ? 'bg-white/[0.08] text-[var(--color-pib-text)] ring-1 ring-white/[0.06]'
-            : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.045] hover:text-[var(--color-pib-text)]'
-        }`}
+        className={`group min-h-11 w-full overflow-hidden rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${ active ? 'bg-white/[0.08] text-[var(--color-pib-text)] ring-1 ring-white/[0.06]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.045] hover:text-[var(--color-pib-text)]' }`}
       >
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${leadAgentDot}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-[4px] ${leadAgentDot}`} />
           {context && (
-            <span className="material-symbols-outlined shrink-0 text-[13px] text-primary/85" title={`Context: ${context.label}`} aria-label={`Context: ${context.label}`}>
-              {context.icon}
+            <span title={`Context: ${context.label}`}>
+              <Icon name={context.icon} label={`Context: ${context.label}`} className="shrink-0 text-[13px] text-primary/85" />
             </span>
           )}
           <HoverTip label={title} side="right" className="min-w-0 flex-1">
-            <span className="block min-w-0 truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">
+            <span className="block min-w-0 truncate text-[12px] font-medium leading-4 text-[var(--color-pib-text)]">
               {title}
             </span>
           </HoverTip>
           {pinned && (
-            <span className="material-symbols-outlined shrink-0 text-[12px] text-primary" title="Pinned session">
-              keep
+            <span title="Pinned session">
+              <Icon name="keep" className="shrink-0 text-[12px] text-primary" />
             </span>
           )}
           {(c.unreadCount ?? 0) > 0 && (
             <span
               aria-label={`${c.unreadCount} unread message${c.unreadCount === 1 ? '' : 's'}`}
-              className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-bold leading-none text-on-primary"
+              className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[4px] bg-primary px-1 font-mono text-[9px] font-medium leading-none text-on-primary"
             >
               {c.unreadCount! > 99 ? '99+' : c.unreadCount}
             </span>
@@ -267,11 +264,7 @@ export default function ConversationListItem({
       type="button"
       data-testid={`conversation-row-${c.id}`}
       onClick={onClick}
-      className={`group min-h-11 w-full overflow-hidden pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-3 ${compact ? 'rounded-md py-1.5 pl-2' : 'rounded-lg py-2.5 pl-3'} ${
-        active
-          ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-[var(--color-pib-text)]'
-          : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
-      }`}
+      className={`group min-h-11 w-full overflow-hidden pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-3 ${compact ? 'rounded-md py-1.5 pl-2' : 'rounded-lg py-2.5 pl-3'} ${ active ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]' }`}
     >
       {/* Participant chips */}
       {c.participants.length > 0 && (
@@ -284,7 +277,7 @@ export default function ConversationListItem({
                   key={`agent-${p.agentId}`}
                   className="inline-flex min-w-0 items-center gap-1 text-[10px]"
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+                  <span className={`w-1.5 h-1.5 rounded-[4px] shrink-0 ${dotColor}`} />
                   <span className="truncate text-[var(--color-pib-text-muted)] font-medium">{p.name}</span>
                 </span>
               )
@@ -295,7 +288,7 @@ export default function ConversationListItem({
                 key={`user-${p.uid}`}
                 className="inline-flex min-w-0 items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]"
               >
-                <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-full bg-white/10 font-bold flex items-center justify-center shrink-0`}>
+                <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-[4px] bg-white/10 font-medium flex items-center justify-center shrink-0`}>
                   {initials(name)}
                 </span>
                 <span className="truncate">{name}</span>
@@ -310,7 +303,7 @@ export default function ConversationListItem({
               className="inline-flex items-center gap-1 text-[10px] text-primary"
               title="Pip is routing this multi-agent conversation"
             >
-              <span className="material-symbols-outlined text-[12px]">hub</span>
+              <Icon name="hub" className="text-[12px]" />
               Orchestrated
             </span>
           )}
@@ -324,7 +317,7 @@ export default function ConversationListItem({
           )}
           {workspaceVisibility && (
             <span
-              className="inline-flex items-center rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
+              className="inline-flex items-center rounded-[4px] border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
               title={`Workspace visibility: ${workspaceVisibility}`}
             >
               {workspaceVisibility}
@@ -336,14 +329,14 @@ export default function ConversationListItem({
       {/* Title */}
       <div className="flex min-w-0 items-center gap-2">
         <HoverTip label={c.title || 'Untitled'} side="right" className="block min-w-0 flex-1">
-          <div className={`line-clamp-1 overflow-hidden font-semibold text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
+          <div className={`line-clamp-1 overflow-hidden font-medium text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
             {c.title || 'Untitled'}
           </div>
         </HoverTip>
         {(c.unreadCount ?? 0) > 0 && (
           <span
             aria-label={`${c.unreadCount} unread message${c.unreadCount === 1 ? '' : 's'}`}
-            className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-[10px] font-bold leading-none text-on-primary"
+            className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-[4px] bg-primary px-1.5 font-mono text-[10px] font-medium leading-none text-on-primary"
           >
             {c.unreadCount! > 99 ? '99+' : c.unreadCount}
           </span>

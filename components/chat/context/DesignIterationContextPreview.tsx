@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Design Iteration ("Design this page") canvas preview — Context Dock
+ * Design Iteration ("Design this page") canvas preview - Context Dock
  * side-panel for a `design` context reference whose id is a design-iteration
  * session (`di_`-prefixed). Loads the session through the chat-context API
  * (tenant-scoped server-side) and shows the variant deck: baseline URL,
@@ -35,7 +35,7 @@ export interface DesignIterationPreviewData {
 
 function stateTone(state: string | undefined): string {
   if (state === 'blocked') return 'border-red-400/30 bg-red-500/10 text-red-100'
-  if (state === 'needs_input') return 'border-amber-400/30 bg-amber-500/10 text-amber-100'
+  if (state === 'needs_input') return 'border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]'
   if (state === 'complete') return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
   return 'border-sky-400/30 bg-sky-500/10 text-sky-100'
 }
@@ -62,14 +62,14 @@ export function DesignIterationContextPreview({ iterationId, refreshRevision = 0
 
   if (error) {
     return (
-      <div role="alert" className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+      <div role="alert" className="rounded-[6px] border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] p-3 text-xs text-[var(--st-warning)]">
         {error}
       </div>
     )
   }
   if (!data) {
     return (
-      <div role="status" className="rounded-xl border border-[var(--color-card-border)] p-3 text-xs text-[var(--color-pib-text-muted)]">
+      <div role="status" className="rounded-[6px] border border-[var(--color-card-border)] p-3 text-xs text-[var(--color-pib-text-muted)]">
         Loading variant deck…
       </div>
     )
@@ -83,12 +83,12 @@ export function DesignIterationContextPreview({ iterationId, refreshRevision = 0
 
   return (
     <section aria-label="Design this page" data-testid="design-iteration-context-preview" className="space-y-3">
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.05] p-3">
+      <div className="rounded-[6px] border border-primary/20 bg-primary/[0.05] p-3">
         <p className="text-[9px] font-label uppercase tracking-[0.18em] text-primary">Design this page</p>
-        <h3 className="mt-0.5 break-words text-sm font-semibold text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{headline}</h3>
+        <h3 className="mt-0.5 break-words text-sm font-medium text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{headline}</h3>
         {data.preview?.text && <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{data.preview.text}</p>}
         {previewStatus && (
-          <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${stateTone(previewStatus)}`}>
+          <span className={`mt-2 inline-block rounded-[4px] border px-2 py-0.5 text-[10px] font-medium ${stateTone(previewStatus)}`}>
             {previewStatus}
           </span>
         )}
@@ -99,7 +99,7 @@ export function DesignIterationContextPreview({ iterationId, refreshRevision = 0
           {metrics.map((metric) => (
             <div key={metric.id ?? metric.label ?? metric.value ?? 'metric'} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] px-2 py-1.5 text-center">
               <p className="text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-pib-text)]">{String(metric.value ?? '')}</p>
+              <p className="mt-0.5 text-sm font-medium tabular-nums text-[var(--color-pib-text)]">{String(metric.value ?? '')}</p>
             </div>
           ))}
         </div>
@@ -109,7 +109,7 @@ export function DesignIterationContextPreview({ iterationId, refreshRevision = 0
         <div className="space-y-2">
           {attention.map((item) => (
             <div key={item.id ?? item.label} className={`rounded-lg border px-2.5 py-2 text-xs ${stateTone(item.state)}`}>
-              <p className="font-semibold">{item.label}</p>
+              <p className="font-medium">{item.label}</p>
               {item.detail && <p className="mt-0.5 opacity-90 line-clamp-3">{item.detail}</p>}
             </div>
           ))}

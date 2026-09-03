@@ -57,7 +57,7 @@ export function BezierCurveEditor({ value, onChange }: { value: BezierTuple; onC
         <path
           d={`M 0 ${HEIGHT} C ${p1.cx} ${p1.cy}, ${p2.cx} ${p2.cy}, ${WIDTH} 0`}
           fill="none"
-          stroke="var(--color-pib-primary)"
+          stroke="var(--sc-ink-soft)"
           strokeWidth="2"
         />
         <line x1={0} y1={HEIGHT} x2={p1.cx} y2={p1.cy} stroke="rgba(255,255,255,0.3)" />

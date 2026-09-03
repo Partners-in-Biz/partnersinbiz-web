@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MailboxAccountSafe, MailboxMessageSafe } from '@/lib/mailbox/types'
 
@@ -220,9 +221,9 @@ export function EmailContextComposer({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-xl border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+          <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading email draft…
         </span>
       </div>
@@ -231,7 +232,7 @@ export function EmailContextComposer({
 
   if (state === 'error' || !message || !compose) {
     return (
-      <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-4 text-xs text-amber-100">
+      <div role="status" className="rounded-[6px] border border-amber-400/20 bg-[var(--sc-surface)]/5 px-3 py-4 text-xs text-[var(--sc-ink-soft)]">
         The email draft is unavailable. Open the full mailbox workspace to continue.
       </div>
     )
@@ -239,9 +240,9 @@ export function EmailContextComposer({
 
   if (sentMessageId || (!isDraft && message.status === 'sent')) {
     return (
-      <div data-testid="context-email-composer" className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-4">
+      <div data-testid="context-email-composer" className="space-y-3 rounded-[6px] border border-emerald-400/20 bg-emerald-500/5 p-4">
         <p className="text-[10px] font-label uppercase tracking-[0.18em] text-emerald-200">Sent</p>
-        <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{message.subject || '(no subject)'}</h3>
+        <h3 className="text-sm text-[var(--color-pib-text)]">{message.subject || '(no subject)'}</h3>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           From {message.accountEmail || message.from || selectedAccount?.emailAddress || 'connected mailbox'}
           {message.to?.length ? ` → ${joinEmails(message.to)}` : ''}
@@ -254,7 +255,7 @@ export function EmailContextComposer({
   }
 
   return (
-    <div data-testid="context-email-composer" className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-black/15 p-3">
+    <div data-testid="context-email-composer" className="space-y-3 rounded-[6px] border border-[var(--color-card-border)] bg-black/15 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Email draft</p>
@@ -262,9 +263,9 @@ export function EmailContextComposer({
             {selectedAccount
               ? `Sending as ${selectedAccount.emailAddress}`
               : reconnectableAccounts.length > 0
-                ? 'Mailbox needs reconnection — Google access expired or was revoked.'
+                ? 'Mailbox needs reconnection - Google access expired or was revoked.'
                 : connectedAccounts.length === 0
-                  ? 'No connected mailbox — connect Google or SMTP before sending.'
+                  ? 'No connected mailbox - connect Google or SMTP before sending.'
                   : 'Choose a connected mailbox account.'}
           </p>
         </div>
@@ -277,7 +278,7 @@ export function EmailContextComposer({
       </div>
 
       {!isDraft ? (
-        <div role="status" className="rounded-lg border border-amber-400/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+        <div role="status" className="rounded-lg border border-amber-400/20 bg-[var(--sc-surface)]/5 px-3 py-2 text-xs text-[var(--sc-ink-soft)]">
           This message is no longer a draft, so it opens read-only here.
         </div>
       ) : null}
@@ -288,15 +289,15 @@ export function EmailContextComposer({
         <div
           role="status"
           data-testid="mailbox-reconnect-banner"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-[var(--sc-surface)]/10 px-3 py-2"
         >
-          <p className="min-w-0 text-xs text-amber-100">
+          <p className="min-w-0 text-xs text-[var(--sc-ink-soft)]">
             <span className="font-medium">{primaryReconnectAccount.emailAddress}</span>
             {' '}needs Google reconnection before you can send.
           </p>
           <a
             href={googleAuthorizeHref(primaryReconnectAccount)}
-            className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-amber-300/30 bg-amber-400/15 px-3 text-xs font-semibold text-amber-50 hover:bg-amber-400/25 xl:min-h-8"
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-amber-300/30 bg-[var(--sc-surface)]/15 px-3 text-xs text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/25 xl:min-h-8"
           >
             Reconnect Google
           </a>
@@ -425,9 +426,9 @@ export function EmailContextComposer({
             type="button"
             disabled={!canSend || busy !== null}
             onClick={() => { void approveAndSend() }}
-            className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-primary/30 bg-primary/15 px-3 text-xs font-semibold text-primary disabled:opacity-50 xl:min-h-8"
+            className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-primary/30 bg-primary/15 px-3 text-xs text-primary disabled:opacity-50 xl:min-h-8"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">send</span>
+            <Icon name="send" className="text-[15px]" />
             {busy === 'send' ? 'Sending…' : 'Approve & send'}
           </button>
         </div>

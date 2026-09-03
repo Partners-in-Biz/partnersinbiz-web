@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -66,13 +68,13 @@ function fmtDateTime(ts: any) {
   const d = tsToDate(ts)
   return d
     ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : '—'
+    : ' - '
 }
 
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform.toLowerCase()]
   if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
-  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
+  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded `}>{cfg.label}</span>
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -191,7 +193,7 @@ export default function RssPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <header>
-          <p className="eyebrow">Social · RSS</p>
+          <p className="sc-tiny">Social · RSS</p>
           <h1 className="pib-page-title mt-2">RSS Feeds</h1>
           <p className="pib-page-sub">Auto-create social posts from RSS feeds</p>
         </header>
@@ -220,7 +222,7 @@ export default function RssPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="My Blog RSS"
               className="pib-input w-full"
-            />
+             aria-label="My Blog RSS"/>
           </div>
 
           <div>
@@ -231,7 +233,7 @@ export default function RssPage() {
               onChange={(e) => setFeedUrl(e.target.value)}
               placeholder="https://example.com/feed.xml"
               className="pib-input w-full"
-            />
+             aria-label="https://example.com/feed.xml"/>
           </div>
 
           <div>
@@ -241,7 +243,7 @@ export default function RssPage() {
                 <button
                   key={p.id}
                   onClick={() => togglePlatform(p.id)}
-                  className={`px-3 py-1.5 rounded-full font-label text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded font-label text-xs font-medium transition-colors ${
                     targetPlatforms.includes(p.id)
                       ? 'bg-[var(--color-pib-text)] text-[var(--color-pib-bg)]'
                       : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
@@ -261,7 +263,7 @@ export default function RssPage() {
               onChange={(e) => setPostTemplate(e.target.value)}
               placeholder="{{title}} {{url}}"
               className="pib-textarea w-full resize-none"
-            />
+             aria-label="{{title}} {{url}}"/>
             <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">
               Variables: {'{{title}}'}, {'{{url}}'}, {'{{description}}'}, {'{{author}}'}, {'{{category}}'}
             </p>
@@ -274,7 +276,7 @@ export default function RssPage() {
                 checked={autoSchedule}
                 onChange={(e) => setAutoSchedule(e.target.checked)}
                 className="accent-[var(--color-accent-v2)]"
-              />
+               aria-label="Toggle"/>
               Auto-schedule posts
             </label>
 
@@ -284,7 +286,7 @@ export default function RssPage() {
                 value={checkInterval}
                 onChange={(e) => setCheckInterval(Number(e.target.value))}
                 className="pib-select text-xs"
-              >
+               aria-label="Input">
                 <option value={15}>15 min</option>
                 <option value={30}>30 min</option>
                 <option value={60}>1 hour</option>
@@ -313,7 +315,7 @@ export default function RssPage() {
         </div>
       ) : feeds.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">rss_feed</span>
+          <Icon name="rss_feed" />
           <h2 className="pib-empty-state-title">No RSS feeds configured yet</h2>
           <p className="pib-empty-state-description">Add one to auto-create social posts from your content.</p>
         </div>
@@ -323,12 +325,12 @@ export default function RssPage() {
             <div key={feed.id} className="pib-card space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span className="pib-icon-tint-rose shrink-0">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">rss_feed</span>
+                  <span className="shrink-0">
+                    <Icon name="rss_feed" />
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{feed.name}</h3>
+                      <h3 className="text-sm text-[var(--color-pib-text)]">{feed.name}</h3>
                       <StatusBadge status={feed.status} />
                     </div>
                     <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-0.5">{feed.feedUrl}</p>

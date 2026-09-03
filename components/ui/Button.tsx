@@ -1,16 +1,26 @@
+'use client'
+
 // components/ui/Button.tsx
-import { cn } from '@/lib/utils'
+import { Button as StudioButton } from '@/components/studio'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
+  /**
+   * Control height. Studio only ships `sm` | `md`.
+   * @deprecated Prefer `sm` or `md`. `lg` is accepted for API stability and maps to `md`.
+   */
   size?: Size
   loading?: boolean
   children: React.ReactNode
 }
 
+/**
+ * App Button  -  thin compatibility wrapper over the Studio kit Button.
+ * Keeps the historical ui/Button import path and defaults (`secondary`, `sm`).
+ */
 export function Button({
   variant = 'secondary',
   size = 'sm',
@@ -18,38 +28,22 @@ export function Button({
   children,
   className,
   disabled,
+  type = 'button',
   ...props
 }: ButtonProps) {
-  const sizes: Record<Size, string> = {
-    sm: 'btn-pib-sm !px-3 !text-xs',
-    md: '!px-4 !py-2 !text-sm',
-    lg: '!px-6 !py-2.5 !text-base',
-  }
-  const variants: Record<Variant, string> = {
-    primary: 'pib-btn-primary',
-    secondary: 'pib-btn-secondary',
-    ghost: 'pib-btn-ghost',
-    danger: 'pib-btn-danger',
-  }
+  const studioSize = size === 'lg' ? 'md' : size
+
   return (
-    <button
-      disabled={disabled || loading}
-      className={cn(
-        variants[variant],
-        sizes[size],
-        (disabled || loading) && 'opacity-50 cursor-not-allowed',
-        className,
-      )}
+    <StudioButton
+      type={type}
+      variant={variant}
+      size={studioSize}
+      loading={loading}
+      disabled={disabled}
+      className={className}
       {...props}
     >
-      {loading ? (
-        <span className="flex items-center gap-2">
-          <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-          {children}
-        </span>
-      ) : (
-        children
-      )}
-    </button>
+      {children}
+    </StudioButton>
   )
 }

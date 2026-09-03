@@ -22,7 +22,7 @@ export default async function NewEmailCampaignPage({
   if (user.forbidden) notFound()
   if (!user.orgId) {
     return (
-      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+      <div className="st-panel st-panel--flat p-10 text-center text-sm text-[var(--sc-ink-soft)]">
         No organisation linked to this account.
       </div>
     )

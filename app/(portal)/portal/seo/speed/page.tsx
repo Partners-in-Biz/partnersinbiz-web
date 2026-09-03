@@ -17,7 +17,7 @@ export default async function SpeedAnalyzerPage({
   if (!ctx.ok) {
     if (ctx.reason === 'unauthenticated') redirect('/login')
     if (ctx.reason === 'forbidden') notFound()
-    return <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">No organisation linked.</div>
+    return <div className="st-panel p-10 text-center text-sm text-[var(--color-pib-text-muted)]">No organisation linked.</div>
   }
 
   // Load recent performance runs for this org (last 30)
@@ -33,7 +33,7 @@ export default async function SpeedAnalyzerPage({
         .get()
       historicalRuns = runsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
     } catch {
-      // ignore — index may not exist yet
+      // ignore  -  index may not exist yet
     }
   }
 

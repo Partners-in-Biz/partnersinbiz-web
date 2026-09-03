@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { KpiCard, CopyButton } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 interface VerifyData {
   propertyId: string
@@ -17,9 +19,9 @@ interface VerifyData {
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return ' - '
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleString()
+  return isNaN(d.getTime()) ? ' - ' : d.toLocaleString()
 }
 
 function scriptSnippet(ingestKey: string, propertyId: string): string {
@@ -65,30 +67,27 @@ export default function AnalyticsSettingsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="settings" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Settings</p>
-        <h1 className="pib-page-title mt-2">Install &amp; Settings</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Settings"
+        title="Install &amp; Settings."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">code</span>
-          <p className="pib-empty-state-description">Select a client and property to view installation instructions.</p>
-        </div>
+        <EmptyState title="Select a client and property to view installation instructions." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && !loading && data && (
         <>
-          <div className="pib-card space-y-4">
+          <div className="st-panel space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">code</span></span>
+                <Icon name="code" />
                 <h2 className="pib-label mb-0">Script tag (recommended)</h2>
               </div>
               <CopyButton text={scriptCode} label="Copy" />
@@ -107,13 +106,13 @@ export default function AnalyticsSettingsPage() {
             </p>
           </div>
 
-          <div className="pib-card space-y-4">
+          <div className="st-panel space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">verified</span></span>
+                <Icon name="verified" />
                 <h2 className="pib-label mb-0">Verification</h2>
               </div>
-              <button type="button" onClick={load} className="btn-pib-secondary text-xs px-3 py-1.5">
+              <button name="page-action-35" type="button" onClick={load} className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                 Re-check
               </button>
             </div>

@@ -7,6 +7,8 @@ import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
 import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { Icon } from '@/components/studio'
+import { PageHeader, EmptyState } from '@/components/ui/AppFoundation'
 
 type AttributionModel = 'last' | 'first' | 'linear' | 'time_decay'
 
@@ -95,18 +97,18 @@ export default function AttributionPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="attribution" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Attribution</p>
-        <h1 className="pib-page-title mt-2">Attribution</h1>
-      </header>
+      <PageHeader
+        eyebrow="Analytics · Attribution"
+        title="Attribution."
+      />
 
-      <div className="pib-card space-y-4">
+      <div className="st-panel space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && (
           <>
             <div>
               <label className="pib-label mb-1">Goal (optional)</label>
-              <select value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-select text-sm w-72">
+              <select name="page-select-1" value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-select text-sm w-72">
                 <option value="">Default conversion ($identify)</option>
                 {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -115,7 +117,7 @@ export default function AttributionPage() {
               <label className="pib-label mb-1">Attribution model</label>
               <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Attribution model">
                 {MODELS.map(m => (
-                  <button
+                  <button name="page-action-2"
                     key={m.key}
                     role="tab"
                     aria-selected={model === m.key}
@@ -129,7 +131,7 @@ export default function AttributionPage() {
             </div>
             <DateRangePicker value={range} onChange={setRange} />
             <div className="flex justify-end">
-              <a href={csvHref()} download className="btn-pib-secondary text-xs px-3 py-1.5">
+              <a href={csvHref()} download className="st-btn st-btn--secondary text-xs px-3 py-1.5">
                 Export CSV
               </a>
             </div>
@@ -138,10 +140,7 @@ export default function AttributionPage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">call_split</span>
-          <p className="pib-empty-state-description">Select a client and property to see attribution.</p>
-        </div>
+        <EmptyState title="Select a client and property to see attribution." />
       )}
 
       {propertyId && loading && <div className="pib-skeleton h-24" />}
@@ -184,15 +183,15 @@ export default function AttributionPage() {
 
       {/* Contact journey viewer */}
       {propertyId && (
-        <div className="pib-card space-y-4">
+        <div className="st-panel space-y-4">
           <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">route</span></span>
+            <Icon name="route" />
             <h2 className="pib-label mb-0">Contact journey</h2>
           </div>
           <div className="flex gap-2 items-end">
             <div>
               <label className="pib-label mb-1">Distinct ID</label>
-              <input
+              <input name="text"
                 type="text"
                 value={distinctId}
                 onChange={e => setDistinctId(e.target.value)}
@@ -200,7 +199,7 @@ export default function AttributionPage() {
                 className="pib-input text-sm w-72"
               />
             </div>
-            <button onClick={loadJourney} disabled={!distinctId.trim() || journeyLoading} className="btn-pib-primary text-sm">
+            <button name="page-action-3" onClick={loadJourney} disabled={!distinctId.trim() || journeyLoading} className="st-btn st-btn--primary text-sm">
               {journeyLoading ? 'Loading…' : 'View Journey'}
             </button>
           </div>

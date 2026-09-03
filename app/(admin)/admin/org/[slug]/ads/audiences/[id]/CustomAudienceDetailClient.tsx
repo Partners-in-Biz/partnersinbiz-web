@@ -69,11 +69,11 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
           role="alertdialog"
           aria-modal="true"
           aria-label={`Delete custom audience ${caId} for ${orgSlug}?`}
-          className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4"
+          className="rounded-md border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4"
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-[var(--color-pib-text)]">Delete custom audience?</h2>
+              <h2 className="font-medium text-[var(--color-pib-text)]">Delete custom audience?</h2>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 This removes the audience from PiB and requests best-effort removal from connected ad platforms. Campaign history stays in PiB.
               </p>
@@ -102,11 +102,7 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
 
       {(message || actionError) && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            actionError
-              ? 'border-[var(--color-error)]/30 bg-[var(--color-error-container)] text-[var(--color-error)]'
-              : 'border-[var(--color-pib-success)]/30 bg-[var(--color-pib-success)]/10 text-[var(--color-pib-success)]'
-          }`}
+          className={`rounded-md border px-4 py-3 text-sm ${ actionError ? 'border-[var(--color-error)]/30 bg-[var(--color-error-container)] text-[var(--color-error)]' : 'border-[var(--color-pib-success)]/30 bg-[var(--color-pib-success)]/10 text-[var(--color-pib-success)]' }`}
         >
           {actionError ?? message}
         </div>

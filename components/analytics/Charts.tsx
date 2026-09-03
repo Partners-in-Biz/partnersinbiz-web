@@ -8,17 +8,24 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 
-const PALETTE = ['#fbbf24', '#60a5fa', '#34d399', '#f87171', '#a78bfa', '#fb923c', '#22d3ee', '#f472b6', '#a3e635', '#94a3b8']
+/** Terracotta for the primary series; ink-soft for the rest (brand 11.11). */
+const PRIMARY = 'var(--sc-accent)'
+const REST = 'var(--sc-ink-soft)'
+const PALETTE = [PRIMARY, REST, REST, REST, REST, REST, REST, REST, REST, REST]
 
-const AXIS = { fontSize: 11, fill: 'var(--color-pib-text-muted)' }
-const GRID = 'var(--color-pib-line)'
+const AXIS_TICK = {
+  className: 'sc-tiny',
+  fill: 'var(--sc-ink-soft)',
+  fontSize: 11,
+} as const
+const GRID = 'var(--sc-line)'
 
 const tooltipStyle = {
-  background: 'var(--color-pib-surface-2, #1e293b)',
-  border: '1px solid var(--color-pib-line)',
-  borderRadius: 8,
+  background: 'var(--sc-surface)',
+  border: '1px solid var(--sc-line)',
+  borderRadius: 6,
   fontSize: 12,
-  color: 'var(--color-pib-text)',
+  color: 'var(--sc-ink)',
 }
 
 export function LineSeries({
@@ -33,11 +40,11 @@ export function LineSeries({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
-        <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} />
-        <YAxis tick={AXIS} stroke={GRID} allowDecimals={false} />
+        <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
+        <XAxis dataKey={xKey} tick={AXIS_TICK} tickLine={false} axisLine={false} />
+        <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
         <Tooltip contentStyle={tooltipStyle} />
-        <Line type="monotone" dataKey={yKey} name={label} stroke={PALETTE[0]} strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey={yKey} name={label} stroke={PRIMARY} strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -54,13 +61,21 @@ export function MultiLineSeries({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
-        <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} />
-        <YAxis tick={AXIS} stroke={GRID} allowDecimals={false} />
+        <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
+        <XAxis dataKey={xKey} tick={AXIS_TICK} tickLine={false} axisLine={false} />
+        <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
         <Tooltip contentStyle={tooltipStyle} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} className="sc-tiny" />
         {series.map((s, i) => (
-          <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2} dot={false} />
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={i === 0 ? PRIMARY : REST}
+            strokeWidth={2}
+            dot={false}
+          />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -79,11 +94,11 @@ export function BarSeries({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
-        <XAxis dataKey={xKey} tick={AXIS} stroke={GRID} />
-        <YAxis tick={AXIS} stroke={GRID} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
-        <Bar dataKey={yKey} name={label} fill={PALETTE[0]} radius={[4, 4, 0, 0]} />
+        <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
+        <XAxis dataKey={xKey} tick={AXIS_TICK} tickLine={false} axisLine={false} />
+        <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'color-mix(in srgb, var(--sc-ink) 4%, transparent)' }} />
+        <Bar dataKey={yKey} name={label} fill={PRIMARY} radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -96,7 +111,7 @@ export function DonutChart({
   height?: number
 }) {
   if (data.length === 0) {
-    return <div className="flex items-center justify-center text-[var(--color-pib-text-muted)] text-sm" style={{ height }}>No data</div>
+    return <div className="flex items-center justify-center sc-body text-[var(--sc-ink-soft)] text-sm" style={{ height }}>No data</div>
   }
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -112,7 +127,7 @@ export function DonutChart({
           {data.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
         </Pie>
         <Tooltip contentStyle={tooltipStyle} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} className="sc-tiny" />
       </PieChart>
     </ResponsiveContainer>
   )

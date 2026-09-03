@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
@@ -49,16 +50,14 @@ export function ProgramList({ scope }: { scope: PortalOrgRouteScope }) {
           href={scopedPortalPath(program.href, scope)}
           className="group grid min-w-0 grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 transition hover:bg-white/[0.025]"
         >
-          <span className="pib-icon-tint-blue material-symbols-outlined grid h-7 w-7 place-items-center rounded-md text-[16px]" aria-hidden="true">
-            {program.icon}
-          </span>
+          <Icon name={program.icon} className="grid h-7 w-7 place-items-center rounded-md text-[16px]" />
           <span className="min-w-0">
-            <span className="block text-xs font-semibold text-[var(--color-pib-text)]">{program.label}</span>
+            <span className="block text-xs text-[var(--color-pib-text)]">{program.label}</span>
             <span className="block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{program.description}</span>
           </span>
           <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
             {program.cue}
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_right</span>
+            <Icon name="chevron_right" />
           </span>
         </Link>
       ))}

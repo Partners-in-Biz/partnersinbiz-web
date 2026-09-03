@@ -69,7 +69,7 @@ interface IngestionData {
   properties: PropertyOption[]
 }
 
-const card = 'rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]'
+const card = 'rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]'
 const input =
   'rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
@@ -146,7 +146,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   return (
     <div className={`${card} px-4 py-3`}>
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-2xl font-headline font-medium text-[var(--color-pib-text)]">{value}</p>
       {hint && <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]/70">{hint}</p>}
     </div>
   )
@@ -231,7 +231,7 @@ export function IngestionMonitor() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Analytics ingestion
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Ingestion monitor</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Ingestion monitor</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Live product_events flow, latency, top properties, and the dead-letter queue.
           </p>
@@ -328,7 +328,7 @@ export function IngestionMonitor() {
 
           <div className={`${card} p-4`}>
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-3">
-              Events received — last 24h (hourly)
+              Events received  -  last 24h (hourly)
             </p>
             <BarChart series={data.series} />
           </div>

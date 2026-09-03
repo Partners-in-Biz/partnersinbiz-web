@@ -5,6 +5,8 @@ import type { MobileAppRecord } from '@/lib/mobile-apps/types'
 import { EmptyState } from '@/components/ui/AppFoundation'
 import { HudChip } from '@/components/ui/HudChip'
 
+import { Icon } from '@/components/studio'
+
 type MobileAppListMetricMode = 'portal' | 'admin'
 
 interface MobileAppListProps {
@@ -59,7 +61,7 @@ function MobileAppMetric({
   return (
     <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-2">
       <p className="text-[10px] text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className={['mt-0.5 text-sm font-semibold tabular-nums', className ?? ''].join(' ')}>{value}</p>
+      <p className={['mt-0.5 text-sm font-medium tabular-nums', className ?? ''].join(' ')}>{value}</p>
     </div>
   )
 }
@@ -101,13 +103,13 @@ export function MobileAppList({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={app.assets.iconUrl} alt="" className="h-12 w-12 rounded-md object-cover" />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--color-pib-cyan-soft)] text-[#5EEAD4]">
-                  <span className="material-symbols-outlined text-[20px]">apps</span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[#5EEAD4]">
+                  <Icon name="apps" className="text-[20px]" />
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <h2 className="text-base font-semibold">{app.name}</h2>
+                  <h2 className="text-base font-medium">{app.name}</h2>
                   <HudChip tone="live" className="uppercase">{app.platform}</HudChip>
                   <HudChip className="capitalize">{app.status}</HudChip>
                 </div>

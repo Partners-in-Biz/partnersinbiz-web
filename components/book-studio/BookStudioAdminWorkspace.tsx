@@ -87,8 +87,8 @@ function ProjectCard({ project }: { project: BookStudioProject }) {
     <Surface aria-label={`${project.title} book project`} className="space-y-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="eyebrow">{riskLabel(project)}</p>
-          <h2 className="text-xl font-semibold text-[var(--color-pib-text)]">{project.title}</h2>
+          <p className="sc-tiny">{riskLabel(project)}</p>
+          <h2 className="text-xl text-[var(--color-pib-text)]">{project.title}</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)]">{project.nextAction}</p>
         </div>
         <span className="pib-pill pib-pill-rose">
@@ -103,10 +103,10 @@ function ProjectCard({ project }: { project: BookStudioProject }) {
             <div key={gate.id} className="rounded-md border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-muted)] p-3">
               <div className="flex items-center justify-between gap-3">
                 <strong className="text-sm text-[var(--color-pib-text)]">{gate.label}</strong>
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">{statusLabel(gate.status)}</span>
+                <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">{statusLabel(gate.status)}</span>
               </div>
               <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Owner: {gate.owner ?? 'Unassigned'}</p>
-              {!hasEvidence ? <p className="mt-2 text-xs font-medium text-amber-600">Missing evidence</p> : null}
+              {!hasEvidence ? <p className="mt-2 text-xs font-medium text-[var(--sc-ink-soft)]">Missing evidence</p> : null}
             </div>
           )
         })}
@@ -167,15 +167,15 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
             <StatCard accent="rose" icon="lock" label="Forbidden actions" value="Locked" />
           </div>
 
-          <Surface header={<h2 className="text-lg font-semibold">Stage rail</h2>}>
+          <Surface header={<h2 className="text-lg">Stage rail</h2>}>
             <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {stages.map((stage, index) => (
                 <li key={stage.id} className="rounded-[var(--radius-lg-card)] bg-[var(--color-pib-surface-muted)] p-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-rose-soft)] text-xs font-semibold text-[var(--color-pib-rose)]">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-xs text-[var(--st-danger)]">
                       {index + 1}
                     </span>
-                    <h3 className="font-semibold text-[var(--color-pib-text)]">{stage.label}</h3>
+                    <h3 className="text-[var(--color-pib-text)]">{stage.label}</h3>
                   </div>
                   <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{stage.description}</p>
                 </li>
@@ -196,10 +196,10 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
             </div>
           )}
 
-          <Surface header={<h2 className="text-lg font-semibold">Bridge flows for durable evidence</h2>}>
+          <Surface header={<h2 className="text-lg">Bridge flows for durable evidence</h2>}>
             <div className="grid gap-3 md:grid-cols-2">
               {bridgeFlows.map((flow) => (
-                <div key={flow.label} className="rounded-2xl border border-[var(--color-pib-border)] p-4">
+                <div key={flow.label} className="rounded-[6px] border border-[var(--color-pib-border)] p-4">
                   <strong>{flow.label}</strong>
                   <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{flow.description}</p>
                 </div>
@@ -207,7 +207,7 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
             </div>
           </Surface>
 
-          <Surface header={<h2 className="text-lg font-semibold">Disabled external actions</h2>}>
+          <Surface header={<h2 className="text-lg">Disabled external actions</h2>}>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50">Direct store publishing disabled</button>
               <button type="button" disabled className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50">Automated marketplace integrations disabled</button>
@@ -215,10 +215,10 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
             </div>
           </Surface>
 
-          <Surface header={<h2 className="text-lg font-semibold">Baseline gates for new work</h2>}>
+          <Surface header={<h2 className="text-lg">Baseline gates for new work</h2>}>
             <div className="grid gap-3 md:grid-cols-2">
               {defaultGates.map((gate) => (
-                <div key={gate.id} className="rounded-2xl border border-[var(--color-pib-border)] p-4">
+                <div key={gate.id} className="rounded-[6px] border border-[var(--color-pib-border)] p-4">
                   <strong>{gate.label}</strong>
                   <p className="text-sm text-[var(--color-pib-text-muted)]">{statusLabel(gate.status)} · Owner: {gate.owner}</p>
                 </div>

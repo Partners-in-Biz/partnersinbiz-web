@@ -30,7 +30,7 @@ export async function GET(
 
   const resolved = await resolveShortCode(code)
   if (!resolved) {
-    // Link not found — redirect to homepage
+    // Link not found  -  redirect to homepage
     return new Response(null, {
       status: 302,
       headers: { Location: '/' },

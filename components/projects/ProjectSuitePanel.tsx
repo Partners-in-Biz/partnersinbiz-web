@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WorkflowGraphAuthoringPanel } from '@/components/projects/WorkflowGraphAuthoringPanel'
 
@@ -256,7 +258,7 @@ function widthPercent(start: number, end: number, span: number): number {
 function HealthMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="pib-surface px-4 py-3">
-      <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-2xl font-headline text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-1 pib-label">{label}</p>
     </div>
   )
@@ -282,12 +284,12 @@ function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditIte
     <div aria-label="Project Gantt timeline" className="mb-4 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Timeline Gantt</h4>
+          <h4 className="text-sm font-headline text-[var(--color-pib-text)]">Timeline Gantt</h4>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{formatDate(minDate)} - {formatDate(maxDate)}</p>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-[var(--color-pib-text-muted)]">
           <span className="inline-flex items-center gap-1">
-            <span className="h-1.5 w-5 rounded-full bg-[var(--color-primary)]" />
+            <span className="h-1.5 w-5 rounded bg-[var(--color-primary)]" />
             Actual
           </span>
           <span className="inline-flex items-center gap-1">
@@ -317,7 +319,7 @@ function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditIte
                       onClick={() => onEditItem(item)}
                       className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-pib-text)]"
                     >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                      <Icon name="edit" />
                     </button>
                   ) : null}
                 </div>
@@ -334,7 +336,7 @@ function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditIte
                   ) : null}
                   <span
                     aria-label={`${title} Gantt bar`}
-                    className="absolute top-2 h-4 rounded-full bg-[var(--color-primary)] shadow-sm"
+                    className="absolute top-2 h-4 rounded bg-[var(--color-primary)] shadow-sm"
                     style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%` }}
                   />
                 </div>
@@ -379,7 +381,7 @@ function TimelinePanel({
     <section className="pib-card">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Timeline</h3>
+          <h3 className="text-sm font-headline text-[var(--color-pib-text)]">Timeline</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Baseline drift: {timeline?.driftCount ?? 0} items / {timeline?.dependencyCount ?? 0} dependencies</p>
         </div>
         <span className="pib-pill pib-pill-cyan">Baseline drift</span>
@@ -394,7 +396,7 @@ function TimelinePanel({
                 <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{item.title || 'Untitled'}</p>
                 <p className="mt-1 text-xs capitalize text-[var(--color-pib-text-muted)]">{item.kind || 'item'} / {formatDate(item.startDate)} - {formatDate(item.dueDate)}</p>
               </div>
-              <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+              <span className="rounded border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                 {item.baselineDriftDays && item.baselineDriftDays > 0 ? `${item.baselineDriftDays}d drift` : 'On baseline'}
               </span>
             </div>
@@ -466,7 +468,7 @@ function TimelinePanel({
             .catch(() => {})
         }}
       >
-        <h4 className="text-sm font-headline font-semibold text-[var(--color-pib-text)] sm:col-span-2">Add timeline item</h4>
+        <h4 className="text-sm font-headline text-[var(--color-pib-text)] sm:col-span-2">Add timeline item</h4>
         <label className="sm:col-span-2">
           <span className="mb-1 block pib-label">New timeline title</span>
           <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="pib-input" />
@@ -523,7 +525,7 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
     <section className="pib-card">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Workload</h3>
+          <h3 className="text-sm font-headline text-[var(--color-pib-text)]">Workload</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             <span>Capacity</span>: {formatMinutes(workload?.totalEstimateMinutes)} planned / {formatMinutes(workload?.totalCapacityMinutes)} available
           </p>
@@ -532,7 +534,7 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
           <span className="pib-pill pib-pill-cyan">
             {workload?.overCapacityCount ?? 0} over capacity
           </span>
-          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-label ${totalOverByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
+          <span className={`rounded border px-2 py-0.5 text-[10px] font-label ${totalOverByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
             {totalOverByMinutes > 0 ? `${formatMinutes(totalOverByMinutes)} over` : `${formatMinutes(workload?.totalRemainingMinutes)} remaining`}
           </span>
         </div>
@@ -551,13 +553,13 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
                   <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{formatMinutes(assignee.capacityMinutes)} available</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{assignee.utilizationPercent ?? 0}%</span>
-                  <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-label ${overByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
+                  <span className="block text-sm text-[var(--color-pib-text)]">{assignee.utilizationPercent ?? 0}%</span>
+                  <span className={`mt-1 inline-flex rounded border px-2 py-0.5 text-[10px] font-label ${overByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
                     {overByMinutes > 0 ? `${formatMinutes(overByMinutes)} over` : `${formatMinutes(remainingMinutes)} remaining`}
                   </span>
                 </div>
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-background)]">
+              <div className="mt-2 h-2 overflow-hidden rounded bg-[var(--color-background)]">
                 <div
                   className={`h-full ${assignee.overCapacity ? 'bg-red-400' : 'bg-[var(--color-primary)]'}`}
                   style={{ width: `${Math.min(100, assignee.utilizationPercent ?? 0)}%` }}
@@ -575,13 +577,13 @@ function ReportsPanel({ reports }: { reports?: ProjectReports }) {
   const revenue = reports?.revenue
   return (
     <section className="pib-card">
-      <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Project reports</h3>
+      <h3 className="text-sm font-headline text-[var(--color-pib-text)]">Project reports</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <HealthMetric label="Tasks" value={reports?.tasks?.total ?? 0} />
         <HealthMetric label="Blocked" value={reports?.tasks?.blocked ?? 0} />
         <HealthMetric label="Waiting approvals" value={reports?.approvals?.waiting ?? 0} />
         <div className="pib-surface px-4 py-3">
-          <p className="text-lg font-headline font-bold text-[var(--color-pib-text)]">{formatMoney(revenue?.trackedAmount, revenue?.currency)}</p>
+          <p className="text-lg font-headline text-[var(--color-pib-text)]">{formatMoney(revenue?.trackedAmount, revenue?.currency)}</p>
           <p className="mt-1 pib-label">Revenue</p>
         </div>
       </div>
@@ -641,7 +643,7 @@ function ControlForms({
   return (
     <section className="pib-card">
       <div className="mb-3">
-        <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Plan controls</h3>
+        <h3 className="text-sm font-headline text-[var(--color-pib-text)]">Plan controls</h3>
         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Templates, automations, capacity, revenue, notifications, and item access rules.</p>
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
@@ -704,7 +706,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Recurring playbook</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Recurring playbook</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Playbook title</span>
             <input value={playbookTitle} onChange={(event) => setPlaybookTitle(event.target.value)} className="pib-input" />
@@ -718,7 +720,7 @@ function ControlForms({
             </select>
           </label>
           <details className="mt-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] p-2">
-            <summary className="cursor-pointer text-xs font-semibold text-[var(--color-pib-text)]">Schedule details</summary>
+            <summary className="cursor-pointer text-xs text-[var(--color-pib-text)]">Schedule details</summary>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Playbook template</span>
               <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="pib-input">
@@ -743,7 +745,7 @@ function ControlForms({
             <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} placeholder="Discovery, Build, Verify" className="pib-input" />
           </label>
           <details className="mt-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] p-2">
-            <summary className="cursor-pointer text-xs font-semibold text-[var(--color-pib-text)]">Agent execution details</summary>
+            <summary className="cursor-pointer text-xs text-[var(--color-pib-text)]">Agent execution details</summary>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Common assignee agent</span>
               <select value={playbookAssigneeAgentId} onChange={(event) => setPlaybookAssigneeAgentId(event.target.value)} className="pib-input">
@@ -838,7 +840,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Automation</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Automation</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Automation title</span>
             <input value={automationTitle} onChange={(event) => setAutomationTitle(event.target.value)} className="pib-input" />
@@ -880,7 +882,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Notification control</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Notification control</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Notification title</span>
             <input value={notificationTitle} onChange={(event) => setNotificationTitle(event.target.value)} className="pib-input" />
@@ -942,7 +944,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Capacity plan</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Capacity plan</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Capacity member</span>
             <select value={capacityUid} onChange={(event) => setCapacityUid(event.target.value)} className="pib-input">
@@ -979,7 +981,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Revenue tracking</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Revenue tracking</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Revenue title</span>
             <input value={revenueTitle} onChange={(event) => setRevenueTitle(event.target.value)} className="pib-input" />
@@ -1023,7 +1025,7 @@ function ControlForms({
               .catch(() => {})
           }}
         >
-          <h4 className="text-xs font-headline font-semibold text-[var(--color-pib-text)]">Access control</h4>
+          <h4 className="text-xs font-headline text-[var(--color-pib-text)]">Access control</h4>
           <label className="mt-3 block">
             <span className="mb-1 block pib-label">Permission title</span>
             <input value={permissionTitle} onChange={(event) => setPermissionTitle(event.target.value)} className="pib-input" />
@@ -1094,7 +1096,7 @@ function ItemList({
   return (
     <section className="pib-card">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">{title}</h3>
+        <h3 className="text-sm font-headline text-[var(--color-pib-text)]">{title}</h3>
         <span className="pib-pill pib-pill-cyan">
           {items.length}
         </span>
@@ -1114,138 +1116,138 @@ function ItemList({
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
               <span className="inline-flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">event</span>
+                <Icon name="event" />
                 {formatDate(item.dueDate)}
               </span>
               {item.severity ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                  <Icon name="priority_high" />
                   {item.severity}
                 </span>
               ) : null}
               {item.visibility ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                  <Icon name="visibility" />
                   {item.visibility}
                 </span>
               ) : null}
               {item.channel ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">notifications</span>
+                  <Icon name="notifications" />
                   {item.channel}
                 </span>
               ) : null}
               {item.eventType ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">campaign</span>
+                  <Icon name="campaign" />
                   {labelStatus(item.eventType)}
                 </span>
               ) : null}
               {item.itemType ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">my_location</span>
+                  <Icon name="my_location" />
                   {item.itemId ? `${item.itemType} ${item.itemId}` : item.itemType}
                 </span>
               ) : null}
               {item.trigger ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  <Icon name="bolt" />
                   {labelStatus(item.trigger)}
                 </span>
               ) : null}
               {item.cadence ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">event_repeat</span>
+                  <Icon name="event_repeat" />
                   {labelStatus(item.cadence)}
                 </span>
               ) : null}
               {item.templateKind ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">dynamic_form</span>
+                  <Icon name="dynamic_form" />
                   {labelStatus(item.templateKind)}
                 </span>
               ) : null}
               {item.recurrenceRule ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">repeat</span>
+                  <Icon name="repeat" />
                   {item.recurrenceRule}
                 </span>
               ) : null}
               {item.nextRunAt ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">today</span>
+                  <Icon name="today" />
                   Next {formatDate(item.nextRunAt)}
                 </span>
               ) : null}
               {playbookTemplateStepCount(item) > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">checklist</span>
+                  <Icon name="checklist" />
                   {playbookTemplateStepCount(item)} steps
                 </span>
               ) : null}
               {item.autoCreateTasks ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">auto_awesome_motion</span>
+                  <Icon name="auto_awesome_motion" />
                   Auto-create
                 </span>
               ) : null}
               {item.capacityMinutes ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                  <Icon name="schedule" />
                   {formatMinutes(item.capacityMinutes)}
                 </span>
               ) : null}
               {typeof item.amount === 'number' ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">payments</span>
+                  <Icon name="payments" />
                   {formatMoney(item.amount, item.currency)}
                 </span>
               ) : null}
               {item.actorName ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">history</span>
+                  <Icon name="history" />
                   {item.actorName}
                 </span>
               ) : null}
               {Array.isArray(item.allowedUserIds) && item.allowedUserIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">person</span>
+                  <Icon name="person" />
                   {item.allowedUserIds.join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.allowedOrgIds) && item.allowedOrgIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">business</span>
+                  <Icon name="business" />
                   {item.allowedOrgIds.join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.allowedRoleIds) && item.allowedRoleIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                  <Icon name="admin_panel_settings" />
                   {item.allowedRoleIds.map(labelStatus).join(', ')}
                 </span>
               ) : null}
               {Array.isArray(item.recipientRoleIds) && item.recipientRoleIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1 capitalize">
-                  <span className="material-symbols-outlined text-[14px]">groups</span>
+                  <Icon name="groups" />
                   {item.recipientRoleIds.map(labelStatus).join(', ')}
                 </span>
               ) : null}
               {typeof item.enabled === 'boolean' ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">{item.enabled ? 'notifications_active' : 'notifications_off'}</span>
+                  <Icon name={item.enabled ? 'notifications_active' : 'notifications_off'} />
                   {item.enabled ? 'Enabled' : 'Muted'}
                 </span>
               ) : null}
               {Array.isArray(item.permissionPolicyIds) && item.permissionPolicyIds.length > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">policy</span>
+                  <Icon name="policy" />
                   {item.permissionPolicyIds.length} policies
                 </span>
               ) : null}
               {item.internalOnly ? (
                 <span className="inline-flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">lock</span>
+                  <Icon name="lock" />
                   Internal
                 </span>
               ) : null}
@@ -1262,7 +1264,7 @@ function ItemList({
                       onRun(type, item.id as string).catch(() => {})
                     }}
                   >
-                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                    <Icon name="play_arrow" />
                     Run
                   </button>
                 ) : null}
@@ -1311,14 +1313,14 @@ function PlanningDiscoveryPanel({
     <section
       className={`rounded-[var(--radius-card)] border p-4 ${
         ready
-          ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-green-soft)]'
-          : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-amber-soft)]'
+          ? 'border-[var(--st-success)]/30 bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)]'
+          : 'border-[var(--sc-accent)]/30 bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)]'
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="pib-label">Mandatory planning discovery</p>
-          <h3 className="mt-1 font-headline text-lg font-bold text-[var(--color-pib-text)]">
+          <h3 className="mt-1 font-headline text-lg text-[var(--color-pib-text)]">
             {ready ? 'Decision Brief confirmed' : state ? 'Planning is gated' : 'Start the project interview'}
           </h3>
           <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
@@ -1329,10 +1331,10 @@ function PlanningDiscoveryPanel({
           </p>
         </div>
         <span
-          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+          className={`rounded border px-3 py-1 text-xs uppercase tracking-wide ${
             ready
-              ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-green)]'
-              : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-amber)]'
+              ? 'border-[var(--st-success)]/30 bg-[var(--color-pib-surface)] text-[var(--st-success)]'
+              : 'border-[var(--sc-accent)]/30 bg-[var(--color-pib-surface)] text-[var(--sc-accent)]'
           }`}
         >
           {state?.status?.replace(/_/g, ' ') || 'not started'}
@@ -1341,20 +1343,20 @@ function PlanningDiscoveryPanel({
 
       {turns.length > 0 && (
         <div className="mt-4 space-y-2" data-testid="planning-interview-turns">
-          <h4 className="font-headline text-sm font-semibold text-[var(--color-pib-text)]">Interview turns</h4>
+          <h4 className="font-headline text-sm text-[var(--color-pib-text)]">Interview turns</h4>
           {turns.map((turn) => (
             <div
               key={turn.id ?? turn.question}
-              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-sm"
+              className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-sm"
             >
-              <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || '—'}</p>
+              <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || ' - '}</p>
               {turn.currentGuess && (
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Guess: {turn.currentGuess}</p>
               )}
               {turn.answer ? (
                 <p className="mt-2 text-[var(--color-pib-text)]">A: {turn.answer}</p>
               ) : turn.id === state?.pendingQuestionId ? (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-amber)]">
+                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--sc-accent)]">
                   Awaiting your answer
                 </p>
               ) : null}
@@ -1365,10 +1367,10 @@ function PlanningDiscoveryPanel({
 
       {pendingTurn?.id && !pendingTurn.askedBy && (
         <div
-          className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3"
+          className="mt-4 rounded-[6px] border border-[var(--sc-accent)]/25 bg-[var(--color-pib-surface)] p-3"
           data-testid="planning-answer-form"
         >
-          <p className="text-sm font-semibold text-[var(--color-pib-text)]">Answer the current question</p>
+          <p className="text-sm text-[var(--color-pib-text)]">Answer the current question</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{pendingTurn.question}</p>
           <textarea
             aria-label="Planning interview answer"
@@ -1398,51 +1400,51 @@ function PlanningDiscoveryPanel({
       )}
 
       {brief && (
-        <div className="mt-4 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm text-[var(--color-pib-text)]">
-          <h4 className="font-headline font-semibold text-[var(--color-pib-text)]">Decision Brief</h4>
+        <div className="mt-4 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm text-[var(--color-pib-text)]">
+          <h4 className="font-headline text-[var(--color-pib-text)]">Decision Brief</h4>
           <dl className="mt-3 grid gap-3 md:grid-cols-2">
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Outcome</dt>
+              <dt className="text-[var(--color-pib-text)]">Outcome</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.outcome || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">User / audience</dt>
+              <dt className="text-[var(--color-pib-text)]">User / audience</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.user || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Why now</dt>
+              <dt className="text-[var(--color-pib-text)]">Why now</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{brief.whyNow || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Success criteria</dt>
+              <dt className="text-[var(--color-pib-text)]">Success criteria</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Constraints</dt>
+              <dt className="text-[var(--color-pib-text)]">Constraints</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.constraints ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Out of scope</dt>
+              <dt className="text-[var(--color-pib-text)]">Out of scope</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.outOfScope ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Assumptions</dt>
+              <dt className="text-[var(--color-pib-text)]">Assumptions</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.assumptions ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Risks</dt>
+              <dt className="text-[var(--color-pib-text)]">Risks</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.risks ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Approval gates</dt>
+              <dt className="text-[var(--color-pib-text)]">Approval gates</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{(brief.approvalGates ?? []).join(' · ') || 'None recorded'}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-[var(--color-pib-text)]">Revision</dt>
+              <dt className="text-[var(--color-pib-text)]">Revision</dt>
               <dd className="text-[var(--color-pib-text-muted)]">{revision}</dd>
             </div>
             <div className="md:col-span-2">
-              <dt className="font-semibold text-[var(--color-pib-text)]">Digest</dt>
+              <dt className="text-[var(--color-pib-text)]">Digest</dt>
               <dd className="break-all font-mono text-xs text-[var(--color-pib-text-muted)]">{state?.digest || 'Not recorded'}</dd>
             </div>
           </dl>
@@ -1450,9 +1452,9 @@ function PlanningDiscoveryPanel({
       )}
 
       {pendingTurn?.question && pendingTurn.askedBy && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-sm">
+        <div className="mt-4 rounded-[6px] border border-amber-200 bg-white p-4 text-sm">
           <p className="pib-label">Pip’s current question</p>
-          <p className="mt-2 font-semibold text-[var(--color-pib-text)]">{pendingTurn.question}</p>
+          <p className="mt-2 text-[var(--color-pib-text)]">{pendingTurn.question}</p>
           {pendingTurn.currentGuess && (
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
               Current guess: <span className="font-medium text-[var(--color-pib-text)]">{pendingTurn.currentGuess}</span>
@@ -1495,8 +1497,8 @@ function PlanningDiscoveryPanel({
       </div>
 
       {state && !ready && brief && (
-        <details className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3">
-          <summary className="cursor-pointer text-sm font-semibold text-[var(--color-pib-text)]">Plan with assumptions (YOLO)</summary>
+        <details className="mt-4 rounded-[6px] border border-[var(--sc-accent)]/25 bg-[var(--color-pib-surface)] p-3">
+          <summary className="cursor-pointer text-sm text-[var(--color-pib-text)]">Plan with assumptions (YOLO)</summary>
           <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This skips further interview questions only. It never bypasses publishing, spend, finance, destructive-action, client-message, secret, or production approvals.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             <input aria-label="Planning assumptions attestation" className="pib-input" value={attestation} onChange={(event) => setAttestation(event.target.value)} placeholder="Type PLAN WITH ASSUMPTIONS" />
@@ -1734,7 +1736,7 @@ export function ProjectSuitePanel({ projectId, orgId }: { projectId: string; org
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="pib-label">Project health</p>
-              <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">{score}</h2>
+              <h2 className="mt-1 text-2xl font-headline text-[var(--color-pib-text)]">{score}</h2>
               <p className="mt-1 text-sm capitalize text-[var(--color-pib-text-muted)]">{loading ? 'Loading plan data...' : level}</p>
               <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]" aria-live="polite">
                 {lastUpdatedAt ? `Plan updates automatically every 15 seconds · updated ${new Date(lastUpdatedAt).toLocaleTimeString()}` : 'Plan updates automatically every 15 seconds'}

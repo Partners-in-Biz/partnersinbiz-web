@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Icon } from '@/components/studio'
 
 export type ContactFactBand = 'VERIFIED' | 'PROBABLE' | 'POSSIBLE'
 export type ContactFactStatus = 'APPLIED' | 'PROPOSED' | 'DISMISSED' | 'SUPERSEDED'
@@ -26,7 +27,7 @@ export interface ContactFactRow {
 
 function bandTone(band: ContactFactBand): string {
   if (band === 'VERIFIED') return 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-  if (band === 'PROBABLE') return 'text-amber-200 border-amber-500/30 bg-amber-500/10'
+  if (band === 'PROBABLE') return 'text-[var(--st-warning)] border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]'
   return 'text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)] bg-black/10'
 }
 
@@ -129,12 +130,12 @@ export function ContactFactProposalsPanel({
   return (
     <section
       aria-label={`Agent proposals for ${contactName}`}
-      className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]"
+      className="overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-3.5">
         <div>
           <p className="eyebrow !text-[10px]">Evidence ledger</p>
-          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
+          <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">
             Agent proposals
           </h3>
         </div>
@@ -152,7 +153,7 @@ export function ContactFactProposalsPanel({
             aria-label="Refresh agent proposals"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+            <Icon name="refresh" className="text-[16px]" />
           </button>
         </div>
       </div>
@@ -169,9 +170,7 @@ export function ContactFactProposalsPanel({
         </div>
       ) : proposed.length === 0 && applied.length === 0 ? (
         <div className="p-5 text-center">
-          <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
-            fact_check
-          </span>
+          <Icon name="fact_check" className="text-[22px] text-[var(--color-pib-text-muted)]" />
           <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">No open proposals</p>
           <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-[var(--color-pib-text-muted)]">
             When agents record mailbox or research observations, proposed field updates appear here with evidence. Accept writes them; dismiss prevents re-proposal.
@@ -187,21 +186,21 @@ export function ContactFactProposalsPanel({
                     <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
                       {fieldLabel(fact.field)}
                     </span>
-                    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${bandTone(fact.band)}`}>
+                    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${bandTone(fact.band)}`}>
                       {fact.band}
                     </span>
                     <span className="text-[10px] text-[var(--color-pib-text-muted)]">
                       score {(fact.score * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <p className="mt-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{fact.value}</p>
+                  <p className="mt-1 truncate text-sm font-medium text-[var(--color-pib-text)]">{fact.value}</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{fact.rationale}</p>
                   {fact.evidence?.length > 0 && (
                     <ul className="mt-2 space-y-1">
                       {fact.evidence.slice(0, 3).map((ev, idx) => (
                         <li key={`${fact.id}-ev-${idx}`} className="text-[11px] text-[var(--color-pib-text-muted)]">
                           <span className="font-mono text-[10px] text-[var(--color-pib-text)]">{ev.kind}</span>
-                          {' — '}
+                          {' - '}
                           {ev.detail}
                           {ev.sourceUrl ? (
                             <>
@@ -252,7 +251,7 @@ export function ContactFactProposalsPanel({
                   <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
                     {fieldLabel(fact.field)}
                   </span>
-                  <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                  <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200">
                     APPLIED
                   </span>
                 </div>

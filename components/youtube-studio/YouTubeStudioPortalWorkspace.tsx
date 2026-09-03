@@ -471,7 +471,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         setActionNotice(body.error ?? 'Could not create social drafts')
         return
       }
-      setActionNotice('Draft social posts created — review them in Social.')
+      setActionNotice('Draft social posts created  -  review them in Social.')
     } catch {
       setActionNotice('Could not create social drafts')
     }
@@ -487,7 +487,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             value={reviewNotes[item.id] ?? ''}
             onChange={(event) => setReviewNotes((prev) => ({ ...prev, [item.id]: event.target.value }))}
             placeholder="Notes for PiB"
-            className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+            aria-label="Notes for PiB"
+            className="w-full rounded-[6px] border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
           />
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={Boolean(reviewingId)} onClick={() => saveDecision(item.id, 'approved')} className="pib-btn-primary text-sm">Approve</button>
@@ -528,7 +529,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         <Suspense fallback={null}>
           <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
         </Suspense>
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
+        <div className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
           YouTube Studio is not enabled for this portal.
         </div>
       </YouTubeStudioWorkspaceShell>
@@ -565,7 +566,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
             <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Create</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Create video edit</h2>
+            <h2 className="mt-1 font-headline text-xl text-[var(--color-pib-text)]">Create video edit</h2>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Start a channel-linked edit project in the Video Editor or open recent edits.</p>
           </div>
           <button type="button" onClick={() => scrollToSection('editor')} className="pib-btn-primary mt-auto justify-center text-sm">
@@ -575,7 +576,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
             <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Request</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Request a PiB video</h2>
+            <h2 className="mt-1 font-headline text-xl text-[var(--color-pib-text)]">Request a PiB video</h2>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{channels.length ? 'Send PiB a clear brief for the next video.' : 'Link a channel before requesting production work.'}</p>
           </div>
           <button type="button" onClick={() => scrollToSection('request')} className="pib-btn-ghost mt-auto justify-center text-sm">
@@ -585,7 +586,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
             <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Review</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Review pending work</h2>
+            <h2 className="mt-1 font-headline text-xl text-[var(--color-pib-text)]">Review pending work</h2>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
               {pendingWorkCount ? `${pendingWorkCount} item${pendingWorkCount === 1 ? '' : 's'} waiting for a decision.` : 'No client decisions waiting right now.'}
             </p>
@@ -634,7 +635,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
 
         <aside className="h-fit space-y-4 lg:sticky lg:top-6">
           <div className="pib-card-section space-y-3 p-5">
-            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Link your channel</h2>
+            <h2 className="font-headline text-[var(--color-pib-text)]">Link your channel</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)]">
               Connects through the existing social-account OAuth flow and returns here after YouTube authorises the channel.
             </p>
@@ -676,7 +677,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           {capabilities.canCreate ? (
           <form ref={requestFormRef} onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
             <div>
-              <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Request a PiB video</h2>
+              <h2 className="font-headline text-[var(--color-pib-text)]">Request a PiB video</h2>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Channel, title, and objective are required before PiB can scope the work.</p>
             </div>
             <ChannelChoices
@@ -685,7 +686,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
               onChange={(value) => update('channelWorkspaceId', value)}
             />
             <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
-            <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} required />
+            <LabeledTextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} required />
             <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
             <p className="text-xs text-[var(--color-pib-text-muted)]" aria-live="polite">{requestHelpText}</p>
             <button type="submit" disabled={submittingRequest || !requestCanSubmit} className="pib-btn-primary w-full">
@@ -806,7 +807,7 @@ function Field({
   )
 }
 
-function TextArea({
+function LabeledTextArea({
   label,
   value,
   onChange,

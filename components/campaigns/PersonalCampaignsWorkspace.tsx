@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
@@ -84,7 +86,7 @@ export function PersonalCampaignsWorkspace() {
     <div className="space-y-6" data-module-accent="rose">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="eyebrow">Personal workspace</p>
+          <p className="sc-tiny">Personal workspace</p>
           <h1 className="pib-page-title mt-1.5">Personal campaigns</h1>
           <p className="pib-page-sub max-w-2xl">
             Create and run campaigns against your own social accounts. Organisation pages and company campaigns stay in the company workspace.
@@ -97,7 +99,7 @@ export function PersonalCampaignsWorkspace() {
 
       <form onSubmit={handleCreate} className="pib-card space-y-3">
         <div>
-          <h2 className="font-headline text-lg font-bold text-[var(--color-pib-text)]">New personal campaign</h2>
+          <h2 className="font-headline text-lg text-[var(--color-pib-text)]">New personal campaign</h2>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             Posts in this campaign can only publish to accounts connected in Personal marketing.
           </p>
@@ -133,10 +135,10 @@ export function PersonalCampaignsWorkspace() {
           </div>
         ) : campaigns.length === 0 ? (
           <div className="pib-card py-14 text-center">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto">
-              <span className="material-symbols-outlined text-[20px]">flag</span>
+            <span aria-hidden="true" className="mx-auto">
+              <Icon name="flag" />
             </span>
-            <h3 className="mt-3 font-headline text-xl font-bold text-[var(--color-pib-text)]">No personal campaigns yet</h3>
+            <h3 className="mt-3 font-headline text-xl text-[var(--color-pib-text)]">No personal campaigns yet</h3>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               Create one above. It will only ever send to your personal social accounts.
             </p>

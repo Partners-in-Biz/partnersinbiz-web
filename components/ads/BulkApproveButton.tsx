@@ -60,13 +60,13 @@ export function BulkApproveButton({ count, orgId }: { count: number; orgId?: str
           role="alertdialog"
           aria-labelledby="bulk-approve-title"
           aria-describedby="bulk-approve-description"
-          className="max-w-md rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-left shadow-xl"
+          className="max-w-md rounded-lg border border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] p-4 text-left"
         >
-          <p className="eyebrow !text-[10px] !text-amber-100/80">Bulk approval</p>
-          <h3 id="bulk-approve-title" className="mt-1 font-display text-base text-amber-50">
+          <p className="eyebrow !text-[10px] !text-[color-mix(in_srgb,var(--st-warning)_80%,transparent)]">Bulk approval</p>
+          <h3 id="bulk-approve-title" className="mt-1 text-base text-[var(--st-warning)]">
             Approve {count} pending {count === 1 ? 'campaign' : 'campaigns'}?
           </h3>
-          <p id="bulk-approve-description" className="mt-2 text-sm leading-6 text-amber-100/90">
+          <p id="bulk-approve-description" className="mt-2 text-sm leading-6 text-[color-mix(in_srgb,var(--st-warning)_90%,transparent)]">
             This marks every pending campaign as approved and ready for launch. Review owners will see the refreshed approval state after this action.
           </p>
           <div className="mt-3 flex flex-wrap justify-end gap-2">

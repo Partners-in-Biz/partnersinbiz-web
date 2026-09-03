@@ -2,6 +2,7 @@
 
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
+import { Icon } from '@/components/studio'
 
 export type DealFocusMode = 'all' | 'atRisk' | 'needsContact' | 'quoteReady' | 'noCloseDate'
 
@@ -105,12 +106,12 @@ export function DealPipelineCommandBar({
   ]
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+    <section className="overflow-hidden rounded-[var(--st-radius-raised)] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <div className="flex min-w-0 items-center gap-2 pr-1">
           <div className="min-w-0">
             <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Deal command runway</p>
-            <h2 className="truncate text-xs font-semibold leading-tight text-[var(--color-pib-text)]">Pipeline lens and revenue risk</h2>
+            <h2 className="truncate text-xs leading-tight text-[var(--color-pib-text)]">Pipeline lens and revenue risk</h2>
           </div>
         </div>
 
@@ -124,13 +125,13 @@ export function DealPipelineCommandBar({
               aria-label={button.ariaLabel}
               aria-pressed={active}
               className={[
-                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                'flex h-7 shrink-0 items-center gap-1.5 rounded border px-2.5 text-[11px] transition',
                 active
                   ? 'border-primary/30 bg-primary/10 text-primary'
                   : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
               ].join(' ')}
             >
-              <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{button.icon}</span>
+              <Icon name={button.icon} />
               <span className="font-label uppercase tracking-wide text-[10px]">{button.label}</span>
               <span>{button.value}</span>
             </button>
@@ -140,7 +141,7 @@ export function DealPipelineCommandBar({
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-1 text-right">
             <p className="text-[9px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Weighted open value</p>
-            <p className="text-xs font-semibold leading-4 text-[var(--color-pib-text)]">
+            <p className="text-xs leading-4 text-[var(--color-pib-text)]">
               {openPipeline.priced > 0
                 ? formatMoney(openPipeline.weightedValue, primaryCurrency)
                 : openDeals.length > 0
@@ -159,7 +160,7 @@ export function DealPipelineCommandBar({
           <label className="block min-w-[200px]">
             <span className="sr-only">Search deals</span>
             <div className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
-              <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">search</span>
+              <Icon name="search" className="text-[var(--color-pib-text-muted)]" />
               <input
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}

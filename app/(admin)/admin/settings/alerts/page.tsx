@@ -121,19 +121,19 @@ export default function AlertsPage() {
         <h1 className="pib-page-title mt-2">Admin Alerts</h1>
       </header>
 
-      {feedback && <div className="pib-card py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>}
-      {error && <div className="pib-card py-2 text-xs text-[var(--color-error)]">{error}</div>}
+      {feedback && <div className="st-panel py-2 text-xs text-[var(--st-success)]">{feedback}</div>}
+      {error && <div className="st-panel py-2 text-xs text-[var(--color-error)]">{error}</div>}
 
       {/* Webhook */}
-      <div className="pib-card space-y-3">
-        <p className="pib-label">Webhook</p>
+      <div className="st-panel space-y-3">
+        <p className="sc-tiny">Webhook</p>
         <label className="block">
           <span className="text-xs text-[var(--color-pib-text-muted)]">Webhook URL (Slack incoming webhook or any JSON endpoint)</span>
           <input
             value={config.webhookUrl}
             onChange={(e) => setConfig((c) => ({ ...c, webhookUrl: e.target.value }))}
             placeholder="https://hooks.slack.com/services/..."
-            className="pib-input mt-1 font-mono"
+            className="st-input mt-1 font-mono"
           />
         </label>
         <div className="flex items-center justify-between">
@@ -145,19 +145,19 @@ export default function AlertsPage() {
           />
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={save} disabled={saving || loading} className="btn-pib-primary disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving || loading} className="st-btn st-btn--primary disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button type="button" onClick={sendTest} disabled={testing || !config.webhookUrl} className="btn-pib-secondary disabled:opacity-60">
+          <button type="button" onClick={sendTest} disabled={testing || !config.webhookUrl} className="st-btn st-btn--secondary disabled:opacity-60">
             {testing ? 'Sending…' : 'Send test'}
           </button>
         </div>
       </div>
 
       {/* Event matrix */}
-      <div className="pib-card">
-        <p className="pib-label mb-3">Event subscriptions</p>
-        <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+      <div className="st-panel">
+        <p className="sc-tiny mb-3">Event subscriptions</p>
+        <div className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]">
           {events.map((evt) => (
             <div key={evt} className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0">
               <div>
@@ -171,13 +171,13 @@ export default function AlertsPage() {
       </div>
 
       {/* History */}
-      <div className="pib-card">
-        <p className="pib-label mb-3">Delivery history (50 most recent)</p>
+      <div className="st-panel">
+        <p className="sc-tiny mb-3">Delivery history (50 most recent)</p>
         {history.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]">No alerts dispatched yet.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
-            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 pib-label">
+          <div className="overflow-hidden rounded-[6px] border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 sc-tiny">
               <span className="col-span-4">Event</span>
               <span className="col-span-2">Status</span>
               <span className="col-span-3">HTTP / error</span>
@@ -187,8 +187,8 @@ export default function AlertsPage() {
               <div key={h.id} className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] px-3 py-2 text-xs last:border-b-0">
                 <span className="col-span-4 font-mono text-[var(--color-pib-text-muted)] truncate">{h.event}</span>
                 <span className={`col-span-2 ${h.status === 'sent' ? 'text-green-400' : 'text-red-300'}`}>{h.status}</span>
-                <span className="col-span-3 text-[var(--color-pib-text-muted)] truncate">{h.error ? h.error : h.httpStatus ?? '—'}</span>
-                <span className="col-span-3 text-right text-[var(--color-pib-text-muted)]">{h.at ? new Date(h.at).toLocaleString() : '—'}</span>
+                <span className="col-span-3 text-[var(--color-pib-text-muted)] truncate">{h.error ? h.error : h.httpStatus ?? '-'}</span>
+                <span className="col-span-3 text-right text-[var(--color-pib-text-muted)]">{h.at ? new Date(h.at).toLocaleString() : '-'}</span>
               </div>
             ))}
           </div>

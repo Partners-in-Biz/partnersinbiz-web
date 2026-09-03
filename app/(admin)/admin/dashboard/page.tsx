@@ -1,11 +1,12 @@
 'use client'
+import { Icon, Status } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePlatformAgentBoardHref, resolvePlatformOrgAdminHref } from '@/lib/admin/dashboard-links'
-import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import { RevenueBarChart, TrendAreaChart } from '@/components/ui/Charts'
 
 type OrgSummary = {
@@ -189,7 +190,7 @@ function formatRelativeMs(ms?: number | null) {
 function healthTone(health: Health | null, error: string | null) {
   if (error) return 'border-red-400/30 bg-red-500/10 text-red-200'
   if (!health) return 'border-slate-500/30 bg-slate-500/10 text-[var(--color-pib-text-muted)]'
-  return health.ok === false ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+  return health.ok === false ? 'border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--st-warning)]' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
 }
 
 function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
@@ -206,7 +207,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/40 px-5 py-8 text-center">
+    <div className="rounded-[6px] border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/40 px-5 py-8 text-center">
       <p className="text-sm font-label text-[var(--color-pib-text)]">{title}</p>
       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{body}</p>
     </div>
@@ -218,15 +219,15 @@ function SectionHeader({ title, eyebrow, action }: { title: string; eyebrow?: st
     <div className="flex items-start justify-between gap-3">
       <div>
         {eyebrow && <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{eyebrow}</p>}
-        <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">{title}</h2>
+        <h2 className="mt-1 text-lg font-headline font-medium text-[var(--color-pib-text)]">{title}</h2>
       </div>
       {action}
     </div>
   )
 }
 
-function dashboardTone(value: number, goodWhenZero = false): 'success' | 'warn' | 'accent' {
-  if (goodWhenZero) return value === 0 ? 'success' : 'warn'
+function dashboardTone(value: number, goodWhenZero = false): 'success' | 'warning' | 'accent' {
+  if (goodWhenZero) return value === 0 ? 'success' : 'warning'
   return value > 0 ? 'accent' : 'success'
 }
 
@@ -299,9 +300,9 @@ function InsightCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{eyebrow}</p>
-          <h3 className="mt-1 text-base font-headline font-bold text-[var(--color-pib-text)]">{title}</h3>
+          <h3 className="mt-1 text-base font-headline font-medium text-[var(--color-pib-text)]">{title}</h3>
         </div>
-        <span className="shrink-0 rounded-full border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-semibold text-[var(--color-pib-accent)]">{value}</span>
+        <span className="shrink-0 rounded border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-medium text-[var(--color-pib-accent)]">{value}</span>
       </div>
       <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text)]">{detail}</p>
       <p className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
@@ -319,8 +320,8 @@ function MiniProgress({ value, label }: { value: number; label: string }) {
         <span>{label}</span>
         <span>{value}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-        <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${value}%` }} />
+      <div className="h-2 overflow-hidden rounded bg-white/[0.06]">
+        <div className="h-full rounded bg-[var(--color-pib-accent)]" style={{ width: `${value}%` }} />
       </div>
     </div>
   )
@@ -331,12 +332,12 @@ function EvidenceList({ items, emptyTitle, emptyBody }: { items: Array<{ id: str
   return (
     <div className="space-y-2">
       {items.slice(0, 4).map(item => item.href ? (
-        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-pib-accent)]/50">
+        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-pib-accent)]/50">
           {item.title}
           {item.meta ? <span className="mt-1 block text-xs font-normal text-[var(--color-pib-text-muted)]">{item.meta}</span> : null}
         </Link>
       ) : (
-        <div key={item.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)]">
+        <div key={item.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)]">
           {item.title}
           {item.meta ? <span className="mt-1 block text-xs font-normal text-[var(--color-pib-text-muted)]">{item.meta}</span> : null}
         </div>
@@ -418,7 +419,7 @@ function OperatorInsightDashboards({
           explanation="This is a derived label, not a sentiment model: pressure equals blocked plus approval items; active and completed counts decide whether the day is building, settled, quiet, or strained."
         >
           <div className="grid grid-cols-2 gap-2">
-            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-pib-surface-2)]/45 p-3"><p className="text-lg font-bold text-[var(--color-pib-text)]">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{row.label}</p></div>)}
+            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-pib-surface-2)]/45 p-3"><p className="text-lg font-medium text-[var(--color-pib-text)]">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{row.label}</p></div>)}
           </div>
         </InsightCard>
 
@@ -476,13 +477,13 @@ function KpiCard({
   label: string
   value: string
   icon: string
-  tone?: 'accent' | 'success' | 'warn' | 'danger'
+  tone?: 'accent' | 'success' | 'warning' | 'danger'
   detail: string
 }) {
   const toneClass = {
     accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
     success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
-    warn: 'text-amber-200 bg-amber-500/10 border-amber-400/25',
+    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     danger: 'text-red-300 bg-red-500/10 border-red-400/25',
   }[tone]
 
@@ -491,10 +492,10 @@ function KpiCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-          <p className="mt-3 truncate text-2xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
+          <p className="mt-3 truncate text-2xl font-headline font-medium leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
-          <span className="material-symbols-outlined text-[21px]">{icon}</span>
+          <Icon name={icon} className="text-[21px]" />
         </span>
       </div>
       <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
@@ -502,12 +503,12 @@ function KpiCard({
   )
 }
 
-function signupTone(status: string): 'success' | 'warn' | 'danger' | 'accent' | 'neutral' {
+function signupTone(status: string): 'success' | 'warning' | 'danger' | 'info' {
   const s = status.toLowerCase()
   if (s === 'active') return 'success'
   if (s === 'churned') return 'danger'
-  if (s === 'paused' || s === 'trial' || s === 'pending') return 'warn'
-  return 'accent'
+  if (s === 'paused' || s === 'trial' || s === 'pending') return 'warning'
+  return 'info'
 }
 
 function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; error: string | null }) {
@@ -516,7 +517,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
       <section className="space-y-4" aria-label="Revenue and operations">
         <SectionHeader title="Revenue & operations" eyebrow="Platform finance" />
         {error ? (
-          <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
             Revenue & ops metrics could not load: {error}.
           </div>
         ) : (
@@ -539,24 +540,24 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
         eyebrow="Platform finance"
         action={(
           <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
-            Manage billing <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+            Manage billing <Icon name="arrow_forward" className="text-[15px]" />
           </Link>
         )}
       />
 
       {admin.failedJobs > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <span className="material-symbols-outlined text-[20px]">warning</span>
-          <span><span className="font-semibold">{admin.failedJobs}</span> failed background job{admin.failedJobs === 1 ? '' : 's'} in the webhook queue need attention.</span>
+        <div className="flex items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
+          <Icon name="warning" className="text-[20px]" />
+          <span><span className="font-medium">{admin.failedJobs}</span> failed background job{admin.failedJobs === 1 ? '' : 's'} in the webhook queue need attention.</span>
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="MRR" value={formatZar(admin.mrr)} icon="payments" detail="Monthly recurring revenue from active client orgs (ZAR)." />
-        <KpiCard label="ARR" value={formatZar(admin.arr)} icon="trending_up" detail="Annual run rate — MRR × 12." />
+        <KpiCard label="ARR" value={formatZar(admin.arr)} icon="trending_up" detail="Annual run rate - MRR × 12." />
         <KpiCard label="Active orgs" value={`${admin.activeOrgs}`} icon="apartment" detail={`${admin.totalClientOrgs} total client organisations.`} />
         <KpiCard label="New orgs this month" value={`${admin.newOrgsThisMonth}`} icon="add_business" tone={admin.newOrgsThisMonth > 0 ? 'success' : 'accent'} detail="Client orgs created since the 1st." />
-        <KpiCard label="Churn rate" value={churnPct} icon="trending_down" tone={admin.churnRate > 0 ? 'warn' : 'success'} detail={`${admin.churnedOrgs} churned organisation${admin.churnedOrgs === 1 ? '' : 's'}.`} />
+        <KpiCard label="Churn rate" value={churnPct} icon="trending_down" tone={admin.churnRate > 0 ? 'warning' : 'success'} detail={`${admin.churnedOrgs} churned organisation${admin.churnedOrgs === 1 ? '' : 's'}.`} />
         <KpiCard label="Total contacts" value={admin.totalContacts.toLocaleString('en-ZA')} icon="contacts" detail="CRM contacts across all client workspaces." />
         <KpiCard label="Email sends today" value={admin.emailSendsToday.toLocaleString('en-ZA')} icon="mail" detail="Emails sent or delivered in the last 24 hours." />
         <KpiCard label="Active social accounts" value={`${admin.activeSocialAccounts}`} icon="hub" detail="Connected social accounts across the platform." />
@@ -592,7 +593,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
           eyebrow="Newest client organisations"
           action={(
             <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
-              All organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+              All organisations <Icon name="arrow_forward" className="text-[15px]" />
             </Link>
           )}
         />
@@ -605,22 +606,22 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
               <>
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/45 text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[18px]">corporate_fare</span>
+                    <Icon name="corporate_fare" className="text-[18px]" />
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{signup.name}</p>
                     <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{formatRelativeMs(signup.createdAt)}</p>
                   </div>
                 </div>
-                <StatusPill tone={signupTone(signup.status)} dot>{signup.status}</StatusPill>
+                <Status tone={signupTone(signup.status)}>{signup.status}</Status>
               </>
             )
             return href ? (
-              <Link key={signup.id} href={href} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 px-3 py-2.5 transition-colors hover:border-[var(--color-pib-accent)]/50">
+              <Link key={signup.id} href={href} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/70 px-3 py-2.5 transition-colors hover:border-[var(--color-pib-accent)]/50">
                 {inner}
               </Link>
             ) : (
-              <div key={signup.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 px-3 py-2.5">
+              <div key={signup.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/70 px-3 py-2.5">
                 {inner}
               </div>
             )
@@ -641,13 +642,13 @@ function MetricCard({
   label: string
   value: number
   icon: string
-  tone?: 'accent' | 'success' | 'warn' | 'danger'
+  tone?: 'accent' | 'success' | 'warning' | 'danger'
   detail: string
 }) {
   const toneClass = {
     accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
     success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
-    warn: 'text-amber-200 bg-amber-500/10 border-amber-400/25',
+    warning: 'text-[var(--st-warning)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]',
     danger: 'text-red-300 bg-red-500/10 border-red-400/25',
   }[tone]
 
@@ -656,15 +657,15 @@ function MetricCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-          <p className="mt-2 text-2xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
+          <p className="mt-2 text-2xl font-headline font-medium leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         {tone === 'accent' ? (
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-8 !w-8 !rounded-md">
-            <span className="material-symbols-outlined text-[18px]">{icon}</span>
+          <span aria-hidden="true" className="!h-8 !w-8 rounded-md">
+            <Icon name={icon} className="text-[18px]" />
           </span>
         ) : (
           <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
-            <span className="material-symbols-outlined text-[18px]">{icon}</span>
+            <Icon name={icon} className="text-[18px]" />
           </span>
         )}
       </div>
@@ -677,9 +678,9 @@ function DashboardQuickLink({ href, icon, label }: { href: string; icon: string;
   return (
     <Link
       href={href}
-      className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1.5"
+      className="st-btn st-btn--secondary st-btn--sm inline-flex items-center gap-1.5"
     >
-      <span className="material-symbols-outlined text-[16px]">{icon}</span>
+      <Icon name={icon} className="text-[16px]" />
       {label}
     </Link>
   )
@@ -703,7 +704,7 @@ function WorkItemCard({
   return (
     <Link
       href={href}
-      className="pib-card group block p-3 transition-all duration-150 hover:border-[var(--color-pib-accent)]"
+      className="st-panel group block p-3 transition-all duration-150 hover:border-[var(--color-pib-accent)]"
       style={{ borderLeft: `3px solid ${color}` }}
     >
       <div className="flex items-start gap-3">
@@ -711,7 +712,7 @@ function WorkItemCard({
           className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
           style={{ color, background: softColor(color, 10), border: `1px solid ${softColor(color, 18)}` }}
         >
-          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+          <Icon name={icon} className="text-[16px]" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block line-clamp-2 text-sm font-medium leading-snug text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{title}</span>
@@ -720,7 +721,7 @@ function WorkItemCard({
       </div>
       {priority ? (
         <div className="mt-3 flex justify-end">
-          <span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{priority}</span>
+          <span className="rounded bg-[var(--color-pib-surface-2)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{priority}</span>
         </div>
       ) : null}
     </Link>
@@ -737,13 +738,13 @@ function WorkLane({
   count: number
 }) {
   return (
-    <div className="flex min-h-[360px] min-w-0 flex-col rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/55 p-3">
+    <div className="flex min-h-[360px] min-w-0 flex-col rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/55 p-3">
       <div className="mb-3 flex items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ background: lane.color }} />
+          <span className="h-2 w-2 rounded" style={{ background: lane.color }} />
           <span className="truncate text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{lane.title}</span>
         </div>
-        <span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">{count}</span>
+        <span className="rounded bg-[var(--color-pib-surface-2)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">{count}</span>
       </div>
       <div className="flex flex-1 flex-col gap-2">{children}</div>
     </div>
@@ -753,23 +754,23 @@ function WorkLane({
 function SoftwareBuildEmptyIndicator({ activeCount, specHref, projectsHref }: { activeCount: number; specHref: string; projectsHref: string }) {
   if (activeCount > 0) return null
   return (
-    <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
+    <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] p-4 text-sm text-[var(--st-warning)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 font-label uppercase tracking-widest text-amber-200">
-            <span className="material-symbols-outlined text-[18px]">playlist_add_check</span>
+          <p className="flex items-center gap-2 font-label uppercase tracking-widest text-[var(--st-warning)]">
+            <Icon name="playlist_add_check" className="text-[18px]" />
             No active software build tickets
           </p>
-          <p className="mt-2 leading-6 text-amber-50/90">
+          <p className="mt-2 leading-6 text-[var(--st-warning)]/90">
             The approved platform sprint has no pending or in-progress Theo build tickets. Create a build spec first, get Peet approval, then release gated implementation tasks instead of leaving the queue blank.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Link href={specHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] bg-amber-300 px-3 py-2 text-xs font-label uppercase tracking-wide text-slate-950 hover:bg-amber-200">
+          <Link href={specHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-3 py-2 text-xs font-label uppercase tracking-wide text-slate-950 hover:bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]">
             Create gated build spec
-            <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+            <Icon name="arrow_forward" className="text-[15px]" />
           </Link>
-          <Link href={projectsHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
+          <Link href={projectsHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--st-warning)] hover:border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)]">
             Open Projects/Kanban
           </Link>
         </div>
@@ -822,17 +823,17 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
   const statusLabel = needsAttention ? 'Attention' : activeTasks > 0 ? 'Active' : 'Steady'
 
   return (
-    <Link href={href} className="group/card relative flex min-h-[174px] overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+    <Link href={href} className="group/card relative flex min-h-[174px] overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: rail }} />
       <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
+            <h3 className="truncate text-base font-headline font-medium leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{org.type ?? 'organisation'} · {org.status ?? 'active'}</p>
           </div>
-          <StatusPill tone={needsAttention ? 'warn' : activeTasks > 0 ? 'accent' : 'success'} dot>
+          <Status tone={needsAttention ? 'warning' : activeTasks > 0 ? 'info' : 'success'}>
             {statusLabel}
-          </StatusPill>
+          </Status>
         </div>
 
         <div className="mt-5">
@@ -840,22 +841,22 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
             <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Workspace health</span>
             <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">{score}%</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${score}%`, background: rail }} />
+          <div className="h-1.5 overflow-hidden rounded bg-white/[0.06]">
+            <div className="h-full rounded transition-all duration-300" style={{ width: `${score}%`, background: rail }} />
           </div>
         </div>
 
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5 text-xs">
           <div>
-            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{activeTasks}</p>
+            <p className="font-mono text-lg font-medium text-[var(--color-pib-text)]">{activeTasks}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Tasks</p>
           </div>
           <div>
-            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{approvals.length}</p>
+            <p className="font-mono text-lg font-medium text-[var(--color-pib-text)]">{approvals.length}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Approvals</p>
           </div>
           <div>
-            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{org.memberCount ?? 0}</p>
+            <p className="font-mono text-lg font-medium text-[var(--color-pib-text)]">{org.memberCount ?? 0}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Team</p>
           </div>
         </div>
@@ -873,7 +874,7 @@ function TimelineItem({ item }: { item: Activity | AgentTask }) {
   const when = isTask ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
   return (
     <div className="relative pl-6">
-      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-pib-accent)] bg-[var(--color-pib-card)]" />
+      <span className="absolute left-0 top-1.5 h-3 w-3 rounded border-2 border-[var(--color-pib-accent)] bg-[var(--color-st-panel)]" />
       <p className="text-sm text-[var(--color-pib-text)]">{title}</p>
       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{meta} · {when}</p>
     </div>
@@ -973,7 +974,7 @@ export default function MissionControlDashboard() {
         accent="cyan"
         eyebrow="Admin / Dashboard"
         title="Operating dashboard"
-        description="PiB operator control plane — agent work, selected-organisation health, approvals, and platform movement."
+        description="PiB operator control plane - agent work, selected-organisation health, approvals, and platform movement."
         actions={(
           <>
             <DashboardQuickLink href={platformProjectsHref} icon="folder_managed" label="Projects" />
@@ -998,11 +999,11 @@ export default function MissionControlDashboard() {
         <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
         <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
         <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />
-        <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warn' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
+        <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warning' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
       </div>
 
       {error && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rounded-lg border border-[color-mix(in_srgb,var(--st-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
           Some dashboard feeds could not load: {error}. Showing everything that is available.
         </div>
       )}
@@ -1012,7 +1013,7 @@ export default function MissionControlDashboard() {
       {dashboardView === 'overview' ? (
         <>
           <section className="space-y-4">
-            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Manage organisations <Icon name="arrow_forward" className="text-[15px]" /></Link>} />
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
             ) : visibleOrgs.length === 0 ? (
@@ -1032,7 +1033,7 @@ export default function MissionControlDashboard() {
             <Surface className="p-4 sm:p-5">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <SectionHeader title="Service strip" eyebrow="Platform signal" />
-                <div className={`rounded-full border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
+                <div className={`rounded border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
                   {healthError ? `Health unavailable: ${healthError}` : data.health?.ok === false ? 'Service degradation detected' : data.health ? 'All core services reporting' : 'Checking services'}
                 </div>
               </div>
@@ -1045,7 +1046,7 @@ export default function MissionControlDashboard() {
                   {serviceEntries.map(([name, status]) => (
                     <div key={name} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4">
                       <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">{name}</p>
-                      <p className="mt-2 text-lg font-bold text-[var(--color-pib-text)]">{status}</p>
+                      <p className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">{status}</p>
                     </div>
                   ))}
                 </div>
@@ -1068,17 +1069,17 @@ export default function MissionControlDashboard() {
         <section className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeader title="Work board" eyebrow="Kanban signal" />
-            <Link href={agentBoardHref} className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
+            <Link href={agentBoardHref} className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Open full board <Icon name="arrow_forward" className="text-[15px]" /></Link>
           </div>
           {loading ? (
             <div className="grid gap-4 lg:grid-cols-3"><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /></div>
           ) : (
             <>
-              <div className="space-y-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/40 p-4">
+              <div className="space-y-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-st-panel)]/40 p-4">
                 <SectionHeader
                   title="Software build queue"
                   eyebrow="Theo / parent PiB workspace"
-                  action={<span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
+                  action={<span className="rounded bg-[var(--color-pib-surface-2)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
                 />
                 <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} specHref={platformDocumentsNewHref} projectsHref={platformProjectsHref} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

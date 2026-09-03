@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { Icon } from '@/components/studio'
+
 interface PortalViewSwitchProps {
   orgId: string
   collapsed?: boolean
@@ -92,7 +94,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
         title={portalOpenLabel}
         className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors disabled:opacity-60"
       >
-        <span className="material-symbols-outlined text-[18px]">shield</span>
+        <Icon name="shield" className="text-[18px]" />
         <span className="hidden lg:inline">{loading ? 'Opening...' : portalOpenLabel}</span>
       </button>
     )
@@ -111,7 +113,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
           collapsed ? 'mx-auto my-2 h-8 w-8' : 'h-8 w-8',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[18px]">shield</span>
+        <Icon name="shield" className="text-[18px]" />
       </button>
     )
   }
@@ -130,7 +132,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
           'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">shield</span>
+        <Icon name="shield" className="text-[20px] shrink-0 opacity-70" />
         {!collapsed && <span className="font-medium">{loading ? 'Opening...' : portalOpenLabel}</span>}
       </button>
       {!collapsed && error && (

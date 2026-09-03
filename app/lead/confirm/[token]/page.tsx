@@ -2,8 +2,7 @@
 //
 // Double-opt-in confirmation landing page. Verifies the HMAC-signed token,
 // marks the submission as confirmed, runs `performAutoEnroll`, and renders
-// a friendly thank-you screen. Has its own /lead/ route so it sits OUTSIDE
-// the (admin) and (portal) auth-guarded layouts.
+// a thank-you screen. Uses Studio CSS classes only (RSC-safe).
 
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
@@ -16,6 +15,7 @@ import {
   type CaptureSource,
   type CaptureSubmission,
 } from '@/lib/lead-capture/types'
+import '@/components/studio/studio-ui.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +37,6 @@ async function processToken(token: string): Promise<ConfirmState> {
 
   const submission = { id: submissionSnap.id, ...submissionSnap.data() } as CaptureSubmission
 
-  // Token sanity: must match exactly to prevent token reuse across submissions
   if (submission.confirmationToken !== token) {
     return { status: 'invalid' }
   }
@@ -90,14 +89,11 @@ async function fetchOrgSiteUrl(orgId: string): Promise<string | null> {
   return null
 }
 
-function PageShell(props: { children: React.ReactNode; theme?: CaptureSource['widgetTheme'] }) {
-  const text = props.theme?.textColor ?? '#0f172a'
+function PageShell(props: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', color: text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif' }}>
-      <div style={{ maxWidth: 520, width: '100%', background: '#ffffff', borderRadius: 16, padding: 40, boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
-        {props.children}
-      </div>
-    </div>
+    <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-8 py-16">
+      <div className="st-panel">{props.children}</div>
+    </main>
   )
 }
 
@@ -108,9 +104,9 @@ export default async function LeadConfirmPage({ params }: Props) {
   if (state.status === 'invalid') {
     return (
       <PageShell>
-        <h1 style={{ fontSize: 24, fontWeight: 600, marginTop: 0 }}>Link expired or invalid</h1>
-        <p style={{ color: '#475569', lineHeight: 1.6 }}>
-          We couldn&apos;t confirm this subscription. The link may have expired or already been used.
+        <h1 className="sc-article__h2">Link expired or invalid.</h1>
+        <p className="sc-body mt-4">
+          We could not confirm this subscription. The link may have expired or already been used.
           If you still want to sign up, please submit the form again.
         </p>
       </PageShell>
@@ -120,8 +116,8 @@ export default async function LeadConfirmPage({ params }: Props) {
   if (state.status === 'missing-source') {
     return (
       <PageShell>
-        <h1 style={{ fontSize: 24, fontWeight: 600, marginTop: 0 }}>Subscription unavailable</h1>
-        <p style={{ color: '#475569', lineHeight: 1.6 }}>
+        <h1 className="sc-article__h2">Subscription unavailable.</h1>
+        <p className="sc-body mt-4">
           This subscription source has been removed. Please reach out to the team if you signed up by mistake.
         </p>
       </PageShell>
@@ -131,41 +127,27 @@ export default async function LeadConfirmPage({ params }: Props) {
   const source = state.source!
   const isAlready = state.status === 'already'
   const orgUrl = await fetchOrgSiteUrl(source.orgId)
-  const theme = source.widgetTheme
 
   return (
-    <PageShell theme={theme}>
-      <h1 style={{ fontSize: 26, fontWeight: 600, marginTop: 0, color: theme?.textColor ?? '#0f172a' }}>
-        {isAlready ? 'Already confirmed' : 'You’re in!'}
-      </h1>
-      <p style={{ color: '#475569', lineHeight: 1.6, fontSize: 16 }}>
+    <PageShell>
+      <h1 className="sc-article__h2">{isAlready ? 'Already confirmed.' : 'You are in.'}</h1>
+      <p className="sc-body mt-4">
         {isAlready
           ? `Your subscription to ${source.name} is already active.`
-          : source.successMessage || `Thanks for confirming — you're now subscribed to ${source.name}.`}
+          : source.successMessage || `Thanks for confirming. You are now subscribed to ${source.name}.`}
       </p>
-      {state.email && (
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 8 }}>
-          Confirmed: <strong>{state.email}</strong>
-        </p>
-      )}
-      {orgUrl && (
-        <p style={{ marginTop: 28 }}>
-          <a
-            href={orgUrl}
-            style={{
-              display: 'inline-block',
-              padding: '12px 22px',
-              background: theme?.primaryColor ?? '#0f766e',
-              color: '#fff',
-              borderRadius: theme?.borderRadius ?? 10,
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
+      {state.email ? (
+        <div className="mt-4">
+          <div className="st-notice sc-body" role="status">Confirmed: {state.email}</div>
+        </div>
+      ) : null}
+      {orgUrl ? (
+        <div className="mt-8">
+          <a href={orgUrl} className="st-btn st-btn--primary">
             Back to the site
           </a>
-        </p>
-      )}
+        </div>
+      ) : null}
     </PageShell>
   )
 }

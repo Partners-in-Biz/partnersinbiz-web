@@ -45,7 +45,7 @@ export function SelectionPopover({ containerRef, onComment }: Props) {
       if (selectedText === lastSelRef.current && pos) return
       lastSelRef.current = selectedText
       const rect = range.getBoundingClientRect()
-      // Fixed positioning — viewport-relative, no scroll offset needed.
+      // Fixed positioning  -  viewport-relative, no scroll offset needed.
       const top = rect.top - 44
       const left = rect.left + rect.width / 2 - 80
       setPos({ top: Math.max(8, top), left: Math.max(8, left) })
@@ -84,7 +84,7 @@ export function SelectionPopover({ containerRef, onComment }: Props) {
           window.getSelection()?.removeAllRanges()
           setPos(null)
         }}
-        className="px-3 py-1.5 rounded-full text-xs font-label shadow-lg border transition-colors flex items-center gap-1.5"
+        className="px-3 py-1.5 rounded-md text-xs font-label border transition-colors flex items-center gap-1.5"
         style={{
           background: 'var(--org-accent, var(--color-pib-accent))',
           color: '#000',

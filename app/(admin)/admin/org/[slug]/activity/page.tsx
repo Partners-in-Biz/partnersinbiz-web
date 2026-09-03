@@ -38,14 +38,14 @@ function ActivityIcon({ type }: { type: string }) {
 
 function ActorBadge({ role }: { role: 'admin' | 'client' | 'ai' }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    admin: { bg: 'var(--color-pib-cyan)', text: 'var(--color-pib-ink)', label: 'Admin' },
+    admin: { bg: 'var(--sc-ink-soft)', text: 'var(--color-pib-ink)', label: 'Admin' },
     client: { bg: 'var(--color-pib-text-muted)', text: 'var(--color-pib-text-muted)', label: 'Client' },
-    ai: { bg: 'var(--color-pib-violet)', text: 'var(--color-pib-ink)', label: 'AI' },
+    ai: { bg: 'var(--sc-ink-soft)', text: 'var(--color-pib-ink)', label: 'AI' },
   }
   const style = styles[role]
   return (
     <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap"
+      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-md whitespace-nowrap"
       style={{ background: `${style.bg}20`, color: style.bg }}
     >
       {style.label}
@@ -156,7 +156,7 @@ export default function ActivityPage() {
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="pib-card p-4 flex gap-4">
-                  <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                  <Skeleton className="w-10 h-10 rounded-md shrink-0" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-3/4" />
                     <Skeleton className="h-3 w-1/2" />

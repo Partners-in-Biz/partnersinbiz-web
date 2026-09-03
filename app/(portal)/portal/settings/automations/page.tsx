@@ -1,6 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -152,9 +154,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-2 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -164,7 +166,7 @@ function ActionChip({ action }: { action: AutomationAction }) {
   const meta = ACTION_META[action.type]
   return (
     <span className={`pib-pill max-w-full gap-1 ${meta.tone}`}>
-      <span className="material-symbols-outlined shrink-0 text-[13px]">{meta.icon}</span>
+      <Icon name={meta.icon} />
       <span className="truncate">{meta.label}</span>
     </span>
   )
@@ -321,7 +323,7 @@ export default function AutomationsPage() {
                       className="btn-pib-secondary btn-pib-sm"
                       aria-label="New email sequence"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send_time_extension</span>
+                      <Icon name="send_time_extension" />
                       Email sequence
                     </Link>
                     <Link
@@ -329,7 +331,7 @@ export default function AutomationsPage() {
                       className="btn-pib-secondary btn-pib-sm"
                       aria-label="RSS digest automations"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">rss_feed</span>
+                      <Icon name="rss_feed" />
                       RSS digest
                     </Link>
                     <Link
@@ -337,7 +339,7 @@ export default function AutomationsPage() {
                       className="btn-pib-primary btn-pib-sm"
                       aria-label="New automation"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      <Icon name="add" />
                       New automation
                     </Link>
                   </div>
@@ -358,7 +360,7 @@ export default function AutomationsPage() {
         <aside className="space-y-4">
           <div className="pib-card space-y-4">
             <div>
-              <h2 className="text-sm font-semibold">Operating view</h2>
+              <h2 className="text-sm">Operating view</h2>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                 Segment rules by state, then search by trigger, message, owner, sequence, or endpoint.
               </p>
@@ -367,6 +369,7 @@ export default function AutomationsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search automations..."
+              aria-label="Search automations"
               className="pib-input"
             />
             <div className="pib-tabs pib-tabs-segmented grid grid-cols-2">
@@ -391,7 +394,7 @@ export default function AutomationsPage() {
           <div className="pib-card">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold">Trigger map</h2>
+                <h2 className="text-sm">Trigger map</h2>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Coverage across CRM events.</p>
               </div>
               <span className="pib-pill pib-pill-cyan">
@@ -402,10 +405,10 @@ export default function AutomationsPage() {
               {(Object.entries(TRIGGER_META) as Array<[TriggerEvent, (typeof TRIGGER_META)[TriggerEvent]]>).map(([event, meta]) => {
                 const count = rules.filter((rule) => rule.trigger.event === event).length
                 return (
-                  <div key={event} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-pib-line)] px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]">
+                  <div key={event} className="flex items-center justify-between gap-3 rounded border border-[var(--color-pib-line)] px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="pib-icon-tint-cyan shrink-0">
-                        <span className="material-symbols-outlined text-[16px]">{meta.icon}</span>
+                      <span className="shrink-0">
+                        <Icon name={meta.icon} />
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-xs font-medium">{meta.label}</p>
@@ -440,12 +443,10 @@ export default function AutomationsPage() {
             <section className="pib-card">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="flex gap-3">
-                  <span className="pib-icon-tint mt-0.5 shrink-0">
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-                  </span>
+                  <Icon name="warning" />
                   <div>
                     <p className="eyebrow">Source health</p>
-                    <h2 className="mt-1 font-display text-xl">
+                    <h2 className="mt-1 text-xl">
                       Automation rules could not load
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
@@ -457,7 +458,7 @@ export default function AutomationsPage() {
                   className="btn-pib-secondary shrink-0"
                   aria-label="Retry loading automation rules"
                 >
-                  <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                  <Icon name="refresh" />
                   Retry
                 </button>
               </div>
@@ -467,11 +468,9 @@ export default function AutomationsPage() {
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
                 <div className="flex flex-col justify-between gap-6 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
                   <div>
-                    <span className="pib-icon-tint-cyan mb-4">
-                      <span className="material-symbols-outlined text-[22px]">account_tree</span>
-                    </span>
+                    <Icon name="account_tree" />
                     <p className="pib-label">Automation setup</p>
-                    <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
+                    <h2 className="mt-3 text-2xl tracking-normal text-[var(--color-pib-text)]">
                       Launch your first CRM safety net
                     </h2>
                     <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -484,7 +483,7 @@ export default function AutomationsPage() {
                       className="btn-pib-primary w-fit"
                       aria-label="Create the first automation"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      <Icon name="add" />
                       Create the first automation
                     </Link>
                     <span className="pib-pill">
@@ -497,14 +496,14 @@ export default function AutomationsPage() {
                   {automationBlueprint.map((item) => (
                     <div key={item.label} className="pib-card min-w-0 !p-4">
                       <div className="mb-4 flex items-start justify-between gap-3">
-                        <span className="pib-icon-tint-cyan shrink-0">
-                          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                        <span className="shrink-0">
+                          <Icon name={item.icon} />
                         </span>
                         <span className="pib-pill pib-pill-cyan">
                           {item.value}
                         </span>
                       </div>
-                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h3>
+                      <h3 className="text-sm text-[var(--color-pib-text)]">{item.label}</h3>
                       <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
                     </div>
                   ))}
@@ -513,7 +512,7 @@ export default function AutomationsPage() {
             </div>
           ) : visibleRules.length === 0 ? (
             <div className="pib-empty-state">
-              <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">manage_search</span>
+              <Icon name="manage_search" />
               <p className="pib-label">Filtered automation view</p>
               <h2 className="pib-empty-state-title">No automations match this view.</h2>
               <p className="pib-empty-state-description">Clear the automation filters to return to every CRM rule.</p>
@@ -524,7 +523,7 @@ export default function AutomationsPage() {
                   className="btn-pib-secondary"
                   aria-label="Show all automations"
                 >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+                  <Icon name="filter_alt_off" />
                   Show all automations
                 </button>
               </div>
@@ -540,12 +539,10 @@ export default function AutomationsPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex gap-3">
-                      <span className="pib-icon-tint mt-0.5 shrink-0">
-                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-                      </span>
+                      <Icon name="warning" />
                       <div className="min-w-0">
                         <p className="eyebrow">Automation delete confirmation</p>
-                        <h2 id="automation-delete-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                        <h2 id="automation-delete-confirm-title" className="mt-1 text-sm text-[var(--color-pib-text)]">
                           Delete automation &quot;{ruleDisplayName(pendingDeleteRule)}&quot;?
                         </h2>
                         <p id="automation-delete-confirm-description" className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
@@ -573,9 +570,7 @@ export default function AutomationsPage() {
                         className="btn-pib-danger"
                         aria-label={`Confirm delete automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                          delete
-                        </span>
+                        <Icon name="delete" />
                         {deletingId === pendingDeleteRule.id ? 'Deleting...' : 'Delete automation'}
                       </button>
                     </div>
@@ -605,7 +600,7 @@ export default function AutomationsPage() {
                           <span
                             className={['pib-pill gap-1', rule.enabled ? 'pib-pill-success' : 'pib-pill-warn'].join(' ')}
                           >
-                            <span className="material-symbols-outlined text-[13px]">{rule.enabled ? 'play_arrow' : 'pause'}</span>
+                            <Icon name={rule.enabled ? 'play_arrow' : 'pause'} />
                             {rule.enabled ? 'Active' : 'Paused'}
                           </span>
                           <span className="pib-pill">
@@ -615,13 +610,13 @@ export default function AutomationsPage() {
                             {score}% ready
                           </span>
                         </div>
-                        <h2 className="truncate text-base font-semibold">{displayName}</h2>
+                        <h2 className="truncate text-base">{displayName}</h2>
                         {rule.description && (
                           <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{rule.description}</p>
                         )}
-                        <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--color-pib-line)] px-3 py-3">
-                          <span className="pib-icon-tint-cyan mt-0.5 shrink-0">
-                            <span className="material-symbols-outlined text-[18px]">{triggerMeta.icon}</span>
+                        <div className="mt-4 flex items-start gap-3 rounded border border-[var(--color-pib-line)] px-3 py-3">
+                          <span className="mt-0.5 shrink-0">
+                            <Icon name={triggerMeta.icon} />
                           </span>
                           <div className="min-w-0">
                             <p className="text-xs font-medium">{triggerLabel(rule)}</p>
@@ -640,7 +635,7 @@ export default function AutomationsPage() {
                         <div className="space-y-2">
                           {rule.actions.slice(0, 3).map((action, index) => (
                             <div key={`${action.type}-detail-${index}`} className="flex min-w-0 items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
-                              <span className="h-5 w-5 shrink-0 rounded-full border border-[var(--color-pib-line)] text-center text-[10px] leading-5">
+                              <span className="h-5 w-5 shrink-0 rounded border border-[var(--color-pib-line)] text-center text-[10px] leading-5">
                                 {index + 1}
                               </span>
                               <span className="truncate">{actionDetail(action)}</span>
@@ -661,14 +656,14 @@ export default function AutomationsPage() {
                           disabled={isToggling}
                           title={rule.enabled ? 'Disable automation' : 'Enable automation'}
                           className={[
-                            'cursor-pointer relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none',
+                            'cursor-pointer relative inline-flex h-6 w-11 shrink-0 items-center rounded transition-colors focus-visible:outline-none',
                             rule.enabled ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-pib-line-strong)]',
                             isToggling ? 'opacity-60' : '',
                           ].join(' ')}
                         >
                           <span
                             className={[
-                              'inline-block h-4 w-4 rounded-full bg-white transition-transform',
+                              'inline-block h-4 w-4 rounded bg-white transition-transform',
                               rule.enabled ? 'translate-x-6' : 'translate-x-1',
                             ].join(' ')}
                           />
@@ -680,7 +675,7 @@ export default function AutomationsPage() {
                             title="Edit automation"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                           >
-                            <span className="material-symbols-outlined text-[17px]">edit</span>
+                            <Icon name="edit" />
                           </Link>
                           <button
                             type="button"
@@ -694,9 +689,9 @@ export default function AutomationsPage() {
                             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)]"
                           >
                             {isDeleting ? (
-                              <span className="material-symbols-outlined text-[17px] animate-spin">progress_activity</span>
+                              <Icon name="progress_activity" />
                             ) : (
-                              <span className="material-symbols-outlined text-[17px]">delete</span>
+                              <Icon name="delete" />
                             )}
                           </button>
                         </div>

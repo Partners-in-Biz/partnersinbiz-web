@@ -246,7 +246,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
 
       const createBody: Record<string, unknown> = {
         orgId,
-        title: `${seriesTitle} — Volume ${nextVolumeNumber}`,
+        title: `${seriesTitle}  -  Volume ${nextVolumeNumber}`,
         seriesId,
         seriesVolumeNumber: nextVolumeNumber,
         metadata: {
@@ -332,7 +332,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
           />
         ) : (
           <>
-            <Surface header={<h2 className="text-lg font-semibold">Shared series metadata</h2>}>
+            <Surface header={<h2 className="text-lg">Shared series metadata</h2>}>
               <div className="flex flex-wrap gap-2">
                 <span className="pib-pill pib-pill-rose">
                   Author: {series.sharedMetadata?.authorName || 'Not set'}
@@ -354,7 +354,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                       value={authorName}
                       onChange={(event) => setAuthorName(event.target.value)}
                       className="w-full rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-bg)] px-3 py-2 text-sm"
-                    />
+                     aria-label="Input"/>
                   </label>
                   <label className="block text-sm">
                     <span className="mb-1 block font-medium text-[var(--color-pib-text)]">Imprint</span>
@@ -362,7 +362,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                       value={imprint}
                       onChange={(event) => setImprint(event.target.value)}
                       className="w-full rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-bg)] px-3 py-2 text-sm"
-                    />
+                     aria-label="Input"/>
                   </label>
                   <label className="block text-sm">
                     <span className="mb-1 block font-medium text-[var(--color-pib-text)]">Shared style prompt</span>
@@ -371,7 +371,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                       onChange={(event) => setSharedStylePrompt(event.target.value)}
                       rows={3}
                       className="w-full rounded-lg border border-[var(--color-pib-border)] bg-[var(--color-pib-bg)] px-3 py-2 text-sm"
-                    />
+                     aria-label="Input"/>
                   </label>
                   <div className="flex gap-2">
                     <button type="submit" disabled={savingMetadata} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
@@ -385,7 +385,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
               )}
             </Surface>
 
-            <Surface header={<h2 className="text-lg font-semibold">Volumes</h2>}>
+            <Surface header={<h2 className="text-lg">Volumes</h2>}>
               {orderedVolumes.length === 0 ? (
                 <EmptyState
                   icon="menu_book"
@@ -402,13 +402,13 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                   {orderedVolumes.map((project, index) => {
                     const fileCount = Array.isArray(project.packageManifest?.files) ? project.packageManifest!.files!.length : 0
                     return (
-                      <li key={project.id} className="flex flex-col gap-2 rounded-2xl border border-[var(--color-pib-border)] p-4 md:flex-row md:items-center md:justify-between">
+                      <li key={project.id} className="flex flex-col gap-2 rounded-[6px] border border-[var(--color-pib-border)] p-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-rose-soft)] text-xs font-semibold text-[var(--color-pib-rose)]">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-xs text-[var(--st-danger)]">
                             {index + 1}
                           </span>
                           <div>
-                            <Link href={`/admin/org/${encodeURIComponent(orgId)}/book-studio/${project.id}`} className="font-semibold text-[var(--color-pib-text)] hover:underline">
+                            <Link href={`/admin/org/${encodeURIComponent(orgId)}/book-studio/${project.id}`} className="text-[var(--color-pib-text)] hover:underline">
                               {project.title ?? `Volume ${index + 1}`}
                             </Link>
                             <p className="text-xs text-[var(--color-pib-text-muted)]">{formatLabel(project.format)}</p>

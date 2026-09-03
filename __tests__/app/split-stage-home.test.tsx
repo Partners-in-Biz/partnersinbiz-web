@@ -3,7 +3,8 @@ import { render, screen, within } from '@testing-library/react'
 import HomePage from '@/app/(public)/page'
 import UsHomePage from '@/app/(public)/us/page'
 import StartProjectPage from '@/app/(public)/start-a-project/page'
-import { actFor, progressFor, STAGE_ACTS } from '@/components/marketing/stage/ScrollCraft'
+import { actFor, gatesActs, progressFor, STAGE_ACTS } from '@/components/marketing/stage/ScrollCraft'
+import { STUDIO_ACTS_ATTR } from '@/components/marketing/stage/StudioStage'
 import { isStageRoute } from '@/lib/marketing/stage-routes'
 
 const redirectMock = jest.fn((href: string) => {
@@ -23,6 +24,10 @@ const CTA = 'Book a 20-min call'
 /** Visible text plus inline JSON-LD, so a leaked price in schema fails too. */
 function allText(container: HTMLElement): string {
   return container.textContent ?? ''
+}
+
+function imageSources(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('img')).map((img) => decodeURIComponent(img.getAttribute('src') ?? ''))
 }
 
 describe('start-a-project redirects to the scheduler', () => {
@@ -47,7 +52,7 @@ describe('start-a-project redirects to the scheduler', () => {
   })
 })
 
-describe('/ is the ZA stage only', () => {
+describe('/ is the ZA studio stage', () => {
   it('never renders a US price string', () => {
     const { container } = render(<HomePage />)
     const text = allText(container)
@@ -57,55 +62,94 @@ describe('/ is the ZA stage only', () => {
     expect(text).toContain(ZA_PRICE_STRING)
   })
 
-  it('lands 50/50 with both headlines in the document at once', () => {
-    render(<HomePage />)
-    expect(screen.getByRole('heading', { level: 1, name: 'You have a site. The phone is quiet.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'A marketing site from R35,000' })).toBeInTheDocument()
-    expect(screen.getByText('Yours in 2 to 4 weeks. You own it.')).toBeInTheDocument()
+  it('opens on the firm, not a parody, with the price one act later', () => {
+    const { container } = render(<HomePage />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Software that brings in clients.' })).toBeInTheDocument()
+    expect(container.querySelectorAll('h1')).toHaveLength(1)
+    expect(container.querySelector('h1')?.textContent).not.toContain(ZA_PRICE_STRING)
+    expect(allText(container)).not.toContain('Welcome to our website')
+    expect(allText(container)).not.toContain('Hit counter')
+    const price = screen.getByText('From R35,000')
+    expect(price.className).toContain('sh-slide__price')
   })
 
-  it('uses running-text CTAs that all point at the existing scheduler', () => {
+  it('shows the four things we build, each with a price, a real plate and a door to its page', () => {
+    const { container } = render(<HomePage />)
+    const slides = container.querySelectorAll('.sh-slide')
+    expect(slides).toHaveLength(4)
+    const hrefs = Array.from(slides).map((s) => s.querySelector('a')?.getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/services/web-development',
+      '/services/web-applications',
+      '/services/mobile-apps',
+      '/services/ai-integration',
+    ])
+    for (const slide of slides) {
+      expect(slide.querySelector('.sh-slide__price')?.textContent).toMatch(/^From R[\d,]+$/)
+      expect(slide.querySelector('figure img')).not.toBeNull()
+      expect(slide.querySelector('figcaption')?.textContent).toMatch(/\./)
+    }
+  })
+
+  it('puts real names on the proof', () => {
+    render(<HomePage />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Real names. Real numbers.' })).toBeInTheDocument()
+    for (const credit of ['AHS Law, Pretoria', 'Loyalty Plus', 'Athleet', 'Velox and Lumen']) {
+      expect(screen.getByText(credit)).toBeInTheDocument()
+    }
+  })
+
+  it('closes with the process and the three anchors', () => {
+    const { container } = render(<HomePage />)
+    expect(screen.getByRole('heading', { level: 2, name: 'How it goes.' })).toBeInTheDocument()
+    expect(container.querySelectorAll('.sh-step')).toHaveLength(4)
+    const anchors = Array.from(container.querySelectorAll('.sh-anchor__price')).map((a) => a.textContent)
+    expect(anchors).toEqual(['from R35,000', 'from R120,000', 'from R15,000 a month'])
+  })
+
+  it('uses one CTA label and every CTA points at the scheduler', () => {
     render(<HomePage />)
     const ctas = screen.getAllByRole('link', { name: CTA })
-    expect(ctas.length).toBeGreaterThanOrEqual(2)
+    expect(ctas.length).toBeGreaterThanOrEqual(3)
     for (const cta of ctas) {
       expect(cta).toHaveAttribute('href', '/book-a-call')
       expect(cta.tagName).toBe('A')
     }
   })
 
-  it('has no jump nav, only tiny ZA / US text links plus privacy and terms in the colophon', () => {
+  it('carries the firm nav in the chrome, ZA / US region links, and the colophon links', () => {
     const { container } = render(<HomePage />)
     expect(container.querySelector('a[href^="#"]')).toBeNull()
+    const primary = screen.getByRole('navigation', { name: 'Primary' })
+    for (const [name, href] of [
+      ['Services', '/services'],
+      ['Work', '/work'],
+      ['Pricing', '/pricing'],
+      ['About', '/about'],
+    ]) {
+      expect(within(primary).getByRole('link', { name })).toHaveAttribute('href', href)
+    }
     const region = screen.getAllByRole('navigation', { name: 'Region' })[0]
     expect(within(region).getByRole('link', { name: 'ZA' })).toHaveAttribute('aria-current', 'page')
     expect(within(region).getByRole('link', { name: 'US' })).toHaveAttribute('href', '/us')
     const colophon = screen.getByRole('contentinfo', { name: 'Colophon' })
     expect(within(colophon).getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy-policy')
     expect(within(colophon).getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms-of-service')
-    for (const forbidden of ['/about', '/services', '/work', '/pricing', '/faq', '/insights', '/tools', '/start-a-project']) {
-      expect(container.querySelector(`a[href="${forbidden}"]`)).toBeNull()
-    }
+    expect(within(colophon).getByRole('link', { name: 'Everything we do' })).toHaveAttribute('href', '/services')
   })
 
-  it('mounts the rebuild stage with the ten committed stills', () => {
+  it('mounts the studio stage with real work shots only', () => {
     const { container } = render(<HomePage />)
     const stage = container.querySelector('[data-sc-rebuild]')
     expect(stage).not.toBeNull()
-    const srcs = Array.from(container.querySelectorAll('img')).map((img) => decodeURIComponent(img.getAttribute('src') ?? ''))
-    for (const name of [
-      'dead-interior.png',
-      'dead-welcome.png',
-      'storefront-before.png',
-      'storefront-after.png',
-      'keys-desk.png',
-      'tape-draw.png',
-      'rebuild-scrub.png',
-      'collapse-paper.png',
-    ]) {
-      expect(srcs.some((src) => src.includes(`/marketing/${name}`))).toBe(true)
+    expect(stage?.getAttribute('data-sc-acts')).toBe(STUDIO_ACTS_ATTR)
+    const srcs = imageSources(container)
+    expect(srcs.length).toBeGreaterThanOrEqual(7)
+    for (const src of srcs) {
+      expect(src).toMatch(/\/images\/shot-[a-z-]+\.jpg/)
+      expect(src).not.toContain('/marketing/')
     }
-    expect(srcs.some((src) => src.includes('city-grid-night.png'))).toBe(false)
+    expect(srcs.some((src) => src.includes('/images/shot-ahs-law.jpg'))).toBe(true)
   })
 
   it('writes no em dashes into the copy', () => {
@@ -114,7 +158,7 @@ describe('/ is the ZA stage only', () => {
   })
 })
 
-describe('/us is the US stage only', () => {
+describe('/us is the US studio stage', () => {
   it('never renders the ZA price string', () => {
     const { container } = render(<UsHomePage />)
     const text = allText(container)
@@ -124,22 +168,25 @@ describe('/us is the US stage only', () => {
     }
   })
 
-  it('lands with both headlines and the 28-day dek', () => {
-    render(<UsHomePage />)
-    expect(screen.getByRole('heading', { level: 1, name: 'You have a site. The phone is quiet.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'The 4-Week Site' })).toBeInTheDocument()
-    expect(screen.getByText('$9,500. Yours in 28 days.')).toBeInTheDocument()
+  it('opens on the 28-day promise and prices the two offers one act later', () => {
+    const { container } = render(<UsHomePage />)
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'A site that makes the phone ring. Live in 28 days.' }),
+    ).toBeInTheDocument()
+    const prices = Array.from(container.querySelectorAll('.sh-slide__price')).map((p) => p.textContent)
+    expect(prices.slice(0, 2)).toEqual(['$9,500', '$4,500'])
   })
 
-  it('keeps the retainer small and points every CTA at the scheduler with the US hint', () => {
+  it('points every CTA at the scheduler with the US hint and keeps the retainer an anchor', () => {
     const { container } = render(<UsHomePage />)
     for (const cta of screen.getAllByRole('link', { name: CTA })) {
       expect(cta).toHaveAttribute('href', '/book-a-call?market=us')
     }
-    const retainer = screen.getByText(/\$2,500 a month/)
-    expect(retainer.className).toContain('sc-close__small')
-    expect(container.querySelector('img[src*="city-grid-night"]')).not.toBeNull()
-    expect(container.querySelector('img[src*="keys-desk"]')).toBeNull()
+    const anchors = Array.from(container.querySelectorAll('.sh-anchor__price')).map((a) => a.textContent)
+    expect(anchors).toContain('$2,500 a month')
+    for (const src of imageSources(container)) {
+      expect(src).not.toContain('/marketing/')
+    }
     expect(allText(container)).not.toContain('\u2014')
   })
 })
@@ -156,7 +203,7 @@ describe('scroll-craft progress', () => {
     expect(progressFor(0, 400, viewport)).toBe(0)
   })
 
-  it('walks the six acts in order, with the peak as the largest span', () => {
+  it('walks the default six acts in order, with the peak as the largest span', () => {
     expect(actFor(0, STAGE_ACTS)).toBe('recognition')
     expect(actFor(0.1, STAGE_ACTS)).toBe('unease')
     expect(actFor(0.3, STAGE_ACTS)).toBe('relief')
@@ -167,6 +214,27 @@ describe('scroll-craft progress', () => {
     const spans = STAGE_ACTS.map(([name, start], i) => [name, (STAGE_ACTS[i + 1]?.[1] ?? 1) - start] as const)
     const widest = spans.reduce((a, b) => (b[1] > a[1] ? b : a))
     expect(widest[0]).toBe('peak')
+  })
+
+  it('walks the studio acts in order, with the filmstrip as the largest span', () => {
+    const acts = STUDIO_ACTS_ATTR.split(',').map((pair) => {
+      const [name, start] = pair.split(':')
+      return [name, Number(start)] as const
+    })
+    expect(actFor(0, acts)).toBe('open')
+    expect(actFor(0.3, acts)).toBe('work')
+    expect(actFor(0.7, acts)).toBe('proof')
+    expect(actFor(1, acts)).toBe('close')
+    const spans = acts.map(([name, start], i) => [name, (acts[i + 1]?.[1] ?? 1) - start] as const)
+    const widest = spans.reduce((a, b) => (b[1] > a[1] ? b : a))
+    expect(widest[0]).toBe('work')
+  })
+
+  it('stops gating acts inert once a stylesheet declares --sc-gate: 0 for a stacked layout', () => {
+    expect(gatesActs('')).toBe(true)
+    expect(gatesActs(' 1')).toBe(true)
+    expect(gatesActs('0')).toBe(false)
+    expect(gatesActs(' 0 ')).toBe(false)
   })
 
   it('knows which routes carry their own chrome', () => {

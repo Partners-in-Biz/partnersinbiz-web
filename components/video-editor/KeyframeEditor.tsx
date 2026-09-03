@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { EASE_BEZIER } from '@/lib/video-editor/keyframes'
 import type { EditorClip, EditorKeyframe, EditorKeyframeProperty } from '@/lib/video-editor/types'
 import { BezierCurveEditor } from './BezierCurveEditor'
@@ -47,7 +49,7 @@ export function KeyframeEditor({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Keyframes</h3>
+      <h3 className="text-sm text-[var(--color-pib-text)]">Keyframes</h3>
       {LANES.map((lane) => {
         const laneFrames = keyframes
           .filter((k) => k.property === lane.property)
@@ -91,7 +93,7 @@ export function KeyframeEditor({
                     </select>
                   </label>
                   <button type="button" className="pib-btn-ghost text-xs" aria-label={`Remove ${lane.label} keyframe ${index + 1}`} onClick={() => removeKeyframe(keyframe)}>
-                    <span className="material-symbols-rounded text-sm">close</span>
+                    <Icon name="close" />
                   </button>
                 </div>
                 {keyframe.easing === 'bezier' ? (

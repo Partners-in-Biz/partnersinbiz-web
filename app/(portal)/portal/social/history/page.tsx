@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import SocialHistoryWorkspace from '@/components/social/SocialHistoryWorkspace'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Skeleton } from '@/components/studio'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalPostHistory() {
@@ -47,15 +49,15 @@ export default function PortalPostHistory() {
 
   if (resolvingOrg) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-        <header>
-          <p className="eyebrow">Social · History</p>
-          <h1 className="pib-page-title mt-2">Post History</h1>
-          <p className="pib-page-sub">View all your published and scheduled posts</p>
-        </header>
+      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6">
+        <PageHeader
+          eyebrow="Social"
+          title="Post history."
+          description="View all your published and scheduled posts."
+        />
         <div className="space-y-3">
           {[...Array(5)].map((_, index) => (
-            <div key={index} className="pib-skeleton h-24" />
+            <Skeleton key={index} height={96} />
           ))}
         </div>
       </div>
@@ -64,8 +66,8 @@ export default function PortalPostHistory() {
 
   return (
     <SocialHistoryWorkspace
-      title="Post History"
-      description="View all your published and scheduled posts"
+      title="Post history."
+      description="View all your published and scheduled posts."
       limit={200}
       buildApiPath={buildApiPath}
       statusOptions={['all', 'published', 'scheduled', 'draft', 'failed', 'cancelled']}

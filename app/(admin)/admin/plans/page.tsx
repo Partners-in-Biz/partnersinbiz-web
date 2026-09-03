@@ -32,7 +32,7 @@ function limitLabel(key: string): string {
 }
 
 function limitDisplay(value: number | undefined): string {
-  if (value === undefined || value === null) return '—'
+  if (value === undefined || value === null) return '-'
   if (isUnlimited(value)) return 'Unlimited'
   return value.toLocaleString()
 }
@@ -290,60 +290,60 @@ export default function PlansPage() {
           <h1 className="pib-page-title mt-2">Subscription Plans</h1>
           <p className="pib-page-sub max-w-2xl">
             Plans drive FeatureGate capabilities and per-organisation limits. Billing is realised through
-            EFT and PayPal invoices — there is no Stripe / card-on-file processor.
+            EFT and PayPal invoices - there is no Stripe / card-on-file processor.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <button onClick={openCreate} className="btn-pib-primary">
+          <button onClick={openCreate} className="st-btn st-btn--primary">
             + New plan
           </button>
-          <Link href="/admin/settings" className="btn-pib-ghost">
+          <Link href="/admin/settings" className="st-btn st-btn--ghost">
             Back to settings
           </Link>
         </div>
       </header>
 
       {topError && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="pib-stat-card">
-          <p className="pib-label">Total plans</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{plans.length}</p>
+          <p className="sc-tiny">Total plans</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{plans.length}</p>
         </div>
         <div className="pib-stat-card">
-          <p className="pib-label">Active &amp; offered</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{activeCount}</p>
+          <p className="sc-tiny">Active &amp; offered</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{activeCount}</p>
         </div>
         <div className="pib-stat-card">
-          <p className="pib-label">Archived</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{archivedCount}</p>
+          <p className="sc-tiny">Archived</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{archivedCount}</p>
         </div>
       </div>
 
       {showEditor && (
-        <form onSubmit={handleSave} className="pib-card p-5 space-y-5">
+        <form onSubmit={handleSave} className="st-panel p-5 space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
+            <h2 className="text-lg font-headline font-medium text-[var(--color-pib-text)]">
               {editingId ? 'Edit plan' : 'New plan'}
             </h2>
-            <button type="button" onClick={closeEditor} className="btn-pib-ghost text-xs font-label">
+            <button type="button" onClick={closeEditor} className="st-btn st-btn--ghost text-xs font-label">
               Cancel
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="pib-label">
+              <span className="sc-tiny">
                 Key {editingId && <span className="normal-case tracking-normal">(immutable)</span>}
               </span>
               <input
@@ -351,50 +351,50 @@ export default function PlansPage() {
                 value={form.key}
                 onChange={(e) => setForm((p) => ({ ...p, key: e.target.value }))}
                 placeholder="growth"
-                className="pib-input w-full mt-1 font-mono"
+                className="st-input w-full mt-1 font-mono"
                 disabled={!!editingId}
                 required={!editingId}
               />
             </label>
             <label className="block">
-              <span className="pib-label">Name</span>
+              <span className="sc-tiny">Name</span>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                 placeholder="Growth"
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               />
             </label>
             <label className="block md:col-span-2">
-              <span className="pib-label">Description</span>
+              <span className="sc-tiny">Description</span>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                 placeholder="For agencies scaling up their client roster."
-                className="pib-input w-full mt-1 min-h-[64px]"
+                className="st-input w-full mt-1 min-h-[64px]"
                 rows={2}
               />
             </label>
             <label className="block">
-              <span className="pib-label">Price (ZAR, Rands)</span>
+              <span className="sc-tiny">Price (ZAR, Rands)</span>
               <input
                 type="number"
                 min={0}
                 step="0.01"
                 value={form.priceZar}
                 onChange={(e) => setForm((p) => ({ ...p, priceZar: e.target.value }))}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               />
             </label>
             <label className="block">
-              <span className="pib-label">Interval</span>
+              <span className="sc-tiny">Interval</span>
               <select
                 value={form.interval}
                 onChange={(e) => setForm((p) => ({ ...p, interval: e.target.value as BillingInterval }))}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               >
                 {PLAN_INTERVALS.map((iv) => (
                   <option key={iv} value={iv}>
@@ -404,17 +404,17 @@ export default function PlansPage() {
               </select>
             </label>
             <label className="block">
-              <span className="pib-label">Sort order</span>
+              <span className="sc-tiny">Sort order</span>
               <input
                 type="number"
                 step="1"
                 value={form.sortOrder}
                 onChange={(e) => setForm((p) => ({ ...p, sortOrder: e.target.value }))}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               />
             </label>
             <label className="block">
-              <span className="pib-label">
+              <span className="sc-tiny">
                 Trial days (blank = none)
               </span>
               <input
@@ -424,7 +424,7 @@ export default function PlansPage() {
                 value={form.trialDays}
                 onChange={(e) => setForm((p) => ({ ...p, trialDays: e.target.value }))}
                 placeholder="0"
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               />
             </label>
             <label className="flex items-center gap-2 md:col-span-2 mt-1">
@@ -439,7 +439,7 @@ export default function PlansPage() {
           </div>
 
           <div>
-            <p className="pib-label mb-2">
+            <p className="sc-tiny mb-2">
               Feature flags (FeatureGate)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -461,7 +461,7 @@ export default function PlansPage() {
           </div>
 
           <div>
-            <p className="pib-label mb-2">
+            <p className="sc-tiny mb-2">
               Usage limits (use -1 for unlimited)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -474,7 +474,7 @@ export default function PlansPage() {
                     min={-1}
                     value={form.limits[key]}
                     onChange={(e) => setLimit(key, e.target.value)}
-                    className="pib-input w-full mt-1"
+                    className="st-input w-full mt-1"
                   />
                 </label>
               ))}
@@ -484,10 +484,10 @@ export default function PlansPage() {
           {formError && <p className="text-xs text-[var(--color-error)]">{formError}</p>}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={closeEditor} className="btn-pib-ghost text-sm font-label">
+            <button type="button" onClick={closeEditor} className="st-btn st-btn--ghost text-sm font-label">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-pib-primary text-sm font-label">
+            <button type="submit" disabled={saving} className="st-btn st-btn--primary text-sm font-label">
               {saving ? 'Saving...' : editingId ? 'Save changes' : 'Create plan'}
             </button>
           </div>
@@ -496,17 +496,17 @@ export default function PlansPage() {
 
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-[6px]" />
+          <Skeleton className="h-28 rounded-[6px]" />
+          <Skeleton className="h-28 rounded-[6px]" />
         </div>
       ) : plans.length === 0 ? (
-        <div className="pib-card p-8 text-center">
+        <div className="st-panel p-8 text-center">
           <p className="text-sm text-[var(--color-pib-text-muted)]">No plans yet.</p>
           <p className="text-xs text-[var(--color-pib-text-faint)] mt-1">
             Create your first plan to start gating features and limits for client organisations.
           </p>
-          <button onClick={openCreate} className="btn-pib-primary text-sm font-label mt-4">
+          <button onClick={openCreate} className="st-btn st-btn--primary text-sm font-label mt-4">
             + New plan
           </button>
         </div>
@@ -518,25 +518,25 @@ export default function PlansPage() {
             return (
               <li
                 key={plan.id}
-                className={`pib-card p-4 ${plan.archived ? 'opacity-60' : ''}`}
+                className={`st-panel p-4 ${plan.archived ? 'opacity-60' : ''}`}
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-base font-semibold text-[var(--color-pib-text)]">{plan.name}</p>
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]">
+                      <p className="text-base font-medium text-[var(--color-pib-text)]">{plan.name}</p>
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]">
                         {plan.key}
                       </span>
                       {plan.archived ? (
-                        <span className="pib-pill">
+                        <span className="st-status">
                           Archived
                         </span>
                       ) : plan.active ? (
-                        <span className="pib-pill pib-pill-cyan">
+                        <span className="st-status st-status st-status--info">
                           Active
                         </span>
                       ) : (
-                        <span className="pib-pill pib-pill-warn">
+                        <span className="st-status st-status st-status--warning">
                           Inactive
                         </span>
                       )}
@@ -545,7 +545,7 @@ export default function PlansPage() {
                       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">{plan.description}</p>
                     )}
                     <div className="flex items-baseline gap-1 mt-2">
-                      <span className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
+                      <span className="text-xl font-headline font-medium text-[var(--color-pib-text)]">
                         {formatZar(plan.priceZar)}
                       </span>
                       <span className="text-xs text-[var(--color-pib-text-muted)]">
@@ -558,7 +558,7 @@ export default function PlansPage() {
                     <button
                       onClick={() => openEdit(plan)}
                       disabled={busy}
-                      className="btn-pib-secondary text-xs font-label"
+                      className="st-btn st-btn--secondary text-xs font-label"
                     >
                       Edit
                     </button>
@@ -566,7 +566,7 @@ export default function PlansPage() {
                       <button
                         onClick={() => toggleActive(plan)}
                         disabled={busy}
-                        className="btn-pib-ghost text-xs font-label"
+                        className="st-btn st-btn--ghost text-xs font-label"
                       >
                         {busy ? 'Working...' : plan.active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -574,7 +574,7 @@ export default function PlansPage() {
                     <button
                       onClick={() => toggleArchive(plan)}
                       disabled={busy}
-                      className="btn-pib-ghost text-xs font-label"
+                      className="st-btn st-btn--ghost text-xs font-label"
                     >
                       {busy ? 'Working...' : plan.archived ? 'Restore' : 'Archive'}
                     </button>

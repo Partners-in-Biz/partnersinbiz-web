@@ -13,16 +13,16 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 const STATUS_STYLES: Record<SeoArticleStatus, string> = {
   draft: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
-  scheduled: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
-  published: 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]',
+  scheduled: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]',
+  published: 'bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)] text-[var(--st-success)]',
 }
 
 function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
   } catch {
-    return '—'
+    return '-'
   }
 }
 
@@ -106,35 +106,35 @@ export default function SeoArticlesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <button onClick={createArticle} disabled={creating} className="btn-pib-primary">
+          <button onClick={createArticle} disabled={creating} className="st-btn st-btn--primary">
             {creating ? 'Creating…' : '+ New article'}
           </button>
-          <Link href="/admin/content/analytics" className="btn-pib-ghost">
+          <Link href="/admin/content/analytics" className="st-btn st-btn--ghost">
             Analytics
           </Link>
         </div>
       </header>
 
       {topError && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">{topError}</div>
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">{topError}</div>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="pib-stat-card">
-          <p className="pib-label">Total</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.total}</p>
+          <p className="sc-tiny">Total</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{counts.total}</p>
         </div>
         <div className="pib-stat-card">
-          <p className="pib-label">Published</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.published}</p>
+          <p className="sc-tiny">Published</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{counts.published}</p>
         </div>
         <div className="pib-stat-card">
-          <p className="pib-label">Drafts</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.drafts}</p>
+          <p className="sc-tiny">Drafts</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{counts.drafts}</p>
         </div>
         <div className="pib-stat-card">
-          <p className="pib-label">Total views</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.views.toLocaleString()}</p>
+          <p className="sc-tiny">Total views</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{counts.views.toLocaleString()}</p>
         </div>
       </div>
 
@@ -143,10 +143,10 @@ export default function SeoArticlesPage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`text-xs font-label px-3 py-1.5 rounded-full capitalize transition-colors ${
+            className={`text-xs font-label px-3 py-1.5 rounded capitalize transition-colors ${
               filter === f ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}
-            style={filter === f ? { background: 'var(--color-pib-green)', color: 'var(--color-pib-ink)' } : undefined}
+            style={filter === f ? { background: 'var(--st-success)', color: 'var(--color-pib-ink)' } : undefined}
           >
             {f}
           </button>
@@ -155,19 +155,19 @@ export default function SeoArticlesPage() {
 
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
         </div>
       ) : visible.length === 0 ? (
-        <div className="pib-card p-8 text-center">
+        <div className="st-panel p-8 text-center">
           <p className="text-sm text-[var(--color-pib-text-muted)]">No articles {filter !== 'all' ? `with status “${filter}”` : 'yet'}.</p>
-          <button onClick={createArticle} disabled={creating} className="btn-pib-primary text-sm font-label mt-4">
+          <button onClick={createArticle} disabled={creating} className="st-btn st-btn--primary text-sm font-label mt-4">
             + New article
           </button>
         </div>
       ) : (
-        <div className="pib-card overflow-hidden p-0">
+        <div className="st-panel overflow-hidden p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-pib-line)] text-left">
@@ -187,7 +187,7 @@ export default function SeoArticlesPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${STATUS_STYLES[a.status]}`}>
+                    <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${STATUS_STYLES[a.status]}`}>
                       {a.status}
                     </span>
                   </td>

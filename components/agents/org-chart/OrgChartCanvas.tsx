@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * OrgChartCanvas — Paperclip-style agent organisation chart canvas.
+ * OrgChartCanvas  -  Paperclip-style agent organisation chart canvas.
  *
  * Hand-rolled tidy-tree layout (no graph library): nodes are laid out
- * top-down by depth, siblings stacked left-to-right, parents centred over
+ * top-down by depth, siblings stacked left to right, parents centred over
  * their subtree. Connectors are orthogonal elbow paths drawn in an SVG layer;
  * cards are HTML absolutely positioned above it. The whole chart lives inside
  * a transformed container so wheel-zoom (around the cursor), drag-pan and
- * fit-to-view all just adjust one transform.
+ * fit to view all just adjust one transform.
  */
 
 import {
@@ -21,6 +21,8 @@ import {
   useState,
 } from 'react'
 import type { AgentOrgNode, OrgTreeNode } from '@/lib/agent-org/types'
+
+import { Icon } from '@/components/studio'
 
 export interface OrgChartCanvasHandle {
   fit: () => void
@@ -50,12 +52,12 @@ const MAX_ZOOM = 2.5
 
 /** Icon chip tint + left accent border per colour key (mirrors AgentCard). */
 const COLOR_ICON_BG: Record<string, string> = {
-  violet: 'bg-violet-500/15 text-violet-400',
+  violet: 'bg-[color-mix(in_srgb,var(--sc-accent)_15%,transparent)] text-[var(--sc-accent)]',
   sky: 'bg-sky-500/15 text-sky-400',
   indigo: 'bg-indigo-500/15 text-indigo-400',
   emerald: 'bg-emerald-500/15 text-emerald-400',
   pink: 'bg-pink-500/15 text-pink-400',
-  amber: 'bg-amber-500/15 text-amber-400',
+  amber: 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]',
   teal: 'bg-teal-500/15 text-teal-400',
   rose: 'bg-rose-500/15 text-rose-400',
   green: 'bg-green-500/15 text-green-400',
@@ -157,7 +159,7 @@ function computeLayout(forest: OrgTreeNode[]): ChartLayout {
     forest.forEach(centerInternal)
     markDepth(root, 0)
   })
-  // Internal nodes only have their midpoint once all children are placed —
+  // Internal nodes only have their midpoint once all children are placed  - 
   // centreInternal above runs per-root AFTER its subtree leaves were assigned.
 
   const positioned = new Map<string, PositionedNode>()
@@ -261,7 +263,7 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
       fit()
     }, [layout, fit])
 
-    // Wheel zoom around cursor — needs a non-passive listener.
+    // Wheel zoom around cursor  -  needs a non-passive listener.
     useEffect(() => {
       const el = containerRef.current
       if (!el) return
@@ -307,9 +309,9 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
     // ── Frames: loading / error / empty ────────────────────────────────────
     if (loading) {
       return (
-        <div className="flex h-full min-h-[480px] items-center justify-center rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]">
+        <div className="flex h-full min-h-[480px] items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]">
           <div className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
-            <span className="pib-skeleton h-4 w-4 rounded-full" />
+            <span className="pib-skeleton h-4 w-4 rounded-md" />
             Loading org chart…
           </div>
         </div>
@@ -318,10 +320,10 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
 
     if (!loading && error && nodes.length === 0) {
       return (
-        <div className="flex h-full min-h-[480px] items-center justify-center rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-6">
+        <div className="flex h-full min-h-[480px] items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-6">
           <div className="max-w-md text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-              <span className="material-symbols-outlined text-[20px]">error</span>
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10 text-[var(--st-danger)]">
+              <Icon name="error" className="text-[20px]" />
             </div>
             <p className="text-sm text-[var(--color-error)]">{error}</p>
             <button type="button" onClick={onSeed} className="btn-pib-ghost btn-pib-sm font-label mt-4">
@@ -334,10 +336,10 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
 
     if (!loading && nodes.length === 0) {
       return (
-        <div className="flex h-full min-h-[480px] items-center justify-center rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-6">
+        <div className="flex h-full min-h-[480px] items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-6">
           <div className="max-w-md text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-400">
-              <span className="material-symbols-outlined text-[20px]">account_tree</span>
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-cyan-500/10 text-cyan-400">
+              <Icon name="account_tree" className="text-[20px]" />
             </div>
             <p className="text-sm font-medium text-[var(--color-pib-text)]">No agent org chart yet</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -349,7 +351,7 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
               disabled={seeding}
               className="btn-pib-primary btn-pib-sm font-label mt-4 inline-flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+              <Icon name="auto_awesome" className="text-[16px]" />
               {seeding ? 'Seeding…' : 'Seed default chart'}
             </button>
           </div>
@@ -369,7 +371,7 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
     return (
       <div
         ref={containerRef}
-        className="relative h-full min-h-[480px] touch-none overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]"
+        className="relative h-full min-h-[480px] touch-none overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]"
         style={{
           backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px)',
           backgroundSize: '28px 28px',
@@ -381,7 +383,7 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
         onPointerCancel={endDrag}
       >
         {/* Zoom / fit indicator */}
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/80 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)] backdrop-blur">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]/80 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
           {Math.round(view.k * 100)}%
         </div>
 
@@ -420,21 +422,21 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
                 type="button"
                 onClick={() => onSelectNode(node)}
                 onPointerDown={(e) => e.stopPropagation()}
-                title={`${node.name} — ${node.title}${liveLabel ? ` · ${liveLabel}` : ''}`}
-                className={`absolute rounded-lg border border-[var(--color-pib-line)] border-l-2 ${borderClass} bg-[var(--color-pib-surface)] p-2.5 text-left shadow-lg transition-transform duration-100 hover:-translate-y-0.5 hover:border-[var(--color-pib-line-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30`}
+                title={`${node.name}  -  ${node.title}${liveLabel ? ` · ${liveLabel}` : ''}`}
+                className={`absolute rounded-lg border border-[var(--color-pib-line)] border-l-2 ${borderClass} bg-[var(--color-pib-surface)] p-2.5 text-left  transition-transform duration-100 hover:-translate-y-0.5 hover:border-[var(--color-pib-line-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30`}
                 style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
               >
                 <div className="flex h-full items-start gap-2">
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
-                    <span className="material-symbols-outlined text-[18px]">{node.iconKey}</span>
+                    <Icon name={node.iconKey} className="text-[18px]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate text-[13px] font-semibold leading-tight text-[var(--color-pib-text)]">
+                      <span className="truncate text-[13px] font-medium leading-tight text-[var(--color-pib-text)]">
                         {node.name}
                       </span>
                       <span
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${node.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                        className={`h-1.5 w-1.5 shrink-0  ${node.status === 'active' ? 'bg-emerald-400' : 'bg-[var(--st-warning)]'}`}
                         title={node.status === 'active' ? 'Active' : 'Paused'}
                       />
                     </div>

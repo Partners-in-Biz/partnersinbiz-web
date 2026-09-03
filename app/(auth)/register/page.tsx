@@ -4,8 +4,9 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { registerWithEmail } from '@/lib/firebase/auth'
+import { Button, Field, Input, Notice } from '@/components/studio'
+import { Wordmark } from '@/components/marketing/stage/StageChrome'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -35,60 +36,53 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center px-6 md:px-10 bg-[var(--color-pib-bg)] overflow-hidden">
-      <div className="absolute inset-0 pib-mesh pointer-events-none" />
-      <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-40" />
+    <main className="st-auth-frame">
+      <Wordmark href="/" />
 
-      <div className="relative w-full max-w-md">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2.5 mb-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-        >
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain" />
-          <span className="font-display text-lg leading-none">Partners in Biz</span>
-        </Link>
+      <div className="st-auth-form">
+        <header className="st-auth-form__head">
+          <h1 className="sc-h1">Create an account.</h1>
+          <p className="sc-dek">Set up your client portal to track projects, reports, and messages.</p>
+        </header>
 
-        <div className="bento-card !p-8 md:!p-10">
-          <p className="eyebrow">Get started</p>
-          <h1 className="font-display text-3xl md:text-4xl mt-2 mb-2">Create your account.</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">
-            Set up your client portal to track projects, reports, and messages with the team.
-          </p>
+        <form onSubmit={handleSubmit} className="st-auth-form__fields">
+          <Field id="register-name" label="Full name">
+            <Input id="register-name" name="name" type="text" required autoComplete="name" />
+          </Field>
+          <Field id="register-email" label="Email">
+            <Input id="register-email" name="email" type="email" required autoComplete="email" />
+          </Field>
+          <Field id="register-password" label="Password">
+            <Input
+              id="register-password"
+              name="password"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field id="register-confirm" label="Confirm password">
+            <Input
+              id="register-confirm"
+              name="confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
+          </Field>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
+          <Button type="submit" block loading={loading}>
+            {loading ? 'Creating account' : 'Create account'}
+          </Button>
+        </form>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {[
-              { name: 'name',     label: 'Full name',         type: 'text',     autoComplete: 'name' },
-              { name: 'email',    label: 'Email',             type: 'email',    autoComplete: 'email' },
-              { name: 'password', label: 'Password',          type: 'password', autoComplete: 'new-password' },
-              { name: 'confirm',  label: 'Confirm password',  type: 'password', autoComplete: 'new-password' },
-            ].map(({ name, label, type, autoComplete }) => (
-              <div key={name} className="flex flex-col gap-2">
-                <label className="pib-label">{label}</label>
-                <input name={name} type={type} required autoComplete={autoComplete} className="pib-input" />
-              </div>
-            ))}
-            {error && (
-              <p className="text-sm text-[#FCA5A5] bg-[#FCA5A5]/10 border border-[#FCA5A5]/30 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-pib-accent justify-center mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creating account…' : 'Create account'}
-              {!loading && <span className="material-symbols-outlined text-base">arrow_forward</span>}
-            </button>
-          </form>
-
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-8 text-center">
-            Already have an account?{' '}
-            <Link href="/login" className="text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] transition-colors">
+        <ul className="st-auth-links sc-tiny">
+          <li>
+            <Link href="/login" prefetch={false} className="sc-link">
               Sign in
             </Link>
-          </p>
-        </div>
+          </li>
+        </ul>
       </div>
     </main>
   )

@@ -202,7 +202,7 @@ describe('Portal settings scoring page', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/scoring/recompute-all', { method: 'POST' })
     })
-    expect(await screen.findByText('Done — 12 processed, 11 succeeded, 1 failed.')).toBeInTheDocument()
+    expect(await screen.findByText('Done - 12 processed, 11 succeeded, 1 failed.')).toBeInTheDocument()
 
     confirmSpy.mockRestore()
   })

@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import { ButtonLink, Icon, Title } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,38 +47,43 @@ const BILLING_METRICS = [
 
 export default function PortalBillingPage() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">Billing</p>
-        <h1 className="pib-page-title mt-2">Billing hub</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          One place for EFT invoices, payment review, recurring schedules, quotes, and public invoice handoffs.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/portal/finance" className="pib-btn-primary">Open finance</Link>
-          <Link href="/portal/invoicing" className="pib-btn-ghost">Open invoices</Link>
-          <Link href="/portal/payments" className="pib-btn-ghost">Open payments</Link>
-        </div>
-      </header>
+    <div className="mx-auto max-w-7xl space-y-8">
+      <PageHeader
+        eyebrow="Billing"
+        title="Billing hub."
+        description="One place for EFT invoices, payment review, recurring schedules, quotes, and public invoice handoffs."
+        actions={(
+          <>
+            <ButtonLink href="/portal/finance" size="sm">Open finance</ButtonLink>
+            <ButtonLink href="/portal/invoicing" variant="ghost" size="sm">Open invoices</ButtonLink>
+            <ButtonLink href="/portal/payments" variant="ghost" size="sm">Open payments</ButtonLink>
+          </>
+        )}
+      />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {BILLING_METRICS.map((metric) => (
-          <div key={metric.label} className="pib-stat-card">
-            <p className="pib-label">{metric.label}</p>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p>
-          </div>
+          <StatCard
+            key={metric.label}
+            label={metric.label}
+            value={metric.value}
+            detail={metric.helper}
+          />
         ))}
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         {BILLING_SECTIONS.map((section) => (
-          <Link key={section.href} href={section.href} className="pib-card group transition hover:border-[var(--color-pib-line-strong)]">
+          <Link
+            key={section.href}
+            href={section.href}
+            className="st-panel block transition-colors hover:border-[var(--sc-ink)]"
+          >
             <div className="flex items-start gap-4">
-              <span className="pib-icon-tint-cyan material-symbols-outlined">{section.icon}</span>
+              <Icon name={section.icon} className="shrink-0 text-[var(--sc-ink-soft)]" />
               <div>
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{section.title}</h2>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{section.body}</p>
+                <Title as="h2">{section.title}</Title>
+                <p className="sc-body mt-2 text-[var(--sc-ink-soft)]">{section.body}</p>
               </div>
             </div>
           </Link>

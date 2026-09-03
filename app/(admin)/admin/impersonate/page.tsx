@@ -36,7 +36,7 @@ function ImpersonateContent() {
       setNotice('Token copied to clipboard.')
       setTimeout(() => setCopied(false), 3000)
     } catch {
-      setError('Failed to copy — select the token text manually.')
+      setError('Failed to copy  -  select the token text manually.')
     } finally {
       setCopying(false)
     }
@@ -87,7 +87,7 @@ function ImpersonateContent() {
   if (!token) {
     return (
       <div className="space-y-4">
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           No token provided. Navigate here from the{' '}
           <Link href="/admin/users" className="underline">
             Users page
@@ -100,11 +100,11 @@ function ImpersonateContent() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Fixed banner — appears as soon as the impersonation marker is set */}
+      {/* Fixed banner  -  appears as soon as the impersonation marker is set */}
       <ImpersonationBanner />
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
@@ -128,7 +128,7 @@ function ImpersonateContent() {
 
         {/* Token display */}
         <div className="relative">
-          <pre className="pib-card bg-[var(--color-pib-text)]/5 p-4 text-[11px] font-mono break-all whitespace-pre-wrap text-[var(--color-pib-text-muted)] overflow-x-auto rounded-xl">
+          <pre className="pib-card bg-[var(--color-pib-text)]/5 p-4 text-[11px] font-mono break-all whitespace-pre-wrap text-[var(--color-pib-text-muted)] overflow-x-auto rounded-md">
             {token}
           </pre>
           <button
@@ -168,7 +168,7 @@ function ImpersonateContent() {
         </div>
 
         {signedIn && (
-          <div className="pib-card border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-500">
+          <div className="pib-card border border-amber-500/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-4 py-3 text-sm text-[var(--st-warning)]">
             You are now signed in as{' '}
             <strong>{targetEmail || targetUid || 'this user'}</strong>. Open{' '}
             <Link href="/portal" className="underline">
@@ -196,7 +196,7 @@ export default function ImpersonatePage() {
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Admin / Impersonate
         </p>
-        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Impersonate User</h1>
+        <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Impersonate User</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Use this token to sign in as the selected user for debugging purposes.
         </p>

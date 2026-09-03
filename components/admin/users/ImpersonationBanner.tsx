@@ -16,6 +16,8 @@ import { useEffect, useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { getClientAuth } from '@/lib/firebase/config'
 
+import { Icon } from '@/components/studio'
+
 export const IMPERSONATION_KEY = 'pib_impersonation'
 
 export interface ImpersonationMarker {
@@ -78,13 +80,11 @@ export default function ImpersonationBanner() {
       className="fixed inset-x-0 top-0 z-[1000] flex items-center justify-center gap-3 px-4 py-2 text-sm font-medium text-white shadow-md"
       style={{ background: '#b91c1c' }}
     >
-      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-        warning
-      </span>
+      <Icon name="warning" className="text-[18px]" />
       <span className="truncate">
         Impersonating <strong>{marker.targetEmail || marker.targetUid}</strong>
         {marker.adminReturnHint ? (
-          <span className="hidden sm:inline opacity-80"> — return to {marker.adminReturnHint} afterwards</span>
+          <span className="hidden sm:inline opacity-80">  -  return to {marker.adminReturnHint} afterwards</span>
         ) : null}
       </span>
       <button

@@ -118,7 +118,7 @@ export default function FinanceBankFeedsPage() {
         bankAccountId,
         ...requestIdentity('bank-feed-conn'),
       })
-      scope.setMessage('Mock multi-account connection created — no secrets, no real bank egress')
+      scope.setMessage('Mock multi-account connection created - no secrets, no real bank egress')
     })
   }
 
@@ -133,7 +133,7 @@ export default function FinanceBankFeedsPage() {
         ...requestIdentity('bank-feed-sync'),
       })
       scope.setMessage(
-        'Sync complete — lines materialized into recon centre; suggestions pending human accept/dismiss (never auto-post)',
+        'Sync complete - lines materialized into recon centre; suggestions pending human accept/dismiss (never auto-post)',
       )
     })
   }
@@ -154,7 +154,7 @@ export default function FinanceBankFeedsPage() {
         id: connectionId,
         ...requestIdentity('bank-feed-reconn'),
       })
-      scope.setMessage(`Reconnected ${connectionId} — ready for Sync now`)
+      scope.setMessage(`Reconnected ${connectionId} - ready for Sync now`)
     })
   }
 
@@ -165,7 +165,7 @@ export default function FinanceBankFeedsPage() {
         defaultBankAccountId: bankAccountId,
         ...requestIdentity('bank-feed-accts'),
       })
-      scope.setMessage('Provider accounts refreshed — per-account cursor/status updated')
+      scope.setMessage('Provider accounts refreshed - per-account cursor/status updated')
     })
   }
 
@@ -204,8 +204,8 @@ export default function FinanceBankFeedsPage() {
       setSelected(new Set())
       scope.setMessage(
         resolution === 'accept'
-          ? `Bulk accept (safe only): ${resolved} resolved — never auto-post`
-          : `Bulk dismiss: ${resolved} resolved — never auto-post`,
+          ? `Bulk accept (safe only): ${resolved} resolved - never auto-post`
+          : `Bulk dismiss: ${resolved} resolved - never auto-post`,
       )
     })
   }
@@ -257,7 +257,7 @@ export default function FinanceBankFeedsPage() {
 
           <Card className="space-y-2 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold">Hard gates</h2>
+              <h2 className="text-sm">Hard gates</h2>
               <HudChip tone="live">noEgress={String(bundle?.hardGates?.noEgress ?? true)}</HudChip>
               <HudChip>autoPosted={String(bundle?.hardGates?.autoPosted ?? false)}</HudChip>
               <HudChip>
@@ -280,7 +280,7 @@ export default function FinanceBankFeedsPage() {
           </Card>
 
           <Card className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold">Create mock multi-account connection</h2>
+            <h2 className="text-sm">Create mock multi-account connection</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs">
                 Label
@@ -305,7 +305,7 @@ export default function FinanceBankFeedsPage() {
           </Card>
 
           <Card className="space-y-3 p-4">
-            <h2 className="text-sm font-semibold">Connections & health ({bundle?.connections?.length ?? 0})</h2>
+            <h2 className="text-sm">Connections & health ({bundle?.connections?.length ?? 0})</h2>
             <ul className="space-y-3 text-sm">
               {(bundle?.connections || []).map((c) => {
                 const health = c.health as Health | undefined
@@ -326,7 +326,7 @@ export default function FinanceBankFeedsPage() {
                         </div>
                         <div className="text-xs text-[var(--color-pib-text-muted)]">
                           lastSync={health?.lastSyncAt || c.lastSyncAt || 'never'} · primary cursor=
-                          {c.cursor || '—'} · default bank={c.bankAccountId}
+                          {c.cursor || '-'} · default bank={c.bankAccountId}
                         </div>
                         {health?.detail ? (
                           <div className="text-xs text-[var(--color-pib-text-muted)]">{health.detail}</div>
@@ -400,7 +400,7 @@ export default function FinanceBankFeedsPage() {
                                   {a.status}
                                 </HudChip>
                               </td>
-                              <td className="py-1 pr-2 whitespace-nowrap">{a.cursor || '—'}</td>
+                              <td className="py-1 pr-2 whitespace-nowrap">{a.cursor || '-'}</td>
                               <td className="py-1 pr-2 whitespace-nowrap">{a.lastSyncAt || 'never'}</td>
                               <td className="py-1 pr-2">{a.bankAccountId}</td>
                               <td className="py-1 pr-2 text-right">
@@ -419,7 +419,7 @@ export default function FinanceBankFeedsPage() {
                           {!accounts.length ? (
                             <tr>
                               <td colSpan={6} className="py-2 text-[var(--color-pib-text-muted)]">
-                                No linked accounts — refresh after connect.
+                                No linked accounts - refresh after connect.
                               </td>
                             </tr>
                           ) : null}
@@ -430,14 +430,14 @@ export default function FinanceBankFeedsPage() {
                 )
               })}
               {!bundle?.connections?.length ? (
-                <li className="text-[var(--color-pib-text-muted)]">No connections yet — create a mock feed above.</li>
+                <li className="text-[var(--color-pib-text-muted)]">No connections yet - create a mock feed above.</li>
               ) : null}
             </ul>
           </Card>
 
           <Card className="space-y-3 p-4" data-testid="bank-feed-recon-centre">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">
+              <h2 className="text-sm">
                 Operator recon centre ({recon?.unreconciledCount ?? 0} unreconciled)
               </h2>
               <div className="flex flex-wrap gap-2">
@@ -530,7 +530,7 @@ export default function FinanceBankFeedsPage() {
                         {item.safeBulkAccept ? ' · safe' : ''}
                       </span>
                     ) : (
-                      '—'
+                      '-'
                     ),
                 },
                 {
@@ -564,7 +564,7 @@ export default function FinanceBankFeedsPage() {
           </Card>
 
           <Card className="space-y-3 p-4">
-            <h2 className="mb-1 text-sm font-semibold">Recent synced lines ({bundle?.lines?.length ?? 0})</h2>
+            <h2 className="mb-1 text-sm">Recent synced lines ({bundle?.lines?.length ?? 0})</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -585,7 +585,7 @@ export default function FinanceBankFeedsPage() {
                       <td className="py-1 pr-2">{l.description}</td>
                       <td className="py-1 pr-2 whitespace-nowrap">{fmtZar(l.amountMinor)}</td>
                       <td className="py-1 pr-2">{l.importStatus}</td>
-                      <td className="py-1 pr-2">{l.reconState || (l.reconMaterializedAt ? 'materialized' : '—')}</td>
+                      <td className="py-1 pr-2">{l.reconState || (l.reconMaterializedAt ? 'materialized' : '-')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -594,7 +594,7 @@ export default function FinanceBankFeedsPage() {
           </Card>
 
           <Card className="p-4">
-            <h2 className="mb-3 text-sm font-semibold">Audit log ({bundle?.auditEvents?.length ?? 0})</h2>
+            <h2 className="mb-3 text-sm">Audit log ({bundle?.auditEvents?.length ?? 0})</h2>
             <ul className="max-h-64 space-y-1 overflow-y-auto text-xs">
               {(bundle?.auditEvents || []).map((a) => (
                 <li key={a.id} className="border-b border-[var(--color-pib-line)]/50 py-1">
@@ -608,9 +608,9 @@ export default function FinanceBankFeedsPage() {
           </Card>
 
           <Card className="space-y-2 p-4 text-xs text-[var(--color-pib-text-muted)]">
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Safety + future live provider</h2>
+            <h2 className="text-sm text-[var(--color-pib-text)]">Safety + future live provider</h2>
             <p>
-              Accept/Dismiss and bulk actions update suggestion status only — never post journals and never initiate
+              Accept/Dismiss and bulk actions update suggestion status only - never post journals and never initiate
               payments. Mock needs no secrets. A future live provider plugs in via{' '}
               <code>BankFeedConnectorAdapter</code> + approved <code>secretRefId</code> only after a separate Peet vendor
               gate. See <code>docs/architecture/finance-bank-feed-connector.md</code>.

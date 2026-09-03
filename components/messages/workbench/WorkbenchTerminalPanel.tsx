@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
 import { WorkbenchXterm } from './WorkbenchXterm'
+import { Icon } from '@/components/studio'
 import type {
   WorkbenchSessionViewState,
   WorkbenchSessionViewStatus,
@@ -51,7 +52,7 @@ const QUICK_COMMANDS = [
 const SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set([
   'starting', 'awaiting_approval', 'queued', 'claimed', 'running',
 ])
-/** Statuses that accept stdin — matches the server's `enqueueControl` check (`claimed` or `running`). */
+/** Statuses that accept stdin - matches the server's `enqueueControl` check (`claimed` or `running`). */
 const SESSION_INPUT_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set(['claimed', 'running'])
 /** Statuses where a pty exists (or existed), so the xterm surface owns the transcript. */
 const SESSION_XTERM_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set([
@@ -75,9 +76,9 @@ const SESSION_STATUS_LABEL: Record<WorkbenchSessionViewStatus, string> = {
 const SESSION_STATUS_DOT: Record<WorkbenchSessionViewStatus, string> = {
   idle: 'bg-white/30',
   starting: 'bg-primary animate-pulse',
-  awaiting_approval: 'bg-amber-400 animate-pulse',
-  queued: 'bg-amber-300 animate-pulse',
-  claimed: 'bg-amber-300 animate-pulse',
+  awaiting_approval: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] animate-pulse',
+  queued: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] animate-pulse',
+  claimed: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] animate-pulse',
   running: 'bg-primary animate-pulse',
   exited: 'bg-emerald-400',
   failed: 'bg-red-400',
@@ -120,7 +121,7 @@ export interface WorkbenchTerminalPanelProps {
   session?: WorkbenchSessionViewState | null
   terminalSessions?: WorkbenchSessionViewState[]
   onSelectSession?: (sessionId: string) => void
-  /** Starts a new session (server-chosen shell — no client-supplied command). Omit to disable the Start button. */
+  /** Starts a new session (server-chosen shell - no client-supplied command). Omit to disable the Start button. */
   onStartSession?: () => void
   /** Approves a session currently `awaiting_approval`. Omit to hide the Approve button. */
   onApproveSession?: () => void
@@ -162,7 +163,7 @@ function WorkbenchSessionView({
   const inputEnabled = SESSION_INPUT_STATUSES.has(status) && hasSession && Boolean(onSendInput)
   const approveVisible = status === 'awaiting_approval' && hasSession && Boolean(onApprove)
   /**
-   * The emulator takes over once a pty has existed — including after exit, so
+   * The emulator takes over once a pty has existed - including after exit, so
    * the final screen and its scrollback stay readable instead of collapsing
    * back to a plain text dump.
    */
@@ -183,7 +184,7 @@ function WorkbenchSessionView({
   return (
     <div data-testid="workbench-session-view" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 p-2">
-        <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${SESSION_STATUS_DOT[status]}`} />
+        <span aria-hidden="true" className={`h-2 w-2 shrink-0 ${SESSION_STATUS_DOT[status]}`} style={{ borderRadius: '50%' }} />
         <span data-testid="workbench-session-status" className="text-[11px] font-medium text-[var(--color-pib-text)]">
           {SESSION_STATUS_LABEL[status]}
         </span>
@@ -212,7 +213,7 @@ function WorkbenchSessionView({
               aria-label="Approve full shell session"
               onClick={() => onApprove?.()}
               disabled={session?.busy}
-              className="shrink-0 rounded-md border border-amber-400/35 bg-amber-400/10 px-2 py-1 text-[10px] font-medium text-amber-200 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+              className="shrink-0 rounded-md border border-amber-400/35 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-1 text-[10px] font-medium text-[var(--st-warning)] hover:bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Approve
             </button>
@@ -231,7 +232,7 @@ function WorkbenchSessionView({
       </div>
 
       {approveVisible && (
-        <p data-testid="workbench-session-approval-notice" className="shrink-0 border-b border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[10px] text-amber-100">
+        <p data-testid="workbench-session-approval-notice" className="shrink-0 border-b border-amber-400/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-1.5 text-[10px] text-[var(--st-warning)]">
           This opens an unrestricted shell on the linked computer. Approve to let it start.
         </p>
       )}
@@ -400,7 +401,7 @@ export function WorkbenchTerminalPanel({
             data-testid={`workbench-terminal-quick-command-${command.replace(/\s+/g, '-')}`}
             disabled={running}
             onClick={() => onRunCommand(command)}
-            className="rounded-full border border-white/10 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-white/10 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {command}
           </button>
@@ -441,7 +442,7 @@ export function WorkbenchTerminalPanel({
         {modeTabs}
         {commandBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-          <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">terminal</span>
+          <Icon name="terminal" className="text-[28px] text-[var(--color-pib-text-muted)]" />
           <p className="text-xs font-medium text-[var(--color-pib-text)]">No terminal activity yet</p>
           <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
             Run an allowlisted command, or watch agent tool calls stream here.
@@ -459,7 +460,7 @@ export function WorkbenchTerminalPanel({
         {entries.map((entry) => (
           <div key={entry.id} className="overflow-hidden rounded-lg border border-white/10 bg-[#050505]/80">
             <div className="flex items-center gap-2 border-b border-white/5 px-2 py-1 text-[10px]">
-              <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[entry.status] ?? STATUS_DOT.info}`} />
+              <span aria-hidden="true" className={`h-2 w-2 shrink-0 ${STATUS_DOT[entry.status] ?? STATUS_DOT.info}`} style={{ borderRadius: '50%' }} />
               <span className="min-w-0 flex-1 truncate text-primary">{entry.label}</span>
               <span className="shrink-0 text-[var(--color-pib-text-muted)]/70">{entry.meta}</span>
             </div>

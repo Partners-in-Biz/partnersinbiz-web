@@ -58,7 +58,7 @@ export default function SequenceDeadLetterControl({
 
   if (items.length === 0 && !error) return null
   return (
-    <section className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] p-3" aria-label="Journey delivery failures">
+    <section className="mt-3 rounded-lg border border-amber-400/20 bg-[var(--st-warning)]/[0.05] p-3" aria-label="Journey delivery failures">
       <div className="mb-2">
         <p className="text-xs font-medium">Delivery failures</p>
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">Review and safely requeue the current step.</p>

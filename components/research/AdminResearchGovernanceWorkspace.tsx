@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -88,7 +90,7 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
         description="Configure how this organisation collects evidence, manages internal findings, converts research into client-ready work, and controls destructive research actions."
         actions={(
           <Link href={`/admin/org/${encodeURIComponent(orgSlug)}/research/new`} className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">post_add</span>
+            <Icon name="post_add" />
             New internal note
           </Link>
         )}
@@ -97,14 +99,14 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
       <Surface className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow !text-[10px]">Research access</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use research</h2>
+            <p className="sc-tiny !text-[10px]">Research access</p>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">Who can use research</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Every action exposes the same role choices so each organisation can choose its own research rules.
             </p>
           </div>
           <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-card-border)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined text-[20px] leading-none">manage_search</span>
+            <Icon name="manage_search" />
           </span>
         </div>
 
@@ -127,8 +129,8 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
       <Surface className="p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="eyebrow !text-[10px]">Research types</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default research types plus organisation custom types</h2>
+            <p className="sc-tiny !text-[10px]">Research types</p>
+            <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">Default research types plus organisation custom types</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Keep standard market, competitor, product, evidence, and recommendation workflows available by default. Add organisation-specific research types here.
             </p>
@@ -139,9 +141,9 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
               onChange={(event) => setNewTypeName(event.target.value)}
               placeholder="Custom research type"
               className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
-            />
+             aria-label="Custom research type"/>
             <button type="button" onClick={addResearchType} className="pib-btn-secondary shrink-0">
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <Icon name="add" />
               Add
             </button>
           </div>
@@ -152,10 +154,10 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
             <div key={type.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{type.label}</h3>
+                  <h3 className="text-sm text-[var(--color-pib-text)]">{type.label}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{type.description}</p>
                 </div>
-                <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="rounded border border-[var(--color-card-border)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {type.locked ? 'Default' : 'Custom'}
                 </span>
               </div>
@@ -165,7 +167,7 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
                 onClick={() => removeResearchType(type.id)}
                 className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <span className="material-symbols-outlined text-[15px]">delete</span>
+                <Icon name="delete" />
                 {type.locked ? 'Default cannot be deleted yet' : 'Delete custom type'}
               </button>
             </div>
@@ -176,8 +178,8 @@ export function AdminResearchGovernanceWorkspace({ orgSlug }: AdminResearchGover
       </Surface>
 
       <Surface className="p-5">
-        <p className="eyebrow !text-[10px]">Research-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What research owners control inside a research item</h2>
+        <p className="sc-tiny !text-[10px]">Research-owner settings</p>
+        <h2 className="mt-2 text-lg text-[var(--color-pib-text)]">What research owners control inside a research item</h2>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These research-level permissions belong inside each research item settings flow, separate from the admin module rules.
         </p>

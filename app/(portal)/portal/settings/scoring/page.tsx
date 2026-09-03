@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { IcpProfileEditor } from '@/components/crm/IcpProfileEditor'
@@ -86,9 +88,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <Icon name={icon} />
       </div>
-      <p className="mt-3 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -112,21 +114,21 @@ function PriorityAction({
   return (
     <div className="pib-card min-w-0 !p-4">
       <div className="mb-4 flex items-start justify-between gap-3">
-        <span className="pib-icon-tint-cyan shrink-0">
-          <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        <span className="shrink-0">
+          <Icon name={icon} />
         </span>
         <span className="pib-pill pib-pill-cyan">
           {value}
         </span>
       </div>
-      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{label}</h3>
+      <h3 className="text-sm text-[var(--color-pib-text)]">{label}</h3>
       <p className="mt-2 min-h-[40px] text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
       <button
         type="button"
         onClick={onClick}
         className="btn-pib-secondary mt-4 w-full justify-center"
       >
-        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+        <Icon name="arrow_forward" />
         {actionLabel}
       </button>
     </div>
@@ -238,7 +240,7 @@ export default function ScoringPage() {
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error ?? 'Recompute failed')
       const { processed = 0, succeeded = 0, failed = 0 } = body.data ?? body
-      setRecomputeMsg(`Done — ${processed} processed, ${succeeded} succeeded, ${failed} failed.`)
+      setRecomputeMsg(`Done - ${processed} processed, ${succeeded} succeeded, ${failed} failed.`)
     } catch (err: unknown) {
       setRecomputeMsg(err instanceof Error ? err.message : 'Recompute failed')
     } finally {
@@ -277,7 +279,7 @@ export default function ScoringPage() {
                       disabled={saving || loading || hasSourceFailure}
                       className="btn-pib-primary btn-pib-sm"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+                      <Icon name="save" />
                       {saving ? 'Saving...' : 'Save model'}
                     </button>
                     <button
@@ -286,7 +288,7 @@ export default function ScoringPage() {
                       disabled={recomputing || loading || hasSourceFailure}
                       className="btn-pib-secondary btn-pib-sm"
                     >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                      <Icon name="refresh" />
                       {recomputing ? 'Recomputing...' : 'Recompute all'}
                     </button>
                   </div>
@@ -310,12 +312,10 @@ export default function ScoringPage() {
         <section className="pib-card">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint mt-0.5 shrink-0">
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-              </span>
+              <Icon name="warning" />
               <div>
                 <p className="eyebrow">Source health</p>
-                <h2 className="mt-1 font-display text-xl">
+                <h2 className="mt-1 text-xl">
                   Scoring model could not load
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
@@ -327,7 +327,7 @@ export default function ScoringPage() {
               className="btn-pib-secondary shrink-0"
               aria-label="Retry loading scoring model"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>
@@ -343,12 +343,10 @@ export default function ScoringPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex gap-3">
-                  <span className="pib-icon-tint mt-0.5 shrink-0">
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
-                  </span>
+                  <Icon name="warning" />
                   <div>
                     <p className="eyebrow">Score recompute confirmation</p>
-                    <h2 id="recompute-confirm-title" className="mt-1 font-display text-lg">
+                    <h2 id="recompute-confirm-title" className="mt-1 text-lg">
                       Recompute scores for all contacts?
                     </h2>
                     <p id="recompute-confirm-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
@@ -372,9 +370,7 @@ export default function ScoringPage() {
                     disabled={recomputing}
                     aria-label="Confirm recompute all contact scores"
                   >
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                      refresh
-                    </span>
+                    <Icon name="refresh" />
                     {recomputing ? 'Recomputing...' : 'Recompute scores'}
                   </button>
                 </div>
@@ -396,8 +392,8 @@ export default function ScoringPage() {
                     <span className="text-[var(--color-pib-text-muted)]">ICP fit coverage</span>
                     <span className="font-mono text-[var(--color-pib-text)]">{Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
-                    <div className="h-full rounded-full bg-[var(--color-pib-cyan)]" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--color-pib-line)]">
+                    <div className="h-full rounded bg-[var(--sc-ink-soft)]" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
                   </div>
                 </div>
                 <div>
@@ -405,8 +401,8 @@ export default function ScoringPage() {
                     <span className="text-[var(--color-pib-text-muted)]">Lead engagement weight</span>
                     <span className="font-mono text-[var(--color-pib-text)]">{totalWeight} pts</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
-                    <div className="h-full rounded-full bg-[var(--color-pib-success)]" style={{ width: `${Math.min(100, Math.round((totalWeight / 80) * 100))}%` }} />
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-[var(--color-pib-line)]">
+                    <div className="h-full rounded bg-[var(--color-pib-success)]" style={{ width: `${Math.min(100, Math.round((totalWeight / 80) * 100))}%` }} />
                   </div>
                 </div>
               </div>
@@ -441,7 +437,7 @@ export default function ScoringPage() {
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.75fr)_minmax(320px,1.25fr)]">
                 <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
                   <p className="pib-label">Model setup priorities</p>
-                  <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+                  <h2 className="mt-3 text-xl text-[var(--color-pib-text)]">
                     Turn scoring gaps into sales focus
                   </h2>
                   <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -527,21 +523,21 @@ export default function ScoringPage() {
                 checked={aiEnabled}
                 onChange={(e) => setAiEnabled(e.target.checked)}
               />
-              <div className="h-6 w-10 rounded-full bg-[var(--color-pib-line-strong)] transition-colors peer-checked:bg-[var(--color-pib-accent)]" />
-              <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+              <div className="h-6 w-10 rounded bg-[var(--color-pib-line-strong)] transition-colors peer-checked:bg-[var(--color-pib-accent)]" />
+              <div className="absolute left-1 top-1 h-4 w-4 rounded bg-white shadow transition-transform peer-checked:translate-x-4" />
             </label>
           </div>
 
           {/* Save feedback */}
           {saveMsg && (
             <p className="flex items-center gap-1.5 text-sm text-[var(--color-pib-success)]">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              <Icon name="check_circle" />
               {saveMsg}
             </p>
           )}
           {saveError && (
             <p className="flex items-center gap-1.5 text-sm text-[var(--color-error)]">
-              <span className="material-symbols-outlined text-[16px]">error</span>
+              <Icon name="error" />
               {saveError}
             </p>
           )}
@@ -549,7 +545,7 @@ export default function ScoringPage() {
           {/* Recompute feedback */}
           {recomputeMsg && (
             <p className="flex items-center gap-1.5 text-sm text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[16px]">info</span>
+              <Icon name="info" />
               {recomputeMsg}
             </p>
           )}

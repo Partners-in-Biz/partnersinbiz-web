@@ -99,7 +99,7 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   return (
     <section className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">Ad platform connections</h1>
+        <h1 className="text-2xl font-medium">Ad platform connections</h1>
         <p className="text-sm text-white/60 mt-1">
           Link ad platforms to manage paid social campaigns from PiB for {orgSlug}.
         </p>
@@ -114,7 +114,7 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Disconnect Meta ads connection?</h2>
+              <h2 className="font-medium text-red-100">Disconnect Meta ads connection?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 This revokes Meta ad account access for this workspace. Campaign history stays in PiB.
               </p>

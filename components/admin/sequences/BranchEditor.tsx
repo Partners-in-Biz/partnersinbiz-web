@@ -73,7 +73,7 @@ export default function BranchEditor({
           {eff.rules.map((rule, i) => (
             <div key={i} className="p-2 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--color-pib-text)]">Rule {i + 1}</span>
+                <span className="text-xs font-medium text-[var(--color-pib-text)]">Rule {i + 1}</span>
                 <button
                   onClick={() => removeRule(i)}
                   className="text-xs text-red-600 hover:underline"

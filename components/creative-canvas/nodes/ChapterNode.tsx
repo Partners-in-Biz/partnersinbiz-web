@@ -28,7 +28,7 @@ function ChapterNodeComponent({ data, selected }: NodeProps) {
             fontSize: 12,
             padding: 8,
           }}
-        />
+         aria-label="Write the chapter…"/>
       </div>
     </BaseNodeCard>
   )

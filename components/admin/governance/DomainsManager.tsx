@@ -37,7 +37,7 @@ const EMPTY: DomainsResult = {
 }
 
 function fmt(value: string | null): string {
-  if (!value) return '—'
+  if (!value) return ' - '
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? value : d.toISOString().replace('T', ' ').slice(0, 16)
 }
@@ -45,7 +45,7 @@ function fmt(value: string | null): string {
 function sslBadge(status: SslStatus): string {
   if (status === 'active') return 'bg-green-500/15 text-green-300'
   if (status === 'failed') return 'bg-red-500/15 text-red-300'
-  return 'bg-amber-500/15 text-amber-300'
+  return 'bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)] text-[var(--st-warning)]'
 }
 
 export function DomainsManager() {
@@ -91,7 +91,7 @@ export function DomainsManager() {
         if (action === 'verify') {
           setNotice(
             payload.verified
-              ? { tone: 'ok', text: `DNS verified — SSL is now active for ${orgId}.` }
+              ? { tone: 'ok', text: `DNS verified  -  SSL is now active for ${orgId}.` }
               : { tone: 'warn', text: `DNS not yet pointing at ${data.cnameTarget}. ${payload.domain?.lastError ?? ''}` },
           )
         } else {
@@ -134,10 +134,10 @@ export function DomainsManager() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">White-label Domains</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">White-label Domains</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Provision and manage custom client portal domains across{' '}
-            {data.scope === 'restricted' ? 'your assigned' : 'all'} organisations — verify DNS, provision SSL, or revoke.
+            {data.scope === 'restricted' ? 'your assigned' : 'all'} organisations  -  verify DNS, provision SSL, or revoke.
           </p>
         </div>
         <a
@@ -158,13 +158,13 @@ export function DomainsManager() {
         ].map((m) => (
           <div key={m.label} className="pib-card">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m.value}</p>
+            <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{m.value}</p>
           </div>
         ))}
       </div>
 
       <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-        DNS target — every custom domain must CNAME to{' '}
+        DNS target  -  every custom domain must CNAME to{' '}
         <span className="font-mono text-[var(--color-pib-text)]">{data.cnameTarget}</span>
       </div>
 
@@ -174,7 +174,7 @@ export function DomainsManager() {
             notice.tone === 'ok'
               ? 'border-green-500/20 bg-green-500/10 text-green-300'
               : notice.tone === 'warn'
-                ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                ? 'border-amber-500/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                 : 'border-red-500/20 bg-red-500/10 text-red-300'
           }`}
         >
@@ -187,7 +187,7 @@ export function DomainsManager() {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
         <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
             <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
@@ -228,7 +228,7 @@ export function DomainsManager() {
                       <p className="font-medium text-[var(--color-pib-text)] font-mono text-xs break-all">
                         {row.customDomain || 'No custom domain'}
                       </p>
-                      {row.lastError && <p className="text-[11px] text-amber-300/80 mt-0.5">{row.lastError}</p>}
+                      {row.lastError && <p className="text-[11px] text-[color-mix(in_srgb,var(--st-warning)_80%,transparent)] mt-0.5">{row.lastError}</p>}
                     </td>
                     <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">
                       <a className="hover:text-[var(--color-pib-text)]" href={`/admin/org/${row.slug}/settings`}>

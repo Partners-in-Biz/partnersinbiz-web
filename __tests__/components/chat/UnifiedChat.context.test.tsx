@@ -589,7 +589,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(alert).getByText('Computer reconnecting')).toBeInTheDocument()
     expect(alert).toHaveTextContent('Studio Mac is reconnecting. This session remains linked to it; messages will queue on this computer and resume automatically when it is ready, within the 45-minute queue window.')
     expect(screen.queryByText(/Office PC was selected/i)).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Computer reconnecting — messages will queue')).toBeEnabled()
+    expect(screen.getByPlaceholderText('Computer reconnecting - messages will queue')).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
     await waitFor(() => expect(resolveRecovery).toBeDefined())
     await act(async () => { resolveRecovery?.() })
@@ -844,7 +844,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 
     await waitFor(() => expect(postAttempts).toBe(2))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New conversation' })).not.toBeInTheDocument())
-    expect(await screen.findByText(/Chat was created — connection dropped/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Chat was created - connection dropped/i)).toBeInTheDocument()
     expect(screen.getByTestId('conversation-title')).toHaveTextContent('New conversation')
 
     const firstHeaders = postHeaders[0] as Record<string, string>

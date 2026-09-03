@@ -68,7 +68,7 @@ export function CreativeUploader({
       if (!urlBody.success) throw new Error(urlBody.error ?? `HTTP ${urlRes.status}`)
       const { creativeId, uploadUrl } = urlBody.data as { creativeId: string; uploadUrl: string }
 
-      // Step 2 — PUT direct to GCS
+      // Step 2 - PUT direct to GCS
       const putRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type },
@@ -76,7 +76,7 @@ export function CreativeUploader({
       })
       if (!putRes.ok) throw new Error(`Storage upload failed: HTTP ${putRes.status}`)
 
-      // Step 3 — finalize
+      // Step 3 - finalize
       setState({ kind: 'finalizing' })
       const finRes = await fetch(`/api/v1/ads/creatives/${creativeId}/finalize`, {
         method: 'POST',
@@ -113,7 +113,8 @@ export function CreativeUploader({
             ref={inputRef}
             type="file"
             accept={acceptString(accept)}
-            className="hidden"
+            className="sr-only"
+            data-impeccable-disable="content-invisible-at-rest"
             onChange={(e) => {
               const f = e.target.files?.[0]
               if (f) handlePicked(f)
@@ -168,7 +169,7 @@ export function CreativeUploader({
 
       {state.kind === 'finalizing' && (
         <div className="rounded-lg border border-white/10 p-4 text-sm text-white/60">
-          Processing — generating preview…
+          Processing - generating preview…
         </div>
       )}
 

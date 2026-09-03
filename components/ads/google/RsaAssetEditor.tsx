@@ -18,7 +18,7 @@ function CharCounter({ len, max }: { len: number; max: number }) {
   return (
     <span
       className={`ml-1 text-xs tabular-nums ${
-        len > max ? 'text-red-400' : 'text-white/30'
+        len > max ? 'text-[var(--st-danger)]' : 'text-white/30'
       }`}
     >
       {len}/{max}
@@ -72,11 +72,11 @@ export function RsaAssetEditor({ value, onChange, disabled = false }: Props) {
   }
 
   const inputCls =
-    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[#F5A623]/60 disabled:opacity-50'
+    'flex-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)] disabled:opacity-50'
   const btnAdd =
-    'text-xs text-[#F5A623] border border-[#F5A623]/40 rounded px-2 py-1 hover:bg-[#F5A623]/10 disabled:opacity-40 disabled:cursor-not-allowed'
+    'text-xs text-[var(--sc-accent)] border border-[color-mix(in_srgb,var(--sc-accent)_40%,transparent)] rounded px-2 py-1 hover:bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] disabled:opacity-40 disabled:cursor-not-allowed'
   const btnRemove =
-    'ml-2 text-xs text-white/30 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed'
+    'ml-2 text-xs text-white/30 hover:text-[var(--st-danger)] disabled:opacity-30 disabled:cursor-not-allowed'
 
   return (
     <div className="space-y-6">

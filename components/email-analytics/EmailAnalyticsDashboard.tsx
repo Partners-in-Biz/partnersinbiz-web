@@ -112,14 +112,14 @@ export default function EmailAnalyticsDashboard({
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="pib-input h-8 w-auto py-1 text-xs"
-            />
+             aria-label="Input"/>
             <label className="pib-label">To</label>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="pib-input h-8 w-auto py-1 text-xs"
-            />
+             aria-label="Input"/>
           </div>
         }
         tabs={
@@ -197,7 +197,7 @@ function OverviewTab({ orgId, from, to }: { orgId: string; from: string; to: str
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="pib-skeleton h-24 rounded-xl" />
+          <div key={i} className="pib-skeleton h-24 rounded-[6px]" />
         ))}
       </div>
     )
@@ -341,7 +341,7 @@ function EngagementTab({ orgId }: { orgId: string }) {
       </div>
 
       {loading ? (
-        <div className="pib-skeleton h-64 rounded-xl" />
+        <div className="pib-skeleton h-64 rounded-[6px]" />
       ) : rows.length === 0 ? (
         <Empty>No contacts match this filter.</Empty>
       ) : (
@@ -372,7 +372,7 @@ function EngagementTab({ orgId }: { orgId: string }) {
                   <span className="pib-pill">{r.status}</span>
                 </td>
                 <td className="py-2 text-[var(--color-pib-text-muted)] text-xs">
-                  {r.lastEngagedAt ? new Date(r.lastEngagedAt).toLocaleDateString() : '—'}
+                  {r.lastEngagedAt ? new Date(r.lastEngagedAt).toLocaleDateString() : ' - '}
                 </td>
               </tr>
             ))}
@@ -432,7 +432,7 @@ function BroadcastsTab({
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const overview = state.overview
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (!overview || overview.topBroadcasts.length === 0) {
     return <Empty>No broadcasts in this window.</Empty>
   }
@@ -463,7 +463,7 @@ function BroadcastsTab({
               <Link
                 href={broadcastAnalyticsHref(b.id, surface, orgScope)}
                 aria-label={`Open analytics for ${b.name}`}
-                className="text-[var(--color-pib-blue)] hover:underline text-xs"
+                className="text-[var(--sc-ink-soft)] hover:underline text-xs"
               >
                 Details →
               </Link>
@@ -546,7 +546,7 @@ function SequencesTab({
   const loading = state.loading || state.key !== orgId
   const sequences = state.sequences
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
 
   return (
     <section>
@@ -554,7 +554,7 @@ function SequencesTab({
         <h2 className="text-sm font-medium text-[var(--color-pib-text-muted)]">Sequence performance</h2>
         <Link
           href={sequenceManagementHref(surface, orgScope)}
-          className="text-xs font-medium text-[var(--color-pib-blue)] hover:underline"
+          className="text-xs font-medium text-[var(--sc-ink-soft)] hover:underline"
         >
           Manage sequences
         </Link>
@@ -572,7 +572,7 @@ function SequencesTab({
               className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-[var(--color-row-hover)]"
             >
               <span className="font-medium text-[var(--color-pib-text)]">{sequence.name}</span>
-              <span className="text-xs text-[var(--color-pib-blue)]">Open analytics</span>
+              <span className="text-xs text-[var(--sc-ink-soft)]">Open analytics</span>
             </Link>
           ))
         )}
@@ -607,7 +607,7 @@ function LeaderboardTab({ from, to }: { from: string; to: string }) {
   const loading = state.loading || state.key !== `${from}|${to}`
   const rows = state.rows
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (rows.length === 0) return <Empty>No org activity in this window.</Empty>
 
   return (
@@ -664,11 +664,11 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (!data || data.cohorts.length === 0) {
     return (
       <Empty>
-        No cohort data — once contacts sign up in this window we can chart their week-over-week
+        No cohort data  -  once contacts sign up in this window we can chart their week-over-week
         engagement here.
       </Empty>
     )
@@ -684,7 +684,7 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
         Rows = ISO-week each cohort signed up (UTC Monday). Cells = % of cohort that opened or
         clicked an email that week.
       </p>
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+      <div className="overflow-x-auto rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <table className="w-full text-xs border-separate border-spacing-0">
           <thead>
             <tr>
@@ -711,7 +711,7 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
                 {headers.map((i) => {
                   const ret = c.retentionPercent[i]
                   if (typeof ret !== 'number') {
-                    return <td key={i} className="p-2 text-[var(--color-pib-text-muted)] text-center">—</td>
+                    return <td key={i} className="p-2 text-[var(--color-pib-text-muted)] text-center"> - </td>
                   }
                   const bg = heatmapShade(ret)
                   const fg = heatmapTextColor(ret)
@@ -769,7 +769,7 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (!data || (data.totalRevenue === 0 && data.totalConversions === 0)) {
     return (
       <Empty>
@@ -896,9 +896,9 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-[6px]" />
   if (!data || data.totalSamples === 0) {
-    return <Empty>No send activity in this window — nothing to plot.</Empty>
+    return <Empty>No send activity in this window  -  nothing to plot.</Empty>
   }
 
   // Compute max openRate to normalise the heatmap, and find best cell stats.
@@ -916,7 +916,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
         Open rates by day-of-week and hour, in the org&apos;s timezone ({data.timezone}). Cells
         need at least 10 sends to be eligible for best/worst.
       </p>
-      <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+      <div className="overflow-x-auto rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <table className="text-[10px] border-separate border-spacing-0 mx-auto">
           <thead>
             <tr>
@@ -954,7 +954,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
                             : 'border-[var(--color-pib-line)]'
                       }`}
                       style={{ background: bg, color: fg, minWidth: 28 }}
-                      title={`${DAY_LABELS[d]} ${String(h).padStart(2, '0')}:00 — ${pct(
+                      title={`${DAY_LABELS[d]} ${String(h).padStart(2, '0')}:00  -  ${pct(
                         cell.openRate,
                       )} open rate · ${cell.sent} sent`}
                     >
@@ -973,13 +973,13 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
       {bestCell && bestCell.sent >= 1 ? (
         <div className="pib-card text-sm text-[var(--color-pib-text)]">
           Best send time:{' '}
-          <span className="font-semibold text-[var(--color-pib-blue)]">
+          <span className="text-[var(--sc-ink-soft)]">
             {DAY_LABELS[data.bestDay]} at {String(data.bestHour).padStart(2, '0')}:00
           </span>{' '}
-          — {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
+           -  {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
         </div>
       ) : (
-        <Empty>Not enough data yet to pick a best slot — keep sending.</Empty>
+        <Empty>Not enough data yet to pick a best slot  -  keep sending.</Empty>
       )}
     </div>
   )
@@ -1010,13 +1010,13 @@ function bandColor(band: PerformanceBand, direction: 'higher' | 'lower'): string
   // For "lower is better" (bounce/unsub): above-p75 red, below-p25 green.
   if (direction === 'higher') {
     if (band === 'above-p75') return 'text-emerald-400'
-    if (band === 'p50-p75') return 'text-amber-300'
-    if (band === 'p25-p50') return 'text-[var(--color-pib-blue)]'
-    return 'text-red-400'
+    if (band === 'p50-p75') return 'text-[var(--sc-ink-soft)]'
+    if (band === 'p25-p50') return 'text-[var(--sc-ink-soft)]'
+    return 'text-[var(--st-danger)]'
   }
-  if (band === 'above-p75') return 'text-red-400'
-  if (band === 'p50-p75') return 'text-[var(--color-pib-blue)]'
-  if (band === 'p25-p50') return 'text-amber-300'
+  if (band === 'above-p75') return 'text-[var(--st-danger)]'
+  if (band === 'p50-p75') return 'text-[var(--sc-ink-soft)]'
+  if (band === 'p25-p50') return 'text-[var(--sc-ink-soft)]'
   return 'text-emerald-400'
 }
 
@@ -1071,7 +1071,7 @@ function BenchmarksTab({ orgId, from, to }: { orgId: string; from: string; to: s
           value={industry}
           onChange={(e) => setIndustry(e.target.value)}
           className="pib-select w-auto"
-        >
+         aria-label="Input">
           <option value="">Auto (org default)</option>
           {INDUSTRIES.map((i) => (
             <option key={i} value={i}>
@@ -1082,7 +1082,7 @@ function BenchmarksTab({ orgId, from, to }: { orgId: string; from: string; to: s
       </div>
 
       {loading ? (
-        <div className="pib-skeleton h-64 rounded-xl" />
+        <div className="pib-skeleton h-64 rounded-[6px]" />
       ) : !data ? (
         <Empty>Could not load benchmarks.</Empty>
       ) : (
@@ -1105,7 +1105,7 @@ function BenchmarksTable({ data }: { data: BenchmarkComparison }) {
   ]
 
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] overflow-hidden">
+    <div className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] overflow-hidden">
       <table className="w-full text-sm">
         <thead className="text-[var(--color-pib-text-muted)] text-left">
           <tr className="border-b border-[var(--color-pib-line)]">
@@ -1133,12 +1133,12 @@ function BenchmarksTable({ data }: { data: BenchmarkComparison }) {
                 ? arrow === '↑'
                   ? 'text-emerald-400'
                   : arrow === '↓'
-                    ? 'text-red-400'
+                    ? 'text-[var(--st-danger)]'
                     : 'text-[var(--color-pib-text-muted)]'
                 : arrow === '↓'
                   ? 'text-emerald-400'
                   : arrow === '↑'
-                    ? 'text-red-400'
+                    ? 'text-[var(--st-danger)]'
                     : 'text-[var(--color-pib-text-muted)]'
             return (
               <tr key={row.key} className="border-t border-[var(--color-pib-line)]">
@@ -1195,7 +1195,7 @@ function Kpi({
   return (
     <div className="pib-stat-card p-3" data-module-accent="blue">
       <div className="pib-label text-[10px] tracking-[0.14em]">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${tone === 'warn' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
+      <div className={`mt-1 text-xl  tabular-nums tracking-tight ${tone === 'warn' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
       {sub && <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</div>}

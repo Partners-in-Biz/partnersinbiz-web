@@ -28,19 +28,19 @@ const CHANNEL_STYLES: Record<string, { label: string; badge: string; frame: stri
   instagram_square: {
     label: 'Instagram square',
     badge: 'IG 1:1',
-    frame: 'aspect-square bg-gradient-to-br from-fuchsia-500/25 via-rose-500/20 to-amber-400/25',
+    frame: 'aspect-square -br   ',
     icon: '◎',
   },
   instagram_reel: {
     label: 'Instagram reel',
     badge: 'IG Reel',
-    frame: 'aspect-[9/16] max-h-64 bg-gradient-to-b from-purple-500/25 via-pink-500/20 to-orange-400/20',
+    frame: 'aspect-[9/16] max-h-64 -b   ',
     icon: '▶',
   },
   instagram_story: {
     label: 'Instagram story',
     badge: 'IG Story',
-    frame: 'aspect-[9/16] max-h-64 bg-gradient-to-b from-indigo-500/25 via-fuchsia-500/20 to-rose-400/20',
+    frame: 'aspect-[9/16] max-h-64 -b   ',
     icon: '◌',
   },
   facebook: {
@@ -153,7 +153,7 @@ function MediaPane({ post, style }: { post: ScheduledContentPost; style: (typeof
   const posterUrl = isVideo && !isVideoSource(media?.thumbnailUrl) ? media?.thumbnailUrl : undefined
 
   return (
-    <div className={`${style.frame} relative overflow-hidden rounded-2xl border border-white/10 flex items-center justify-center`}>
+    <div className={`${style.frame} relative overflow-hidden rounded-[6px] border border-white/10 flex items-center justify-center`}>
       {videoUrl ? (
         <video
           src={videoUrl}
@@ -173,7 +173,7 @@ function MediaPane({ post, style }: { post: ScheduledContentPost; style: (typeof
       {isVideo && (
         <span className="absolute inset-0 grid place-items-center text-3xl text-white drop-shadow">▶</span>
       )}
-      <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[9px] font-label uppercase tracking-wide text-white">
+      <span className="absolute left-2 top-2 rounded bg-black/55 px-2 py-1 text-[9px] font-label uppercase tracking-wide text-white">
         {style.badge}
       </span>
     </div>
@@ -216,7 +216,7 @@ export function ScheduledContentPreviewCards({
           {Array.from({ length: 4 }).map((_, i) => <div key={i} className="pib-skeleton h-56" />)}
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-outline)]/50 p-8 text-center">
+        <div className="rounded-[6px] border border-dashed border-[var(--color-outline)]/50 p-8 text-center">
           <p className="text-sm font-medium text-[var(--color-pib-text)]">No scheduled content today.</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Create a post or approve queued content to see native cards here.</p>
         </div>
@@ -230,7 +230,7 @@ export function ScheduledContentPreviewCards({
                 key={post.id}
                 data-testid={`scheduled-preview-${post.id}`}
                 href={hrefForPost?.(post) ?? defaultPostHref(slug, post)}
-                className="group rounded-3xl border border-white/10 bg-[var(--color-pib-surface)]/70 p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:shadow-lg"
+                className="group rounded-[6px] border border-white/10 bg-[var(--color-pib-surface)]/70 p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:"
               >
                 <MediaPane post={post} style={style} />
                 <div className="mt-3 space-y-2">

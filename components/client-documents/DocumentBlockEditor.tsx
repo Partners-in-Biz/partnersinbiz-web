@@ -32,7 +32,7 @@ export function DocumentBlockEditor({
           <span className="pib-pill !text-[10px] !py-0.5 !px-2">
             {visibility.replace('-', ' ')}
           </span>
-          {block.locked && <span className="text-[10px] text-amber-400">Locked</span>}
+          {block.locked && <span className="text-[10px] text-[var(--st-warning)]">Locked</span>}
         </div>
         <label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/45">
           Visibility

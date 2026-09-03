@@ -205,7 +205,7 @@ export function CommentThread({ adId, orgId, currentUserUid, isAdmin }: CommentT
                     <span>·</span>
                     <span>{relativeTime(comment.createdAt)}</span>
                     {comment.resolved && (
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">
+                      <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">
                         resolved
                       </span>
                     )}

@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import {
+import { Icon } from '@/components/studio'
   DndContext,
   closestCenter,
   PointerSensor,
@@ -43,8 +44,8 @@ function countKind(stages: PipelineStage[], kind: StageKind): number {
 
 function StageWarning({ message }: { message: string }) {
   return (
-    <p className="mt-1 flex items-center gap-1 text-xs text-amber-200">
-      <span className="material-symbols-outlined text-[14px]">warning</span>
+    <p className="mt-1 flex items-center gap-1 text-xs text-[var(--st-warning)]">
+      <Icon name="warning" className="text-[14px]" />
       {message}
     </p>
   )
@@ -89,7 +90,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         {...listeners}
         className="shrink-0 cursor-grab touch-none text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] active:cursor-grabbing"
       >
-        <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
+        <Icon name="drag_indicator" className="text-[16px]" />
       </button>
 
       {/* Label input */}
@@ -148,7 +149,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         disabled={!canRemove}
         className="shrink-0 cursor-pointer text-[var(--color-pib-text-muted)] transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        <span className="material-symbols-outlined text-[16px]">close</span>
+        <Icon name="close" className="text-[16px]" />
       </button>
     </div>
   )
@@ -200,7 +201,7 @@ export function StageEditor({ stages, onChange }: StageEditorProps) {
 
   return (
     <div className="space-y-2">
-      {/* Warnings — client-side hints, server enforces */}
+      {/* Warnings - client-side hints, server enforces */}
       {wonCount === 0 && <StageWarning message="At least one Won stage is required." />}
       {wonCount > 1 && <StageWarning message="Only one Won stage allowed per pipeline." />}
       {lostCount === 0 && <StageWarning message="At least one Lost stage is required." />}
@@ -232,7 +233,7 @@ export function StageEditor({ stages, onChange }: StageEditorProps) {
         onClick={handleAddStage}
         className="mt-2 flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs text-[var(--color-accent-text)] transition hover:bg-white/[0.05]"
       >
-        <span className="material-symbols-outlined text-[14px]">add</span>
+        <Icon name="add" className="text-[14px]" />
         Add stage
       </button>
     </div>

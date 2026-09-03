@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import type { ChatContextActionReceipt } from '@/lib/chat-context/types'
 
 const receiptPresentation = {
@@ -21,7 +22,7 @@ const receiptPresentation = {
   indeterminate: {
     icon: 'help',
     label: 'Result needs checking',
-    className: 'border-amber-400/30 bg-amber-500/10 text-amber-100',
+    className: 'border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]',
   },
 } as const
 
@@ -40,15 +41,13 @@ export function ContextActionReceiptCard({ receipt }: { receipt: ChatContextActi
       aria-label="Action receipt"
       data-testid="context-action-receipt"
       data-status={receipt.status}
-      className={`rounded-xl border p-3 ${presentation.className}`}
+      className={`rounded-[6px] border p-3 ${presentation.className}`}
     >
       <div className="flex items-start gap-2">
-        <span aria-hidden="true" className={`material-symbols-outlined mt-0.5 text-[18px] ${receipt.status === 'running' ? 'animate-spin' : ''}`}>
-          {presentation.icon}
-        </span>
+        <Icon name={presentation.icon} className={`mt-0.5 text-[18px] ${receipt.status === 'running' ? 'animate-spin' : ''}`} />
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-label uppercase tracking-[0.16em]">{presentation.label}</p>
-          <p className="mt-1 text-xs font-semibold">{receipt.action.label}</p>
+          <p className="mt-1 text-xs font-medium">{receipt.action.label}</p>
           {receipt.error && <p className="mt-1 text-[11px] leading-relaxed opacity-85">{receipt.error}</p>}
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] opacity-70">
             <span>Receipt {receipt.id.slice(0, 10)}</span>
@@ -58,8 +57,8 @@ export function ContextActionReceiptCard({ receipt }: { receipt: ChatContextActi
           </div>
         </div>
         {receipt.resultHref && (
-          <a href={receipt.resultHref} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-current/20 px-2 text-[10px] font-semibold">
-            Open<span aria-hidden="true" className="material-symbols-outlined text-[13px]">open_in_new</span>
+          <a href={receipt.resultHref} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-current/20 px-2 text-[10px] font-medium">
+            Open<Icon name="open_in_new" className="text-[13px]" />
           </a>
         )}
       </div>

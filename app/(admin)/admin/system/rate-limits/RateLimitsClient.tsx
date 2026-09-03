@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { Button, Icon, Notice, Skeleton } from '@/components/studio'
 
 interface PlanConfig {
   planKey: string
@@ -48,11 +50,8 @@ interface Data {
 }
 interface SessionInfo { isSuperAdmin?: boolean }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
-}
 function fmtTime(ms: number | null): string {
-  if (ms === null) return '—'
+  if (ms === null) return '-'
   return new Date(ms).toLocaleString()
 }
 function fmtWindow(ms: number): string {
@@ -175,38 +174,33 @@ export default function RateLimitsClient() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto" data-module-accent="cyan">
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="eyebrow">System · Ops</p>
-          <h1 className="pib-page-title mt-2">Rate Limits</h1>
-          <p className="pib-page-sub">
-            Per-plan usage limits and per-API request ceilings, live usage counters, at-ceiling events, and
-            temporary per-org overrides.
-          </p>
-        </div>
-        <button onClick={load} className="btn-pib-ghost btn-pib-sm flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
-          Refresh
-        </button>
-      </header>
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <PageHeader
+        eyebrow="System · Ops"
+        title="Rate limits."
+        description="Per-plan usage limits and per-API request ceilings, live usage counters, at-ceiling events, and temporary per-org overrides."
+        actions={(
+          <Button variant="ghost" size="sm" onClick={load} aria-label="Refresh rate limits">
+            <Icon name="refresh" />
+            Refresh
+          </Button>
+        )}
+      />
 
-      {toast && <div className="pib-card px-4 py-2 text-sm text-[var(--color-pib-green)]">{toast}</div>}
-      {error && <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">{error}</div>}
-      {data?.seeded && data.seeded.length > 0 && (
-        <div className="pib-card px-4 py-2 text-xs text-[var(--color-pib-blue)]">
-          Seeded config docs from real defaults: {data.seeded.join(', ')}
-        </div>
-      )}
+      {toast ? <Notice tone="success">{toast}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {data?.seeded && data.seeded.length > 0 ? (
+        <Notice tone="info">Seeded config docs from real defaults: {data.seeded.join(', ')}</Notice>
+      ) : null}
 
       {loading && !data ? (
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-[6px]" />
       ) : data ? (
         <>
           {/* Per-plan editable limits */}
-          <section className="pib-card overflow-hidden">
+          <section className="st-panel overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)]">
-              <h2 className="pib-label">Per-plan usage limits</h2>
+              <h2 className="sc-tiny">Per-plan usage limits</h2>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">Seeded from the live plans collection. -1 = unlimited. Editable by super-admins.</p>
             </div>
             {data.plans.length === 0 ? (
@@ -219,11 +213,11 @@ export default function RateLimitsClient() {
                     <div key={p.planKey} className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{p.planName}</span>
+                          <span className="text-sm font-medium text-[var(--color-pib-text)]">{p.planName}</span>
                           <span className="ml-2 text-[10px] font-mono text-[var(--color-pib-text-muted)]">{p.planKey}</span>
                         </div>
                         {isSuperAdmin && (
-                          <button onClick={() => savePlan(p.planKey)} disabled={savingPlan === p.planKey} className="btn-pib-primary btn-pib-sm font-label disabled:opacity-50">
+                          <button onClick={() => savePlan(p.planKey)} disabled={savingPlan === p.planKey} className="st-btn st-btn--primary st-btn--sm font-label disabled:opacity-50">
                             {savingPlan === p.planKey ? 'Saving...' : 'Save'}
                           </button>
                         )}
@@ -234,11 +228,11 @@ export default function RateLimitsClient() {
                         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
                           {keys.map((k) => (
                             <label key={k} className="space-y-1">
-                              <span className="pib-label">{k}</span>
+                              <span className="sc-tiny">{k}</span>
                               <input
                                 type="number"
                                 disabled={!isSuperAdmin}
-                                className="pib-input w-full text-sm font-mono disabled:opacity-60"
+                                className="st-input w-full text-sm font-mono disabled:opacity-60"
                                 value={edits[p.planKey]?.[k] ?? String(p.limits[k])}
                                 onChange={(e) => setEdits((prev) => ({ ...prev, [p.planKey]: { ...prev[p.planKey], [k]: e.target.value } }))}
                               />
@@ -254,9 +248,9 @@ export default function RateLimitsClient() {
           </section>
 
           {/* Per-API ceilings (read-only display of real call-site limits) */}
-          <section className="pib-card overflow-hidden">
+          <section className="st-panel overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)]">
-              <h2 className="pib-label">Per-API request ceilings</h2>
+              <h2 className="sc-tiny">Per-API request ceilings</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -281,9 +275,9 @@ export default function RateLimitsClient() {
           </section>
 
           {/* Live usage */}
-          <section className="pib-card overflow-hidden">
+          <section className="st-panel overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)] flex items-center justify-between">
-              <h2 className="pib-label">Live usage counters</h2>
+              <h2 className="sc-tiny">Live usage counters</h2>
               <span className="text-xs text-[var(--color-pib-text-muted)]">{data.usage.length} keys</span>
             </div>
             {data.usage.length === 0 ? (
@@ -302,7 +296,7 @@ export default function RateLimitsClient() {
                       <tr key={u.key} className="border-b border-[var(--color-pib-line)]">
                         <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)] truncate max-w-[280px]" title={u.key}>{u.key}</td>
                         <td className={`px-3 py-2 font-mono ${u.ceiling !== null && u.count >= u.ceiling ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>{u.count}</td>
-                        <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)]">{u.ceiling ?? '—'}</td>
+                        <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)]">{u.ceiling ?? '-'}</td>
                         <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{u.active ? fmtTime(u.resetAtMs) : 'expired'}</td>
                       </tr>
                     ))}
@@ -313,9 +307,9 @@ export default function RateLimitsClient() {
           </section>
 
           {/* Events */}
-          <section className="pib-card overflow-hidden">
+          <section className="st-panel overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)]">
-              <h2 className="pib-label">At-ceiling events</h2>
+              <h2 className="sc-tiny">At-ceiling events</h2>
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">{data.eventsNote}</p>
             </div>
             {data.events.length === 0 ? (
@@ -324,7 +318,7 @@ export default function RateLimitsClient() {
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {data.events.map((ev) => (
                   <div key={ev.key} className="flex items-center gap-3 px-4 py-2.5 text-xs">
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-error)]">block</span>
+                    <Icon name="block" />
                     <span className="font-mono text-[var(--color-pib-text)] flex-1 truncate" title={ev.key}>{ev.key}</span>
                     <span className="text-[var(--color-error)]">{ev.count}/{ev.ceiling}</span>
                     <span className="text-[var(--color-pib-text-muted)] whitespace-nowrap">resets {fmtTime(ev.resetAtMs)}</span>
@@ -336,39 +330,39 @@ export default function RateLimitsClient() {
 
           {/* Overrides */}
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="pib-card p-4">
-              <h2 className="pib-label mb-3">Temporary per-org override</h2>
+            <div className="st-panel p-4">
+              <h2 className="sc-tiny mb-3">Temporary per-org override</h2>
               {!isSuperAdmin ? (
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Super-admin only.</p>
               ) : (
                 <form onSubmit={submitOverride} className="space-y-3">
                   <label className="space-y-1 block">
-                    <span className="pib-label">Org ID</span>
-                    <input className="pib-input w-full font-mono text-sm" value={ovOrg} onChange={(e) => setOvOrg(e.target.value)} required />
+                    <span className="sc-tiny">Org ID</span>
+                    <input className="st-input w-full font-mono text-sm" value={ovOrg} onChange={(e) => setOvOrg(e.target.value)} required />
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1">
-                      <span className="pib-label">Bumped limit</span>
-                      <input type="number" className="pib-input w-full text-sm font-mono disabled:opacity-50" value={ovLimit} onChange={(e) => setOvLimit(e.target.value)} disabled={ovDisabled} placeholder="e.g. 500" />
+                      <span className="sc-tiny">Bumped limit</span>
+                      <input type="number" className="st-input w-full text-sm font-mono disabled:opacity-50" value={ovLimit} onChange={(e) => setOvLimit(e.target.value)} disabled={ovDisabled} placeholder="e.g. 500" />
                     </label>
                     <label className="space-y-1">
-                      <span className="pib-label">TTL (minutes)</span>
-                      <input type="number" className="pib-input w-full text-sm font-mono" value={ovTtl} onChange={(e) => setOvTtl(e.target.value)} />
+                      <span className="sc-tiny">TTL (minutes)</span>
+                      <input type="number" className="st-input w-full text-sm font-mono" value={ovTtl} onChange={(e) => setOvTtl(e.target.value)} />
                     </label>
                   </div>
                   <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
                     <input type="checkbox" checked={ovDisabled} onChange={(e) => setOvDisabled(e.target.checked)} />
                     Disable rate limiting entirely for this org (during TTL)
                   </label>
-                  <button type="submit" disabled={ovBusy} className="btn-pib-primary text-xs font-label disabled:opacity-50">
+                  <button type="submit" disabled={ovBusy} className="st-btn st-btn--primary text-xs font-label disabled:opacity-50">
                     {ovBusy ? 'Applying...' : 'Apply override'}
                   </button>
                 </form>
               )}
             </div>
 
-            <div className="pib-card p-4">
-              <h2 className="pib-label mb-3">Active overrides</h2>
+            <div className="st-panel p-4">
+              <h2 className="sc-tiny mb-3">Active overrides</h2>
               {data.overrides.length === 0 ? (
                 <p className="text-xs text-[var(--color-pib-text-muted)]">No overrides set.</p>
               ) : (
@@ -376,10 +370,10 @@ export default function RateLimitsClient() {
                   {data.overrides.map((o) => (
                     <div key={o.orgId} className="flex items-center gap-2 text-xs border-b border-[var(--color-pib-line)] pb-2">
                       <span className="font-mono text-[var(--color-pib-text)] flex-1 truncate" title={o.orgId}>{o.orgId}</span>
-                      <span className={o.disabled ? "text-[var(--color-error)]" : "text-[var(--color-pib-green)]"}>{o.disabled ? 'disabled' : `limit ${o.limit}`}</span>
+                      <span className={o.disabled ? "text-[var(--color-error)]" : "text-[var(--st-success)]"}>{o.disabled ? 'disabled' : `limit ${o.limit}`}</span>
                       <span className="text-[var(--color-pib-text-muted)] whitespace-nowrap">{o.active ? `until ${fmtTime(o.expiresAtMs)}` : 'expired'}</span>
                       {isSuperAdmin && (
-                        <button onClick={() => clearOverride(o.orgId)} className="btn-pib-ghost text-[11px] font-label text-[var(--color-error)]">Clear</button>
+                        <button onClick={() => clearOverride(o.orgId)} className="st-btn st-btn--ghost text-[11px] font-label text-[var(--color-error)]">Clear</button>
                       )}
                     </div>
                   ))}

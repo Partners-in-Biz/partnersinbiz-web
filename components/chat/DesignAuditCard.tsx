@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Design Audit action card — Messages rich part renderer (T2).
+ * Design Audit action card - Messages rich part renderer (T2).
  *
  * Renders the `design_audit` rich part produced by
  * `lib/design-audit/audit-card.ts`: findings grouped P0-P3 with element
@@ -75,7 +75,7 @@ function sectionItems(part: RichMessagePart): Array<{ heading: string; items: st
 
 const SEVERITY_STYLE: Record<string, { badge: string; rail: string }> = {
   P0: { badge: 'border-red-400/40 bg-red-500/15 text-red-100', rail: 'bg-red-400' },
-  P1: { badge: 'border-amber-400/40 bg-amber-500/15 text-amber-100', rail: 'bg-amber-400' },
+  P1: { badge: 'border-amber-400/40 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]', rail: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]' },
   P2: { badge: 'border-sky-400/40 bg-sky-500/15 text-sky-100', rail: 'bg-sky-400' },
   P3: { badge: 'border-white/20 bg-white/[0.08] text-[var(--color-pib-text-muted)]', rail: 'bg-white/40' },
 }
@@ -120,18 +120,12 @@ export function DesignAuditCard({ part }: { part: RichMessagePart }) {
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b border-white/10 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Design audit</p>
-          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
+          <p className="mt-0.5 break-words text-sm font-medium leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
         </div>
         {statusLabel && (
           <span
             data-testid="design-audit-status"
-            className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium ${
-              statusLabel.toLowerCase() === 'clean'
-                ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200'
-                : statusLabel.toLowerCase().includes('failed')
-                  ? 'border-red-400/35 bg-red-500/10 text-red-200'
-                  : 'border-amber-400/35 bg-amber-500/10 text-amber-100'
-            }`}
+            className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium ${ statusLabel.toLowerCase() === 'clean' ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200' : statusLabel.toLowerCase().includes('failed') ? 'border-red-400/35 bg-red-500/10 text-red-200' : 'border-amber-400/35 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] text-[var(--st-warning)]' }`}
           >
             {statusLabel}
           </span>
@@ -143,7 +137,7 @@ export function DesignAuditCard({ part }: { part: RichMessagePart }) {
           {metrics.map((metric) => (
             <span key={metric.label} className="inline-flex min-w-14 items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px]">
               <span className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</span>
-              <span className="font-semibold tabular-nums text-[var(--color-pib-text)]">{metric.value}</span>
+              <span className="font-medium tabular-nums text-[var(--color-pib-text)]">{metric.value}</span>
             </span>
           ))}
         </div>
@@ -163,7 +157,7 @@ export function DesignAuditCard({ part }: { part: RichMessagePart }) {
 
         {clean && sections.length === 0 && (
           <p className="mt-2 rounded-md border border-emerald-400/20 bg-emerald-500/[0.07] px-2.5 py-2 text-[11px] leading-relaxed text-emerald-100">
-            No failing findings — this page passes the deterministic design rules.
+            No failing findings - this page passes the deterministic design rules.
           </p>
         )}
 
@@ -175,7 +169,7 @@ export function DesignAuditCard({ part }: { part: RichMessagePart }) {
               return (
                 <section key={section.heading} data-testid={`design-audit-section-${section.heading}`}>
                   <p className="flex items-center gap-2 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
-                    <span aria-hidden="true" className={`inline-block h-1.5 w-1.5 rounded-full ${style.rail}`} />
+                    <span aria-hidden="true" className={`inline-block h-1.5 w-1.5 rounded-[4px] ${style.rail}`} />
                     {section.heading}
                   </p>
                   <ul className="mt-1.5 space-y-1.5">
@@ -195,7 +189,7 @@ export function DesignAuditCard({ part }: { part: RichMessagePart }) {
           <ul className="mt-2 space-y-1 border-t border-white/[0.07] pt-2">
             {evidence.map((item, index) => (
               <li key={`${item}-${index}`} className="flex min-w-0 gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
-                <span aria-hidden="true" className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
+                <span aria-hidden="true" className="mt-1 h-1 w-1 shrink-0 rounded-[4px] bg-primary/70" />
                 <span className="min-w-0 [overflow-wrap:anywhere]">{item}</span>
               </li>
             ))}

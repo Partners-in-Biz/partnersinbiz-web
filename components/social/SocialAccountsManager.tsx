@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -128,7 +130,7 @@ function PlatformBadge({ platformId }: { platformId: string }) {
   const config = PLATFORM_ICONS[platformId]
   if (!config) {
     return (
-      <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--color-pib-surface-2)] text-[10px] font-bold uppercase text-[var(--color-pib-text-muted)]">
+      <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--color-pib-surface-2)] text-[10px] uppercase text-[var(--color-pib-text-muted)]">
         {platformId.slice(0, 2)}
       </span>
     )
@@ -147,13 +149,13 @@ function AccountAvatar({ account }: { account: SocialAccount }) {
       <img
         src={account.avatarUrl}
         alt=""
-        className="h-9 w-9 rounded-full border border-[var(--color-pib-line)] object-cover"
+        className="h-9 w-9 rounded border border-[var(--color-pib-line)] object-cover"
       />
     )
   }
 
   return (
-    <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--color-pib-surface-2)] text-xs font-bold text-[var(--color-pib-text)]">
+    <span className="grid h-9 w-9 place-items-center rounded bg-[var(--color-pib-surface-2)] text-xs text-[var(--color-pib-text)]">
       {account.displayName.slice(0, 2).toUpperCase()}
     </span>
   )
@@ -190,7 +192,7 @@ function SubAccountRow({
       <div className="flex min-w-0 items-center gap-3">
         <AccountAvatar account={account} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{accountName}</p>
+          <p className="truncate text-sm text-[var(--color-pib-text)]">{accountName}</p>
           <p className="truncate text-xs text-[var(--color-pib-text-muted)]">
             {hasPlaceholderIdentity ? username : `@${username}`}
           </p>
@@ -299,19 +301,19 @@ function PlatformCard({
       <div className="flex flex-wrap items-center gap-3 px-4 py-4">
         <PlatformBadge platformId={platform} />
         <div className="min-w-0 flex-1">
-          <h3 className="font-headline text-lg font-bold leading-tight text-[var(--color-pib-text)]">{label}</h3>
+          <h3 className="font-headline text-lg leading-tight text-[var(--color-pib-text)]">{label}</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">
             {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
           </p>
         </div>
         {platform === 'linkedin' && scope === 'org' ? (
           <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
-            <span className="material-symbols-outlined text-base">business</span>
+            <Icon name="business" />
             Company page
           </a>
         ) : OAUTH_PLATFORMS.includes(platform) && (
           <a href={platform === 'linkedin' ? linkedInPersonalUrl : oauthUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
-            <span className="material-symbols-outlined text-base">add</span>
+            <Icon name="add" />
             Add account
           </a>
         )}
@@ -423,16 +425,16 @@ function PickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6">
         <div className="mb-2 flex items-center gap-3">
           {icon && <span className={`${icon.bg} grid h-9 w-9 place-items-center rounded-md text-white`}>{icon.icon}</span>}
-          <h2 className="font-headline text-xl font-bold text-[var(--color-pib-text)]">Choose {label} accounts</h2>
+          <h2 className="font-headline text-xl text-[var(--color-pib-text)]">Choose {label} accounts</h2>
         </div>
         <p className="mb-5 text-sm text-[var(--color-pib-text-muted)]">
           Select every account you want connected. The default account is what Pip uses first when posting automatically.
         </p>
 
-        {loading && <div className="h-28 animate-pulse rounded-md bg-[var(--color-pib-surface-2)]" />}
+        {loading && <div className="h-28 rounded-md bg-[var(--color-pib-surface-2)]" />}
         {!loading && error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
         {!loading && !error && (
@@ -470,7 +472,7 @@ function PickerModal({
                     className="h-4 w-4 accent-[var(--color-pib-accent)]"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{option.displayName}</p>
+                    <p className="truncate text-sm text-[var(--color-pib-text)]">{option.displayName}</p>
                     <p className="truncate text-xs text-[var(--color-pib-text-muted)]">@{option.username}</p>
                   </div>
                   <span className={option.accountType === 'page' ? 'pib-pill pib-pill-info' : 'pib-pill'}>
@@ -563,7 +565,7 @@ function BlueskyForm({
       <div className="flex flex-wrap items-center gap-3">
         <PlatformBadge platformId="bluesky" />
         <div>
-          <h3 className="font-headline text-lg font-bold text-[var(--color-pib-text)]">Connect Bluesky</h3>
+          <h3 className="font-headline text-lg text-[var(--color-pib-text)]">Connect Bluesky</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Use a Bluesky app password, not your main password.</p>
         </div>
       </div>
@@ -808,24 +810,24 @@ export default function SocialAccountsManager({
 
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="eyebrow">{eyebrow}</p>
+          <p className="sc-tiny">{eyebrow}</p>
           <h1 className="pib-page-title mt-1.5">{title}</h1>
           <p className="pib-page-sub max-w-2xl">
             {description}
           </p>
         </div>
         <a href="#connect-new-account" className="btn-pib-accent btn-pib-sm self-start md:self-auto">
-          <span className="material-symbols-outlined text-base">add_link</span>
+          <Icon name="add_link" />
           {isPersonalScope ? 'Connect personal account' : 'Connect company account'}
         </a>
       </header>
 
-      <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3" aria-label={scopeCard.title}>
+      <section className="rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3" aria-label={scopeCard.title}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7 mt-0.5 shrink-0"><span className="material-symbols-outlined text-[16px]">{scopeCard.icon}</span></span>
+            <Icon name={scopeCard.icon} />
             <div>
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{scopeCard.title}</h2>
+              <h2 className="text-sm text-[var(--color-pib-text)]">{scopeCard.title}</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{scopeCard.body}</p>
             </div>
           </div>
@@ -846,7 +848,7 @@ export default function SocialAccountsManager({
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className="font-headline text-lg font-bold text-red-100">
+              <p className="font-headline text-lg text-red-100">
                 Disconnect {disconnectCandidatePlatform} account &quot;{disconnectCandidateName}&quot;?
               </p>
               <p className="mt-1 text-sm text-red-100/80">
@@ -903,15 +905,15 @@ export default function SocialAccountsManager({
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="pib-card px-4 py-3">
           <p className="pib-label">Connected</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{activeAccounts.length}</p>
+          <p className="mt-2 font-headline text-2xl text-[var(--color-pib-text)]">{activeAccounts.length}</p>
         </div>
         <div className="pib-card px-4 py-3">
           <p className="pib-label">Platforms</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{connectedPlatformIds.size}</p>
+          <p className="mt-2 font-headline text-2xl text-[var(--color-pib-text)]">{connectedPlatformIds.size}</p>
         </div>
         <div className="pib-card px-4 py-3">
           <p className="pib-label">Defaults</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">
+          <p className="mt-2 font-headline text-2xl text-[var(--color-pib-text)]">
             {defaultCount}
             {needsAttentionCount > 0 && <span className="ml-2 align-middle text-xs font-label text-[#FBBF24]">{needsAttentionCount} need attention</span>}
           </p>
@@ -932,8 +934,8 @@ export default function SocialAccountsManager({
           </div>
         ) : Object.keys(grouped).length === 0 ? (
           <div className="pib-card py-14 text-center">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">hub</span></span>
-            <h3 className="mt-3 font-headline text-xl font-bold text-[var(--color-pib-text)]">No accounts connected yet</h3>
+            <span aria-hidden="true" className="mx-auto"><Icon name="hub" /></span>
+            <h3 className="mt-3 font-headline text-xl text-[var(--color-pib-text)]">No accounts connected yet</h3>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{emptyDescription}</p>
           </div>
         ) : (
@@ -988,10 +990,10 @@ export default function SocialAccountsManager({
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
-                <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                <span className="min-w-0 flex-1 text-sm text-[var(--color-pib-text)]">
                   Connect {platform === 'linkedin' && !isPersonalScope ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
                 </span>
-                <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">arrow_forward</span>
+                <Icon name="arrow_forward" />
               </a>
             ))}
           </div>

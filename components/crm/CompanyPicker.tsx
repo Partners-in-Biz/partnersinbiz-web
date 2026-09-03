@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -136,9 +137,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
           className="pib-input h-9 w-full text-sm pr-8"
         />
         {loading && (
-          <span className="absolute right-8 material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] animate-spin">
-            progress_activity
-          </span>
+          <Icon name="progress_activity" className="absolute right-8 text-[16px] text-[var(--color-pib-text-muted)] animate-spin" />
         )}
         {(hasSelection || query) && (
           <button
@@ -147,13 +146,13 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
             onClick={clearSelection}
             className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <Icon name="close" className="text-[18px]" />
           </button>
         )}
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 overflow-hidden rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]">
           {results.length > 0 ? (
             <ul id="company-picker-results" role="listbox">
               {results.map((company) => (
@@ -182,7 +181,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
               onClick={() => { setShowCreateForm(true); setOpen(true) }}
               className="cursor-pointer w-full text-left text-xs px-2.5 py-1.5 text-[var(--color-pib-accent)] hover:bg-[var(--color-row-hover)] transition-colors flex items-center gap-1.5 border-t border-[var(--color-pib-line)]"
             >
-              <span className="material-symbols-outlined text-[14px]">add</span>
+              <Icon name="add" className="text-[14px]" />
               Create new company
             </button>
           ) : (
@@ -193,6 +192,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
                 value={createForm.name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Company name *"
+                aria-label="Company name"
                 className="pib-input h-8 w-full text-xs"
               />
               <input
@@ -200,6 +200,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
                 value={createForm.domain}
                 onChange={(e) => setCreateForm((f) => ({ ...f, domain: e.target.value }))}
                 placeholder="Domain (optional)"
+                aria-label="Company domain"
                 className="pib-input h-8 w-full text-xs"
               />
               <div className="flex gap-2">

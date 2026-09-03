@@ -4,6 +4,18 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  ButtonLink,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Status,
+  Title,
+  Toolbar,
+} from '@/components/studio'
 
 type Phase = 'loading' | 'disabled' | 'setup' | 'verify' | 'backup' | 'enabled' | 'disabling'
 
@@ -106,155 +118,160 @@ export default function SecuritySettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4" data-module-accent="cyan">
+    <div className="max-w-3xl space-y-8">
       <PageHeader
-        accent="cyan"
-        eyebrow="Portal settings"
-        title="Security"
+        title="Security."
         description="Add an extra layer of protection to your login with two-factor authentication (TOTP)."
       />
 
-      <section data-testid="twofa-panel" className="pib-card-section">
-        <div className="pib-card-section-header flex items-center justify-between gap-3">
+      <section data-testid="twofa-panel"><Panel className="pib-card-section !p-0 overflow-hidden">
+        <Toolbar className="pib-card-section-header border-b border-[var(--sc-line)] px-5 py-4">
           <div>
-            <p className="pib-label">Two-factor authentication</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Authenticator app (TOTP)</h2>
+            <p className="sc-tiny">Two-factor authentication</p>
+            <Title className="mt-2">Authenticator app (TOTP)</Title>
           </div>
-          <span className={`pib-pill shrink-0 ${phase === 'enabled' ? 'pib-pill-success' : ''}`}>
+          <Status tone={phase === 'enabled' ? 'success' : undefined}>
             {phase === 'enabled' ? 'Enabled' : phase === 'loading' ? '…' : 'Disabled'}
-          </span>
-        </div>
+          </Status>
+        </Toolbar>
 
-        <div className="p-5">
-          {error && <p className="mb-4 text-xs text-red-400" role="alert">{error}</p>}
+        <div className="space-y-4 p-5">
+          {error ? <Notice tone="danger">{error}</Notice> : null}
 
-          {phase === 'loading' && (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
-          )}
+          {phase === 'loading' ? (
+            <p className="sc-body text-[var(--sc-ink-soft)]">Loading…</p>
+          ) : null}
 
-          {phase === 'disabled' && (
+          {phase === 'disabled' ? (
             <div className="space-y-4">
-              <p className="text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-body text-[var(--sc-ink-soft)]">
                 Protect your account by requiring a one-time code from an authenticator app (Google Authenticator, 1Password, Authy) at sign-in.
               </p>
-              <button type="button" onClick={startSetup} disabled={busy} className="pib-btn-primary disabled:opacity-60">
-                {busy ? 'Starting…' : 'Enable two-factor authentication'}
-              </button>
+              <Button type="button" onClick={startSetup} loading={busy}>
+                Enable two-factor authentication
+              </Button>
             </div>
-          )}
+          ) : null}
 
-          {phase === 'setup' && setup && (
+          {phase === 'setup' && setup ? (
             <div className="space-y-5">
-              <p className="text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-body text-[var(--sc-ink-soft)]">
                 Add this account to your authenticator app, then enter the 6-digit code it shows.
               </p>
-              <div className="space-y-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
+              <Panel flat className="space-y-4">
                 <div>
-                  <p className="pib-label !mb-1">Setup key (paste into your app)</p>
+                  <p className="sc-tiny mb-1">Setup key (paste into your app)</p>
                   <div className="flex items-center gap-2">
-                    <code className="break-all rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-[var(--color-pib-text)]">{setup.secret}</code>
-                    <button type="button" onClick={() => copy(setup.secret)} className="pib-pill shrink-0">Copy</button>
+                    <code className="break-all rounded bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-3 py-2 font-mono text-sm text-[var(--sc-ink)]">{setup.secret}</code>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => copy(setup.secret)}>Copy</Button>
                   </div>
                 </div>
                 <div>
-                  <p className="pib-label !mb-1">otpauth URL</p>
+                  <p className="sc-tiny mb-1">otpauth URL</p>
                   <div className="flex items-center gap-2">
-                    <code className="break-all rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-[var(--color-pib-text-muted)]">{setup.otpauthUrl}</code>
-                    <button type="button" onClick={() => copy(setup.otpauthUrl)} className="pib-pill shrink-0">Copy</button>
+                    <code className="break-all rounded bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-3 py-2 font-mono text-xs text-[var(--sc-ink-soft)]">{setup.otpauthUrl}</code>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => copy(setup.otpauthUrl)}>Copy</Button>
                   </div>
-                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="sc-body mt-2 text-[0.75rem] text-[var(--sc-ink-soft)]">
                     Most authenticator apps let you paste this URL or the setup key directly. No camera needed.
                   </p>
                 </div>
-              </div>
+              </Panel>
 
-              <form onSubmit={verifySetup} className="space-y-3">
-                <label className="pib-label" htmlFor="twofa-verify-code">Verification code</label>
-                <input
-                  id="twofa-verify-code"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={token}
-                  onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="pib-input w-40 text-center text-xl tracking-[0.4em]"
-                  autoComplete="one-time-code"
-                />
-                <div className="flex items-center gap-3">
-                  <button type="submit" disabled={busy || token.length !== 6} className="pib-btn-primary disabled:opacity-60">
-                    {busy ? 'Verifying…' : 'Verify & enable'}
-                  </button>
-                  <button type="button" onClick={() => { setSetup(null); setPhase('disabled'); setError('') }} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+              <form onSubmit={verifySetup} className="space-y-4">
+                <Field id="twofa-verify-code" label="Verification code">
+                  <Input
+                    id="twofa-verify-code"
+                    aria-label="Verification code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={token}
+                    onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-40 text-center text-xl tracking-[0.4em]"
+                    autoComplete="one-time-code"
+                  />
+                </Field>
+                <Toolbar>
+                  <Button type="submit" loading={busy} disabled={token.length !== 6}>
+                    Verify and enable
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => { setSetup(null); setPhase('disabled'); setError('') }}
+                  >
                     Cancel
-                  </button>
-                </div>
+                  </Button>
+                </Toolbar>
               </form>
             </div>
-          )}
+          ) : null}
 
-          {phase === 'backup' && (
+          {phase === 'backup' ? (
             <div className="space-y-4">
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">Two-factor authentication is now enabled.</p>
-                <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-                  Save these backup codes somewhere safe. Each can be used once if you lose access to your authenticator. They will not be shown again.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4 sm:grid-cols-2">
+              <Notice tone="warning">
+                Two-factor authentication is now enabled. Save these backup codes somewhere safe. Each can be used once if you lose access to your authenticator. They will not be shown again.
+              </Notice>
+              <Panel flat className="grid grid-cols-2 gap-2">
                 {backupCodes.map((code) => (
-                  <code key={code} className="rounded-lg bg-black/20 px-3 py-2 text-center font-mono text-sm text-[var(--color-pib-text)]">{code}</code>
+                  <code key={code} className="rounded bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] px-3 py-2 text-center font-mono text-sm text-[var(--sc-ink)]">{code}</code>
                 ))}
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => copy(backupCodes.join('\n'))} className="pib-pill">Copy all codes</button>
-                <button type="button" onClick={() => setPhase('enabled')} className="pib-btn-primary">
-                  I&apos;ve saved my codes
-                </button>
-              </div>
+              </Panel>
+              <Toolbar>
+                <Button type="button" variant="secondary" size="sm" onClick={() => copy(backupCodes.join('\n'))}>
+                  Copy all codes
+                </Button>
+                <Button type="button" onClick={() => setPhase('enabled')}>
+                  I have saved my codes
+                </Button>
+              </Toolbar>
             </div>
-          )}
+          ) : null}
 
-          {phase === 'enabled' && (
+          {phase === 'enabled' ? (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-                <span className="pib-icon-tint-cyan shrink-0">
-                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">verified_user</span>
-                </span>
+              <Panel flat className="flex items-center gap-4">
+                <Icon name="verified_user" />
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">Two-factor authentication is on</p>
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">{backupRemaining} backup code{backupRemaining === 1 ? '' : 's'} remaining.</p>
+                  <p className="text-sm text-[var(--sc-ink)]">Two-factor authentication is on</p>
+                  <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)]">{backupRemaining} backup code{backupRemaining === 1 ? '' : 's'} remaining.</p>
                 </div>
-              </div>
-              <form onSubmit={disable} className="space-y-3">
-                <label className="pib-label" htmlFor="twofa-disable-code">Enter a current code to disable 2FA</label>
-                <input
-                  id="twofa-disable-code"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={disableToken}
-                  onChange={(e) => setDisableToken(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="pib-input w-40 text-center text-xl tracking-[0.4em]"
-                  autoComplete="one-time-code"
-                />
-                <button
+              </Panel>
+              <form onSubmit={disable} className="space-y-4">
+                <Field id="twofa-disable-code" label="Enter a current code to disable 2FA">
+                  <Input
+                    id="twofa-disable-code"
+                    aria-label="Enter a current code to disable 2FA"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={disableToken}
+                    onChange={(e) => setDisableToken(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-40 text-center text-xl tracking-[0.4em]"
+                    autoComplete="one-time-code"
+                  />
+                </Field>
+                <Button
                   type="submit"
-                  disabled={busy || disableToken.length !== 6}
-                  className="btn-pib-danger"
+                  variant="danger"
+                  loading={busy}
+                  disabled={disableToken.length !== 6}
                 >
-                  {busy ? 'Disabling…' : 'Disable two-factor authentication'}
-                </button>
+                  Disable two-factor authentication
+                </Button>
               </form>
             </div>
-          )}
+          ) : null}
         </div>
-      </section>
+      </Panel></section>
 
-      <p className="text-sm text-[var(--color-pib-text-muted)]">
+      <p className="sc-body text-[var(--sc-ink-soft)]">
         Manage active sessions on the{' '}
-        <a href="/portal/settings/sessions" className="text-[var(--color-pib-accent)] hover:underline">Sessions</a> page.
+        <ButtonLink href="/portal/settings/sessions" variant="ghost" size="sm">Sessions</ButtonLink>
+        {' '}page.
       </p>
     </div>
   )

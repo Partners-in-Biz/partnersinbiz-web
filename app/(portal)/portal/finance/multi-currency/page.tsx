@@ -313,7 +313,7 @@ export default function FinanceMultiCurrencyPage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Book FX policy</h2>
+              <h2 className="text-base">Book FX policy</h2>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm">
                   Functional currency
@@ -371,7 +371,7 @@ export default function FinanceMultiCurrencyPage() {
             </section>
 
             <section className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Accounting rate sets</h2>
+              <h2 className="text-base">Accounting rate sets</h2>
               <label className="block text-sm">
                 Name
                 <input className="pib-input mt-1 w-full" value={rateSetName} onChange={(e) => setRateSetName(e.target.value)} />
@@ -408,7 +408,7 @@ export default function FinanceMultiCurrencyPage() {
                   <option value="">Select…</option>
                   {rateSets.map((rs: AnyRec) => (
                     <option key={rs.id} value={rs.id}>
-                      {rs.id} — {rs.status}
+                      {rs.id} - {rs.status}
                     </option>
                   ))}
                 </select>
@@ -438,7 +438,7 @@ export default function FinanceMultiCurrencyPage() {
             </section>
 
             <section className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Foreign documents & settlement</h2>
+              <h2 className="text-base">Foreign documents & settlement</h2>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm">
                   Currency
@@ -507,7 +507,7 @@ export default function FinanceMultiCurrencyPage() {
             </section>
 
             <section className="pib-card space-y-3 p-4">
-              <h2 className="text-base font-semibold">Period-end revaluation</h2>
+              <h2 className="text-base">Period-end revaluation</h2>
               <label className="block text-sm">
                 As-of date
                 <input className="pib-input mt-1 w-full" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
@@ -522,7 +522,7 @@ export default function FinanceMultiCurrencyPage() {
                   <option value="">Select…</option>
                   {revaluations.map((r: AnyRec) => (
                     <option key={r.id} value={r.id}>
-                      {r.id} — {r.status} · net {r.netUnrealizedMinor}
+                      {r.id} - {r.status} · net {r.netUnrealizedMinor}
                     </option>
                   ))}
                 </select>
@@ -542,7 +542,7 @@ export default function FinanceMultiCurrencyPage() {
           </div>
 
           <section className="pib-card p-4">
-            <h2 className="mb-3 text-base font-semibold">Open FX positions</h2>
+            <h2 className="mb-3 text-base">Open FX positions</h2>
             {positions.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">No monetary positions yet.</p>
             ) : (
@@ -576,7 +576,7 @@ export default function FinanceMultiCurrencyPage() {
           </section>
 
           <section className="pib-card p-4">
-            <h2 className="mb-3 text-base font-semibold">Settlements</h2>
+            <h2 className="mb-3 text-base">Settlements</h2>
             {settlements.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">No settlements yet.</p>
             ) : (

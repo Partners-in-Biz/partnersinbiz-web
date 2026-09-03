@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 import { useEffect, useRef } from 'react'
@@ -113,7 +114,7 @@ export function PreviewPlayer({
           return (
             <div key={clip.id} className="absolute left-1/2 top-1/2" style={style}>
               <span
-                className="block max-w-[80vw] whitespace-pre-wrap font-bold text-white"
+                className="block max-w-[80vw] whitespace-pre-wrap text-white"
                 style={{ fontSize: `${(clip.text!.fontSizePx / settings.height) * 100}%`, color: clip.text!.color, textAlign: clip.text!.align, backgroundColor: clip.text!.backgroundColor }}
               >
                 {clip.text!.content}
@@ -124,9 +125,9 @@ export function PreviewPlayer({
       </div>
       <div className="flex items-center gap-3">
         <button type="button" className="pib-btn-primary text-sm" onClick={onPlayToggle} aria-label={playing ? 'Pause preview' : 'Play preview'}>
-          <span className="material-symbols-rounded text-base">{playing ? 'pause' : 'play_arrow'}</span>
+          <Icon name={playing ? 'pause' : 'play_arrow'} />
         </button>
-        <input className="w-full" type="range" min={0} max={duration} step={0.1} value={playheadSeconds} onChange={(event) => onSeek(Number(event.target.value))} />
+        <input className="w-full" type="range" min={0} max={duration} step={0.1} value={playheadSeconds} onChange={(event) => onSeek(Number(event.target.value))}  aria-label="Value"/>
         <span className="w-16 text-right text-xs text-[var(--color-pib-text-muted)]">{playheadSeconds.toFixed(1)}s</span>
       </div>
     </section>

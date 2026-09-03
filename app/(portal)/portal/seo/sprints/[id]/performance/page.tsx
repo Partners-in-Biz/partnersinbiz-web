@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,8 @@ export default async function PortalPerformanceTab({ params }: { params: Promise
     <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
-          <p className="eyebrow">Performance signals</p>
-          <h2 className="text-lg font-semibold mt-1">Performance</h2>
+          <p className="sc-tiny">Performance signals</p>
+          <h2 className="text-lg mt-1">Performance</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Audit trend, organic traffic signals, and page experience health.
           </p>
@@ -45,14 +46,14 @@ export default async function PortalPerformanceTab({ params }: { params: Promise
       </section>
 
       {homepage && (
-        <section className="pib-card p-6 space-y-5">
+        <section className="st-panel p-6 space-y-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="eyebrow">Page experience</p>
-              <h3 className="font-headline text-xl font-semibold mt-2">Core Web Vitals</h3>
+              <p className="sc-tiny">Page experience</p>
+              <h3 className="font-headline text-xl mt-2">Core Web Vitals</h3>
               <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">Homepage health from the latest page check.</p>
             </div>
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[18px]">speed</span></span>
+            <Icon name="speed" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <CWV label="LCP" value={homepage.lcp ? `${Math.round(homepage.lcp)}ms` : '-'} ok={homepage.lcp <= 2500} />
@@ -73,10 +74,10 @@ function Stat({ label, value, change, icon }: { label: string; value: number; ch
   return (
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
+        <p className="sc-tiny !text-[10px]">{label}</p>
+        <span aria-hidden="true" className="!h-7 !w-7"><Icon name={icon} /></span>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight tabular-nums">{Number(value).toLocaleString('en-ZA')}</p>
+      <p className="mt-3 text-xl tabular-nums tracking-tight">{Number(value).toLocaleString('en-ZA')}</p>
       {change != null && (
         <p className={`text-xs mt-3 ${change >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
           {change >= 0 ? '+' : ''}
@@ -90,8 +91,8 @@ function Stat({ label, value, change, icon }: { label: string; value: number; ch
 function CWV({ label, value, ok }: { label: string; value: string | number; ok: boolean }) {
   return (
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4">
-      <p className="eyebrow !text-[10px]">{label}</p>
-      <p className={`text-xl font-semibold tabular-nums mt-1 ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>{value}</p>
+      <p className="sc-tiny !text-[10px]">{label}</p>
+      <p className={`text-xl tabular-nums mt-1 ${ok ? 'text-emerald-300' : 'text-[var(--sc-ink-soft)]'}`}>{value}</p>
       <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{ok ? 'Healthy' : 'Needs attention'}</p>
     </div>
   )
@@ -99,9 +100,9 @@ function CWV({ label, value, ok }: { label: string; value: string | number; ok: 
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-6 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
+    <div className="st-panel p-6 text-center">
+      <Icon name={icon} />
+      <h3 className="font-headline text-lg mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
     </div>
   )

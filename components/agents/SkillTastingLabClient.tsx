@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { Icon, Notice } from '@/components/studio'
 
 interface AgentTeamDoc {
   agentId: string
@@ -102,7 +103,7 @@ function buildLearningReviewPrompt(scope: 'system' | 'client', org: Organization
     : `Scope: client organisation ${org?.name ?? 'Unknown client'} (orgId: ${org?.id ?? 'unknown'}, slug: ${org?.slug ?? 'unknown'}). Keep findings tenant-isolated to this organisation.`
 
   return [
-    '[Agent Learning Review — scheduled PiB self-improvement run]',
+    '[Agent Learning Review - scheduled PiB self-improvement run]',
     orgLine,
     '',
     'Purpose:',
@@ -128,7 +129,7 @@ function buildLearningReviewPrompt(scope: 'system' | 'client', org: Organization
 
 function buildSandboxPrompt(agent: AgentTeamDoc | undefined, skill: string, userPrompt: string) {
   return [
-    '[Skill Tasting Lab — internal sandbox run]',
+    '[Skill Tasting Lab - internal sandbox run]',
     `Selected agent: ${agent?.name ?? 'Unknown'} (${agent?.agentId ?? 'unknown'})`,
     `Selected skill: ${skill}`,
     '',
@@ -317,7 +318,7 @@ export default function SkillTastingLabClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `Agent Learning Review — ${scopeLabel}`,
+          name: `Agent Learning Review - ${scopeLabel}`,
           schedule: learningSchedule.trim(),
           prompt: buildLearningReviewPrompt(learningScope, selectedOrg, learningFocus),
         }),
@@ -399,7 +400,7 @@ export default function SkillTastingLabClient() {
         description="Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a routed skill-improvement task. The lab does not edit skills directly; it captures evidence for Pip/the owning agent to review and patch safely. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here."
         actions={(
           <Link href="/admin/agents" className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1 font-label">
-            <span className="material-symbols-outlined text-[16px]">group_work</span>
+            <Icon name="group_work" />
             Agent team
           </Link>
         )}
@@ -417,7 +418,7 @@ export default function SkillTastingLabClient() {
       <div className="grid gap-4 lg:grid-cols-[400px_minmax(0,1fr)]">
         <form onSubmit={startRun} className="pib-card space-y-4 p-4">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Tasting setup</h2>
+            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Tasting setup</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">The generated prompt wraps your scenario in hard sandbox guardrails before it reaches the agent.</p>
           </div>
 
@@ -485,10 +486,8 @@ export default function SkillTastingLabClient() {
           ) : (
             <div className="flex h-full min-h-[620px] items-center justify-center p-8 text-center">
               <div className="max-w-md space-y-3">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                  <span className="material-symbols-outlined">science</span>
-                </div>
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">No tasting run yet</h2>
+
+                <h2 className="text-lg font-medium text-[var(--color-pib-text)]">No tasting run yet</h2>
                 <p className="text-sm text-[var(--color-pib-text-muted)]">Start a sandbox run and the live conversation will appear here. The run is scoped to the parent platform workspace, not a client account.</p>
               </div>
             </div>
@@ -499,7 +498,7 @@ export default function SkillTastingLabClient() {
 
       <section className="pib-card space-y-4 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Agent Learning Review schedule</h2>
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Agent Learning Review schedule</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             This schedules the PiB “scan → stage → review” loop under Pip. Pick whether it runs for the system as a whole or a scoped organisation being administered. Runs only create reviewable proposals/tasks; they do not mutate skills, publish, send, spend, bill, deploy, or change secrets.
           </p>
@@ -552,7 +551,7 @@ export default function SkillTastingLabClient() {
 
       <section className="pib-card space-y-4 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Review outcome</h2>
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Review outcome</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Use this after reading the transcript. If the agent produced “Skill improvement notes”, paste them below. Creating the follow-up does not edit the skill immediately; it creates a Pip routing task with the transcript, notes, and safety gates linked.</p>
         </div>
         <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">

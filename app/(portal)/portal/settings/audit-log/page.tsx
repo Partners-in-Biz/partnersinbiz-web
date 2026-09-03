@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { appendQueryParams, scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -95,11 +97,11 @@ export default function AuditLogPage() {
           <p className="eyebrow">Security &amp; compliance</p>
           <h1 className="pib-page-title mt-2">Audit log</h1>
           <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Every meaningful action across your workspace — who did what, and when. Filter and export for compliance reviews.
+            Every meaningful action across your workspace - who did what, and when. Filter and export for compliance reviews.
           </p>
         </div>
         <button type="button" onClick={exportCsv} className="pib-btn-secondary shrink-0 inline-flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">download</span>
+          <Icon name="download" />
           Export CSV
         </button>
       </div>
@@ -142,7 +144,7 @@ export default function AuditLogPage() {
         )}
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
 
       {/* Table */}
       <div className="pib-card !p-0 overflow-hidden">
@@ -169,7 +171,7 @@ export default function AuditLogPage() {
               ) : entries.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-16 text-center">
-                    <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">history</span>
+                    <Icon name="history" />
                     <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                       {hasFilters ? 'No audit entries match these filters.' : 'No audit activity recorded yet.'}
                     </p>
@@ -179,17 +181,17 @@ export default function AuditLogPage() {
                 entries.map((e) => (
                   <tr key={e.id} className="border-b border-[var(--color-pib-line)] last:border-0 align-top">
                     <td className="whitespace-nowrap px-4 py-3 text-[var(--color-pib-text-muted)]">
-                      {e.when ? new Date(e.when).toLocaleString() : '—'}
+                      {e.when ? new Date(e.when).toLocaleString() : ' - '}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-[var(--color-pib-text)]">{e.actorName || '—'}</div>
+                      <div className="font-medium text-[var(--color-pib-text)]">{e.actorName || ' - '}</div>
                       {e.actorRole && <div className="text-xs text-[var(--color-pib-text-muted)]">{e.actorRole}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <span className="pib-pill pib-pill-cyan">{humanAction(e.action)}</span>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{e.target || '—'}</td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text)]">{e.details || '—'}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{e.target || ' - '}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text)]">{e.details || ' - '}</td>
                   </tr>
                 ))
               )}

@@ -27,7 +27,7 @@ export function ExportDialog({
       : ''
   return (
     <section className="pib-card-section space-y-3 p-4">
-      <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Export</h2>
+      <h2 className="font-headline text-lg text-[var(--color-pib-text)]">Export</h2>
       <div className="grid grid-cols-3 gap-2 text-center text-xs text-[var(--color-pib-text-muted)]">
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.outputSeconds}s</span>
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.billedMinutes} min</span>
@@ -40,7 +40,7 @@ export function ExportDialog({
       {latestJob ? (
         <div className="space-y-2 text-sm text-[var(--color-pib-text-muted)]">
           <p>Status: {latestJob.status}</p>
-          {latestJob.output?.url ? <a className="text-[var(--color-pib-primary)]" href={latestJob.output.url} target="_blank" rel="noreferrer">Download rendered MP4</a> : null}
+          {latestJob.output?.url ? <a className="text-[var(--sc-ink-soft)]" href={latestJob.output.url} target="_blank" rel="noreferrer">Download rendered MP4</a> : null}
         </div>
       ) : null}
     </section>

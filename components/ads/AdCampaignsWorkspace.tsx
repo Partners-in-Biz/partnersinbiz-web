@@ -18,11 +18,11 @@ type AdCampaignsWorkspaceProps = {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  DRAFT: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
+  DRAFT: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
   PENDING_REVIEW: 'bg-sky-700/30 text-sky-200 border border-sky-600/30',
   ACTIVE: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
-  PAUSED: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
-  ARCHIVED: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
+  PAUSED: 'bg-[color-mix(in_srgb,var(--st-warning)_30%,transparent)] text-[var(--st-warning)] border border-amber-600/30',
+  ARCHIVED: 'bg-[color-mix(in_srgb,var(--st-danger)_10%,transparent)] text-[#FDA4AF] border border-[rgba(251,113,133,0.35)]',
   DELETED: 'bg-red-700/30 text-red-200 border border-red-600/30',
 }
 
@@ -73,7 +73,7 @@ function CampaignRow({
       className={[
         'rounded-lg border p-4 transition-colors',
         highlight
-          ? 'border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10'
+          ? 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_5%,transparent)] hover:bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)]'
           : 'border-[var(--color-pib-line)] bg-white/[0.02] hover:bg-white/[0.04]',
       ].join(' ')}
     >
@@ -90,13 +90,13 @@ function CampaignRow({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {highlight && (
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">
+            <span className="rounded-md border border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_20%,transparent)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--st-warning)]">
               Review needed
             </span>
           )}
           <span
             className={[
-              'rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide',
+              'rounded-md px-2 py-0.5 text-[10px] uppercase tracking-wide',
               statusStyle(campaign.status),
             ].join(' ')}
           >
@@ -130,7 +130,7 @@ export function AdCampaignsWorkspace({
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             {title && (
-              <h2 className={surface === 'admin' ? 'text-2xl font-semibold text-[var(--color-pib-text)]' : 'eyebrow !text-[10px]'}>
+              <h2 className={surface === 'admin' ? 'text-2xl font-medium text-[var(--color-pib-text)]' : 'eyebrow !text-[10px]'}>
                 {title}
               </h2>
             )}

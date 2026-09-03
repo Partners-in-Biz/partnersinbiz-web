@@ -1,4 +1,6 @@
 'use client'
+
+import { Icon } from '@/components/studio'
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
@@ -102,7 +104,7 @@ function tsToDate(ts: any): Date | null {
 
 function fmtDate(ts: any) {
   const d = tsToDate(ts)
-  return d ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+  return d ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : ' - '
 }
 
 function fmtNum(n: number): string {
@@ -118,14 +120,14 @@ function fmtNum(n: number): string {
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform.toLowerCase()]
   if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
-  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
+  return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded `}>{cfg.label}</span>
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="pib-stat-card p-3" data-module-accent="rose">
       <p className="pib-label mb-1 text-[10px] tracking-[0.14em]">{label}</p>
-      <p className="text-xl font-semibold tabular-nums tracking-tight text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-xl tabular-nums tracking-tight text-[var(--color-pib-text)]">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>}
     </div>
   )
@@ -133,7 +135,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function HeatCell({ value, max }: { value: number; max: number }) {
   const intensity = max > 0 ? Math.round((value / max) * 100) : 0
-  const bg = value > 0 ? `color-mix(in srgb, var(--color-pib-rose) ${Math.round(intensity * 0.7)}%, transparent)` : 'transparent'
+  const bg = value > 0 ? `color-mix(in srgb, var(--st-danger) ${Math.round(intensity * 0.7)}%, transparent)` : 'transparent'
   return (
     <div
       className="w-8 h-8 rounded flex items-center justify-center text-[9px] font-medium text-[var(--color-pib-text-muted)]"
@@ -261,7 +263,7 @@ export default function AnalyticsPage() {
 
     const avgEngagementRate = totalImpressions > 0
       ? ((totalEngagements / totalImpressions) * 100).toFixed(2) + '%'
-      : '—'
+      : ' - '
 
     return { totalPublished: filtered.length, totalImpressions, totalEngagements, totalLikes, totalComments, totalShares, totalClicks, avgEngagementRate }
   }, [analytics, filtered])
@@ -356,23 +358,23 @@ export default function AnalyticsPage() {
                 <StatCard label="Engagement Rate" value={stats.avgEngagementRate} />
               </div>
 
-              {/* Engagement Breakdown — Horizontal Bar Chart */}
+              {/* Engagement Breakdown  -  Horizontal Bar Chart */}
               <div className="pib-card space-y-3">
                 <p className="pib-label">
                   Engagement Breakdown
                 </p>
                 <HorizontalBarChart
                   data={[
-                    { label: 'Likes', value: stats.totalLikes, color: 'var(--color-pib-green)' },
-                    { label: 'Comments', value: stats.totalComments, color: 'var(--color-pib-blue)' },
-                    { label: 'Shares', value: stats.totalShares, color: 'var(--color-pib-rose)' },
-                    { label: 'Clicks', value: stats.totalClicks, color: 'var(--color-pib-amber)' },
+                    { label: 'Likes', value: stats.totalLikes, color: 'var(--st-success)' },
+                    { label: 'Comments', value: stats.totalComments, color: 'var(--sc-ink-soft)' },
+                    { label: 'Shares', value: stats.totalShares, color: 'var(--st-danger)' },
+                    { label: 'Clicks', value: stats.totalClicks, color: 'var(--sc-accent)' },
                   ]}
                   valueFormatter={fmtNum}
                 />
               </div>
 
-              {/* Platform Breakdown — Donut + Detail Cards */}
+              {/* Platform Breakdown  -  Donut + Detail Cards */}
               {Object.keys(platformBreakdown).length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Donut */}
@@ -433,7 +435,7 @@ export default function AnalyticsPage() {
             <div className="space-y-4">
               {filtered.length === 0 ? (
                 <div className="pib-empty-state">
-                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">query_stats</span>
+                  <Icon name="query_stats" />
                   <h2 className="pib-empty-state-title">No published posts found.</h2>
                 </div>
               ) : (
@@ -491,7 +493,7 @@ export default function AnalyticsPage() {
             <div className="space-y-4">
               {bestTimes.length === 0 ? (
                 <div className="pib-empty-state">
-                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">schedule</span>
+                  <Icon name="schedule" />
                   <h2 className="pib-empty-state-title">Not enough data to calculate best posting times</h2>
                   <p className="pib-empty-state-description">Keep publishing and analytics will be collected automatically.</p>
                 </div>
@@ -502,10 +504,10 @@ export default function AnalyticsPage() {
                     <div className="space-y-2">
                       {bestTimes.slice(0, 5).map((slot, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-[var(--color-pib-text)] w-5">{i + 1}.</span>
+                          <span className="text-xs text-[var(--color-pib-text)] w-5">{i + 1}.</span>
                           <span className="text-sm text-[var(--color-pib-text)] w-24">{DAY_NAMES[slot.dayOfWeek]} {slot.hour.toString().padStart(2, '0')}:00</span>
-                          <div className="flex-1 h-5 rounded-full border border-[var(--color-pib-line)] overflow-hidden">
-                            <div className="h-full rounded-full bg-[var(--color-pib-rose)]/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
+                          <div className="flex-1 h-5 rounded border border-[var(--color-pib-line)] overflow-hidden">
+                            <div className="h-full rounded bg-[var(--st-danger)]/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
                           </div>
                           <span className="text-xs text-[var(--color-pib-text-muted)] w-20 text-right">Score: {slot.avgScore} ({slot.postCount})</span>
                         </div>
@@ -557,8 +559,8 @@ export default function AnalyticsPage() {
                 className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] p-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="pib-icon-tint-rose shrink-0">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">description</span>
+                  <span className="shrink-0">
+                    <Icon name="description" />
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm text-[var(--color-pib-text)] truncate">{r.title}</p>

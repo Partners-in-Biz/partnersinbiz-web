@@ -33,8 +33,8 @@ type FilterKey = (typeof FILTER_TABS)[number]['key']
 
 const SCOPE_BADGE: Record<BudgetScope, string> = {
   org: 'bg-sky-500/10 text-sky-300',
-  platform: 'bg-violet-500/10 text-violet-300',
-  campaign: 'bg-[#F5A623]/10 text-[#F5A623]',
+  platform: 'bg-[color-mix(in_srgb,var(--st-info)_10%,transparent)] text-[var(--st-info)]',
+  campaign: 'bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] text-[var(--sc-accent)]',
 }
 
 const PERIOD_CHIP: Record<string, string> = {
@@ -105,7 +105,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
   return (
     <section className="space-y-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Budgets</h1>
+        <h1 className="text-2xl font-medium">Budgets</h1>
         <Link
           href={`/admin/org/${orgSlug}/ads/budgets/new`}
           className="btn-pib-accent text-sm"
@@ -139,11 +139,11 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
           aria-modal="false"
           aria-labelledby="budget-archive-title"
           aria-describedby="budget-archive-description"
-          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+          className="rounded-lg border border-[color-mix(in_srgb,var(--sc-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--sc-accent)_10%,transparent)] p-4 shadow-sm"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <h2 id="budget-archive-title" className="text-sm font-semibold text-white">
+              <h2 id="budget-archive-title" className="text-sm font-medium text-white">
                 Archive budget {confirmArchive.name} for {orgSlug}?
               </h2>
               <p id="budget-archive-description" className="text-sm text-white/65">
@@ -179,7 +179,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
           {activeTab === 'all' && (
             <Link
               href={`/admin/org/${orgSlug}/ads/budgets/new`}
-              className="mt-3 inline-block text-sm text-[#F5A623] underline"
+              className="mt-3 inline-block text-sm text-[var(--sc-accent)] underline"
             >
               Create an admin budget guardrail →
             </Link>
@@ -194,7 +194,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/admin/org/${orgSlug}/ads/budgets/${b.id}`}
-                      className="font-medium hover:text-[#F5A623]"
+                      className="font-medium hover:text-[var(--sc-accent)]"
                     >
                       {b.name}
                     </Link>
@@ -242,7 +242,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                       onClick={() => requestArchive(b)}
                       disabled={archiving === b.id}
                       aria-label={`Archive budget ${b.name} for ${orgSlug}`}
-                      className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400 disabled:opacity-40"
+                      className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-[var(--st-danger)] disabled:opacity-40"
                     >
                       Archive
                     </button>

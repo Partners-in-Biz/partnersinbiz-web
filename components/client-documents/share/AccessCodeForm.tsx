@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Button, Field, Input, Notice, Panel } from '@/components/studio'
 
 export function AccessCodeForm({
   editShareToken,
@@ -37,28 +38,28 @@ export function AccessCodeForm({
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto mt-32 max-w-sm space-y-4 px-6 text-center">
-      <h1 className="text-2xl font-semibold text-[var(--doc-text)]">Enter access code</h1>
-      <p className="text-sm text-[var(--doc-muted)]">
-        Your code is in the email or message that linked you here.
-      </p>
-      <input
-        autoFocus
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        maxLength={6}
-        className="w-full rounded-lg border border-[var(--doc-border)] bg-transparent px-4 py-3 text-center text-xl tracking-[0.4em] text-[var(--doc-text)] focus:border-[var(--doc-accent)] focus:outline-none"
-        placeholder="XXXXXX"
-        aria-label="Access code"
-      />
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      <button
-        type="submit"
-        disabled={busy || code.length < 6}
-        className="w-full rounded-lg bg-[var(--doc-accent)] px-6 py-3 text-sm font-semibold text-black hover:opacity-90 disabled:opacity-40"
-      >
-        {busy ? 'Verifying…' : 'Continue'}
-      </button>
-    </form>
+    <Panel>
+      <form onSubmit={submit} className="st-stack">
+        <h1 className="sc-article__h2">Enter access code.</h1>
+        <p className="sc-body">Your code is in the email or message that linked you here.</p>
+        <Field id="access-code" label="Access code">
+          <Input
+            id="access-code"
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            maxLength={6}
+            placeholder="XXXXXX"
+            className="text-center tracking-[0.4em]"
+            style={{ fontSize: '1.25rem' }}
+            aria-label="Access code"
+          />
+        </Field>
+        {error ? <Notice tone="danger">{error}</Notice> : null}
+        <Button type="submit" block loading={busy} disabled={busy || code.length < 6}>
+          Continue
+        </Button>
+      </form>
+    </Panel>
   )
 }

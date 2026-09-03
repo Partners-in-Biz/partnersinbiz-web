@@ -24,7 +24,7 @@ export function CalloutBlock({ block, index }: { block: DocumentBlock; index: nu
       >
         {content.title && (
           <p
-            className="text-sm font-semibold uppercase tracking-wide"
+            className="text-sm font-medium uppercase tracking-wide"
             style={{ color }}
           >
             {content.title}

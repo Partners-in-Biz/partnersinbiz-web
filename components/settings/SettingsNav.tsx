@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { Avatar, Icon } from '@/components/studio'
 
 interface SettingsNavProps {
   name: string
@@ -19,9 +20,9 @@ interface SettingsNavProps {
 
 const ACCOUNT_LINKS = [
   { href: '/portal/settings/account', label: 'Account settings', icon: 'manage_accounts' },
-  { href: '/portal/settings/security', label: 'Security & 2FA', icon: 'security' },
+  { href: '/portal/settings/security', label: 'Security and 2FA', icon: 'security' },
   { href: '/portal/settings/sessions', label: 'Sessions', icon: 'devices' },
-  { href: '/portal/settings/linked-computers', label: 'Linked Computers', icon: 'computer' },
+  { href: '/portal/settings/linked-computers', label: 'Linked computers', icon: 'computer' },
   { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/portal/settings/workspaces', label: 'My workspaces', icon: 'workspaces' },
   { href: '/portal/personal/marketing', label: 'Personal marketing', icon: 'person' },
@@ -67,6 +68,50 @@ type SettingsWorkspaceLink = {
   configAccess?: boolean
 }
 
+function SettingsNavLink({
+  href,
+  label,
+  icon,
+  active,
+  collapsed,
+  /** @deprecated Role hint retained for callers; not rendered (Studio has no role pills). */
+  minRole: _minRole,
+}: {
+  href: string
+  label: string
+  icon: string
+  active: boolean
+  collapsed?: boolean
+  minRole?: string | null
+}) {
+  void _minRole
+  if (collapsed) {
+    return (
+      <Link
+        href={href}
+        title={label}
+        aria-label={label}
+        data-active={active ? 'true' : undefined}
+        className="pib-nav-item inline-flex items-center justify-center !px-0 min-h-11 w-11"
+      >
+        <Icon name={icon} />
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      data-active={active ? 'true' : undefined}
+      className="pib-nav-item inline-flex items-center gap-2 min-h-11 w-full px-2"
+    >
+      <Icon name={icon} className="shrink-0" />
+      <span className="flex-1 truncate">{label}</span>
+    </Link>
+  )
+}
+
 export function SettingsNav({
   name,
   email,
@@ -81,9 +126,6 @@ export function SettingsNav({
   const scopedWorkspaceLinks = (WORKSPACE_LINKS as SettingsWorkspaceLink[])
     .filter((link) => {
       if (!canSee(link.minRole ?? null, role)) return false
-      // CRM configuration links require the dedicated configuration module
-      // grant; role alone is not enough for plain members. Owner/admin always
-      // pass because their policy resolves to full workspace access.
       if (link.configAccess && !canAccessConfiguration && role !== 'owner' && role !== 'admin') return false
       return true
     })
@@ -92,35 +134,32 @@ export function SettingsNav({
       scopedHref: scopedPortalPath(link.href, routeScope),
     }))
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+
   if (collapsed) {
     return (
-      <nav className="flex-1 flex flex-col items-center gap-1 py-4 px-2">
+      <nav className="flex-1 flex flex-col items-center gap-0.5 py-3 px-1.5">
         <Link
           href={backToPortalHref}
           title="Back to portal"
           aria-label="Back to portal"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors mb-2"
+          className="pib-nav-item inline-flex items-center justify-center !px-0 min-h-11 w-11 mb-1"
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+          <Icon name="arrow_back" />
         </Link>
         {[
-          ...ACCOUNT_LINKS.map((link) => ({ ...link, scopedHref: link.href })),
+          ...ACCOUNT_LINKS.map((link) => ({ ...link, scopedHref: link.href, minRole: null as string | null })),
           ...scopedWorkspaceLinks,
         ].map((link) => (
-          <Link
+          <SettingsNavLink
             key={link.href}
             href={link.scopedHref}
-            title={link.label}
-            aria-label={link.label}
-            className={[
-              'w-8 h-8 flex items-center justify-center rounded-lg transition-colors',
-              pathname === link.href || pathname.startsWith(link.href + '/')
-                ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-            ].join(' ')}
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{link.icon}</span>
-          </Link>
+            label={link.label}
+            icon={link.icon}
+            active={isActive(link.href)}
+            collapsed
+            minRole={link.minRole ?? null}
+          />
         ))}
       </nav>
     )
@@ -128,80 +167,50 @@ export function SettingsNav({
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <div className="p-4 border-b border-[var(--color-pib-line)]">
+      <div className="p-3 border-b border-[var(--sc-line)]">
         <Link
           href={backToPortalHref}
           aria-label="Back to portal"
-          className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors mb-4"
+          className="pib-nav-item inline-flex items-center gap-2 min-h-11 w-full px-2 mb-3"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
-          Back to portal
+          <Icon name="arrow_back" className="shrink-0" />
+          <span>Back to portal</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-sm font-medium text-[var(--color-pib-accent-hover)] shrink-0">
-            {initials || '·'}
-          </div>
+        <div className="flex items-center gap-3 px-1">
+          <Avatar size="sm" initials={initials || '·'} />
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{name || 'Client'}</p>
-            <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
+            <p className="sc-body truncate text-[0.875rem] text-[var(--sc-ink)] m-0">{name || 'Client'}</p>
+            <p className="sc-tiny truncate text-[var(--sc-ink-soft)] m-0">{email}</p>
           </div>
         </div>
       </div>
 
-      <nav className="px-3 py-4 space-y-4">
+      <nav className="px-2 py-3 space-y-4">
         <div className="space-y-0.5">
-          <p className="eyebrow !text-[10px] px-3 mb-2">Account</p>
-          {ACCOUNT_LINKS.map((link) => {
-            const on = pathname === link.href || pathname.startsWith(link.href + '/')
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-label={link.label}
-                className={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                  on
-                    ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                ].join(' ')}
-              >
-                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')} aria-hidden="true">
-                  {link.icon}
-                </span>
-                <span className="font-medium flex-1">{link.label}</span>
-              </Link>
-            )
-          })}
+          <p className="sc-tiny px-2 mb-1 text-[var(--sc-ink-soft)]">Account</p>
+          {ACCOUNT_LINKS.map((link) => (
+            <SettingsNavLink
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              icon={link.icon}
+              active={isActive(link.href)}
+            />
+          ))}
         </div>
 
         <div className="space-y-0.5">
-          <p className="eyebrow !text-[10px] px-3 mb-2">Workspace</p>
-          {scopedWorkspaceLinks.map((link) => {
-            const on = pathname === link.href || pathname.startsWith(link.href + '/')
-            return (
-              <Link
-                key={link.href}
-                href={link.scopedHref}
-                aria-label={link.label}
-                className={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                  on
-                    ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                ].join(' ')}
-              >
-                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')} aria-hidden="true">
-                  {link.icon}
-                </span>
-                <span className="font-medium flex-1">{link.label}</span>
-                {link.minRole && (
-                  <span className="text-[9px] bg-[var(--color-pib-cyan-soft)] text-[var(--color-pib-cyan)] px-1.5 py-0.5 rounded-full" aria-hidden="true">
-                    {link.minRole}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+          <p className="sc-tiny px-2 mb-1 text-[var(--sc-ink-soft)]">Workspace</p>
+          {scopedWorkspaceLinks.map((link) => (
+            <SettingsNavLink
+              key={link.href}
+              href={link.scopedHref}
+              label={link.label}
+              icon={link.icon}
+              active={isActive(link.href)}
+              minRole={link.minRole ?? null}
+            />
+          ))}
         </div>
       </nav>
     </div>

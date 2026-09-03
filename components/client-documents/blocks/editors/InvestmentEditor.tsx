@@ -68,6 +68,7 @@ export function InvestmentEditor({
         value={block.title ?? ''}
         onChange={(e) => onChange({ ...block, title: e.target.value })}
         placeholder="Section title (e.g. Investment)"
+        aria-label="Section title"
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
       />
 
@@ -76,6 +77,7 @@ export function InvestmentEditor({
         <select
           value={currency}
           onChange={(e) => commit({ currency: e.target.value })}
+          aria-label="Currency"
           className="rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-sm"
         >
           {CURRENCIES.map((c) => (
@@ -94,6 +96,7 @@ export function InvestmentEditor({
               value={item.label}
               onChange={(e) => updateItem(i, { label: e.target.value })}
               placeholder={`Line item ${i + 1}`}
+              aria-label={`Line item ${i + 1} label`}
               className="flex-1 rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
             />
             <input
@@ -101,6 +104,7 @@ export function InvestmentEditor({
               value={item.amount}
               onChange={(e) => updateItem(i, { amount: Number(e.target.value) || 0 })}
               placeholder="Amount"
+              aria-label={`Line item ${i + 1} amount`}
               className="w-32 rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
             />
             <button
@@ -124,13 +128,14 @@ export function InvestmentEditor({
 
       <div className="rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm">
         <span className="text-xs uppercase tracking-wider opacity-70">Total: </span>
-        <span className="font-semibold">{formatMoney(total, currency)}</span>
+        <span className="font-medium">{formatMoney(total, currency)}</span>
       </div>
 
       <textarea
         value={notes}
         onChange={(e) => commit({ notes: e.target.value })}
         placeholder="Notes (optional)"
+        aria-label="Investment notes"
         rows={3}
         className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
       />

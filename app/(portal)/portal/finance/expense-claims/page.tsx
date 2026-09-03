@@ -28,7 +28,7 @@ export default function FinanceExpenseClaimsPage() {
   const [payeeName, setPayeeName] = useState('Staff member')
   const [employeeId, setEmployeeId] = useState('emp_demo')
   const [vendor, setVendor] = useState('Engen Sandton')
-  const [policyNotes, setPolicyNotes] = useState('Travel fuel — within company policy R2000/month')
+  const [policyNotes, setPolicyNotes] = useState('Travel fuel - within company policy R2000/month')
   const [netRands, setNetRands] = useState('850.00')
   const [taxRate, setTaxRate] = useState('za_std_15')
   const [expenseAccountId, setExpenseAccountId] = useState('acc_travel')
@@ -132,7 +132,7 @@ export default function FinanceExpenseClaimsPage() {
     await withBusy(async () => {
       await scope.runCommand('/api/v1/finance/expense-claims/commands', 'expense-claim.reject', {
         id,
-        note: 'Policy or receipt issue — revise',
+        note: 'Policy or receipt issue - revise',
         ...requestIdentity('expense-claim-reject'),
       })
       scope.setMessage(`Rejected ${id}`)
@@ -196,7 +196,7 @@ export default function FinanceExpenseClaimsPage() {
         textSnippet: 'Engen fuel R977.50',
         ...requestIdentity('expense-claim-ocr'),
       })
-      scope.setMessage(`OCR assist suggested on ${claimId} — human confirm required (never auto-post)`)
+      scope.setMessage(`OCR assist suggested on ${claimId} - human confirm required (never auto-post)`)
     })
   }
 
@@ -244,7 +244,7 @@ export default function FinanceExpenseClaimsPage() {
       active="expense-claims"
       orgScope={scope.orgScope}
       title="Expense claims"
-      description="SA bookkeeper expense claims: draft → submit → approve/reject → post to books/payable with audit. Receipts + optional OCR assist (never auto-posts). VAT-aware lines, employee/payee link, policy notes, filters and bulk approve. No payment initiation — observe-only payment instruction export only."
+      description="SA bookkeeper expense claims: draft → submit → approve/reject → post to books/payable with audit. Receipts + optional OCR assist (never auto-posts). VAT-aware lines, employee/payee link, policy notes, filters and bulk approve. No payment initiation - observe-only payment instruction export only."
       error={scope.error}
       message={scope.message}
       loading={scope.loading || busy}
@@ -255,22 +255,22 @@ export default function FinanceExpenseClaimsPage() {
         <div className="space-y-6">
           <FinanceScopeBar scope={scope} />
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-2 text-sm font-semibold">Hard gates</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-2 text-sm">Hard gates</h2>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
               externalPaymentInitiated={String(bundle?.hardGates?.externalPaymentInitiated ?? false)} ·
               autoPosted={String(bundle?.hardGates?.autoPosted ?? false)} · ocrAutoApplied=
               {String(bundle?.hardGates?.ocrAutoApplied ?? false)} · SARS submit=false · egress=false
             </p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
-              Counts — draft {bundle?.counts?.draft ?? 0} · submitted {bundle?.counts?.submitted ?? 0} · approved{' '}
+              Counts - draft {bundle?.counts?.draft ?? 0} · submitted {bundle?.counts?.submitted ?? 0} · approved{' '}
               {bundle?.counts?.approved ?? 0} · rejected {bundle?.counts?.rejected ?? 0} · posted{' '}
               {bundle?.counts?.posted ?? 0}
             </p>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">New draft claim</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">New draft claim</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs">
                 Payee
@@ -345,8 +345,8 @@ export default function FinanceExpenseClaimsPage() {
             </button>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Filters</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Filters</h2>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="text-xs">
                 Status
@@ -386,9 +386,9 @@ export default function FinanceExpenseClaimsPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Claims ({bundle?.claims?.length ?? 0})</h2>
+              <h2 className="text-sm">Claims ({bundle?.claims?.length ?? 0})</h2>
               <div className="flex flex-wrap gap-2">
                 <label className="text-xs">
                   Payable credit a/c
@@ -446,7 +446,7 @@ export default function FinanceExpenseClaimsPage() {
                       <td className="py-1 pr-2">
                         <div className="font-medium">{c.payeeName}</div>
                         <div className="text-[var(--color-pib-text-muted)]">
-                          {c.vendor || '—'} · emp={c.employeeId || '—'}
+                          {c.vendor || '-'} · emp={c.employeeId || '-'}
                         </div>
                         {c.policyNotes ? (
                           <div className="text-[var(--color-pib-text-muted)]">Policy: {c.policyNotes}</div>
@@ -538,12 +538,13 @@ export default function FinanceExpenseClaimsPage() {
                 </tbody>
               </table>
               {!bundle?.claims?.length ? (
-                <p className="text-[var(--color-pib-text-muted)]">No claims yet — create a draft above.</p>
+                <p className="text-[var(--color-pib-text-muted)]">No claims yet - create a draft above.</p>
               ) : null}
             </div>
             <div className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
               Receipt filename for attach:{' '}
               <input
+                aria-label="Receipt filename for attach"
                 className="rounded border px-2 py-0.5"
                 value={receiptFileName}
                 onChange={(e) => setReceiptFileName(e.target.value)}
@@ -551,8 +552,8 @@ export default function FinanceExpenseClaimsPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">OCR assists ({bundle?.ocrAssists?.length ?? 0})</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">OCR assists ({bundle?.ocrAssists?.length ?? 0})</h2>
             <ul className="space-y-2 text-sm">
               {(bundle?.ocrAssists || []).map((o) => (
                 <li key={o.id} className="rounded border border-[var(--color-pib-line)] px-3 py-2">
@@ -561,8 +562,8 @@ export default function FinanceExpenseClaimsPage() {
                     {String(o.autoApplied)}
                   </div>
                   <div className="text-xs text-[var(--color-pib-text-muted)]">
-                    vendor={o.vendorGuess || '—'} · gross guess=
-                    {o.totalGrossMinorGuess != null ? fmtZar(o.totalGrossMinorGuess) : '—'}
+                    vendor={o.vendorGuess || '-'} · gross guess=
+                    {o.totalGrossMinorGuess != null ? fmtZar(o.totalGrossMinorGuess) : '-'}
                   </div>
                   {o.status === 'suggested' ? (
                     <button
@@ -582,8 +583,8 @@ export default function FinanceExpenseClaimsPage() {
             </ul>
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Audit ({bundle?.auditEvents?.length ?? 0})</h2>
+          <section className="border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+            <h2 className="mb-3 text-sm">Audit ({bundle?.auditEvents?.length ?? 0})</h2>
             <ul className="max-h-64 space-y-1 overflow-y-auto text-xs">
               {(bundle?.auditEvents || []).map((a) => (
                 <li key={a.id} className="border-b border-[var(--color-pib-line)]/50 py-1">

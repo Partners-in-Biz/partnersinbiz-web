@@ -177,7 +177,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
         ?? (adSetData as { id?: string }).id
         ?? ''
 
-      // Step C: create RDA — strip empty values
+      // Step C: create RDA - strip empty values
       const cleanRda: RdaAssets = {
         marketingImages: rda.marketingImages.filter((u) => u.trim()),
         squareMarketingImages: rda.squareMarketingImages.filter((u) => u.trim()),
@@ -208,14 +208,14 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
   }
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   return (
     <div className="mx-auto max-w-2xl">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New Google Display campaign</h1>
+        <h1 className="text-2xl font-medium">New Google Display campaign</h1>
         {onCancel && (
           <button
             type="button"
@@ -234,7 +234,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center transition-colors ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -254,7 +254,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
               className={inputCls}
               value={step1.campaignName}
               onChange={(e) => setStep1((s) => ({ ...s, campaignName: e.target.value }))}
-              placeholder="e.g. Display Awareness — May 2026"
+              placeholder="e.g. Display Awareness - May 2026"
               aria-label="Campaign name"
             />
           </label>
@@ -282,7 +282,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step1.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -314,7 +314,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
               className={inputCls}
               value={step2.adGroupName}
               onChange={(e) => setStep2((s) => ({ ...s, adGroupName: e.target.value }))}
-              placeholder="e.g. Prospecting — All Audiences"
+              placeholder="e.g. Prospecting - All Audiences"
               aria-label="Ad group name"
             />
           </label>
@@ -322,7 +322,7 @@ export function DisplayCampaignBuilder({ orgId, orgSlug, onCancel }: Props) {
           <div className="rounded border border-white/10 bg-white/[0.02] p-4 text-sm text-white/50">
             <p>
               Display ad groups use <strong className="text-white/70">Maximise Conversions</strong>{' '}
-              bidding by default — no manual CPC bid required. Targeting and audience settings can
+              bidding by default - no manual CPC bid required. Targeting and audience settings can
               be refined after creation from the ad group detail page.
             </p>
           </div>

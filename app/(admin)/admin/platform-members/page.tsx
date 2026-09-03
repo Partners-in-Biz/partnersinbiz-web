@@ -51,8 +51,8 @@ function Avatar({ name }: { name: string }) {
 
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-cyan-soft)', color: '#5EEAD4' }}
+      className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-medium flex-shrink-0"
+      style={{ backgroundColor: 'color-mix(in srgb, var(--sc-ink) 6%, transparent)', color: '#5EEAD4' }}
     >
       {initials || '?'}
     </div>
@@ -294,7 +294,7 @@ export default function PlatformMembersPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Settings / Platform
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Client Portal Access</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Client Portal Access</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Platform-admin controls for client portal logins, account links, role changes, resets, and access removal.
           </p>
@@ -313,7 +313,7 @@ export default function PlatformMembersPage() {
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
@@ -402,7 +402,7 @@ export default function PlatformMembersPage() {
               />
             </label>
           </div>
-          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          {createError && <p className="text-xs text-[var(--st-danger)]">{createError}</p>}
           <div className="flex justify-end">
             <button
               type="submit"
@@ -418,23 +418,23 @@ export default function PlatformMembersPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="pib-card p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Portal logins</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{members.length}</p>
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">{members.length}</p>
         </div>
         <div className="pib-card p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Missing Auth</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
             {members.filter((member) => !member.authFound).length}
           </p>
         </div>
         <div className="pib-card p-4">
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Multi-account users</p>
-          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
+          <p className="text-2xl font-headline font-medium text-[var(--color-pib-text)] mt-1">
             {members.filter((member) => member.linkedOrgs.length > 1).length}
           </p>
         </div>
       </div>
 
-      <input
+      <input aria-label="Search by name, email, uid, or client account"
         type="text"
         placeholder="Search by name, email, uid, or client account..."
         value={search}
@@ -444,9 +444,9 @@ export default function PlatformMembersPage() {
 
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-md" />
+          <Skeleton className="h-24 rounded-md" />
+          <Skeleton className="h-24 rounded-md" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
@@ -464,7 +464,7 @@ export default function PlatformMembersPage() {
                     <Avatar name={member.displayName || member.email} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">
+                        <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">
                           {member.displayName || '(no name)'}
                         </p>
                         {!member.authFound && (
@@ -528,7 +528,7 @@ export default function PlatformMembersPage() {
                     member.linkedOrgs.map((org) => (
                       <span
                         key={`${member.uid}-${org.id}`}
-                        className="inline-flex flex-wrap items-center overflow-hidden rounded-full bg-[var(--color-pib-text)]/10 text-xs text-[var(--color-pib-text-muted)]"
+                        className="inline-flex flex-wrap items-center overflow-hidden rounded-md bg-[var(--color-pib-text)]/10 text-xs text-[var(--color-pib-text-muted)]"
                         title={org.source === 'user' ? 'Linked from user profile' : 'Linked from organisation members'}
                       >
                         <Link
@@ -538,7 +538,7 @@ export default function PlatformMembersPage() {
                           <span>{org.name}</span>
                           <RoleBadge role={org.role} />
                           {org.source === 'user' && (
-                            <span className="text-[10px] font-label uppercase tracking-wide text-amber-400">
+                            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--st-warning)]">
                               profile
                             </span>
                           )}
@@ -588,7 +588,7 @@ export default function PlatformMembersPage() {
                 {showPassword && (
                   <div className="mt-4 rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
+                      <input aria-label="New password, minimum 8 characters"
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -604,7 +604,7 @@ export default function PlatformMembersPage() {
                         Save password
                       </button>
                     </div>
-                    {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
+                    {passwordError && <p className="text-xs text-[var(--st-danger)] mt-2">{passwordError}</p>}
                   </div>
                 )}
               </li>

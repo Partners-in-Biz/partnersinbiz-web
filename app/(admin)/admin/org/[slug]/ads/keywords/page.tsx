@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/keywords/page.tsx
-// Keywords directory page — MVP landing.
+// Keywords directory page  -  MVP landing.
 // Keyword management is scoped to an ad group (Google Ad Group), so we direct
 // admins to the ad group detail page which mounts KeywordEditor directly.
 // A full cross-org keyword listing would require an index scan with no adSetId
@@ -44,12 +44,12 @@ export default async function KeywordsPage({
 
       {googleAdSets.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">key</span>
+          
           <p className="pib-empty-state-description">
             No Google ad groups yet.{' '}
             <Link
               href={`/admin/org/${slug}/ads/campaigns/new`}
-              className="text-[var(--color-pib-rose)] hover:underline"
+              className="text-[var(--st-danger)] hover:underline"
             >
               Create a Google Search campaign
             </Link>{' '}
@@ -75,7 +75,7 @@ export default async function KeywordsPage({
                           className="flex items-center justify-between px-4 py-3 text-sm hover:bg-[var(--color-row-hover)] transition-colors"
                         >
                           <span className="font-medium text-[var(--color-pib-text)]">{adSet.name}</span>
-                          <span className="text-xs text-[var(--color-pib-rose)]">Manage keywords →</span>
+                          <span className="text-xs text-[var(--st-danger)]">Manage keywords →</span>
                         </Link>
                       </li>
                     ))}

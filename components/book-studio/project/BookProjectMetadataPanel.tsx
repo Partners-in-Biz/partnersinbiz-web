@@ -38,7 +38,7 @@ export function BookProjectMetadataPanel({ metadata, saving, onSave }: BookProje
   if (!editing) {
     return (
       <Surface
-        header={<h2 className="text-lg font-semibold">Metadata</h2>}
+        header={<h2 className="text-lg">Metadata</h2>}
         footer={
           <button type="button" className="btn-secondary" onClick={startEdit}>
             Edit metadata
@@ -48,31 +48,31 @@ export function BookProjectMetadataPanel({ metadata, saving, onSave }: BookProje
         <dl className="grid gap-3 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.title || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.title || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Subtitle</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.subtitle || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.subtitle || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Author</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.authorName || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.authorName || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Imprint</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.imprint || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.imprint || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">ISBN</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.isbn || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.isbn || ' - '}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Language</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.language || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.language || ' - '}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Description</dt>
-            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.description || '—'}</dd>
+            <dd className="text-sm text-[var(--color-pib-text)]">{metadata.description || ' - '}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">AI disclosure</dt>
@@ -84,25 +84,25 @@ export function BookProjectMetadataPanel({ metadata, saving, onSave }: BookProje
   }
 
   return (
-    <Surface header={<h2 className="text-lg font-semibold">Edit metadata</h2>}>
+    <Surface header={<h2 className="text-lg">Edit metadata</h2>}>
       <form className="space-y-4" onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           {fields.map((field) => (
             <label key={field.key} className={field.type === 'textarea' ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">{field.label}</span>
+              <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">{field.label}</span>
               {field.type === 'textarea' ? (
                 <textarea
                   className="input-field w-full"
                   rows={3}
                   value={draft[field.key] ?? ''}
                   onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
-                />
+                 aria-label="Input"/>
               ) : (
                 <input
                   className="input-field w-full"
                   value={draft[field.key] ?? ''}
                   onChange={(event) => setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))}
-                />
+                 aria-label="Input"/>
               )}
             </label>
           ))}
@@ -112,7 +112,7 @@ export function BookProjectMetadataPanel({ metadata, saving, onSave }: BookProje
             type="checkbox"
             checked={Boolean(draft.aiDisclosure)}
             onChange={(event) => setDraft((prev) => ({ ...prev, aiDisclosure: event.target.checked ? 'AI-assisted content' : '' }))}
-          />
+           aria-label="Toggle"/>
           AI disclosure required
         </label>
         <div className="flex gap-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { StageEditor } from './StageEditor'
+import { Icon } from '@/components/studio'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
             onClick={onClose}
             className="pib-dialog-close cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[16px]">close</span>
+            <Icon name="close" className="text-[16px]" />
           </button>
         </div>
 
@@ -154,6 +155,7 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="e.g. Sales, Renewals, Onboarding"
+              aria-label="Pipeline name"
               className="pib-input h-9 w-full text-sm"
             />
           </Field>
@@ -164,12 +166,13 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               placeholder="Optional description"
+              aria-label="Pipeline description"
               rows={2}
               className="pib-textarea w-full resize-none text-sm"
             />
           </Field>
 
-          {/* isDefault toggle — edit mode only */}
+          {/* isDefault toggle - edit mode only */}
           {mode === 'edit' && (
             <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-pib-text)]">
               <input
@@ -209,7 +212,7 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
           >
             {saving ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <Icon name="progress_activity" className="text-[16px] animate-spin" />
                 Saving…
               </>
             ) : (

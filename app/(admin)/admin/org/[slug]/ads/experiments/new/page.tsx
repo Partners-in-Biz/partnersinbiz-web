@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/experiments/new/page.tsx
-// Sub-5 Batch 2B — Create experiment page
+// Sub-5 Batch 2B  -  Create experiment page
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'

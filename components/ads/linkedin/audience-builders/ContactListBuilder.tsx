@@ -1,6 +1,6 @@
 'use client'
 // components/ads/linkedin/audience-builders/ContactListBuilder.tsx
-// LinkedIn Customer List (CUSTOMER_LIST) audience builder — Phase 3 Batch 3
+// LinkedIn Customer List (CUSTOMER_LIST) audience builder - Phase 3 Batch 3
 
 import { useState } from 'react'
 
@@ -14,7 +14,7 @@ interface Props {
 type State = 'idle' | 'submitting' | 'done' | 'error'
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 export function LinkedinContactListBuilder({ orgId, onCreated, onCancel }: Props) {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
+import { Icon } from '@/components/studio'
 
 export type CompanyAnalyticsMetrics = {
   accountValue?: number
@@ -114,7 +115,7 @@ function buildOperatingActions({
 
 const toneClass: Record<OperatingAction['tone'], string> = {
   risk: 'border-red-400/30 bg-red-500/10 text-red-200',
-  watch: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
+  watch: 'border-amber-400/30 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]',
   good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100',
 }
 
@@ -132,9 +133,9 @@ function OperatingActionControl({
     <>
       <div className="flex items-center justify-between gap-3">
         <span className="text-[10px] font-label uppercase tracking-[0.22em] opacity-80">{action.label}</span>
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{action.icon}</span>
+        <Icon name={action.icon} className="text-[16px]" />
       </div>
-      <p className="mt-2 text-xs font-semibold">{action.value}</p>
+      <p className="mt-2 text-xs font-medium">{action.value}</p>
     </>
   )
 
@@ -186,15 +187,15 @@ export function CompanyAnalyticsPanel({
   const riskActionAriaLabel = riskClearActionAriaLabel ?? `Review invoices, orders, and inventory for ${companyName}`
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="grid grid-cols-2 gap-2 border-b border-[var(--color-card-border)] p-2 sm:grid-cols-3 xl:grid-cols-6">
         {tiles.map((tile) => (
           <div key={tile.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
             <div className="flex items-start justify-between gap-2">
               <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{tile.label}</p>
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+              <Icon name={tile.icon} className="text-[16px] text-[var(--color-pib-text-muted)]" />
             </div>
-            <p className="mt-1 truncate text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+            <p className="mt-1 truncate text-lg font-medium text-[var(--color-pib-text)]">{tile.value}</p>
           </div>
         ))}
       </div>
@@ -204,7 +205,7 @@ export function CompanyAnalyticsPanel({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Account operating brief</p>
-              <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Where the team should act next</h3>
+              <h3 className="mt-0.5 text-sm font-medium text-[var(--color-pib-text)]">Where the team should act next</h3>
             </div>
             <span className={`pib-pill ${riskSignals.length > 0 ? 'pib-pill-warn' : ''}`}>
               {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
@@ -228,7 +229,7 @@ export function CompanyAnalyticsPanel({
         {riskSignals.length === 0 ? (
           <div className="mt-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-emerald-200">Risk watch clear</p>
-            <h3 className="mt-1 text-xs font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
+            <h3 className="mt-1 text-xs font-medium text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {clearBody}
             </p>
@@ -238,7 +239,7 @@ export function CompanyAnalyticsPanel({
                 aria-label={riskActionAriaLabel}
                 className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
+                <Icon name={riskClearActionIcon} className="text-[14px]" />
                 {riskClearActionLabel}
               </Link>
             ) : onOpenTab ? (
@@ -248,7 +249,7 @@ export function CompanyAnalyticsPanel({
                 aria-label={riskActionAriaLabel}
                 className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
+                <Icon name={riskClearActionIcon} className="text-[14px]" />
                 {riskClearActionLabel}
               </button>
             ) : null}

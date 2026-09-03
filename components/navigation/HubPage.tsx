@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 
+import { Icon } from '@/components/studio'
+
 export interface HubAction {
   label: string
   href: string
@@ -42,7 +44,7 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
         </div>
         {primaryAction && (
           <Link href={primaryAction.href} className="btn-pib-accent self-start md:self-auto">
-            <span className="material-symbols-outlined text-base">{primaryAction.icon}</span>
+            <Icon name={primaryAction.icon} className="text-base" />
             {primaryAction.label}
           </Link>
         )}
@@ -51,10 +53,10 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
       {companyOwned && sourceCompanyName && (
         <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="Company marketing workspace">
           <div className="flex gap-3">
-            <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-accent)]">apartment</span>
+            <Icon name="apartment" className="mt-0.5 text-[22px] text-[var(--color-pib-accent)]" />
             <div>
               <p className="eyebrow !text-[10px]">Company marketing</p>
-              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+              <h2 className="mt-1 text-base font-medium text-[var(--color-pib-text)]">
                 {sourceCompanyName}
               </h2>
               <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
@@ -67,7 +69,7 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
 
       {sections.map((section) => (
         <section key={section.title} className="space-y-3">
-          <h2 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          <h2 className="text-sm font-label font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {section.title}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -80,14 +82,14 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <span className="w-10 h-10 rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)] flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-[22px]">{action.icon}</span>
+                      <Icon name={action.icon} className="text-[22px]" />
                     </span>
                     {action.eyebrow && (
                       <span className="pill !text-[10px] !py-0.5 !px-2 shrink-0">{action.eyebrow}</span>
                     )}
                   </div>
                   <div>
-                    <h3 className="text-base font-display text-[var(--color-pib-text)] leading-snug">
+                    <h3 className="text-base text-[var(--color-pib-text)] leading-snug">
                       {action.label}
                     </h3>
                     <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 leading-relaxed">
@@ -97,9 +99,7 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
                 </div>
                 <span className="mt-4 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
                   Open
-                  <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5">
-                    arrow_forward
-                  </span>
+                  <Icon name="arrow_forward" className="text-sm transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
             ))}

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 // ── API response types ─────────────────────────────────────────────────────────
 
@@ -222,9 +224,9 @@ function HBarChart({ entries, formatLabel = (label) => label }: { entries: [stri
           <span className="text-xs w-24 shrink-0 text-right text-[var(--color-pib-text-muted)] truncate" title={formatLabel(label)}>
             {formatLabel(label)}
           </span>
-          <div className="flex-1 h-2 rounded-full bg-[var(--color-pib-surface-soft)] overflow-hidden">
+          <div className="flex-1 h-2 rounded bg-[var(--color-pib-surface-soft)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+              className="h-full rounded bg-[var(--color-pib-accent)] transition-all duration-500"
               style={{ width: `${(count / maxCount) * 100}%` }}
             />
           </div>
@@ -242,9 +244,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="pib-stat-card">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label mb-0">{label}</p>
-        {icon && <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{icon}</span>}
+        {icon && <Icon name={icon} />}
       </div>
-      <p className="mt-1.5 text-lg font-semibold leading-none text-[var(--color-pib-text)]">
+      <p className="mt-1.5 text-lg leading-none text-[var(--color-pib-text)]">
         {value}
       </p>
       {sub && <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>}
@@ -265,16 +267,16 @@ function EmptyState({
 }) {
   return (
     <div className="pib-empty-state">
-      <span className="material-symbols-outlined pib-empty-state-icon">{icon}</span>
+      <Icon name={icon} />
       <p className="pib-empty-state-title">{title}</p>
       <p className="pib-empty-state-description">{body}</p>
       {action && (
         <Link
           href={action.href}
           aria-label={action.ariaLabel}
-          className="btn-pib-primary text-xs mt-5"
+          className="st-btn st-btn--primary text-xs mt-5"
         >
-          <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+          <Icon name={action.icon} />
           {action.label}
         </Link>
       )}
@@ -299,17 +301,17 @@ function InsightCard({
 }) {
   const toneClass =
     tone === 'good'
-      ? 'border-[var(--color-pib-green)]/40 bg-[var(--color-pib-green-soft)]'
+      ? 'border-[var(--st-success)]/40 bg-[color-mix(in_srgb,var(--st-success)_10%,transparent)]'
       : tone === 'warning'
         ? 'border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]'
         : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]'
   return (
     <div className={`rounded-[16px] border p-4 ${toneClass}`}>
       <div className="flex items-start gap-2.5">
-        <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent-hover)]">{icon}</span>
+        <Icon name={icon} className="mt-0.5" />
         <div className="min-w-0">
           <p className="pib-label mb-0">{label}</p>
-          <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text)]">{title}</p>
           <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
           {action && (
             <Link
@@ -317,7 +319,7 @@ function InsightCard({
               aria-label={action.ariaLabel}
               className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:underline"
             >
-              <span className="material-symbols-outlined text-[13px]">{action.icon}</span>
+              <Icon name={action.icon} />
               {action.label}
             </Link>
           )}
@@ -330,13 +332,13 @@ function InsightCard({
 function ReportSourceWarning({ failures, reloadHref }: { failures: string[]; reloadHref: string }) {
   if (failures.length === 0) return null
   return (
-    <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
+    <section className="st-panel border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
       <div className="flex flex-col gap-2.5 md:flex-row md:items-start md:justify-between">
         <div className="flex gap-2.5">
-          <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent-hover)]" aria-hidden="true">warning</span>
+          <Icon name="warning" className="mt-0.5" />
           <div>
-            <p className="eyebrow text-[var(--color-pib-accent-hover)]">Source health</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">CRM report data needs attention</h2>
+            <p className="sc-tiny text-[var(--color-pib-accent-hover)]">Source health</p>
+            <h2 className="mt-0.5 text-sm text-[var(--color-pib-text)]">CRM report data needs attention</h2>
             <div className="mt-1 space-y-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {failures.map((failure) => (
                 <p key={failure}>{failure} report failed to load. Current analytics may be incomplete.</p>
@@ -347,9 +349,9 @@ function ReportSourceWarning({ failures, reloadHref }: { failures: string[]; rel
         <Link
           href={reloadHref}
           aria-label="Reload CRM reports after source failure"
-          className="btn-pib-secondary text-xs shrink-0"
+          className="st-btn st-btn--secondary text-xs shrink-0"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+          <Icon name="refresh" />
           Reload reports
         </Link>
       </div>
@@ -365,9 +367,9 @@ function HealthBar({ value, label }: { value: number; label: string }) {
         <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
         <p className="font-mono text-xs text-[var(--color-pib-text)]">{fmtPercent(normalized)}</p>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
+      <div className="h-2 overflow-hidden rounded bg-[var(--color-pib-surface-soft)]">
         <div
-          className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+          className="h-full rounded bg-[var(--color-pib-accent)] transition-all duration-500"
           style={{ width: `${normalized * 100}%` }}
         />
       </div>
@@ -381,7 +383,7 @@ function SummaryChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="pib-stat-card min-w-[130px]">
       <p className="pib-label">{label}</p>
-      <p className="text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -405,8 +407,8 @@ function OwnershipMetricTile({
   ].filter(Boolean).join(' ')
   const content = (
     <>
-      <p className="eyebrow !text-[10px]">{label}</p>
-      <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
+      <p className="sc-tiny !text-[10px]">{label}</p>
+      <p className="mt-2 text-xl text-[var(--color-pib-text)]">{value}</p>
       {sub && <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>}
     </>
   )
@@ -456,7 +458,7 @@ function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
             className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
           >
             <span className="truncate">{label}</span>
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">open_in_new</span>
+            <Icon name="open_in_new" />
           </Link>
         ) : (
           label
@@ -512,7 +514,7 @@ export default function CrmReportsPage() {
   const [days, setDays] = useState<DaysOption>(30)
   const [reportFailures, setReportFailures] = useState<string[]>([])
 
-  // Initial fetch — all reports in parallel
+  // Initial fetch  -  all reports in parallel
   useEffect(() => {
     Promise.all([
       fetchReportSource('Funnel', reportApiPath('/api/v1/crm/reports/funnel'), isFunnelData),
@@ -667,10 +669,10 @@ export default function CrmReportsPage() {
   if (loading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center gap-4 pb-6">
-          <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">monitoring</span></span>
-          <div><p className="eyebrow">CRM</p><h1 className="pib-page-title mt-2">CRM Reports</h1></div>
-        </header>
+        <PageHeader
+          eyebrow="CRM"
+          title="CRM reports."
+        />
         <div className="min-h-0 flex-1 space-y-8 overflow-y-auto">
         {/* Funnel skeleton */}
         <div className="space-y-5">
@@ -708,14 +710,11 @@ export default function CrmReportsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Page header */}
-      <header className="flex shrink-0 items-start gap-4 pb-6">
-        <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">monitoring</span></span>
-        <div className="min-w-0"><p className="eyebrow">CRM</p><h1 className="pib-page-title mt-2">CRM Reports</h1>
-        <p className="pib-page-sub">
-          A command view for pipeline quality, revenue coverage, team execution, and the actions that need attention.
-        </p></div>
-      </header>
+      <PageHeader
+        eyebrow="CRM"
+        title="CRM reports."
+        description="A command view for pipeline quality, revenue coverage, team execution, and the actions that need attention."
+      />
 
       <div className="min-h-0 flex-1 space-y-8 overflow-y-auto">
 
@@ -725,8 +724,8 @@ export default function CrmReportsPage() {
         <div className="space-y-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="eyebrow">Executive signal</p>
-              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">{pipelineSignal}</h2>
+              <p className="sc-tiny">Executive signal</p>
+              <h2 className="mt-1 text-base text-[var(--color-pib-text)]">{pipelineSignal}</h2>
               <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Weighted forecast, stage velocity, ownership hygiene, and activity rhythm are combined here so CRM review starts with decisions, not spreadsheet reading.
               </p>
@@ -741,7 +740,7 @@ export default function CrmReportsPage() {
                     : 'pib-pill-danger',
               ].join(' ')}
             >
-              <span className="material-symbols-outlined text-[16px]">monitoring</span>
+              <Icon name="monitoring" />
               {pipelineSignal}
             </span>
           </div>
@@ -758,9 +757,9 @@ export default function CrmReportsPage() {
           </div>
         </div>
 
-        <div className="pib-card space-y-3">
+        <div className="st-panel space-y-3">
           <div>
-            <p className="eyebrow">Analytics health</p>
+            <p className="sc-tiny">Analytics health</p>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Signals that should be reviewed before the next sales standup.</p>
           </div>
           <HealthBar value={forecastCoverage} label="Forecast confidence" />
@@ -859,7 +858,7 @@ export default function CrmReportsPage() {
           />
         ) : (
           <>
-            {/* By type — 4 stat cards */}
+            {/* By type  -  4 stat cards */}
             <div>
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-3 font-medium">By type</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -870,9 +869,9 @@ export default function CrmReportsPage() {
               </div>
             </div>
 
-            {/* By stage — horizontal bar chart */}
+            {/* By stage  -  horizontal bar chart */}
             <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-              <div className="pib-card">
+              <div className="st-panel">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">By stage</p>
                   {topStage && (
@@ -885,24 +884,24 @@ export default function CrmReportsPage() {
                   <HBarChart entries={byStageEntries} formatLabel={labelize} />
                 ) : (
                   <div className="rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-4">
-                    <p className="eyebrow !text-[10px] text-[var(--color-pib-accent-hover)]">Stage mix missing</p>
-                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Classify contacts into funnel stages</h3>
+                    <p className="sc-tiny !text-[10px] text-[var(--color-pib-accent-hover)]">Stage mix missing</p>
+                    <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Classify contacts into funnel stages</h3>
                     <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.
                     </p>
                     <Link
                       href={reportPortalPath('/portal/contacts?create=contact')}
                       aria-label="Open contacts to classify missing stage mix"
-                      className="btn-pib-secondary text-xs mt-3"
+                      className="st-btn st-btn--secondary text-xs mt-3"
                     >
-                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">filter_alt</span>
+                      <Icon name="filter_alt" />
                       Classify contacts
                     </Link>
                   </div>
                 )}
               </div>
-              <div className="pib-card space-y-3">
-                <p className="eyebrow !text-[10px]">Conversion mix</p>
+              <div className="st-panel space-y-3">
+                <p className="sc-tiny !text-[10px]">Conversion mix</p>
                 <HealthBar value={clientMix} label="Clients in active base" />
                 <HealthBar value={prospectMix} label="Prospects in active base" />
                 <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -969,9 +968,9 @@ export default function CrmReportsPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="pib-card space-y-3">
+              <div className="st-panel space-y-3">
                 <div>
-                  <p className="eyebrow !text-[10px]">Forecast discipline</p>
+                  <p className="sc-tiny !text-[10px]">Forecast discipline</p>
                   <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Close dates and probabilities decide how believable the pipeline is.</p>
                 </div>
                 <HealthBar value={forecastCoverage} label="Weighted against total" />
@@ -1010,9 +1009,9 @@ export default function CrmReportsPage() {
           />
         ) : (
           <div className="grid lg:grid-cols-[260px_1fr] gap-4">
-            <div className="pib-card">
-              <p className="eyebrow !text-[10px]">Bottlenecks</p>
-              <p className="mt-1 text-2xl font-semibold leading-none text-[var(--color-pib-text)]">
+            <div className="st-panel">
+              <p className="sc-tiny !text-[10px]">Bottlenecks</p>
+              <p className="mt-1 text-2xl leading-none text-[var(--color-pib-text)]">
                 {fmtNum(velocity.summary.bottleneckCount)}
               </p>
               <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
@@ -1026,7 +1025,7 @@ export default function CrmReportsPage() {
                   aria-label={`Review deals in slowest ${labelize(velocity.summary.slowestStage.stageId)} stage from bottleneck summary`}
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_list</span>
+                  <Icon name="view_list" />
                   Review slow stage
                 </Link>
               ) : (
@@ -1035,7 +1034,7 @@ export default function CrmReportsPage() {
                   aria-label="Review pipeline movement from bottleneck summary"
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                 >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_kanban</span>
+                  <Icon name="view_kanban" />
                   Review movement
                 </Link>
               )}
@@ -1068,7 +1067,7 @@ export default function CrmReportsPage() {
                           className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
                         >
                           <span className="truncate">{labelize(stage.stageId)}</span>
-                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                          <Icon name="open_in_new" />
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(stage.dealCount)}</td>
@@ -1128,7 +1127,7 @@ export default function CrmReportsPage() {
                           className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
                         >
                           <span className="truncate">{rep.displayName}</span>
-                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                          <Icon name="open_in_new" />
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
@@ -1153,9 +1152,9 @@ export default function CrmReportsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="pib-card space-y-3">
+            <div className="st-panel space-y-3">
               <div>
-                <p className="eyebrow !text-[10px]">Ownership</p>
+                <p className="sc-tiny !text-[10px]">Ownership</p>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Performance reporting is only useful when contacts and deals have accountable owners.</p>
               </div>
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
@@ -1225,9 +1224,9 @@ export default function CrmReportsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr_320px]">
             {/* Total + sparkline */}
-            <div className="pib-card space-y-3">
+            <div className="st-panel space-y-3">
               <div>
-                <p className="text-2xl font-semibold leading-none text-[var(--color-pib-text)]">
+                <p className="text-2xl leading-none text-[var(--color-pib-text)]">
                   {fmtNum(activity.total)}
                 </p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
@@ -1242,22 +1241,22 @@ export default function CrmReportsPage() {
               )}
             </div>
 
-            {/* By type — horizontal bar chart */}
-            <div className="pib-card">
+            {/* By type  -  horizontal bar chart */}
+            <div className="st-panel">
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-4 font-medium">By type</p>
               {byTypeEntries.length === 0 ? (
                 <div className="rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-4">
-                  <p className="eyebrow !text-[10px] text-[var(--color-pib-accent-hover)]">Activity mix missing</p>
-                  <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Log the next CRM touch with type context</h3>
+                  <p className="sc-tiny !text-[10px] text-[var(--color-pib-accent-hover)]">Activity mix missing</p>
+                  <h3 className="mt-1 text-sm text-[var(--color-pib-text)]">Log the next CRM touch with type context</h3>
                   <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.
                   </p>
                   <Link
                     href={reportPortalPath('/portal/contacts?followUp=stale')}
                     aria-label="Open contacts to log typed CRM activity"
-                    className="btn-pib-secondary text-xs mt-3"
+                    className="st-btn st-btn--secondary text-xs mt-3"
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+                    <Icon name="edit_note" />
                     Log typed activity
                   </Link>
                 </div>
@@ -1266,22 +1265,22 @@ export default function CrmReportsPage() {
               )}
             </div>
 
-            <div className="pib-card space-y-3">
+            <div className="st-panel space-y-3">
               <div>
-                <p className="eyebrow !text-[10px]">Rhythm</p>
+                <p className="sc-tiny !text-[10px]">Rhythm</p>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Use this to spot quiet periods before pipeline follow-up slips.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
-                  <p className="eyebrow !text-[10px]">Best day</p>
-                  <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">
+                  <p className="sc-tiny !text-[10px]">Best day</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text)]">
                     {busiestDay ? `${busiestDay.date}` : 'None'}
                   </p>
                   <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">{fmtNum(busiestDay?.count ?? 0)} activities</p>
                 </div>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
-                  <p className="eyebrow !text-[10px]">Quiet days</p>
-                  <p className="mt-2 font-display text-2xl font-bold text-[var(--color-pib-text)]">{fmtNum(daysWithoutActivity)}</p>
+                  <p className="sc-tiny !text-[10px]">Quiet days</p>
+                  <p className="mt-2 text-2xl text-[var(--color-pib-text)]">{fmtNum(daysWithoutActivity)}</p>
                   <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">of {fmtNum(activity.perDay.length)}</p>
                   {daysWithoutActivity > 0 && (
                     <Link
@@ -1289,7 +1288,7 @@ export default function CrmReportsPage() {
                       aria-label="Open contacts needing follow-up from activity rhythm"
                       className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                     >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_note</span>
+                      <Icon name="event_note" />
                       Review follow-up
                     </Link>
                   )}

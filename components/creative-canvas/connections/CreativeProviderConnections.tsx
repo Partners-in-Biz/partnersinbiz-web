@@ -183,19 +183,19 @@ function ConnectForm({
             placeholder={field.placeholder}
             value={values[field.key] ?? ''}
             onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-          />
+           aria-label="Input"/>
         </div>
       ))}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <label htmlFor={`cc-${provider.key}-nickname`} style={label}>Nickname (optional)</label>
-        <input id={`cc-${provider.key}-nickname`} style={input} type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+        <input id={`cc-${provider.key}-nickname`} style={input} type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}  aria-label="Input"/>
       </div>
       <div role="radiogroup" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label style={{ ...label, display: 'flex', alignItems: 'center', gap: 6, color: canvasTheme.text }}>
-          <input type="radio" name={`scope-${provider.key}`} checked={scope === 'org'} onChange={() => setScope('org')} /> This organisation
+          <input type="radio" name={`scope-${provider.key}`} checked={scope === 'org'} onChange={() => setScope('org')}  aria-label="Input"/> This organisation
         </label>
         <label style={{ ...label, display: 'flex', alignItems: 'center', gap: 6, color: canvasTheme.text }}>
-          <input type="radio" name={`scope-${provider.key}`} checked={scope === 'user'} onChange={() => setScope('user')} /> Just me (usable in all my orgs)
+          <input type="radio" name={`scope-${provider.key}`} checked={scope === 'user'} onChange={() => setScope('user')}  aria-label="Input"/> Just me (usable in all my orgs)
         </label>
       </div>
       {formError && <span role="alert" style={{ fontSize: 12, color: '#ff7a7a' }}>{formError}</span>}

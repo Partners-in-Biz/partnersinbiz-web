@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { HudChip } from '@/components/ui/HudChip'
+import { Checkbox, Field, Input, Status, Toolbar } from '@/components/studio'
 import type { FinanceSavedView, OperatorAdvancedFilters, OperatorListResourceKind } from '@/lib/accounting/operator-depth-types'
 import { applyAdvancedOperatorFilters } from '@/lib/accounting/operator-depth'
 
@@ -42,84 +42,45 @@ export function FinanceOperatorListToolbar({
   const allFilteredSelected = filtered.length > 0 && filtered.every((row) => selectedIds.has(row.id))
 
   return (
-    <div className="space-y-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 sm:p-4" data-testid="finance-operator-toolbar">
-      <div className="flex flex-wrap items-center gap-2">
-        <HudChip tone="neutral">{resourceKind.replace('_', ' ')}</HudChip>
-        <HudChip tone="neutral">{filtered.length} filtered</HudChip>
-        <HudChip tone="neutral">{selectedIds.size} selected</HudChip>
-        {busy ? <HudChip tone="warning">Working…</HudChip> : null}
-      </div>
+    <div className="st-panel space-y-4 p-4" data-testid="finance-operator-toolbar">
+      <Toolbar className="flex-wrap gap-2">
+        <Status>{resourceKind.replace('_', ' ')}</Status>
+        <Status>{filtered.length} filtered</Status>
+        <Status>{selectedIds.size} selected</Status>
+        {busy ? <Status tone="warning">Working</Status> : null}
+      </Toolbar>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          Search
-          <input
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={filters.query || ''}
-            onChange={(e) => onFiltersChange({ ...filters, query: e.target.value || undefined })}
-            placeholder="Number, counterparty, memo"
-          />
-        </label>
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          Status
-          <input
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={filters.status || ''}
-            onChange={(e) => onFiltersChange({ ...filters, status: e.target.value || undefined })}
-            placeholder="issued / draft / paid"
-          />
-        </label>
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          From date
-          <input
-            type="date"
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={filters.fromDate || ''}
-            onChange={(e) => onFiltersChange({ ...filters, fromDate: e.target.value || undefined })}
-          />
-        </label>
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          To date
-          <input
-            type="date"
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={filters.toDate || ''}
-            onChange={(e) => onFiltersChange({ ...filters, toDate: e.target.value || undefined })}
-          />
-        </label>
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          Counterparty id
-          <input
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={filters.counterpartyCompanyId || ''}
-            onChange={(e) => onFiltersChange({ ...filters, counterpartyCompanyId: e.target.value || undefined })}
-          />
-        </label>
-        <label className="block text-xs text-[var(--color-pib-text-muted)]">
-          Min outstanding (minor)
-          <input
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Field id="op-search" label="Search">
+          <Input id="op-search" aria-label="Search" value={filters.query || ''} onChange={(e) => onFiltersChange({ ...filters, query: e.target.value || undefined })} placeholder="Number, counterparty, memo" />
+        </Field>
+        <Field id="op-status" label="Status">
+          <Input id="op-status" aria-label="Status" value={filters.status || ''} onChange={(e) => onFiltersChange({ ...filters, status: e.target.value || undefined })} placeholder="issued / draft / paid" />
+        </Field>
+        <Field id="op-from" label="From date">
+          <Input id="op-from" aria-label="From date" type="date" value={filters.fromDate || ''} onChange={(e) => onFiltersChange({ ...filters, fromDate: e.target.value || undefined })} />
+        </Field>
+        <Field id="op-to" label="To date">
+          <Input id="op-to" aria-label="To date" type="date" value={filters.toDate || ''} onChange={(e) => onFiltersChange({ ...filters, toDate: e.target.value || undefined })} />
+        </Field>
+        <Field id="op-counterparty" label="Counterparty id">
+          <Input id="op-counterparty" aria-label="Counterparty id" value={filters.counterpartyCompanyId || ''} onChange={(e) => onFiltersChange({ ...filters, counterpartyCompanyId: e.target.value || undefined })} />
+        </Field>
+        <Field id="op-min" label="Min outstanding (minor)">
+          <Input
+            id="op-min"
+            aria-label="Min outstanding (minor)"
             type="number"
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
             value={filters.minOutstandingMinor ?? ''}
-            onChange={(e) =>
-              onFiltersChange({
-                ...filters,
-                minOutstandingMinor: e.target.value === '' ? undefined : Number(e.target.value),
-              })
-            }
+            onChange={(e) => onFiltersChange({ ...filters, minOutstandingMinor: e.target.value === '' ? undefined : Number(e.target.value) })}
           />
-        </label>
-        <label className="flex items-end gap-2 text-xs text-[var(--color-pib-text-muted)] pb-2">
-          <input
-            type="checkbox"
-            checked={filters.unallocatedOnly === true}
-            onChange={(e) => onFiltersChange({ ...filters, unallocatedOnly: e.target.checked || undefined })}
-          />
-          Unallocated only
-        </label>
+        </Field>
+        <div className="flex items-end pb-1">
+          <Checkbox label="Unallocated only" checked={filters.unallocatedOnly === true} onChange={(e) => onFiltersChange({ ...filters, unallocatedOnly: e.target.checked || undefined })} />
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <Toolbar className="flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
@@ -145,18 +106,14 @@ export function FinanceOperatorListToolbar({
             {action.label}
           </Button>
         ))}
-      </div>
+      </Toolbar>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <label className="block min-w-0 flex-1 text-xs text-[var(--color-pib-text-muted)]">
-          Save current filters as view
-          <input
-            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
-            value={viewName}
-            onChange={(e) => setViewName(e.target.value)}
-            placeholder="e.g. Open AR over 30 days"
-          />
-        </label>
+        <div className="min-w-0 flex-1">
+          <Field id="op-view-name" label="Save current filters as view">
+            <Input id="op-view-name" aria-label="Save current filters as view" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="e.g. Open AR over 30 days" />
+          </Field>
+        </div>
         <Button
           type="button"
           size="sm"
@@ -173,12 +130,12 @@ export function FinanceOperatorListToolbar({
       {savedViews.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {savedViews.map((view) => (
-            <div key={view.id} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-xs">
-              <button type="button" className="font-medium text-[var(--color-pib-text)]" onClick={() => onApplyView(view)}>
+            <div key={view.id} className="inline-flex items-center gap-1 border border-[var(--sc-line)] px-2 py-1 text-xs">
+              <button type="button" className="font-medium text-[var(--sc-ink)]" onClick={() => onApplyView(view)}>
                 {view.name}
               </button>
               {onDeleteView ? (
-                <button type="button" className="text-[var(--color-pib-text-muted)]" aria-label={`Delete view ${view.name}`} onClick={() => void onDeleteView(view)}>
+                <button type="button" className="text-[var(--sc-ink-soft)]" aria-label={`Delete view ${view.name}`} onClick={() => void onDeleteView(view)}>
                   ×
                 </button>
               ) : null}
@@ -186,9 +143,7 @@ export function FinanceOperatorListToolbar({
           ))}
         </div>
       ) : (
-        <div className="pib-empty-state !py-4">
-          <p className="pib-empty-state-description">No saved views yet — tune filters and save one for next close.</p>
-        </div>
+        <p className="sc-body text-sm text-[var(--sc-ink-soft)]">No saved views yet. Tune filters and save one for next close.</p>
       )}
     </div>
   )

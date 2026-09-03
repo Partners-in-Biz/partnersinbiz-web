@@ -51,7 +51,7 @@ const GENDER_OPTIONS: { value: TiktokGender; label: string }[] = [
 ]
 
 const inputCls =
-  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+  'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
 const labelCls = 'block text-sm font-medium'
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ export function TiktokTargetingEditor({ value, onChange }: Props) {
       const merged: TiktokTargeting = { ...currentTk, ...parsed }
       onChange({ ...value, tkTargeting: merged })
     } catch {
-      setJsonError('Invalid JSON — please check the pasted targeting object.')
+      setJsonError('Invalid JSON - please check the pasted targeting object.')
     }
   }
 
@@ -181,7 +181,7 @@ export function TiktokTargetingEditor({ value, onChange }: Props) {
               key={ag.value}
               className={`flex items-center gap-2 rounded border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
                 selectedAgeGroups.includes(ag.value)
-                  ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                  ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                   : 'border-white/10 text-white/60 hover:bg-white/5'
               }`}
             >
@@ -209,7 +209,7 @@ export function TiktokTargetingEditor({ value, onChange }: Props) {
               key={g.value}
               className={`flex items-center gap-2 rounded border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
                 selectedGender === g.value
-                  ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                  ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                   : 'border-white/10 text-white/60 hover:bg-white/5'
               }`}
             >
@@ -255,10 +255,10 @@ export function TiktokTargetingEditor({ value, onChange }: Props) {
           aria-label="Advanced TikTok targeting JSON"
         />
         {jsonError && (
-          <p className="mt-1 text-xs text-red-400">{jsonError}</p>
+          <p className="mt-1 text-xs text-[var(--st-danger)]">{jsonError}</p>
         )}
         <p className="mt-1 text-xs text-white/40">
-          Full facet picker UI arrives in Phase 3 — for now paste TikTok facet IDs from
+          Full facet picker UI arrives in Phase 3 - for now paste TikTok facet IDs from
           TikTok Ads Manager (interest_category_ids, behavior_ids, included_audiences, etc.).
         </p>
       </div>

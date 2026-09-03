@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -129,8 +130,8 @@ export default function GautengGrowthAuditPage() {
       <JsonLd data={faqSchema(FAQS)} />
 
       <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
-        <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-30" />
+        <div className="absolute inset-0 -z-10 opacity-70" />
+        <div className="absolute inset-0 pointer-events-none opacity-30" />
         <div className="container-pib relative grid gap-10 lg:grid-cols-12 lg:items-start">
           <div className="lg:col-span-7">
             <Reveal eager>
@@ -138,7 +139,7 @@ export default function GautengGrowthAuditPage() {
               <h1 className="h-display max-w-5xl text-balance">
                 Gauteng small businesses deserve more than a website that just sits there.
               </h1>
-              <p className="mt-6 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
+              <p className="mt-6 max-w-2xl text-lg md:text- text-[var(--color-pib-text-muted)] text-pretty">
                 We build your website, sharpen your Google visibility, and turn social media into
                 a lead engine over 90 days. Start with a free growth audit so you can see exactly
                 where enquiries are leaking.
@@ -146,7 +147,7 @@ export default function GautengGrowthAuditPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="#audit-form" className="btn-pib-accent">
                   Get my free growth audit
-                  <span className="material-symbols-outlined text-base">arrow_downward</span>
+                  <Icon name="arrow_downward" />
                 </a>
                 <a href="#ninety-day-plan" className="btn-pib-secondary">
                   See the 90-day plan
@@ -155,9 +156,7 @@ export default function GautengGrowthAuditPage() {
               <ul className="mt-8 grid gap-2 sm:grid-cols-2">
                 {PROOF_POINTS.map((point) => (
                   <li key={point} className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                    <span className="material-symbols-outlined text-base text-[var(--color-pib-accent)]">
-                      check
-                    </span>
+                    <Icon name="check" />
                     {point}
                   </li>
                 ))}
@@ -167,16 +166,14 @@ export default function GautengGrowthAuditPage() {
             <Reveal delay={160}>
               <div className="mt-10 bento-card p-6 md:p-8">
                 <p className="eyebrow mb-3">The real problem</p>
-                <h2 className="font-display text-3xl leading-tight text-[var(--color-pib-text)] text-balance">
+                <h2 className="text-3xl leading-tight text-[var(--color-pib-text)] text-balance">
                   Your business may be strong offline, but online it can still look quiet,
                   outdated, or hard to trust.
                 </h2>
                 <div className="mt-6 grid gap-3">
                   {LEAKS.map((leak) => (
                     <div key={leak} className="flex gap-3 text-sm text-[var(--color-pib-text-muted)]">
-                      <span className="material-symbols-outlined mt-0.5 text-base text-[var(--color-pib-accent)]">
-                        warning
-                      </span>
+                      <Icon name="warning" className="mt-0.5" />
                       <span>{leak}</span>
                     </div>
                   ))}
@@ -197,10 +194,8 @@ export default function GautengGrowthAuditPage() {
             <div className="grid gap-4 md:grid-cols-3">
               {ENGINE.map((item) => (
                 <div key={item.title} className="bento-card p-6 md:p-8">
-                  <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">
-                    {item.icon}
-                  </span>
-                  <h2 className="mt-6 font-display text-2xl text-[var(--color-pib-text)]">
+                  <Icon name={item.icon} />
+                  <h2 className="mt-6 text-2xl text-[var(--color-pib-text)]">
                     {item.title}
                   </h2>
                   <p className="mt-3 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -232,7 +227,7 @@ export default function GautengGrowthAuditPage() {
               <Reveal key={item.label} delay={index * 80}>
                 <div className="bento-card h-full p-6 md:p-8">
                   <p className="eyebrow mb-4">{item.label}</p>
-                  <h3 className="font-display text-2xl text-[var(--color-pib-text)]">
+                  <h3 className="text-2xl text-[var(--color-pib-text)]">
                     {item.title}
                   </h3>
                   <p className="mt-4 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -250,7 +245,7 @@ export default function GautengGrowthAuditPage() {
           <Reveal className="lg:col-span-5">
             <div className="bento-card h-full p-8 md:p-10">
               <p className="eyebrow mb-4">Local relevance</p>
-              <h2 className="font-display text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
+              <h2 className="text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
                 Built for Gauteng business hubs, not generic marketing theory.
               </h2>
               <p className="mt-5 text-[var(--color-pib-text-muted)] text-pretty">
@@ -279,11 +274,11 @@ export default function GautengGrowthAuditPage() {
                       sizes="(min-width: 1024px) 30vw, 100vw"
                       className="object-cover opacity-75 transition duration-500 group-hover:scale-[1.02] group-hover:opacity-100"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-pib-bg)] via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-[var(--color-pib-bg)]/80" />
                   </div>
                   <div className="p-6">
                     <p className="eyebrow mb-2">{study.industry}</p>
-                    <h3 className="font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+                    <h3 className="text-2xl leading-tight text-[var(--color-pib-text)]">
                       {study.client}
                     </h3>
                     <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
@@ -310,7 +305,7 @@ export default function GautengGrowthAuditPage() {
           <Reveal className="lg:col-span-5">
             <div className="bento-card p-8 md:p-10">
               <p className="eyebrow mb-4">What happens next</p>
-              <h2 className="font-display text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
+              <h2 className="text-3xl md:text-4xl leading-tight text-[var(--color-pib-text)] text-balance">
                 A useful audit first. A sprint only if it fits.
               </h2>
               <ol className="mt-6 space-y-4">
@@ -335,15 +330,15 @@ export default function GautengGrowthAuditPage() {
                   ['Diagnostic', 'The form asks what is leaking, so the first reply can be personal and useful.'],
                   ['Next step clear', 'The paid 90-day sprint is framed as the answer after evidence, not before trust.'],
                 ].map(([title, body]) => (
-                  <div key={title} className="rounded-xl border border-[var(--color-pib-line)] p-4">
-                    <h3 className="font-display text-xl text-[var(--color-pib-text)]">{title}</h3>
+                  <div key={title} className="rounded-md border border-[var(--color-pib-line)] p-4">
+                    <h3 className="text- text-[var(--color-pib-text)]">{title}</h3>
                     <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{body}</p>
                   </div>
                 ))}
               </div>
               <a href="#audit-form" className="btn-pib-accent mt-8">
                 Start with the audit
-                <span className="material-symbols-outlined text-base">arrow_upward</span>
+                <Icon name="arrow_upward" />
               </a>
             </div>
           </Reveal>

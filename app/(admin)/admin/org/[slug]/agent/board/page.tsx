@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'border-amber-500/40 bg-amber-500/5',
+  pending: 'border-amber-500/40 bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]',
   'picked-up': 'border-blue-500/40 bg-blue-500/5',
   'in-progress': 'border-indigo-500/40 bg-indigo-500/5',
   'awaiting-input': 'border-orange-500/40 bg-orange-500/5',
@@ -50,17 +50,17 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  pip: 'bg-amber-400/15 text-[var(--color-pib-amber)] border border-amber-400/30',
+  pip: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--sc-accent)] border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
-  sage: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  sage: 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
-  ads: 'bg-amber-400/15 text-[var(--color-pib-amber)] border border-amber-400/30',
-  'qa-release': 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  ads: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] text-[var(--sc-accent)] border border-amber-400/30',
+  'qa-release': 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
   support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
-  data: 'bg-violet-400/15 text-violet-200 border border-violet-400/30',
+  data: 'bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-[var(--sc-ink-soft)] border border-violet-400/30',
   docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
-  seo: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
+  seo: 'bg-emerald-400/15 text-[var(--st-success)] border border-emerald-400/30',
 }
 
 const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
@@ -68,7 +68,7 @@ const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
   danger: 'bg-rose-500/15 text-rose-200 border-rose-400/30',
   warning: 'bg-orange-500/15 text-orange-200 border-orange-400/30',
   info: 'bg-sky-500/15 text-sky-200 border-sky-400/30',
-  purple: 'bg-purple-500/15 text-[var(--color-pib-violet)] border-purple-400/30',
+  purple: 'bg-purple-500/15 text-[var(--sc-ink-soft)] border-purple-400/30',
   neutral: 'bg-slate-400/15 text-slate-200 border-slate-300/30',
 }
 
@@ -174,17 +174,15 @@ export default function AgentBoardPage() {
           <p className="eyebrow">Admin · Agent board</p>
           <h1 className="pib-page-title mt-2">Agent task-bus board</h1>
           <p className="pib-page-sub">
-            Operator-only view of every task across <span className="font-medium">{data?.orgName ?? slug}</span> that has an agent assigned —
+            Operator-only view of every task across <span className="font-medium">{data?.orgName ?? slug}</span> that has an agent assigned  - 
             both project-nested and standalone. Grouped by agent status.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-1">
+          <div className="flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-1">
             <button
               onClick={() => setAgentFilter('all')}
-              className={`text-xs px-3 py-1 rounded-full transition ${
-                agentFilter === 'all' ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-              }`}
+              className={`text-xs px-3 py-1 rounded-md transition ${ agentFilter === 'all' ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]' }`}
             >
               All agents
             </button>
@@ -192,9 +190,7 @@ export default function AgentBoardPage() {
               <button
                 key={a}
                 onClick={() => setAgentFilter(a)}
-                className={`text-xs px-3 py-1 rounded-full capitalize transition ${
-                  agentFilter === a ? AGENT_COLORS[a] : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-                }`}
+                className={`text-xs px-3 py-1 rounded-md capitalize transition ${ agentFilter === a ? AGENT_COLORS[a] : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]' }`}
               >
                 {a}
               </button>
@@ -248,9 +244,7 @@ export default function AgentBoardPage() {
                     key={view.id}
                     type="button"
                     onClick={() => setViewFilter(view.id)}
-                    className={`text-xs px-2.5 py-1 rounded-md transition ${
-                      active ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]'
-                    }`}
+                    className={`text-xs px-2.5 py-1 rounded-md transition ${ active ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]' }`}
                     title={view.label}
                   >
                     <span>{view.shortLabel}</span>
@@ -294,7 +288,7 @@ export default function AgentBoardPage() {
                           <span
                             key={badge.id}
                             title={badge.title}
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${BADGE_TONE_CLASSES[badge.tone]}`}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md border ${BADGE_TONE_CLASSES[badge.tone]}`}
                           >
                             {badge.label}
                           </span>
@@ -307,7 +301,7 @@ export default function AgentBoardPage() {
                     )}
 
                     {card.agentOutputSummary && (
-                      <p className="mt-1.5 text-xs text-[var(--color-pib-green)]/80 line-clamp-2">
+                      <p className="mt-1.5 text-xs text-[var(--st-success)]/80 line-clamp-2">
                         <span className="opacity-70">Output: </span>
                         {card.agentOutputSummary}
                       </p>
@@ -325,7 +319,7 @@ export default function AgentBoardPage() {
                         </span>
                       )}
                       {orgName && card.orgId !== currentOrgId && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-[var(--color-pib-violet)]">
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-[var(--sc-ink-soft)]">
                           <span className="opacity-60">org · </span>
                           {orgName}
                         </span>

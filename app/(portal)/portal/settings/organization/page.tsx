@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -285,7 +287,7 @@ function isFilled(value: string) {
 /**
  * South African VAT numbers are exactly 10 digits and start with a 4.
  * Returns an error message for an invalid (non-empty) value, or '' when the
- * value is empty or valid. Empty is allowed — VAT registration is optional.
+ * value is empty or valid. Empty is allowed - VAT registration is optional.
  */
 function vatNumberError(value: string): string {
   const trimmed = value.trim()
@@ -323,13 +325,13 @@ export default function OrganizationSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  // Timezone state — independent of main form save
+  // Timezone state - independent of main form save
   const [timezone, setTimezone] = useState('Africa/Johannesburg')
   const [tzSaving, setTzSaving] = useState(false)
   const [tzSaved, setTzSaved] = useState(false)
   const [tzError, setTzError] = useState('')
 
-  // Branding & sender state — independent save (brand-profile API + org API).
+  // Branding & sender state - independent save (brand-profile API + org API).
   const brandEndpoint = scopedApiPath('/api/v1/portal/brand-profile', scopeFromSearchParams(searchParams))
   const brandUploadEndpoint = scopedApiPath('/api/v1/portal/brand-profile/upload', scopeFromSearchParams(searchParams))
   const domainEndpoint = scopedApiPath('/api/v1/org/domain', scopeFromSearchParams(searchParams))
@@ -609,7 +611,7 @@ export default function OrganizationSettingsPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="eyebrow !text-[10px]">Operating readiness</p>
-              <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Organisation command center</h2>
+              <h2 className="mt-2 text-2xl text-[var(--color-pib-text)]">Organisation command center</h2>
               <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
                 Review the company identity, billing route, agreement owner, and invoice policy before editing the source fields below.
               </p>
@@ -621,19 +623,19 @@ export default function OrganizationSettingsPage() {
 
           <div className="grid gap-3 md:grid-cols-4">
             <div data-testid="organisation-readiness-ready-areas" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{readyAreas} ready areas</p>
+              <p className="text-2xl text-[var(--color-pib-text)]">{readyAreas} ready areas</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal, billing, signatory, and accounts readiness.</p>
             </div>
             <div data-testid="organisation-readiness-legal-identity" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={legalIdentity}>{legalIdentity}</p>
+              <p className="truncate text-sm text-[var(--color-pib-text)]" title={legalIdentity}>{legalIdentity}</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Legal identity used on agreements and client records.</p>
             </div>
             <div data-testid="organisation-readiness-billing-contact" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={billingContact}>{billingContact}</p>
+              <p className="truncate text-sm text-[var(--color-pib-text)]" title={billingContact}>{billingContact}</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Billing destination for accepted proposals and invoices.</p>
             </div>
             <div data-testid="organisation-readiness-agreement-owner" className="pib-stat-card min-w-0 space-y-2 p-4">
-              <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={agreementOwner}>{agreementOwner}</p>
+              <p className="truncate text-sm text-[var(--color-pib-text)]" title={agreementOwner}>{agreementOwner}</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">{invoicePolicy}</p>
             </div>
           </div>
@@ -670,7 +672,7 @@ export default function OrganizationSettingsPage() {
                 placeholder="4xxxxxxxxx"
               />
               {vatError && (
-                <p id="org-vatNumber-error" className="text-xs text-red-400">{vatError}</p>
+                <p id="org-vatNumber-error" className="text-xs text-[var(--st-danger)]">{vatError}</p>
               )}
             </div>
             {field('Tax number', 'taxNumber')}
@@ -746,7 +748,7 @@ export default function OrganizationSettingsPage() {
           </div>
         </Section>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
 
         <button
           type="submit"
@@ -757,7 +759,7 @@ export default function OrganizationSettingsPage() {
         </button>
       </form>
 
-      {/* Timezone — standalone section, separate save */}
+      {/* Timezone - standalone section, separate save */}
       <div className="pib-card space-y-4">
         <p className="pib-label">Timezone</p>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -777,7 +779,7 @@ export default function OrganizationSettingsPage() {
             ))}
           </select>
         </div>
-        {tzError && <p className="text-sm text-red-400">{tzError}</p>}
+        {tzError && <p className="text-sm text-[var(--st-danger)]">{tzError}</p>}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -788,15 +790,15 @@ export default function OrganizationSettingsPage() {
             {tzSaving ? 'Saving...' : 'Save timezone'}
           </button>
           {tzSaved && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
-              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+            <span className="inline-flex items-center gap-1.5 rounded bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+              <Icon name="check_circle" />
               Timezone saved
             </span>
           )}
         </div>
       </div>
 
-      {/* Branding & sender — logo, brand colours, default sender, subdomain summary */}
+      {/* Branding & sender - logo, brand colours, default sender, subdomain summary */}
       <div className="pib-card space-y-6">
         <div>
           <p className="pib-label">Branding &amp; sender</p>
@@ -814,7 +816,7 @@ export default function OrganizationSettingsPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="Organisation logo" className="h-full w-full object-contain" />
               ) : (
-                <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-text-muted)]" aria-hidden="true">image</span>
+                <Icon name="image" />
               )}
             </div>
             <div className="space-y-2">
@@ -833,7 +835,7 @@ export default function OrganizationSettingsPage() {
                 disabled={!canEdit || uploadingLogo}
                 className="pib-btn-secondary disabled:opacity-60"
               >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload</span>
+                <Icon name="upload" />
                 {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace logo' : 'Upload logo'}
               </button>
               <p className="text-xs text-[var(--color-pib-text-muted)]">PNG, JPG or SVG. Max 8MB.</p>
@@ -888,7 +890,7 @@ export default function OrganizationSettingsPage() {
               </div>
             </div>
           </div>
-          {brandError && <p className="text-sm text-red-400">{brandError}</p>}
+          {brandError && <p className="text-sm text-[var(--st-danger)]">{brandError}</p>}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -899,8 +901,8 @@ export default function OrganizationSettingsPage() {
               {brandSaving ? 'Saving...' : 'Save branding'}
             </button>
             {brandSaved && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              <span className="inline-flex items-center gap-1.5 rounded bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+                <Icon name="check_circle" />
                 Branding saved
               </span>
             )}
@@ -939,7 +941,7 @@ export default function OrganizationSettingsPage() {
               />
             </div>
           </div>
-          {senderError && <p className="text-sm text-red-400">{senderError}</p>}
+          {senderError && <p className="text-sm text-[var(--st-danger)]">{senderError}</p>}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -950,15 +952,15 @@ export default function OrganizationSettingsPage() {
               {senderSaving ? 'Saving...' : 'Save sender'}
             </button>
             {senderSaved && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              <span className="inline-flex items-center gap-1.5 rounded bg-[var(--color-pib-success,#22c55e)]/10 px-3 py-1 text-xs font-medium text-[var(--color-pib-success,#22c55e)]">
+                <Icon name="check_circle" />
                 Sender saved
               </span>
             )}
           </div>
         </div>
 
-        {/* Subdomain — read-only summary + link to the dedicated domain page */}
+        {/* Subdomain - read-only summary + link to the dedicated domain page */}
         <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-6">
           <p className="pib-label !mb-0">Subdomain &amp; custom domain</p>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
@@ -978,7 +980,7 @@ export default function OrganizationSettingsPage() {
               </p>
             </div>
             <Link href="/portal/settings/domain" className="pib-btn-secondary shrink-0">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
+              <Icon name="open_in_new" />
               Manage domain
             </Link>
           </div>

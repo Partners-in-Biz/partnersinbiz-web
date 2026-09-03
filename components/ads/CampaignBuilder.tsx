@@ -28,13 +28,13 @@ interface Props {
 }
 
 interface WizardState {
-  // Step 1 — Campaign
+  // Step 1 - Campaign
   campaignName: string
   objective: AdObjective
   specialAdCategories: string[]
   campaignBudget: BudgetValue
 
-  // Step 2 — AdSet
+  // Step 2 - AdSet
   adSetName: string
   optimizationGoal: AdSetOptimizationGoal
   billingEvent: AdSetBillingEvent
@@ -42,7 +42,7 @@ interface WizardState {
   placements: AdSetPlacements
   adSetBudget: BudgetValue // ignored if campaign.cboEnabled
 
-  // Step 3 — Ad
+  // Step 3 - Ad
   adName: string
   format: AdFormat
   inlineImageUrl: string
@@ -136,7 +136,7 @@ export function CampaignBuilder({
     setSubmitting(true)
     setWarnings([])
     try {
-      // Step A — create campaign (DRAFT)
+      // Step A - create campaign (DRAFT)
       const campaignInput: any = {
         name: state.campaignName,
         objective: state.objective,
@@ -154,7 +154,7 @@ export function CampaignBuilder({
       }
       const campaign = await postJSON('/api/v1/ads/campaigns', { input: campaignInput })
 
-      // Step B — create adset
+      // Step B - create adset
       const adSetInput: any = {
         campaignId: campaign.id,
         name: state.adSetName,
@@ -170,7 +170,7 @@ export function CampaignBuilder({
       }
       const adSet = await postJSON('/api/v1/ads/ad-sets', { input: adSetInput })
 
-      // Step C — create ad
+      // Step C - create ad
       const adInput: any = {
         adSetId: adSet.id,
         campaignId: campaign.id,
@@ -178,7 +178,7 @@ export function CampaignBuilder({
         status: 'DRAFT',
         format: state.format,
         creativeIds: state.creativeIds,
-        // Phase 2 fallback — only sent when no creativeIds selected
+        // Phase 2 fallback - only sent when no creativeIds selected
         inlineImageUrl: state.creativeIds.length === 0 ? state.inlineImageUrl : undefined,
         copy: {
           primaryText: state.primaryText,
@@ -204,7 +204,7 @@ export function CampaignBuilder({
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New campaign</h1>
+        <h1 className="text-2xl font-medium">New campaign</h1>
         {onCancel && (
           <button type="button" className="text-sm text-white/60 underline" onClick={onCancel}>
             Cancel
@@ -218,7 +218,7 @@ export function CampaignBuilder({
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -249,7 +249,7 @@ export function CampaignBuilder({
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer ${
                     state.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -416,7 +416,7 @@ export function CampaignBuilder({
                   Pick from library
                 </button>
                 <p className="mt-2 text-xs text-white/40">
-                  Or paste an image URL below (Phase 2 fallback — soon-to-be-deprecated):
+                  Or paste an image URL below (Phase 2 fallback - soon-):
                 </p>
                 <input
                   type="url"

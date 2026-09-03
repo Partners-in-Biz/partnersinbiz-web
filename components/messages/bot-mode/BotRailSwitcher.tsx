@@ -46,7 +46,7 @@ export function BotRailSwitcher({
             aria-selected={selected}
             data-testid={`bot-rail-${tab.id}`}
             onClick={() => onChange(tab.id)}
-            className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded px-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+            className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded px-1 text-[10px] font-medium uppercase tracking-[0.08em] ${
               selected
                 ? 'bg-white/[0.1] text-[var(--color-pib-text)]'
                 : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'

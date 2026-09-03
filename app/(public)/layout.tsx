@@ -1,6 +1,5 @@
 import { cookies, headers } from 'next/headers'
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
+import PublicShell from '@/components/layout/PublicShell'
 import { MaintenanceShell } from '@/components/governance/MaintenanceShell'
 import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
@@ -88,9 +87,7 @@ export default async function PublicLayout({ children }: { children: React.React
   return (
     <>
       <link rel="stylesheet" href={PUBLIC_MATERIAL_SYMBOLS} />
-      <Navbar />
-      {children}
-      <Footer />
+      <PublicShell>{children}</PublicShell>
     </>
   )
 }

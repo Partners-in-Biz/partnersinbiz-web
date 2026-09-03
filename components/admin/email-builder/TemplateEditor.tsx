@@ -61,13 +61,13 @@ function defaultBlock(type: BlockType): Block {
   const id = makeBlockId()
   switch (type) {
     case 'hero':
-      return { id, type: 'hero', props: { backgroundColor: '#0A0A0B', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
+      return { id, type: 'hero', props: { backgroundColor: 'var(--sc-ink)', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
     case 'heading':
       return { id, type: 'heading', props: { text: 'New heading', level: 2, align: 'left' } }
     case 'paragraph':
       return { id, type: 'paragraph', props: { html: 'Write something here.', align: 'left' } }
     case 'button':
-      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: '#F5A623', textColor: '#0A0A0B', align: 'center', fullWidth: false } }
+      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: 'var(--st-warning)', textColor: 'var(--sc-ink)', align: 'center', fullWidth: false } }
     case 'image':
       return { id, type: 'image', props: { src: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200', alt: 'Image', width: 552, align: 'center' } }
     case 'divider':
@@ -194,7 +194,7 @@ export default function TemplateEditor({ template }: Props) {
   }, [doc, varsJson, renderPreview])
 
   useEffect(() => {
-    // First load — render immediately
+    // First load  -  render immediately
     renderPreview()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -336,13 +336,13 @@ export default function TemplateEditor({ template }: Props) {
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
         <button onClick={() => router.push('/portal/email-templates')} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">← Back</button>
         <div className="flex-1 flex items-center gap-2">
-          <input
+          <input aria-label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={template.isStarter}
             className="px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 font-medium w-64 disabled:opacity-60"
           />
-          <select
+          <select aria-label="Category"
             value={category}
             onChange={(e) => setCategory(e.target.value as TemplateCategory)}
             disabled={template.isStarter}
@@ -355,7 +355,7 @@ export default function TemplateEditor({ template }: Props) {
         </div>
         {statusMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{statusMsg}</span>}
         <div className="flex items-center gap-2">
-          <input
+          <input aria-label="test@example.com"
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
             placeholder="test@example.com"
@@ -385,11 +385,11 @@ export default function TemplateEditor({ template }: Props) {
             <Field label="Preheader"><TextInput value={doc.preheader} onChange={(v) => setDoc((d) => ({ ...d, preheader: v }))} /></Field>
           </div>
           <div className="mb-3 grid grid-cols-2 gap-2">
-            <Field label="Primary color"><input type="color" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-zinc-700 bg-zinc-900" /></Field>
-            <Field label="Background"><input type="color" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-zinc-700 bg-zinc-900" /></Field>
+            <Field label="Primary color"><input aria-label="Primary color" type="color" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-zinc-700 bg-zinc-900" /></Field>
+            <Field label="Background"><input aria-label="Background color" type="color" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-zinc-700 bg-zinc-900" /></Field>
           </div>
           <Field label="Font">
-            <Select
+            <Select aria-label="Font Family"
               value={doc.theme.fontFamily}
               onChange={(v) => updateTheme({ fontFamily: v })}
               options={FONT_OPTIONS}
@@ -397,7 +397,7 @@ export default function TemplateEditor({ template }: Props) {
           </Field>
 
           <div className="border-t border-zinc-800 pt-3 mt-3">
-            <div className="text-xs font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Blocks</div>
+            <div className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Blocks</div>
             <ul className="space-y-1">
               {doc.blocks.map((b, i) => (
                 <li
@@ -442,14 +442,14 @@ export default function TemplateEditor({ template }: Props) {
           {/* Properties + vars panel */}
           <div className="border-t border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 max-h-[40%] overflow-y-auto grid grid-cols-2 gap-6">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">
                 {selectedBlock ? `${blockLabel(selectedBlock.type)} properties` : 'Select a block'}
               </div>
               {selectedBlock && <BlockPropertyForm block={selectedBlock} onChange={(b) => updateBlock(selectedBlock.id, b)} />}
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">Test variables (JSON)</div>
-              <TextArea value={varsJson} onChange={setVarsJson} rows={10} />
+              <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">Test variables (JSON)</div>
+              <TextArea aria-label="Test variables (JSON)" value={varsJson} onChange={setVarsJson} rows={10} />
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">These values replace <code className="text-zinc-300">&#123;&#123;variable&#125;&#125;</code> tokens in the preview.</p>
               <Field label="Description (for the library)">
                 <TextInput value={description} onChange={setDescription} />

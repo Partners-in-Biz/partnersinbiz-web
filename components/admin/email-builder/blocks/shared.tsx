@@ -15,10 +15,12 @@ export function TextInput({
   value,
   onChange,
   placeholder,
+  'aria-label': ariaLabel,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  'aria-label'?: string
 }) {
   return (
     <input
@@ -26,6 +28,7 @@ export function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      aria-label={ariaLabel ?? placeholder ?? 'Text'}
       className="w-full px-3 py-2 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder-zinc-500"
     />
   )
@@ -36,14 +39,17 @@ export function TextArea({
   onChange,
   rows = 4,
   placeholder,
+  'aria-label': ariaLabel,
 }: {
   value: string
   onChange: (v: string) => void
   rows?: number
   placeholder?: string
+  'aria-label'?: string
 }) {
   return (
     <textarea
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       rows={rows}
@@ -66,12 +72,14 @@ export function ColorInput({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label="Colour picker"
         className="w-10 h-9 rounded border border-zinc-700 bg-zinc-900 cursor-pointer"
       />
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label="Colour hex"
         className="flex-1 px-3 py-2 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 font-mono"
       />
     </div>
@@ -82,13 +90,16 @@ export function Select<T extends string>({
   value,
   onChange,
   options,
+  'aria-label': ariaLabel,
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
+  'aria-label'?: string
 }) {
   return (
     <select
+      aria-label={ariaLabel ?? 'Select'}
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
       className="w-full px-3 py-2 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-zinc-100"
@@ -120,6 +131,7 @@ export function NumberInput({
       min={min}
       max={max}
       onChange={(e) => onChange(Number(e.target.value) || 0)}
+      aria-label="Number"
       className="w-full px-3 py-2 rounded-md bg-zinc-900 border border-zinc-700 text-sm text-zinc-100"
     />
   )

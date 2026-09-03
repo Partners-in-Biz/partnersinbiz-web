@@ -1,12 +1,13 @@
 'use client'
 
-// US-055 — generic field/operator/value rule builder with nested AND/OR groups.
+// US-055 - generic field/operator/value rule builder with nested AND/OR groups.
 // Mirrors the RuleGroup / FieldRule shapes in lib/crm/segments.ts. The editor is
 // fully controlled: it owns no persistence, just emits a sanitised-shape tree
 // back to the parent which previews + saves it.
 
 import { useCallback } from 'react'
 import type { FieldRule, RuleGroup, RuleField, RuleOperator, RuleCombinator } from '@/lib/crm/segments'
+import { Icon } from '@/components/studio'
 
 type RuleNode = FieldRule | RuleGroup
 
@@ -123,7 +124,7 @@ function emptyFieldRule(): FieldRule {
 interface RuleGroupEditorProps {
   group: RuleGroup
   onChange: (group: RuleGroup) => void
-  /** internal nesting depth — caps the UI to keep it sane */
+  /** internal nesting depth - caps the UI to keep it sane */
   depth?: number
   onRemove?: () => void
 }
@@ -168,13 +169,13 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
       data-depth={depth}
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] p-0.5">
+        <div className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] p-0.5">
           {(['AND', 'OR'] as RuleCombinator[]).map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setCombinator(c)}
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-label uppercase tracking-[0.22em] transition ${
+              className={`rounded-md px-2.5 py-0.5 text-[11px] font-label uppercase tracking-[0.22em] transition ${
                 group.combinator === c
                   ? 'bg-[var(--color-accent-v2)] text-black'
                   : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
@@ -194,16 +195,14 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
             className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
             aria-label="Remove group"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-              delete
-            </span>
+            <Icon name="delete" className="text-[16px]" />
           </button>
         )}
       </div>
 
       {group.rules.length === 0 && (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-          No conditions yet — add a rule below.
+          No conditions yet - add a rule below.
         </p>
       )}
 
@@ -234,9 +233,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
           onClick={addRule}
           className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-            add
-          </span>
+          <Icon name="add" className="text-[16px]" />
           Add rule
         </button>
         {depth < 4 && (
@@ -245,9 +242,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
             onClick={addGroup}
             className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-              account_tree
-            </span>
+            <Icon name="account_tree" className="text-[16px]" />
             Add group
           </button>
         )}
@@ -342,7 +337,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
             aria-label="Value"
           >
             <option value="" className="bg-black">
-              — select —
+ - select - 
             </option>
             {(def.options ?? []).map((o) => (
               <option key={o} value={o} className="bg-black">
@@ -367,9 +362,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
         className="ml-auto grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
         aria-label="Remove rule"
       >
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-          close
-        </span>
+        <Icon name="close" className="text-[16px]" />
       </button>
     </div>
   )

@@ -75,8 +75,8 @@ function MetricCard({
     <div className="pib-stat-card" data-module-accent="cyan">
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
-        className="text-xl font-semibold mt-1 tabular-nums"
-        style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
+        className="text-xl font-medium mt-1 tabular-nums"
+        style={{ color: accent ? 'var(--sc-ink-soft)' : undefined }}
       >
         {value}
       </p>
@@ -136,7 +136,7 @@ export default function RevenuePage() {
         actions={
           <a
             href="/api/v1/admin/billing/revenue/export"
-            className="btn-pib-secondary btn-pib-sm"
+            className="st-btn st-btn--secondary st-btn--sm"
             download
           >
             Export CSV
@@ -145,7 +145,7 @@ export default function RevenuePage() {
       />
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {error}
         </div>
       )}
@@ -154,7 +154,7 @@ export default function RevenuePage() {
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-[6px]" />
           ))}
         </div>
       ) : data ? (
@@ -179,15 +179,15 @@ export default function RevenuePage() {
       ) : null}
 
       {/* Trend chart */}
-      <div className="pib-card p-5">
+      <div className="st-panel p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Collected revenue</h2>
+            <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)]">Collected revenue</h2>
             <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">Monthly, last 12 months</p>
           </div>
         </div>
         {loading ? (
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-[6px]" />
         ) : !trendData.length || trendData.every((t) => t.collectedZar === 0) ? (
           <div className="h-64 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
             No collected revenue recorded yet.
@@ -198,8 +198,8 @@ export default function RevenuePage() {
               <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-pib-cyan)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--color-pib-cyan)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--sc-ink-soft)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--sc-ink-soft)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -229,7 +229,7 @@ export default function RevenuePage() {
                 <Area
                   type="monotone"
                   dataKey="collectedZar"
-                  stroke="var(--color-pib-cyan)"
+                  stroke="var(--sc-ink-soft)"
                   strokeWidth={2}
                   fill="url(#revFill)"
                 />
@@ -242,8 +242,8 @@ export default function RevenuePage() {
       {/* Plan distribution + Top orgs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Plan distribution */}
-        <div className="pib-card p-5">
-          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-4">Plan distribution</h2>
+        <div className="st-panel p-5">
+          <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)] mb-4">Plan distribution</h2>
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -257,17 +257,17 @@ export default function RevenuePage() {
               {data.planDistribution.map((plan) => (
                 <li key={plan.planKey}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-semibold text-[var(--color-pib-text)] truncate">{plan.planName}</span>
+                    <span className="font-medium text-[var(--color-pib-text)] truncate">{plan.planName}</span>
                     <span className="text-[var(--color-pib-text-muted)] ml-2 flex-shrink-0">
                       {plan.count} {plan.count === 1 ? 'sub' : 'subs'} · {formatZar(plan.mrrZar)}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-[var(--color-pib-text)]/10 overflow-hidden">
+                  <div className="h-2 rounded bg-[var(--color-pib-text)]/10 overflow-hidden">
                     <div
-                      className="h-full rounded-full"
+                      className="h-full rounded"
                       style={{
                         width: `${Math.max(4, (plan.mrrZar / maxPlanMrr) * 100)}%`,
-                        background: 'var(--color-pib-cyan)',
+                        background: 'var(--sc-ink-soft)',
                       }}
                     />
                   </div>
@@ -278,8 +278,8 @@ export default function RevenuePage() {
         </div>
 
         {/* Top orgs */}
-        <div className="pib-card p-5">
-          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-4">Top 10 accounts by revenue</h2>
+        <div className="st-panel p-5">
+          <h2 className="text-sm font-headline font-medium text-[var(--color-pib-text)] mb-4">Top 10 accounts by revenue</h2>
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -304,12 +304,12 @@ export default function RevenuePage() {
                       <td className="py-2 pr-2">
                         <Link
                           href={`/admin/org/${org.slug}/dashboard`}
-                          className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-cyan)] transition-colors truncate"
+                          className="text-[var(--color-pib-text)] hover:text-[var(--sc-ink-soft)] transition-colors truncate"
                         >
                           {org.name}
                         </Link>
                       </td>
-                      <td className="py-2 text-right font-semibold text-[var(--color-pib-text)]">
+                      <td className="py-2 text-right font-medium text-[var(--color-pib-text)]">
                         {formatZar(org.lifetimeZar)}
                       </td>
                       <td className="py-2 text-right text-[var(--color-pib-text-muted)]">{formatZar(org.mrrZar)}</td>

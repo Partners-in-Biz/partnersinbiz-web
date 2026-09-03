@@ -1,9 +1,9 @@
 'use client'
 // components/ads/LinkedinCampaignBuilder.tsx
 // 3-step wizard for LinkedIn campaign creation.
-// Step 1 — Campaign Group (PiB AdCampaign)
-// Step 2 — Campaign / AdSet (PiB AdSet)
-// Step 3 — Creative / Ad (PiB Ad)
+// Step 1 - Campaign Group (PiB AdCampaign)
+// Step 2 - Campaign / AdSet (PiB AdSet)
+// Step 3 - Creative / Ad (PiB Ad)
 // Sub-3b Phase 2 Batch 3C.
 
 import { useState } from 'react'
@@ -78,10 +78,10 @@ const DEFAULT_COST_TYPE: Record<LiCampaignType, LiCostType> = {
 }
 
 const COST_TYPES: { value: LiCostType; label: string }[] = [
-  { value: 'CPM', label: 'CPM — cost per 1,000 impressions' },
-  { value: 'CPC', label: 'CPC — cost per click' },
-  { value: 'CPV', label: 'CPV — cost per video view' },
-  { value: 'CPA', label: 'CPA — cost per action' },
+  { value: 'CPM', label: 'CPM - cost per 1,000 impressions' },
+  { value: 'CPC', label: 'CPC - cost per click' },
+  { value: 'CPV', label: 'CPV - cost per video view' },
+  { value: 'CPA', label: 'CPA - cost per action' },
 ]
 
 const STEP_LABELS = ['Campaign Group', 'Campaign', 'Creative']
@@ -251,7 +251,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
   // ─── Styles ───────────────────────────────────────────────────────────────
 
   const inputCls =
-    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]/60'
+    'mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-[color-mix(in_srgb,var(--sc-accent)_60%,transparent)]'
   const labelCls = 'block text-sm font-medium'
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
     <div className="mx-auto max-w-2xl">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">New LinkedIn campaign</h1>
+        <h1 className="text-2xl font-medium">New LinkedIn campaign</h1>
         {onCancel && (
           <button
             type="button"
@@ -279,7 +279,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
             key={label}
             className={`flex-1 rounded border px-3 py-1.5 text-center transition-colors ${
               i === step
-                ? 'border-[#F5A623] text-[#F5A623]'
+                ? 'border-[var(--sc-accent)] text-[var(--sc-accent)]'
                 : i < step
                   ? 'border-white/20 text-white/60'
                   : 'border-white/5 text-white/30'
@@ -299,7 +299,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
               className={inputCls}
               value={step1.groupName}
               onChange={(e) => setStep1((s) => ({ ...s, groupName: e.target.value }))}
-              placeholder="e.g. Brand Awareness — Q3 2026"
+              placeholder="e.g. Brand Awareness - Q3 2026"
               aria-label="Campaign group name"
             />
           </label>
@@ -348,7 +348,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
                   key={o.value}
                   className={`flex items-start gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step1.objective === o.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -380,7 +380,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
               className={inputCls}
               value={step2.campaignName}
               onChange={(e) => setStep2((s) => ({ ...s, campaignName: e.target.value }))}
-              placeholder="e.g. US Decision-makers — May 2026"
+              placeholder="e.g. US Decision-makers - May 2026"
               aria-label="Campaign name"
             />
           </label>
@@ -393,7 +393,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
                   key={ct.value}
                   className={`flex items-center gap-3 rounded border px-3 py-2 text-sm cursor-pointer transition-colors ${
                     step2.campaignType === ct.value
-                      ? 'border-[#F5A623] bg-[#F5A623]/5'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)]'
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
@@ -463,7 +463,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
               className={inputCls}
               value={step3.creativeName}
               onChange={(e) => setStep3((s) => ({ ...s, creativeName: e.target.value }))}
-              placeholder="e.g. Brand awareness hero — May 2026"
+              placeholder="e.g. Brand awareness hero - May 2026"
               aria-label="Creative name"
             />
           </label>
@@ -499,7 +499,7 @@ export function LinkedinCampaignBuilder({ orgId, orgSlug, currency = 'USD', init
                   key={s}
                   className={`flex items-center gap-2 rounded border px-4 py-2 text-sm cursor-pointer transition-colors ${
                     step3.status === s
-                      ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
+                      ? 'border-[var(--sc-accent)] bg-[color-mix(in_srgb,var(--sc-accent)_5%,transparent)] text-[var(--sc-accent)]'
                       : 'border-white/10 text-white/60 hover:bg-white/5'
                   }`}
                 >

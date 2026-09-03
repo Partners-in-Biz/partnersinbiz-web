@@ -1,12 +1,12 @@
 'use client'
 
-// US-103 — Block drag-drop editor for an email campaign. Reuses the real
+// US-103  -  Block drag-drop editor for an email campaign. Reuses the real
 // email-builder block model (lib/email-builder) and the shared block property
 // forms from the admin email-builder. Loads the campaign's emailDocument,
 // lets the user edit blocks, and saves via PUT /api/v1/campaigns/[id].
 //
-// US-104 — Test-send modal (calls /api/v1/email/campaigns/[id]/test-send).
-// US-105 — "Review & send" opens the CampaignReviewPanel slide-over.
+// US-104  -  Test-send modal (calls /api/v1/email/campaigns/[id]/test-send).
+// US-105  -  "Review & send" opens the CampaignReviewPanel slide-over.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -22,7 +22,7 @@ import {
   ParagraphBlockForm,
   SpacerBlockForm,
 } from '@/components/admin/email-builder/blocks/forms'
-import { Field, Select, TextInput } from '@/components/admin/email-builder/blocks/shared'
+import { Field, Select as FontSelect, TextInput } from '@/components/admin/email-builder/blocks/shared'
 import {
   DEFAULT_THEME,
   makeBlockId,
@@ -45,6 +45,8 @@ import { MergeFieldBrowser } from '@/components/email-marketing/MergeFieldBrowse
 import { PreflightPanel } from '@/components/email-marketing/PreflightPanel'
 import { SenderPolicyEditor } from '@/components/email-marketing/SenderPolicyEditor'
 import { runEmailPreflight } from '@/lib/email-marketing/preflight'
+
+import { Icon } from '@/components/studio'
 
 const BLOCK_TYPES: BlockType[] = ['hero', 'heading', 'paragraph', 'button', 'image', 'divider', 'spacer', 'columns', 'footer']
 
@@ -98,13 +100,13 @@ function defaultBlock(type: BlockType, ctx: { orgName: string; address: string }
   const id = makeBlockId()
   switch (type) {
     case 'hero':
-      return { id, type: 'hero', props: { backgroundColor: '#0A0A0B', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
+      return { id, type: 'hero', props: { backgroundColor: '#1a1714', headline: 'Big idea goes here', subhead: 'Supporting line.', textColor: '#FFFFFF' } }
     case 'heading':
       return { id, type: 'heading', props: { text: 'New heading', level: 2, align: 'left' } }
     case 'paragraph':
       return { id, type: 'paragraph', props: { html: 'Write something here.', align: 'left' } }
     case 'button':
-      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: '#F5A623', textColor: '#0A0A0B', align: 'center', fullWidth: false } }
+      return { id, type: 'button', props: { text: 'Click me', url: 'https://', color: '#e4572e', textColor: '#1a1714', align: 'center', fullWidth: false } }
     case 'image':
       return { id, type: 'image', props: { src: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200', alt: 'Image', width: 552, align: 'center' } }
     case 'divider':
@@ -340,11 +342,11 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             href={overviewHref}
             className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
+            <Icon name="arrow_back" className="text-base" />
             Overview
           </Link>
           <div className="min-w-0">
-            <p className="eyebrow !text-[10px]">Designing email · {status}</p>
+            <p className="sc-tiny !text-[10px]">Designing email · {status}</p>
             <h1 className="font-headline text-2xl tracking-tight truncate">{campaign.name}</h1>
           </div>
         </div>
@@ -354,7 +356,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             <span className="text-xs text-[var(--color-pib-text-muted)]">Saved {new Date(savedAt).toLocaleTimeString()}</span>
           )}
           <button onClick={() => setTestOpen(true)} className="btn-pib-secondary">
-            <span className="material-symbols-outlined text-base">outgoing_mail</span>
+            <Icon name="outgoing_mail" className="text-base" />
             Send test
           </button>
           <button onClick={() => save()} disabled={saving || readOnly} className="btn-pib-secondary disabled:opacity-50">
@@ -362,13 +364,13 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </button>
           <button onClick={openReview} disabled={readOnly || preflight.blocking} className="btn-pib-primary disabled:opacity-50" title={preflight.blocking ? 'Resolve blocking preflight issues first' : undefined}>
             Review &amp; send
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <Icon name="arrow_forward" className="text-base" />
           </button>
         </div>
       </header>
 
       {readOnly && (
-        <div className="pib-card !p-3 border border-amber-500/30 bg-amber-500/5 text-sm text-amber-200">
+        <div className="pib-card !p-3 border border-amber-500/30 bg-[var(--sc-surface)]/5 text-sm text-[var(--sc-ink-soft)]">
           This campaign is {status} and can no longer be edited.
         </div>
       )}
@@ -381,14 +383,14 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             <Field label="Preview text"><TextInput value={previewText} onChange={setPreviewText} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Primary">
-                <input type="color" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
+                <input type="color" aria-label="Primary" value={doc.theme.primaryColor} onChange={(e) => updateTheme({ primaryColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
               </Field>
               <Field label="Background">
-                <input type="color" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
+                <input type="color" aria-label="Background" value={doc.theme.backgroundColor} onChange={(e) => updateTheme({ backgroundColor: e.target.value })} className="w-full h-9 rounded border border-[var(--color-pib-line)] bg-transparent" />
               </Field>
             </div>
             <Field label="Font">
-              <Select value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
+              <FontSelect value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
             </Field>
           </div>
 
@@ -414,7 +416,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </div>
 
           <div className="pib-card">
-            <p className="eyebrow !text-[10px] mb-2">Blocks · drag to reorder</p>
+            <p className="sc-tiny !text-[10px] mb-2">Blocks · drag to reorder</p>
             <ul className="space-y-1">
               {doc.blocks.map((b, i) => (
                 <li
@@ -467,7 +469,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </div>
 
           <div className="pib-card">
-            <p className="eyebrow !text-[10px] mb-3">
+            <p className="sc-tiny !text-[10px] mb-3">
               {selectedBlock ? `${blockLabel(selectedBlock.type)} properties` : 'Select a block to edit'}
             </p>
             {selectedBlock && !readOnly && (
@@ -560,7 +562,7 @@ function BlockPropertyForm({ block, onChange }: { block: Block; onChange: (b: Bl
   }
 }
 
-// US-138 — Multi-client inbox preview. Fetches per-client CSS-reset variants of
+// US-138  -  Multi-client inbox preview. Fetches per-client CSS-reset variants of
 // the rendered email and renders each in its own iframe behind a client tab,
 // surfacing Outlook (and other) rendering issues.
 interface ClientRender {
@@ -637,7 +639,7 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
           >
             {r.label}
             {r.hasOutlookIssues && (
-              <span className="material-symbols-outlined text-[14px] text-amber-400" title="Rendering issues">warning</span>
+              <Icon name="warning" className="text-[14px] text-[var(--sc-ink-soft)]" title="Rendering issues" />
             )}
           </button>
         ))}
@@ -649,9 +651,9 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
       {active && (
         <>
           {active.client === 'outlook' && outlookIssueCount > 0 && (
-            <div className="mx-4 mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-              <span className="font-semibold">{outlookIssueCount} Outlook rendering issue{outlookIssueCount === 1 ? '' : 's'} detected.</span>{' '}
-              Outlook (Windows) uses the Word engine — review the notes below.
+            <div className="mx-4 mt-3 rounded-md border border-amber-500/30 bg-[var(--sc-surface)]/10 px-3 py-2 text-xs text-[var(--sc-ink-soft)]">
+              <span className="">{outlookIssueCount} Outlook rendering issue{outlookIssueCount === 1 ? '' : 's'} detected.</span>{' '}
+              Outlook (Windows) uses the Word engine  -  review the notes below.
             </div>
           )}
           <div className="p-4 flex justify-center">
@@ -670,11 +672,11 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
           </div>
           {active.issues.length > 0 && (
             <div className="px-4 pb-4">
-              <p className="eyebrow !text-[10px] mb-2">{active.label} rendering notes</p>
+              <p className="sc-tiny !text-[10px] mb-2">{active.label} rendering notes</p>
               <ul className="space-y-1">
                 {active.issues.map((issue, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-pib-text-muted)]">
-                    <span className="material-symbols-outlined text-[14px] mt-0.5 text-[var(--color-pib-text-muted)]">info</span>
+                    <Icon name="info" className="text-[14px] mt-0.5 text-[var(--color-pib-text-muted)]" />
                     <span>{issue}</span>
                   </li>
                 ))}
@@ -693,7 +695,7 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
   )
 }
 
-// US-104 — Test-send modal.
+// US-104  -  Test-send modal.
 function TestSendModal({
   campaignId,
   onClose,
@@ -747,8 +749,8 @@ function TestSendModal({
       <div onClick={(e) => e.stopPropagation()} className="pib-card w-full max-w-md space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-headline text-xl">Send a test</h2>
-          <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined">close</span>
+          <button aria-label="Clear" onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+            <Icon name="close" />
           </button>
         </div>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -759,6 +761,7 @@ function TestSendModal({
           value={recipients}
           onChange={(e) => setRecipients(e.target.value)}
           placeholder="you@example.com, teammate@example.com"
+          aria-label="Test send recipients"
           className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-md px-3 py-2 text-sm text-[var(--color-pib-text)]"
         />
         {error && <p className="text-sm text-rose-300">{error}</p>}

@@ -37,7 +37,7 @@ function timestampSeconds(ts: unknown): number {
 }
 
 function formatTs(ts: unknown): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   const seconds = timestampSeconds(ts)
   const d = seconds ? new Date(seconds * 1000) : new Date(ts as string | number | Date)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -71,7 +71,7 @@ function OverviewTab({ property }: { property: Property }) {
         </div>
         <div>
           <p className="text-xs text-[var(--color-pib-text-muted)] font-label mb-0.5">Creator Link Prefix</p>
-          <p className="text-[var(--color-pib-text)]">{property.creatorLinkPrefix ?? '—'}</p>
+          <p className="text-[var(--color-pib-text)]">{property.creatorLinkPrefix ?? ' - '}</p>
         </div>
       </div>
       <PropertyAnalyticsSummary propertyId={property.id} />
@@ -115,13 +115,13 @@ function PropertyAnalyticsSummary({ propertyId }: { propertyId: string }) {
     return () => { cancelled = true }
   }, [propertyId])
 
-  if (loading) return <Skeleton className="h-24 rounded-xl" />
+  if (loading) return <Skeleton className="h-24 rounded-md" />
   if (error) return (
     <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Analytics not yet collecting.</div>
   )
 
   const sessionCount = sessions.length
-  let topDevice = '—'
+  let topDevice = ' - '
   if (sessionCount > 0) {
     const counts: Record<string, number> = {}
     for (const s of sessions) {
@@ -157,7 +157,7 @@ function PropertyAnalyticsSummary({ propertyId }: { propertyId: string }) {
         </div>
       </div>
       {sessionCount === 0 && liveCount === 0 && (
-        <p className="text-xs text-[var(--color-pib-text-muted)] mt-3">No analytics data yet — install the SDK and start emitting events.</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)] mt-3">No analytics data yet - install the SDK and start emitting events.</p>
       )}
     </div>
   )
@@ -254,7 +254,7 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
     }
   }
 
-  if (loading) return <Skeleton className="h-40 rounded-xl" />
+  if (loading) return <Skeleton className="h-40 rounded-md" />
 
   if (!linkedId) {
     const linkable = orgSequences.filter(s => s.status === 'active' || s.status === 'draft')
@@ -265,13 +265,14 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
         </p>
         <div className="flex items-end gap-3">
           <div>
-            <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Sequence</label>
+            <label htmlFor="prop-sequence" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Sequence</label>
             <select
+              id="prop-sequence"
               value={selectedId}
               onChange={e => setSelectedId(e.target.value)}
               className="pib-input text-sm w-72"
             >
-              <option value="">— Select a sequence —</option>
+              <option value=""> - Select a sequence - </option>
               {linkable.map(s => (
                 <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
               ))}
@@ -288,7 +289,7 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
         {linkable.length === 0 && (
           <p className="text-xs text-[var(--color-pib-text-muted)]">No active or draft sequences found for this org. Create one first under Sequences.</p>
         )}
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
       </div>
     )
   }
@@ -307,14 +308,14 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-[var(--color-pib-text-muted)] font-label mb-1">Linked sequence</p>
-            <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{linkedSequence?.name ?? linkedId}</h2>
+            <h2 className="text-base font-medium text-[var(--color-pib-text)]">{linkedSequence?.name ?? linkedId}</h2>
             {linkedSequence?.description && (
               <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">{linkedSequence.description}</p>
             )}
           </div>
           {linkedSequence && (
             <span
-              className="text-[11px] font-label px-2 py-0.5 rounded-full whitespace-nowrap"
+              className="text-[11px] font-label px-2 py-0.5 rounded-md whitespace-nowrap"
               style={{ background: sc.bg, color: sc.fg }}
             >
               {linkedSequence.status}
@@ -337,7 +338,7 @@ function SequencesTab({ property, onUpdate }: { property: Property; onUpdate: (u
             {saving ? 'Working…' : 'Unlink'}
           </button>
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
       </div>
 
       <div className="pib-card p-4">
@@ -453,7 +454,7 @@ function CreatorsTab({ property }: { property: Property }) {
     <div className="space-y-4">
       <div className="pib-card p-4 space-y-3">
         <p className="text-sm text-[var(--color-pib-text-muted)]">
-          Creator/affiliate links attributed to this property. Each link gets its own short URL — click counts are tracked automatically.
+          Creator/affiliate links attributed to this property. Each link gets its own short URL - click counts are tracked automatically.
         </p>
         <div>
           <button
@@ -467,8 +468,9 @@ function CreatorsTab({ property }: { property: Property }) {
         {showForm && (
           <form onSubmit={handleCreate} className="space-y-3 pt-2 border-t border-[var(--color-pib-line)]">
             <div>
-              <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Destination URL</label>
+              <label htmlFor="prop-dest-url" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Destination URL</label>
               <input
+                id="prop-dest-url"
                 type="url"
                 required
                 value={originalUrl}
@@ -478,8 +480,9 @@ function CreatorsTab({ property }: { property: Property }) {
               />
             </div>
             <div>
-              <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Custom slug (optional)</label>
+              <label htmlFor="prop-custom-slug" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Custom slug (optional)</label>
               <input
+                id="prop-custom-slug"
                 type="text"
                 value={customSlug}
                 onChange={e => setCustomSlug(e.target.value)}
@@ -487,21 +490,21 @@ function CreatorsTab({ property }: { property: Property }) {
                 className="pib-input text-sm w-full"
               />
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
-                If left blank, a random short code is generated. The property&apos;s prefix is shown as a UX hint — you don&apos;t have to use it.
+                If left blank, a random short code is generated. The property&apos;s prefix is shown as a UX hint - you don&apos;t have to use it.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM source</label>
-                <input type="text" value={utmSource} onChange={e => setUtmSource(e.target.value)} className="pib-input text-sm w-full" />
+                <label htmlFor="prop-utm-source" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM source</label>
+                <input id="prop-utm-source" type="text" value={utmSource} onChange={e => setUtmSource(e.target.value)} className="pib-input text-sm w-full" />
               </div>
               <div>
-                <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM medium</label>
-                <input type="text" value={utmMedium} onChange={e => setUtmMedium(e.target.value)} className="pib-input text-sm w-full" />
+                <label htmlFor="prop-utm-medium" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM medium</label>
+                <input id="prop-utm-medium" type="text" value={utmMedium} onChange={e => setUtmMedium(e.target.value)} className="pib-input text-sm w-full" />
               </div>
               <div>
-                <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM campaign</label>
-                <input type="text" value={utmCampaign} onChange={e => setUtmCampaign(e.target.value)} className="pib-input text-sm w-full" />
+                <label htmlFor="prop-utm-campaign" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">UTM campaign</label>
+                <input id="prop-utm-campaign" type="text" value={utmCampaign} onChange={e => setUtmCampaign(e.target.value)} className="pib-input text-sm w-full" />
               </div>
             </div>
             <button type="submit" disabled={submitting || !originalUrl} className="pib-btn-primary text-sm font-label">
@@ -509,12 +512,12 @@ function CreatorsTab({ property }: { property: Property }) {
             </button>
           </form>
         )}
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--st-danger)]">{error}</p>}
       </div>
 
       <div className="pib-card overflow-x-auto">
         {loading ? (
-          <div className="p-4"><Skeleton className="h-24 rounded-xl" /></div>
+          <div className="p-4"><Skeleton className="h-24 rounded-md" /></div>
         ) : links.length === 0 ? (
           <div className="p-5 text-center text-[var(--color-pib-text-muted)] text-sm">
             No creator links yet. Create one above to get started.
@@ -551,7 +554,7 @@ function CreatorsTab({ property }: { property: Property }) {
                   <td className="px-3 py-2 text-right">
                     <button
                       onClick={() => handleDelete(link.id)}
-                      className="text-[var(--color-pib-text-muted)] hover:text-red-400 px-2"
+                      className="text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] px-2"
                       aria-label="Delete link"
                     >
                       ×
@@ -590,9 +593,9 @@ function tsToMs(ts: TimestampLike): number | null {
 }
 
 function formatDateTime(ts: TimestampLike): string {
-  if (!ts) return '—'
+  if (!ts) return ' - '
   const ms = tsToMs(ts)
-  if (ms == null) return '—'
+  if (ms == null) return ' - '
   return new Date(ms).toLocaleString()
 }
 
@@ -662,7 +665,7 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
     <div className="space-y-4">
       <div className="pib-card p-4">
         <p className="text-xs text-[var(--color-pib-text-muted)] font-label mb-3">Last 7 days</p>
-        {loading ? <Skeleton className="h-16 rounded-xl" /> : (
+        {loading ? <Skeleton className="h-16 rounded-md" /> : (
           <div className="grid grid-cols-4 gap-3">
             <div>
               <p className="text-xs text-[var(--color-pib-text-muted)] font-label mb-0.5">Sessions</p>
@@ -688,7 +691,7 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
         <div className="p-4 pb-2">
           <p className="text-xs text-[var(--color-pib-text-muted)] font-label">Recent sessions</p>
         </div>
-        {loading ? <div className="p-4"><Skeleton className="h-24 rounded-xl" /></div> : recentSessions.length === 0 ? (
+        {loading ? <div className="p-4"><Skeleton className="h-24 rounded-md" /></div> : recentSessions.length === 0 ? (
           <p className="px-4 pb-4 text-xs text-[var(--color-pib-text-muted)]">No sessions yet.</p>
         ) : (
           <table className="w-full text-xs">
@@ -703,10 +706,10 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
               {recentSessions.map(s => (
                 <tr key={s.id} className="border-b border-[var(--color-pib-line)]">
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{formatDateTime(s.startedAt)}</td>
-                  <td className="px-3 py-2 text-[var(--color-pib-text)]">{s.device ?? '—'}</td>
-                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.country ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text)]">{s.device ?? ' - '}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.country ?? ' - '}</td>
                   <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">
-                    <span className="truncate inline-block max-w-[20rem]" title={s.referrer ?? ''}>{s.referrer ?? '—'}</span>
+                    <span className="truncate inline-block max-w-[20rem]" title={s.referrer ?? ''}>{s.referrer ?? ' - '}</span>
                   </td>
                   <td className="px-3 py-2 text-[var(--color-pib-text)]">{s.eventCount}</td>
                 </tr>
@@ -720,7 +723,7 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
         <div className="flex items-center gap-2 mb-3">
           <p className="text-xs text-[var(--color-pib-text-muted)] font-label">Live stream</p>
           <span className="flex items-center gap-1.5 text-green-400 text-[11px] font-medium">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-md bg-green-400 animate-pulse" />
             Live
           </span>
         </div>
@@ -732,11 +735,11 @@ function PropertyAnalyticsTab({ property }: { property: Property }) {
               const ts = ev.serverTime ?? ev.timestamp
               const ms = tsToMs(ts)
               const time = ms ? new Date(ms).toLocaleTimeString() : 'now'
-              const page = ev.pageUrl ?? '—'
+              const page = ev.pageUrl ?? ' - '
               return (
                 <li key={ev.id ?? i} className="text-xs font-mono text-[var(--color-pib-text-muted)]">
                   <span className="text-[var(--color-pib-text-muted)]">[{time}]</span>{' '}
-                  <span className="text-amber-400">{ev.event}</span>{' '}
+                  <span className="text-[var(--st-warning)]">{ev.event}</span>{' '}
                   <span className="text-[var(--color-pib-text-muted)]">({page})</span>
                 </li>
               )
@@ -787,7 +790,7 @@ function KeysTab({ property, onRotate }: { property: Property; onRotate: (key: s
         <p className="text-xs text-[var(--color-pib-text-muted)] font-label">Ingest Key</p>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           This key is safe to ship in client-side JavaScript. It can only write analytics events
-          and fetch this property&apos;s config — it cannot read or modify any other data.
+          and fetch this property&apos;s config - it cannot read or modify any other data.
         </p>
         <div className="flex items-center gap-2">
           <code className="flex-1 text-xs bg-[var(--color-pib-surface)] px-3 py-2 rounded-lg font-mono break-all text-[var(--color-pib-text)]">
@@ -803,7 +806,7 @@ function KeysTab({ property, onRotate }: { property: Property; onRotate: (key: s
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           Key rotated: {formatTs(property.ingestKeyRotatedAt)}
         </p>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-[var(--st-danger)]">{error}</p>}
         <button
           onClick={handleRotate}
           disabled={rotating}
@@ -897,8 +900,8 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
   return (
     <div className="space-y-4">
       <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Status</h2>
-        <select value={status} onChange={e => setStatus(e.target.value as PropertyStatus)} className="pib-input text-sm w-48">
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Status</h2>
+        <select aria-label="Property status" value={status} onChange={e => setStatus(e.target.value as PropertyStatus)} className="pib-input text-sm w-48">
           <option value="draft">Draft</option>
           <option value="active">Active</option>
           <option value="paused">Paused</option>
@@ -907,27 +910,27 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
       </div>
 
       <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Store &amp; CTA URLs</h2>
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Store &amp; CTA URLs</h2>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">App Store URL</label>
-          <input type="url" value={appStoreUrl} onChange={e => setAppStoreUrl(e.target.value)} placeholder="https://apps.apple.com/…" className="pib-input text-sm w-full" />
+          <label htmlFor="prop-app-store" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">App Store URL</label>
+          <input id="prop-app-store" type="url" value={appStoreUrl} onChange={e => setAppStoreUrl(e.target.value)} placeholder="https://apps.apple.com/…" className="pib-input text-sm w-full" />
         </div>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Play Store URL</label>
-          <input type="url" value={playStoreUrl} onChange={e => setPlayStoreUrl(e.target.value)} placeholder="https://play.google.com/…" className="pib-input text-sm w-full" />
+          <label htmlFor="prop-play-store" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Play Store URL</label>
+          <input id="prop-play-store" type="url" value={playStoreUrl} onChange={e => setPlayStoreUrl(e.target.value)} placeholder="https://play.google.com/…" className="pib-input text-sm w-full" />
         </div>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Primary CTA URL (fallback)</label>
-          <input type="url" value={primaryCtaUrl} onChange={e => setPrimaryCtaUrl(e.target.value)} placeholder="https://…" className="pib-input text-sm w-full" />
+          <label htmlFor="prop-cta-url" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Primary CTA URL (fallback)</label>
+          <input id="prop-cta-url" type="url" value={primaryCtaUrl} onChange={e => setPrimaryCtaUrl(e.target.value)} placeholder="https://…" className="pib-input text-sm w-full" />
         </div>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Canonical Site URL</label>
-          <input type="url" value={siteUrl} onChange={e => setSiteUrl(e.target.value)} placeholder="https://scrolledbrain.com" className="pib-input text-sm w-full" />
+          <label htmlFor="prop-site-url" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Canonical Site URL</label>
+          <input id="prop-site-url" type="url" value={siteUrl} onChange={e => setSiteUrl(e.target.value)} placeholder="https://scrolledbrain.com" className="pib-input text-sm w-full" />
         </div>
       </div>
 
       <div className="pib-card p-4 space-y-3">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Kill Switch</h2>
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Kill Switch</h2>
         <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -942,7 +945,7 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
       </div>
 
       <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Feature Flags</h2>
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Feature Flags</h2>
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           JSON object of key → boolean or string. Example: <code>{`{"cardStyle":"meme","showLeaderboard":true}`}</code>
         </p>
@@ -950,28 +953,31 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
           value={featureFlagsText}
           onChange={e => setFeatureFlagsText(e.target.value)}
           rows={6}
+          aria-label="Feature flags JSON"
           className="pib-input text-xs font-mono w-full"
           spellCheck={false}
         />
       </div>
 
       <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Custom Config</h2>
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Custom Config</h2>
         <p className="text-xs text-[var(--color-pib-text-muted)]">Escape hatch for site-specific config. Any valid JSON object.</p>
         <textarea
           value={customConfigText}
           onChange={e => setCustomConfigText(e.target.value)}
           rows={6}
+          aria-label="Custom config JSON"
           className="pib-input text-xs font-mono w-full"
           spellCheck={false}
         />
       </div>
 
       <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-[var(--color-pib-text)]">Integrations</h2>
+        <h2 className="text-sm font-label font-medium text-[var(--color-pib-text)]">Integrations</h2>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Conversion Sequence ID</label>
+          <label htmlFor="prop-conv-seq" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Conversion Sequence ID</label>
           <input
+            id="prop-conv-seq"
             type="text"
             value={conversionSequenceId}
             onChange={e => setConversionSequenceId(e.target.value)}
@@ -980,8 +986,9 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
           />
         </div>
         <div>
-          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Creator Link Prefix</label>
+          <label htmlFor="prop-creator-prefix" className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Creator Link Prefix</label>
           <input
+            id="prop-creator-prefix"
             type="text"
             value={creatorLinkPrefix}
             onChange={e => setCreatorLinkPrefix(e.target.value)}
@@ -994,7 +1001,7 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400 font-label">{error}</p>}
+      {error && <p className="text-sm text-[var(--st-danger)] font-label">{error}</p>}
       {success && <p className="text-sm text-green-400 font-label">Saved.</p>}
 
       <button
@@ -1013,7 +1020,7 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
 function PlaceholderTab({ label }: { label: string }) {
   return (
     <div className="pib-card p-5 text-center text-[var(--color-pib-text-muted)] text-sm">
-      {label} — coming soon.
+      {label} - coming soon.
     </div>
   )
 }
@@ -1040,9 +1047,9 @@ export function PropertyDetailWorkspace({ backHref = '/portal/properties' }: Pro
 
   if (loading) return (
     <div className="max-w-4xl mx-auto space-y-3" data-module-accent="cyan">
-      <Skeleton className="h-8 w-48 rounded-xl" />
-      <Skeleton className="h-9 rounded-xl" />
-      <Skeleton className="h-36 rounded-xl" />
+      <Skeleton className="h-8 w-48 rounded-md" />
+      <Skeleton className="h-9 rounded-md" />
+      <Skeleton className="h-36 rounded-md" />
     </div>
   )
 

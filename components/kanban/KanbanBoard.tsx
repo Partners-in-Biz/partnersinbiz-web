@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   DndContext,
@@ -93,14 +95,14 @@ function MemberAvatar({ member, fallbackId }: { member?: TeamMember; fallbackId:
   return (
     <span
       title={title}
-      className="-ml-1 first:ml-0 inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[9px] font-semibold leading-none text-[var(--color-pib-text)]"
+      className="-ml-1 first:ml-0 inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[9px] font-medium leading-none text-[var(--color-pib-text)]"
     >
       {member?.photoURL && !imageFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={member.photoURL}
           alt=""
-          className="h-full w-full rounded-full object-cover"
+          className="h-full w-full rounded-md object-cover"
           onError={() => setImageFailed(true)}
         />
       ) : (
@@ -111,15 +113,15 @@ function MemberAvatar({ member, fallbackId }: { member?: TeamMember; fallbackId:
 }
 
 const AGENT_DEFAULT_COLOR: Record<string, string> = {
-  pip: 'bg-violet-400',
+  pip: 'bg-[var(--sc-ink-soft)]/10',
   theo: 'bg-sky-400',
-  maya: 'bg-amber-400',
+  maya: 'bg-[var(--st-warning)]/15',
   sage: 'bg-emerald-400',
   nora: 'bg-rose-400',
-  ads: 'bg-amber-400',
+  ads: 'bg-[var(--st-warning)]/15',
   'qa-release': 'bg-emerald-400',
   support: 'bg-sky-400',
-  data: 'bg-violet-400',
+  data: 'bg-[var(--sc-ink-soft)]/10',
   docs: 'bg-rose-400',
   seo: 'bg-emerald-400',
 }
@@ -127,10 +129,10 @@ const AGENT_DEFAULT_COLOR: Record<string, string> = {
 const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> = {
   'pending':        { label: 'Waiting',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
   'picked-up':      { label: 'Picked up', className: 'bg-sky-500/20 text-sky-400' },
-  'in-progress':    { label: 'Working',   className: 'bg-amber-500/20 text-amber-400' },
+  'in-progress':    { label: 'Working',   className: 'bg-[var(--st-warning)]/20 text-[var(--st-warning)]' },
   'awaiting-input': { label: 'Needs you', className: 'bg-orange-500/20 text-orange-400' },
   'done':           { label: 'Done',      className: 'bg-emerald-500/20 text-emerald-400' },
-  'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-red-400' },
+  'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-[var(--st-danger)]' },
 }
 
 function getTaskCreatedAtMillis(task: Task): number | null {
@@ -192,14 +194,14 @@ function TaskCard({
       )}
       {blockerRecovery.isBlocked && (
         <div className="mt-2 rounded border border-orange-500/25 bg-orange-500/5 p-2 text-[10px] leading-snug text-orange-100">
-          <p><span className="font-semibold">Blocked:</span> {blockerRecovery.whatIsWrong}</p>
-          <p className="mt-1 opacity-90"><span className="font-semibold">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+          <p><span className="font-medium">Blocked:</span> {blockerRecovery.whatIsWrong}</p>
+          <p className="mt-1 opacity-90"><span className="font-medium">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
         </div>
       )}
       {releaseLabel && (
         <div className="mt-2 flex items-center gap-1.5 rounded border border-purple-500/25 bg-purple-500/10 px-2 py-1.5 text-[10px] leading-snug text-purple-200">
-          <span className="material-symbols-outlined text-[13px]">schedule</span>
-          <span><span className="font-semibold">Scheduled release:</span> {releaseLabel}</span>
+          <Icon name="schedule" />
+          <span><span className="font-medium">Scheduled release:</span> {releaseLabel}</span>
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -218,7 +220,7 @@ function TaskCard({
           </span>
         )}
         {task.approvalStatus === 'pending' && task.approvalGate && task.approvalGate !== 'none' && (
-          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-400/30 bg-amber-500/10 text-amber-300">
+          <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-400/30 bg-[var(--st-warning)]/10 text-[var(--st-warning)]">
             Approval pending
           </span>
         )}
@@ -248,13 +250,13 @@ function TaskCard({
         <div className="flex items-center gap-2 min-w-0">
           {dueLabel && (
             <span className={`inline-flex items-center gap-1 ${isDueSoon(task.dueDate) ? 'text-[var(--color-accent-v2)]' : ''}`}>
-              <span className="material-symbols-outlined text-[14px]">event</span>
+              <Icon name="event" />
               {dueLabel}
             </span>
           )}
           {checklistTotal > 0 && (
             <span className="inline-flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px]">checklist</span>
+              <Icon name="checklist" />
               {checklistDone}/{checklistTotal}
             </span>
           )}
@@ -262,9 +264,7 @@ function TaskCard({
         <div className="flex items-center gap-2 shrink-0">
           {attachmentCount > 0 && (
             <span className="inline-flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px]">
-                {kind === 'video' ? 'movie' : kind === 'image' ? 'image' : 'attach_file'}
-              </span>
+              <Icon name={kind === 'video' ? 'movie' : kind === 'image' ? 'image' : 'attach_file'} />
               {attachmentCount}
             </span>
           )}
@@ -276,9 +276,9 @@ function TaskCard({
             <span className="inline-flex items-center gap-1.5">
               <span
                 title={assignedAgent?.name || task.assigneeAgentId}
-                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-md border border-[var(--color-pib-line)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
               >
-                <span className="material-symbols-outlined block text-[13px] leading-none">{assignedAgent?.iconKey ?? 'smart_toy'}</span>
+                <Icon name={assignedAgent?.iconKey ?? 'smart_toy'} />
               </span>
               {task.agentStatus && AGENT_STATUS_STYLE[task.agentStatus] && (
                 <span className={`text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded ${AGENT_STATUS_STYLE[task.agentStatus].className}`}>
@@ -341,12 +341,12 @@ function KanbanColumn({
       {/* Column header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full" style={{ background: column.color || 'var(--color-accent-v2)' }} />
+          <div className="w-2 h-2 rounded-md" style={{ background: column.color || 'var(--color-accent-v2)' }} />
           <span className="pib-label">
             {column.name}
           </span>
           <span
-            className="text-[9px] font-label px-1.5 py-0.5 rounded-full"
+            className="text-[9px] font-label px-1.5 py-0.5 rounded-md"
             style={{ background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }}
           >
             {tasks.length}
@@ -571,10 +571,10 @@ export function KanbanBoard({
           <button
             type="button"
             onClick={handleSortModeToggle}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            className="inline-flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             aria-pressed={sortMode === 'manual'}
           >
-            <span className="material-symbols-outlined text-[16px]">sort</span>
+            <Icon name="sort" />
             {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
           </button>
         </div>

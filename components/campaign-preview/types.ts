@@ -1,5 +1,5 @@
 // Local view-types for campaign-preview cards.
-// These are intentionally a SUBSET of what the platform APIs return —
+// These are intentionally a SUBSET of what the platform APIs return  - 
 // cards must not crash on missing optional fields.
 
 export type PreviewMediaImage = { type: 'image'; url: string; alt?: string }
@@ -24,12 +24,12 @@ export interface PreviewSocialPost {
   campaignId?: string
   /** Instagram story / reel / feed hint used by card pickers. */
   format?: string
-  // Optional convenience fields used for chrome — cards fall back gracefully if absent.
+  // Optional convenience fields used for chrome  -  cards fall back gracefully if absent.
   authorName?: string
   authorHandle?: string
   authorAvatarUrl?: string
   authorHeadline?: string
-  // Twitter / X — when present, render as a numbered thread instead of a single tweet.
+  // Twitter / X  -  when present, render as a numbered thread instead of a single tweet.
   thread?: string[]
   // Engagement counts (purely cosmetic).
   likeCount?: number

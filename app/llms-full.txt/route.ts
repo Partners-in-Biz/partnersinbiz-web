@@ -7,7 +7,7 @@ export const revalidate = 86400
 export function GET() {
   const out: string[] = []
 
-  out.push(`# ${SITE.name} — Full Site Content`)
+  out.push(`# ${SITE.name}  -  Full Site Content`)
   out.push(`Source: ${SITE.url}`)
   out.push(`Last generated: 2026-04-25`)
   out.push('')
@@ -37,7 +37,7 @@ export function GET() {
   // Process
   out.push('## How we work')
   for (const p of PROCESS) {
-    out.push(`### ${p.step} — ${p.name}`)
+    out.push(`### ${p.step}  -  ${p.name}`)
     out.push(p.blurb)
     out.push(`Deliverables: ${p.deliverables.join(', ')}`)
     out.push('')
@@ -46,7 +46,7 @@ export function GET() {
   // Case studies
   out.push('## Case studies')
   for (const c of CASE_STUDIES) {
-    out.push(`### ${c.client} — ${c.headline}`)
+    out.push(`### ${c.client}  -  ${c.headline}`)
     out.push(c.summary)
     out.push(`Industry: ${c.industry}`)
     out.push(`Year: ${c.year}`)
@@ -60,7 +60,7 @@ export function GET() {
   out.push('## What clients say')
   for (const t of TESTIMONIALS) {
     out.push(`> ${t.quote}`)
-    out.push(`— ${t.author}, ${t.role}`)
+    out.push(` -  ${t.author}, ${t.role}`)
     out.push('')
   }
 

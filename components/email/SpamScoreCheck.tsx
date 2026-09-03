@@ -12,7 +12,7 @@
 //   <SpamScoreCheck campaignId={id} />
 //
 // If the review step has live (possibly-unsaved) editor content, pass it via
-// `liveContent` — it goes to the API as the { html, subject, text } body
+// `liveContent`  -  it goes to the API as the { html, subject, text } body
 // fallback so the score reflects exactly what's on screen.
 
 import { useCallback, useEffect, useState } from 'react'
@@ -51,7 +51,7 @@ export interface SpamScoreCheckProps {
 const VERDICT_META: Record<SpamVerdict, { label: string; color: string; ring: string }> = {
   clean: { label: 'Clean', color: 'text-emerald-500', ring: 'stroke-emerald-500' },
   'low-risk': { label: 'Low risk', color: 'text-lime-500', ring: 'stroke-lime-500' },
-  spammy: { label: 'Spammy', color: 'text-amber-500', ring: 'stroke-amber-500' },
+  spammy: { label: 'Spammy', color: 'text-[var(--st-warning)]', ring: 'stroke-amber-500' },
   'high-risk': { label: 'High risk', color: 'text-red-500', ring: 'stroke-red-500' },
 }
 
@@ -89,7 +89,7 @@ function Gauge({ score, verdict }: { score: number; verdict: SpamVerdict }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className={`text-3xl font-bold ${meta.color}`}>{score.toFixed(1)}</span>
+        <span className={`text-3xl font-medium ${meta.color}`}>{score.toFixed(1)}</span>
         <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">/ 10</span>
       </div>
     </div>
@@ -148,7 +148,7 @@ export function SpamScoreCheck({
     <div className={`pib-card ${className}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Spam score</h3>
+          <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Spam score</h3>
           <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
             Rule-based, SpamAssassin-style analysis. Higher = more likely to hit spam.
           </p>
@@ -164,7 +164,7 @@ export function SpamScoreCheck({
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-[var(--st-danger)]">
           {error}
         </div>
       )}
@@ -180,7 +180,7 @@ export function SpamScoreCheck({
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Gauge score={data.score} verdict={data.verdict} />
             <div className="min-w-0 flex-1">
-              <div className={`text-lg font-semibold ${VERDICT_META[data.verdict].color}`}>
+              <div className={`text-lg font-medium ${VERDICT_META[data.verdict].color}`}>
                 {VERDICT_META[data.verdict].label}
               </div>
               <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -211,10 +211,10 @@ export function SpamScoreCheck({
                     )}
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                    className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums ${
                       r.points < 0
                         ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-amber-500/10 text-amber-400'
+                        : 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)]'
                     }`}
                   >
                     {r.points > 0 ? '+' : ''}

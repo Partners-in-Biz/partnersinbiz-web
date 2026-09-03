@@ -10,6 +10,7 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
 import { PortalViewSwitch } from './PortalViewSwitch'
+import { Icon } from '@/components/studio'
 
 const WORKSPACE_GROUP_LABELS: Record<NonNullable<NavItem['group']>, string> = {
   work: 'Workspace',
@@ -39,21 +40,11 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
       title={collapsed ? item.label : undefined}
       data-active={isActive ? 'true' : undefined}
       className={[
-        'pib-nav-item',
-        collapsed ? 'justify-center !px-0' : '',
-        isActive
-          ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]'
-          : '',
-      ].join(' ')}
+        'pib-nav-item relative min-h-11',
+        collapsed ? 'justify-center px-0' : '',
+      ].filter(Boolean).join(' ')}
     >
-      <span
-        className={[
-          'material-symbols-outlined text-[18px] shrink-0',
-          isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70',
-        ].join(' ')}
-      >
-        {item.icon}
-      </span>
+      <Icon name={item.icon} className={isActive ? 'text-[var(--sc-accent)]' : 'opacity-70'} />
       {!collapsed && <span className="font-medium">{item.label}</span>}
     </Link>
   )
@@ -92,7 +83,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
       ))
     : groupedNav.map(({ group, items }) => (
         <div key={group} className="space-y-0.5 pb-2 last:pb-0">
-          <p className="eyebrow !text-[10px] px-2 mb-1">{groupLabels[group]}</p>
+          <p className="sc-tiny px-2 mb-1 text-[var(--sc-ink-soft)]">{groupLabels[group]}</p>
           {items.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
@@ -119,18 +110,17 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
     <>
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 z-40 bg-black/70 transition-opacity duration-200 md:hidden ${
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         aria-hidden="true"
       />
 
       <aside
-        data-module-accent="cyan"
         className={[
-          'shrink-0 flex flex-col border-r border-[var(--pib-fx-line,var(--color-pib-line))] bg-[var(--color-sidebar)] overflow-hidden',
+          'shrink-0 flex flex-col border-r border-[var(--sc-line)] bg-[var(--sc-surface)] overflow-hidden',
           'md:h-screen md:sticky md:top-0 md:z-auto',
-          'fixed top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out',
+          'fixed top-0 left-0 h-full z-50 transition-all duration-200 ease-in-out',
           collapsed ? 'w-14' : 'w-60',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
@@ -138,39 +128,36 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Brand */}
         <div
           className={[
-            'pib-glass-bar shrink-0 !min-h-0 border-b border-[var(--pib-fx-line,var(--color-pib-line))]',
-            collapsed ? 'h-11 justify-center !px-0' : 'h-11 gap-2 !px-3.5',
+            'shrink-0 flex items-center border-b border-[var(--sc-line)]',
+            collapsed ? 'h-14 justify-center px-0' : 'h-14 gap-2 px-3.5',
           ].join(' ')}
         >
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain shrink-0" />
+          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded object-contain shrink-0" />
           {!collapsed && (
-            <>
-              <div className="flex flex-col min-w-0">
-                <span className="font-display text-sm leading-none">Partners in Biz</span>
-                {isWorkspaceMode && selectedOrg?.name && (
-                  <span className="text-[10px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">
-                    {selectedOrg.name}
-                  </span>
-                )}
-              </div>
-            </>
+            <div className="flex flex-col min-w-0">
+              <span className="sc-tiny text-[var(--sc-ink)]">Partners in Biz</span>
+              {isWorkspaceMode && selectedOrg?.name && (
+                <span className="text-[10px] text-[var(--sc-ink-soft)] truncate leading-tight mt-0.5">
+                  {selectedOrg.name}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0 px-0.5">
+        <div className="hidden md:flex items-center justify-between min-h-11 border-b border-[var(--sc-line)] shrink-0 px-0.5">
           <button
+            type="button"
             onClick={onToggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
-              'flex h-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04] transition-colors',
-              collapsed ? 'w-full' : 'w-8',
+              'flex min-h-11 min-w-11 items-center justify-center text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)] hover:bg-black/[0.05] transition-colors',
+              collapsed ? 'w-full' : 'w-11',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[16px]">
-              {collapsed ? 'chevron_right' : 'chevron_left'}
-            </span>
+            <Icon name={collapsed ? 'chevron_right' : 'chevron_left'} />
           </button>
           {!collapsed && isWorkspaceMode && selectedOrg?.id && (
             <PortalViewSwitch orgId={selectedOrg.id} iconOnly />
@@ -178,7 +165,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         </div>
 
         {!collapsed && isWorkspaceMode && selectedOrg?.id && (
-          <div className="md:hidden border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0">
+          <div className="md:hidden border-b border-[var(--sc-line)] shrink-0">
             <PortalViewSwitch orgId={selectedOrg.id} />
           </div>
         )}
@@ -197,8 +184,8 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
 
         {/* Org Switcher */}
         {!collapsed && (
-          <div className="border-t border-[var(--pib-fx-line,var(--color-pib-line))] py-2.5 shrink-0">
-            <p className="eyebrow !text-[9px] px-3.5 mb-1.5">Context</p>
+          <div className="border-t border-[var(--sc-line)] py-2.5 shrink-0">
+            <p className="sc-tiny px-3.5 mb-1.5 text-[var(--sc-ink-soft)]">Context</p>
             <OrgSwitcher />
           </div>
         )}
@@ -206,7 +193,9 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Navigation */}
         {!collapsed && (
           <div className="px-3 pt-2 pb-0.5 shrink-0">
-            <p className="eyebrow !text-[9px] px-1.5 mb-1.5">{isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}</p>
+            <p className="sc-tiny px-1.5 mb-1.5 text-[var(--sc-ink-soft)]">
+              {isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}
+            </p>
           </div>
         )}
         <nav className={['flex-1 min-h-0 overflow-y-auto space-y-0.5', collapsed ? 'px-1.5 pt-2' : 'px-2.5 pb-3'].join(' ')}>

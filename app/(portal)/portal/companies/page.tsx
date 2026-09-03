@@ -16,6 +16,7 @@ import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { Icon } from '@/components/studio'
 
 // ── Companies list page ───────────────────────────────────────────────────────
 
@@ -304,28 +305,20 @@ export default function CompaniesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col space-y-4 sm:p-4" data-module-accent="amber">
+    <div className="mx-auto flex max-w-7xl flex-col space-y-4 sm:p-4" >
       <PageHeader
-        accent="amber"
-        eyebrow="CRM · Companies"
-        title="Companies"
+        eyebrow="CRM"
+        title="Companies."
         description="Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace."
         actions={
           <>
-            <Link
-              href={companyPortalPath('/portal/companies/migrate')}
-              className="btn-pib-secondary btn-pib-sm"
-            >
+            <ButtonLink href={companyPortalPath('/portal/companies/migrate')} variant="secondary" size="sm">
               Migrate from contacts
-            </Link>
-            <Link
-              href={companyPortalPath('/portal/companies/new')}
-              className="btn-pib-primary btn-pib-sm"
-              aria-label="New company"
-            >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            </ButtonLink>
+            <ButtonLink href={companyPortalPath('/portal/companies/new')} size="sm">
+              <Icon name="add" />
               New company
-            </Link>
+            </ButtonLink>
           </>
         }
       />
@@ -360,9 +353,9 @@ export default function CompaniesPage() {
             ].join(' ')}
             aria-label={managerLens === 'unmanaged' ? 'Exit unmanaged company lens' : 'Show unmanaged companies needing an account manager'}
           >
-            <span className="pib-icon-tint shrink-0" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">manage_accounts</span></span>
+            <Icon name="manage_accounts" />
             <span className="min-w-0">
-              <p className="text-xs font-semibold text-[var(--color-pib-text)]">
+              <p className="text-xs text-[var(--color-pib-text)]">
                 {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
               </p>
               <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -373,9 +366,9 @@ export default function CompaniesPage() {
             </span>
           </button>
           <Surface variant="quiet" className="flex items-start gap-3 !p-3">
-            <span className="pib-icon-tint shrink-0" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">assignment_ind</span></span>
+            <Icon name="assignment_ind" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
+              <p className="text-xs text-[var(--color-pib-text)]">Account responsibility</p>
               <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                 Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
               </p>
@@ -394,12 +387,10 @@ export default function CompaniesPage() {
         <Surface variant="card" accentEdge="amber" className="border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="pib-icon-tint shrink-0" aria-hidden="true">
-                <span className="material-symbols-outlined text-[16px]">warning</span>
-              </span>
+              <Icon name="warning" />
               <div>
                 <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Source health</p>
-                <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Companies could not load</h2>
+                <h2 className="mt-1 text-sm text-[var(--color-pib-text)]">Companies could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{error}</p>
               </div>
             </div>
@@ -409,7 +400,7 @@ export default function CompaniesPage() {
               className="btn-pib-secondary btn-pib-sm shrink-0"
               aria-label="Retry loading companies"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              <Icon name="refresh" />
               Retry
             </button>
           </div>

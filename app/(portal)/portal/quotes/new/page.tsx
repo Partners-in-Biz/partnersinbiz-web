@@ -137,7 +137,7 @@ function NewQuoteForm() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <header>
-        <p className="eyebrow">Quotes / New</p>
+        <p className="sc-tiny">Quotes / New</p>
         <h1 className="pib-page-title mt-2">New Quote</h1>
       </header>
 
@@ -147,7 +147,7 @@ function NewQuoteForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Client Organisation *</label>
-              <select value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-select">
+              <select aria-label="Client organisation" value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-select">
                 <option value="">Select organisation…</option>
                 {orgs.map(org => (
                   <option key={org.id} value={org.id}>{org.name}</option>
@@ -156,7 +156,7 @@ function NewQuoteForm() {
             </div>
             <div>
               <label className="pib-label">Currency</label>
-              <select value={currency} onChange={e => setCurrency(e.target.value as Currency)} className="pib-select">
+              <select aria-label="Currency" value={currency} onChange={e => setCurrency(e.target.value as Currency)} className="pib-select">
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="ZAR">ZAR (R)</option>
@@ -164,11 +164,11 @@ function NewQuoteForm() {
             </div>
             <div>
               <label className="pib-label">Valid Until</label>
-              <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className={inputClass} />
+              <input aria-label="Valid until" type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className={inputClass} />
             </div>
             <div>
               <label className="pib-label">Tax Rate (%)</label>
-              <input type="number" min="0" max="100" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className={inputClass} />
+              <input aria-label="Tax rate percent" type="number" min="0" max="100" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))} className={inputClass} />
             </div>
           </div>
         </div>
@@ -185,15 +185,15 @@ function NewQuoteForm() {
             <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:items-center pb-3 sm:pb-0 border-b border-[var(--color-pib-line)] sm:border-0 last:border-b-0">
               <div className="col-span-2 sm:col-span-6">
                 <label className="pib-label sm:hidden">Description</label>
-                <input value={item.description} onChange={e => updateLineItem(idx, 'description', e.target.value)} className={inputClass} placeholder="Description" />
+                <input aria-label="Line item description" value={item.description} onChange={e => updateLineItem(idx, 'description', e.target.value)} className={inputClass} placeholder="Description" />
               </div>
               <div className="sm:col-span-2">
                 <label className="pib-label sm:hidden">Qty</label>
-                <input type="number" min="1" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', e.target.value)} className={inputClass} />
+                <input aria-label="Line item quantity" type="number" min="1" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', e.target.value)} className={inputClass} />
               </div>
               <div className="sm:col-span-2">
                 <label className="pib-label sm:hidden">Unit Price</label>
-                <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)} className={inputClass} />
+                <input aria-label="Line item unit price" type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)} className={inputClass} />
               </div>
               <div className="col-span-2 sm:col-span-2 flex items-center justify-between sm:justify-start gap-2">
                 <div className="text-sm text-[var(--color-pib-text)]">
@@ -209,13 +209,13 @@ function NewQuoteForm() {
           <div className="border-t border-[var(--color-pib-line)] pt-3 space-y-1 text-right">
             <p className="text-sm text-[var(--color-pib-text-muted)]">Subtotal: <span className="text-[var(--color-pib-text)]">{fmtCurrency(subtotal, currency)}</span></p>
             {taxRate > 0 && <p className="text-sm text-[var(--color-pib-text-muted)]">Tax ({taxRate}%): <span className="text-[var(--color-pib-text)]">{fmtCurrency(taxAmount, currency)}</span></p>}
-            <p className="text-base font-bold text-[var(--color-pib-text)]">Total: {fmtCurrency(total, currency)}</p>
+            <p className="text-base text-[var(--color-pib-text)]">Total: {fmtCurrency(total, currency)}</p>
           </div>
         </div>
 
         <div className="pib-card">
           <label className="pib-label">Notes / Terms</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} className="pib-textarea" rows={3} placeholder="Payment terms, validity, etc." />
+          <textarea aria-label="Notes and terms" value={notes} onChange={e => setNotes(e.target.value)} className="pib-textarea" rows={3} placeholder="Payment terms, validity, etc." />
         </div>
 
         {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}

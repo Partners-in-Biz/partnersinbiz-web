@@ -76,7 +76,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
   return (
     <div className="space-y-2">
       {steps.map((step, i) => (
-        <div key={i} className="rounded-xl border border-[var(--color-pib-line)] overflow-hidden">
+        <div key={i} className="rounded-md border border-[var(--color-pib-line)] overflow-hidden">
           <button
             className="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-pib-surface-soft)] text-left"
             onClick={() => setExpanded(expanded === i ? null : i)}
@@ -134,7 +134,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                 <>
                   <div className="w-28">
                     <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Delay (days)</label>
-                    <input
+                    <input aria-label="Delay (days)"
                       type="number"
                       min={0}
                       value={step.delayDays}
@@ -144,7 +144,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">SMS body</label>
-                    <textarea
+                    <textarea aria-label="Hi {{firstName}}, a short SMS. Reply STOP to opt out"
                       value={step.smsBody ?? ''}
                       onChange={(e) => updateStep(i, 'smsBody', e.target.value)}
                       rows={4}
@@ -160,7 +160,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                             {seg.segments === 1 ? '' : 's'} · {seg.encoding.toUpperCase()}
                           </span>
                           {seg.segments > 1 && (
-                            <span className="text-amber-600 dark:text-amber-400">
+                            <span className="text-[var(--st-warning)] dark:text-[var(--st-warning)]">
                               Multi-segment SMS bills per segment.
                             </span>
                           )}
@@ -174,7 +174,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                   <div className="flex gap-3">
                     <div className="flex-1">
                       <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Subject</label>
-                      <input
+                      <input aria-label="Subject"
                         value={step.subject}
                         onChange={(e) => updateStep(i, 'subject', e.target.value)}
                         className="w-full pib-input"
@@ -182,7 +182,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                     </div>
                     <div className="w-28">
                       <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Delay (days)</label>
-                      <input
+                      <input aria-label="Delay (days)"
                         type="number"
                         min={0}
                         value={step.delayDays}
@@ -193,7 +193,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Body (plain text)</label>
-                    <textarea
+                    <textarea aria-label="Body (plain text)"
                       value={step.bodyText}
                       onChange={(e) => {
                         updateStep(i, 'bodyText', e.target.value)
@@ -237,7 +237,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
       ))}
       <button
         onClick={addStep}
-        className="w-full py-2 rounded-xl border border-dashed border-[var(--color-pib-line)] text-sm text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-soft)] transition-colors"
+        className="w-full py-2 rounded-md border border-dashed border-[var(--color-pib-line)] text-sm text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-soft)] transition-colors"
       >
         + Add step
       </button>

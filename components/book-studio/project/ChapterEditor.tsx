@@ -14,7 +14,7 @@ type Props = {
   initialMarkdown: string
   readOnly: boolean
   /**
-   * Persist the chapter markdown. The editor ignores the resolved value —
+   * Persist the chapter markdown. The editor ignores the resolved value  - 
    * callers (the chapters panel) may return a success flag for their own
    * post-save logic (e.g. status promotion).
    */
@@ -120,7 +120,7 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
   }, [editor, readOnly])
 
   // Flush any pending save on unmount. The panel renders this component with
-  // key={chapter.id}, so switching chapters unmounts the old instance — this
+  // key={chapter.id}, so switching chapters unmounts the old instance  -  this
   // cleanup is THE mechanism that persists in-flight edits on chapter switch
   // (and on navigating away entirely).
   useEffect(() => {
@@ -134,7 +134,7 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
   }, [])
 
   if (!editor) {
-    return <div className="pib-skeleton h-80 rounded-2xl" />
+    return <div className="pib-skeleton h-80 rounded-[6px]" />
   }
 
   const Btn = ({

@@ -204,8 +204,8 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
               </Link>
             </div>
           ) : null}
-          {config.eyebrow ? <p className="eyebrow">{config.eyebrow}</p> : null}
-          <h1 className="font-headline text-xl md:text-2xl font-semibold text-[var(--color-pib-text)] mt-1 tracking-tight">
+          {config.eyebrow ? <p className="sc-tiny">{config.eyebrow}</p> : null}
+          <h1 className="font-headline text-xl md:text-2xl text-[var(--color-pib-text)] mt-1 tracking-tight">
             {config.title}
           </h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-xl">{config.description}</p>

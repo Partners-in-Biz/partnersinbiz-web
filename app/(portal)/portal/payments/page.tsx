@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import { EmptyState, PageHeader, PageTabs, StatusPill, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
+import { Button, Icon, Skeleton } from '@/components/studio'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type BillingTab = 'invoices' | 'quotes'
@@ -33,15 +35,15 @@ interface Quote {
   clientDetails?: { name?: string }
 }
 
-const INVOICE_STATUS_PILL: Record<string, string> = {
-  draft: 'pib-pill pib-pill-cyan',
-  sent: 'pib-pill pib-pill-info',
-  viewed: 'pib-pill pib-pill-info',
-  payment_pending_verification: 'pib-pill pib-pill-info',
-  paid: 'pib-pill pib-pill-success',
-  partially_paid: 'pib-pill pib-pill-success',
-  overdue: 'pib-pill pib-pill-danger',
-  cancelled: 'pib-pill',
+const INVOICE_STATUS_TONE: Record<string, 'neutral' | 'info' | 'success' | 'danger' | 'warn'> = {
+  draft: 'neutral',
+  sent: 'info',
+  viewed: 'info',
+  payment_pending_verification: 'info',
+  paid: 'success',
+  partially_paid: 'success',
+  overdue: 'danger',
+  cancelled: 'neutral',
 }
 
 const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = [
@@ -55,14 +57,14 @@ const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = [
   'cancelled',
 ]
 
-const QUOTE_STATUS_PILL: Record<string, string> = {
-  draft: 'pib-pill pib-pill-cyan',
-  sent: 'pib-pill pib-pill-info',
-  accepted: 'pib-pill pib-pill-success',
-  converted: 'pib-pill pib-pill-success',
-  declined: 'pib-pill pib-pill-danger',
-  rejected: 'pib-pill pib-pill-danger',
-  expired: 'pib-pill',
+const QUOTE_STATUS_TONE: Record<string, 'neutral' | 'info' | 'success' | 'danger'> = {
+  draft: 'neutral',
+  sent: 'info',
+  accepted: 'success',
+  converted: 'success',
+  declined: 'danger',
+  rejected: 'danger',
+  expired: 'neutral',
 }
 
 function label(value: string) {
@@ -199,41 +201,35 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="space-y-4" data-module-accent="cyan">
+    <div className="space-y-4">
       <PageHeader
-        accent="cyan"
         eyebrow="Finance operations"
-        title="Finance command center"
+        title="Finance command center."
         description="Track invoices, quote decisions, and payment pressure for the active company workspace."
       />
 
-      {!loading && (
-        <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="pib-stat-card" data-module-accent="cyan">
-            <p className="eyebrow !text-[10px]">Workspace</p>
-            <p className="text-lg font-semibold mt-1 text-[var(--color-pib-text)]">{workspaceLabel}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">scoped finance view</p>
-          </div>
-          <div className="pib-stat-card" data-module-accent="cyan">
-            <p className="eyebrow !text-[10px]">Revenue protected</p>
-            <p className="text-xl font-semibold mt-1 text-[var(--color-pib-success)]">{formatCurrency(totals.totalPaid, currency)}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{invoices.filter((invoice) => invoice.status === 'paid').length} invoices</p>
-          </div>
-          <div className="pib-stat-card" data-module-accent="cyan">
-            <p className="eyebrow !text-[10px]">Payment risk</p>
-            <p className="text-xl font-semibold mt-1 text-[var(--color-pib-accent)]">{formatCurrency(totals.totalOutstanding, currency)}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.overdueInvoices} overdue invoices</p>
-          </div>
-          <div className="pib-stat-card" data-module-accent="cyan">
-            <p className="eyebrow !text-[10px]">Decision pipeline</p>
-            <p className="text-xl font-semibold mt-1">{formatCurrency(totals.pendingQuotes, currency)}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.openQuotes} quotes awaiting response</p>
-          </div>
+      {!loading ? (
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Workspace" value={workspaceLabel} detail="Scoped finance view" />
+          <StatCard
+            label="Revenue protected"
+            value={formatCurrency(totals.totalPaid, currency)}
+            detail={`${invoices.filter((invoice) => invoice.status === 'paid').length} invoices`}
+          />
+          <StatCard
+            label="Payment risk"
+            value={formatCurrency(totals.totalOutstanding, currency)}
+            detail={`${totals.overdueInvoices} overdue invoices`}
+          />
+          <StatCard
+            label="Decision pipeline"
+            value={formatCurrency(totals.pendingQuotes, currency)}
+            detail={`${totals.openQuotes} quotes awaiting response`}
+          />
         </section>
-      )}
+      ) : null}
 
       <PageTabs
-        variant="segmented"
         ariaLabel="Billing document type"
         value={tab}
         onValueChange={(value) => setTab(value as BillingTab)}
@@ -244,32 +240,31 @@ export default function PaymentsPage() {
       />
 
       {loading ? (
-        <div className="pib-skeleton h-64" />
+        <Skeleton className="h-64 w-full" />
       ) : tab === 'invoices' ? (
         invoices.length === 0 ? (
-          <div className="pib-card p-6 text-center">
-            <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">receipt_long</span>
-            <h2 className="font-display text-lg mt-3">No invoices issued yet.</h2>
-            <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">Invoices will appear here once they are issued to this workspace.</p>
-          </div>
+          <EmptyState
+            title="No invoices issued yet."
+            description="Invoices will appear here once they are issued to this workspace."
+          />
         ) : (
-          <div className="pib-card-section">
-            <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-              <p className="col-span-3 eyebrow !text-[10px]">Invoice</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Issued</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Due</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Amount</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Status</p>
-              <p className="col-span-1 eyebrow !text-[10px] text-right">Actions</p>
+          <Surface>
+            <div className="hidden md:grid grid-cols-12 gap-4 border-b border-[var(--sc-line)] px-5 py-3.5">
+              <p className="col-span-3 sc-tiny">Invoice</p>
+              <p className="col-span-2 sc-tiny">Issued</p>
+              <p className="col-span-2 sc-tiny">Due</p>
+              <p className="col-span-2 sc-tiny">Amount</p>
+              <p className="col-span-2 sc-tiny">Status</p>
+              <p className="col-span-1 sc-tiny text-right">Actions</p>
             </div>
-            <div className="divide-y divide-[var(--color-pib-line)]">
+            <div className="divide-y divide-[var(--sc-line)]">
               {invoices.map((invoice) => (
-                <div key={invoice.id} className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors">
+                <div key={invoice.id} className="grid grid-cols-2 items-center gap-3 px-5 py-4 md:grid-cols-12 md:gap-4 hover:bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]">
                   <div className="col-span-2 md:col-span-3">
                     {invoice.status === 'draft' ? (
                       <Link
                         href={scopedPortalPath(`/portal/invoicing/${invoice.id}?edit=draft`, orgScope)}
-                        className="font-mono text-sm text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-accent)] hover:underline"
+                        className="font-mono text-sm text-[var(--sc-ink)] underline-offset-2 hover:underline"
                         aria-label={`Edit draft invoice ${invoice.invoiceNumber}`}
                       >
                         {invoice.invoiceNumber}
@@ -278,23 +273,22 @@ export default function PaymentsPage() {
                       <p className="font-mono text-sm">{invoice.invoiceNumber}</p>
                     )}
                   </div>
-                  <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.issueDate)}</p></div>
-                  <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(invoice.dueDate)}</p></div>
+                  <div className="md:col-span-2"><p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{formatDate(invoice.issueDate)}</p></div>
+                  <div className="md:col-span-2"><p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{formatDate(invoice.dueDate)}</p></div>
                   <div className="md:col-span-2">
-                    <p className="text-sm font-display text-lg">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p>
+                    <p className="st-num text-[1.125rem] text-[var(--sc-ink)]">{formatCurrency(invoice.total ?? 0, invoice.currency ?? 'ZAR')}</p>
                     {typeof invoice.taxRate === 'number' && invoice.taxRate > 0 ? (
-                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">VAT {invoice.taxRate}%</p>
+                      <p className="mt-1 sc-tiny text-[var(--sc-ink-soft)]">VAT {invoice.taxRate}%</p>
                     ) : null}
                   </div>
                   <div className="col-span-2 md:col-span-2">
                     {invoice.status === 'paid' ? (
-                      <span
+                      <StatusPill
                         data-testid={`invoice-status-pill-${invoice.invoiceNumber}`}
-                        className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}
+                        tone={INVOICE_STATUS_TONE[invoice.status]}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {label(invoice.status)}
-                      </span>
+                      </StatusPill>
                     ) : (
                       <ThemedSelect
                         ariaLabel={`Change status for invoice ${invoice.invoiceNumber}`}
@@ -306,81 +300,86 @@ export default function PaymentsPage() {
                         buttonChrome="custom"
                         className="w-fit"
                         buttonClassName={[
-                          INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill',
-                          'inline-flex h-7 items-center justify-between gap-1.5 pr-1 transition-colors focus:border-[var(--color-pib-accent)] focus:outline-none disabled:cursor-not-allowed',
+                          'st-status sc-tiny inline-flex h-7 items-center justify-between gap-1.5 pr-1 transition-colors focus:outline-none disabled:cursor-not-allowed',
                           updatingInvoiceId === invoice.id ? 'opacity-60' : '',
                         ].join(' ')}
                         valueClassName="inline-flex items-center gap-1.5"
-                        menuClassName="min-w-max bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
-                        renderValue={() => (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {label(invoice.status)}
-                          </>
-                        )}
+                        menuClassName="min-w-max bg-[var(--sc-surface)] text-[var(--sc-ink)]"
+                        renderValue={() => label(invoice.status)}
                       />
                     )}
                   </div>
-                  <div className="col-span-2 md:col-span-1 flex md:justify-end">
+                  <div className="col-span-2 flex md:col-span-1 md:justify-end">
                     <div className="flex items-center gap-3">
                       {invoice.status !== 'draft' ? (
                         <Link
                           href={scopedPortalPath(`/portal/invoicing/${invoice.id}`, orgScope)}
-                          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 font-mono uppercase tracking-widest"
+                          className="sc-tiny text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)]"
                           aria-label={`Open invoice ${invoice.invoiceNumber}`}
                         >
                           Open
                         </Link>
                       ) : null}
-                      <a href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--color-pib-accent-hover)] hover:text-[var(--color-pib-accent)] inline-flex items-center gap-1 font-mono uppercase tracking-widest" aria-label={`Download ${invoice.invoiceNumber} PDF`}>
+                      <a
+                        href={scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="sc-tiny inline-flex items-center gap-1 text-[var(--sc-ink)] hover:underline"
+                        aria-label={`Download ${invoice.invoiceNumber} PDF`}
+                      >
                         PDF
-                        <span className="material-symbols-outlined text-sm">arrow_outward</span>
+                        <Icon name="arrow_outward" />
                       </a>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Surface>
         )
       ) : quotes.length === 0 ? (
-        <div className="pib-card p-6 text-center">
-          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">request_quote</span>
-          <h2 className="font-display text-lg mt-3">No quotes received yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">Quotes will appear here when Partners in Biz sends them to this workspace.</p>
-        </div>
+        <EmptyState
+          title="No quotes received yet."
+          description="Quotes will appear here when Partners in Biz sends them to this workspace."
+        />
       ) : (
-        <div className="pib-card-section">
-          <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-            <p className="col-span-3 eyebrow !text-[10px]">Quote</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Issued</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Valid Until</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Amount</p>
-            <p className="col-span-1 eyebrow !text-[10px]">Status</p>
-            <p className="col-span-2 eyebrow !text-[10px] text-right">Actions</p>
+        <Surface>
+          <div className="hidden md:grid grid-cols-12 gap-4 border-b border-[var(--sc-line)] px-5 py-3.5">
+            <p className="col-span-3 sc-tiny">Quote</p>
+            <p className="col-span-2 sc-tiny">Issued</p>
+            <p className="col-span-2 sc-tiny">Valid until</p>
+            <p className="col-span-2 sc-tiny">Amount</p>
+            <p className="col-span-1 sc-tiny">Status</p>
+            <p className="col-span-2 sc-tiny text-right">Actions</p>
           </div>
-          <div className="divide-y divide-[var(--color-pib-line)]">
+          <div className="divide-y divide-[var(--sc-line)]">
             {quotes.map((quote) => (
-              <div key={quote.id} className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors">
+              <div key={quote.id} className="grid grid-cols-2 items-center gap-3 px-5 py-4 md:grid-cols-12 md:gap-4 hover:bg-[color-mix(in_srgb,var(--sc-ink)_4%,transparent)]">
                 <div className="col-span-2 md:col-span-3"><p className="font-mono text-sm">{quote.quoteNumber}</p></div>
-                <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(quote.issueDate)}</p></div>
-                <div className="md:col-span-2"><p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(quote.validUntil)}</p></div>
-                <div className="md:col-span-2"><p className="text-sm font-display text-lg">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p></div>
-                <div className="col-span-2 md:col-span-1"><span className={QUOTE_STATUS_PILL[quote.status] ?? 'pib-pill'}><span className="w-1.5 h-1.5 rounded-full bg-current" />{label(quote.status)}</span></div>
-                <div className="col-span-2 md:col-span-2 flex flex-wrap justify-start gap-2 md:justify-end">
+                <div className="md:col-span-2"><p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{formatDate(quote.issueDate)}</p></div>
+                <div className="md:col-span-2"><p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{formatDate(quote.validUntil)}</p></div>
+                <div className="md:col-span-2"><p className="st-num text-[1.125rem] text-[var(--sc-ink)]">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p></div>
+                <div className="col-span-2 md:col-span-1">
+                  <StatusPill tone={QUOTE_STATUS_TONE[quote.status]}>{label(quote.status)}</StatusPill>
+                </div>
+                <div className="col-span-2 flex flex-wrap justify-start gap-2 md:col-span-2 md:justify-end">
                   {quote.status === 'sent' ? (
                     <>
-                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'accepted')} disabled={updatingQuoteId === quote.id} className="pib-btn-primary !px-3 !py-1.5 text-xs" aria-label={`Accept quote ${quote.quoteNumber}`}>Accept</button>
-                      <button type="button" onClick={() => updateQuoteStatus(quote.id, 'declined')} disabled={updatingQuoteId === quote.id} className="pib-btn-secondary !px-3 !py-1.5 text-xs" aria-label={`Decline quote ${quote.quoteNumber}`}>Decline</button>
+                      <Button type="button" size="sm" onClick={() => updateQuoteStatus(quote.id, 'accepted')} disabled={updatingQuoteId === quote.id} aria-label={`Accept quote ${quote.quoteNumber}`}>
+                        Accept
+                      </Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => updateQuoteStatus(quote.id, 'declined')} disabled={updatingQuoteId === quote.id} aria-label={`Decline quote ${quote.quoteNumber}`}>
+                        Decline
+                      </Button>
                     </>
                   ) : (
-                    <span className="text-xs text-[var(--color-pib-text-muted)]">No action</span>
+                    <span className="sc-tiny text-[var(--sc-ink-soft)]">No action</span>
                   )}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </Surface>
       )}
     </div>
   )

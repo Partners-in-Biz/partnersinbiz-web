@@ -184,7 +184,7 @@ export function HoverTip({
               id={tipId}
               role="tooltip"
               data-testid="hover-tip"
-              className="z-[120] max-w-[min(20rem,calc(100vw-12px))] rounded-md border border-white/14 bg-[#16181d] px-2 py-1 text-left text-[11px] font-semibold leading-snug text-[#f5f6f8] shadow-lg shadow-black/40"
+              className="z-[120] max-w-[min(20rem,calc(100vw-12px))] rounded-[var(--st-radius,4px)] border border-[var(--sc-line)] bg-[var(--sc-surface)] px-2 py-1 text-left text-[11px] font-medium leading-snug text-[var(--sc-ink)] shadow-[var(--sc-shadow)]"
               style={style}
             >
               {text}

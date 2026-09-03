@@ -3,8 +3,30 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 import { formatZar, formatDate, tsToMillis } from '@/lib/billing/format'
+import {
+  Button,
+  ButtonLink,
+  Choice,
+  DataItem,
+  DataList,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+  Textarea,
+  Title,
+  Toolbar,
+} from '@/components/studio'
 
 type PartnerStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
 
@@ -42,18 +64,11 @@ const STATUS_FILTERS: Array<{ key: PartnerStatus | 'all'; label: string }> = [
   { key: 'rejected', label: 'Rejected' },
 ]
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
-}
-
-function StatusBadge({ status }: { status: PartnerStatus }) {
-  const tones: Record<PartnerStatus, string> = {
-    pending: 'pib-pill-warn',
-    approved: 'pib-pill-success',
-    rejected: 'pib-pill-danger',
-    suspended: 'pib-pill-cyan',
-  }
-  return <span className={`pib-pill ${tones[status]}`}>{status}</span>
+function statusTone(status: PartnerStatus): 'warning' | 'success' | 'danger' | 'info' {
+  if (status === 'pending') return 'warning'
+  if (status === 'approved') return 'success'
+  if (status === 'rejected') return 'danger'
+  return 'info'
 }
 
 export default function AdminPartnersPage() {
@@ -68,13 +83,11 @@ export default function AdminPartnersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  // Review-panel action state
   const [commissionInput, setCommissionInput] = useState('')
   const [payoutMethod, setPayoutMethod] = useState<'eft' | 'paypal'>('eft')
   const [rejectionReason, setRejectionReason] = useState('')
   const [panelError, setPanelError] = useState<string | null>(null)
 
-  // New applicant form
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -122,7 +135,6 @@ export default function AdminPartnersPage() {
     [applications, selectedId],
   )
 
-  // Seed the review-panel inputs when a new applicant is selected.
   useEffect(() => {
     if (!selected) return
     setCommissionInput(
@@ -191,7 +203,7 @@ export default function AdminPartnersPage() {
       const data = body.data ?? body
       const emailNote =
         data.emailStatus === 'queued'
-          ? ' (email queued — provider not configured)'
+          ? ' (email queued - provider not configured)'
           : data.emailStatus === 'sent'
             ? ' and applicant emailed'
             : ''
@@ -252,341 +264,289 @@ export default function AdminPartnersPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
-            Billing / Partner programme
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Partners</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-            Review partner applications, set commission rates, and track referral payouts. Payouts
-            settle offline via EFT / PayPal.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <button
-            onClick={() => setShowCreate((v) => !v)}
-            className="pib-btn-primary text-sm font-label"
-          >
-            {showCreate ? 'Cancel' : '+ New applicant'}
-          </button>
-          <Link href="/api/v1/admin/partners/export" className="pib-btn-ghost text-sm font-label">
-            Export CSV
-          </Link>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-8">
+      <PageHeader
+        eyebrow="Billing / Partner programme"
+        title="Partners."
+        description="Review partner applications, set commission rates, and track referral payouts. Payouts settle offline via EFT / PayPal."
+        actions={
+          <>
+            <Button type="button" onClick={() => setShowCreate((v) => !v)}>
+              {showCreate ? 'Cancel' : 'New applicant'}
+            </Button>
+            <ButtonLink href="/api/v1/admin/partners/export" variant="ghost">
+              Export CSV
+            </ButtonLink>
+          </>
+        }
+      />
 
-      {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
-          {topError}
-        </div>
-      )}
-      {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
-          {notice}
-        </div>
-      )}
+      {topError ? <Notice tone="danger">{topError}</Notice> : null}
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
 
-      {showCreate && (
-        <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: 'companyName', label: 'Company', placeholder: 'Acme Agency', required: true },
-              { key: 'contactName', label: 'Contact', placeholder: 'Jane Doe', required: true },
-              { key: 'email', label: 'Email', placeholder: 'jane@acme.co.za', required: true, type: 'email' },
-              { key: 'phone', label: 'Phone', placeholder: '+27 ...' },
-              { key: 'website', label: 'Website', placeholder: 'https://acme.co.za' },
-              { key: 'expectedVolume', label: 'Expected volume', placeholder: 'e.g. 5–10 referrals / month' },
-            ].map((f) => (
-              <label key={f.key} className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                  {f.label}
-                </span>
-                <input
-                  type={f.type ?? 'text'}
-                  value={form[f.key as keyof typeof form]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  className="pib-input w-full mt-1"
-                  required={f.required}
+      {showCreate ? (
+        <Panel>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field id="partner-company" label="Company">
+                <Input aria-label="Company" id="partner-company"
+                  value={form.companyName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, companyName: e.target.value }))}
+                  placeholder="Acme Agency"
+                  required
                 />
-              </label>
-            ))}
-            <label className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                Pitch
-              </span>
-              <textarea
-                value={form.pitch}
-                onChange={(e) => setForm((prev) => ({ ...prev, pitch: e.target.value }))}
-                placeholder="Audience, channels, why they want to partner..."
-                rows={3}
-                className="pib-input w-full mt-1"
-              />
-            </label>
-          </div>
-          {createError && <p className="text-xs text-red-400">{createError}</p>}
-          <div className="flex justify-end">
-            <button type="submit" disabled={creating} className="pib-btn-primary text-sm font-label">
-              {creating ? 'Adding...' : 'Add applicant'}
-            </button>
-          </div>
-        </form>
-      )}
+              </Field>
+              <Field id="partner-contact" label="Contact">
+                <Input aria-label="Contact" id="partner-contact"
+                  value={form.contactName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, contactName: e.target.value }))}
+                  placeholder="Jane Doe"
+                  required
+                />
+              </Field>
+              <Field id="partner-email" label="Email">
+                <Input aria-label="Email" id="partner-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="jane@acme.co.za"
+                  required
+                />
+              </Field>
+              <Field id="partner-phone" label="Phone">
+                <Input aria-label="Phone" id="partner-phone"
+                  value={form.phone}
+                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+27 ..."
+                />
+              </Field>
+              <Field id="partner-website" label="Website">
+                <Input aria-label="Website" id="partner-website"
+                  value={form.website}
+                  onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://acme.co.za"
+                />
+              </Field>
+              <Field id="partner-volume" label="Expected volume">
+                <Input aria-label="Expected volume" id="partner-volume"
+                  value={form.expectedVolume}
+                  onChange={(e) => setForm((prev) => ({ ...prev, expectedVolume: e.target.value }))}
+                  placeholder="e.g. 5-10 referrals / month"
+                />
+              </Field>
+              <div className="md:col-span-2">
+                <Field id="partner-pitch" label="Pitch">
+                  <Textarea aria-label="Pitch" id="partner-pitch"
+                    value={form.pitch}
+                    onChange={(e) => setForm((prev) => ({ ...prev, pitch: e.target.value }))}
+                    placeholder="Audience, channels, why they want to partner..."
+                    rows={3}
+                  />
+                </Field>
+              </div>
+            </div>
+            {createError ? <Notice tone="danger">{createError}</Notice> : null}
+            <Toolbar>
+              <Button type="submit" disabled={creating}>
+                {creating ? 'Adding...' : 'Add applicant'}
+              </Button>
+            </Toolbar>
+          </form>
+        </Panel>
+      ) : null}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {loading || !summary ? (
           <>
-            <Skeleton className="h-20 rounded-xl" />
-            <Skeleton className="h-20 rounded-xl" />
-            <Skeleton className="h-20 rounded-xl" />
-            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton height="5rem" />
+            <Skeleton height="5rem" />
+            <Skeleton height="5rem" />
+            <Skeleton height="5rem" />
           </>
         ) : (
           <>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Pending</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.pendingCount}</p>
-            </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Active partners</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.approvedCount}</p>
-            </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Total commission</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{formatZar(summary.totalCommissionZar)}</p>
-            </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Avg commission</p>
-              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.avgCommissionPercent}%</p>
-            </div>
+            <Panel>
+              <p className="sc-tiny">Pending</p>
+              <p className="st-num mt-1 text-[1.75rem] leading-none text-[var(--sc-ink)]">{summary.pendingCount}</p>
+            </Panel>
+            <Panel>
+              <p className="sc-tiny">Active partners</p>
+              <p className="st-num mt-1 text-[1.75rem] leading-none text-[var(--sc-ink)]">{summary.approvedCount}</p>
+            </Panel>
+            <Panel>
+              <p className="sc-tiny">Total commission</p>
+              <p className="st-num mt-1 text-[1.75rem] leading-none text-[var(--sc-ink)]">
+                {formatZar(summary.totalCommissionZar)}
+              </p>
+            </Panel>
+            <Panel>
+              <p className="sc-tiny">Avg commission</p>
+              <p className="st-num mt-1 text-[1.75rem] leading-none text-[var(--sc-ink)]">
+                {summary.avgCommissionPercent}%
+              </p>
+            </Panel>
           </>
         )}
       </div>
 
-      {/* Filters + search */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`text-xs font-label px-3 py-1.5 rounded-full transition-colors ${
-                filter === f.key
-                  ? 'text-[var(--color-pib-text)]'
-                  : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-              }`}
-              style={filter === f.key ? { background: 'var(--color-pib-accent)' } : { background: 'rgba(255,255,255,0.06)' }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <input
-          type="text"
+      <Toolbar>
+        {STATUS_FILTERS.map((f) => (
+          <Choice key={f.key} selected={filter === f.key} onClick={() => setFilter(f.key)}>
+            {f.label}
+          </Choice>
+        ))}
+        <Input
+          type="search"
           placeholder="Search company, contact, email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pib-input w-full md:w-72"
+          aria-label="Search partners"
+          className="md:ml-auto md:w-72"
         />
-      </div>
+      </Toolbar>
 
-      {/* Applicant list */}
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-20 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
+          <Skeleton height="5rem" />
+          <Skeleton height="5rem" />
+          <Skeleton height="5rem" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
-          {applications.length === 0 ? 'No partner applications yet.' : 'No matches for this filter.'}
-        </div>
+        <EmptyState
+          title={applications.length === 0 ? 'No partner applications yet.' : 'No matches for this filter.'}
+          description="Adjust filters or add a new applicant."
+        />
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           {filtered.map((a) => {
             const isSelected = a.id === selectedId
             return (
-              <li key={a.id} className="pib-card p-4">
-                <button
-                  onClick={() => setSelectedId(isSelected ? null : a.id)}
-                  className="w-full text-left"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{a.companyName}</p>
-                        <StatusBadge status={a.status} />
-                      </div>
-                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate">
-                        {a.contactName} · {a.email}
-                      </p>
-                      {a.expectedVolume && (
-                        <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 mt-0.5">
-                          Expected volume: {a.expectedVolume}
+              <li key={a.id}>
+                <Panel>
+                  <button type="button" onClick={() => setSelectedId(isSelected ? null : a.id)} className="w-full text-left">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="sc-body truncate text-[var(--sc-ink)]">{a.companyName}</p>
+                          <Status tone={statusTone(a.status)}>{a.status}</Status>
+                        </div>
+                        <p className="sc-tiny mt-1 truncate">
+                          {a.contactName} · {a.email}
                         </p>
-                      )}
+                        {a.expectedVolume ? (
+                          <p className="sc-tiny mt-1">Expected volume: {a.expectedVolume}</p>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {a.status === 'approved' ? (
+                          <p className="st-num sc-tiny">{a.commissionPercent}% commission</p>
+                        ) : null}
+                        <p className="sc-tiny">Applied {formatDate(tsToMillis(a.createdAt))}</p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      {a.status === 'approved' && (
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">{a.commissionPercent}% commission</p>
-                      )}
-                      <p className="text-[11px] text-[var(--color-pib-text-muted)]/60">
-                        Applied {formatDate(tsToMillis(a.createdAt))}
-                      </p>
-                    </div>
-                  </div>
-                </button>
+                  </button>
 
-                {isSelected && selected && (
-                  <div className="mt-4 rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-4 space-y-4">
-                    {/* Detail */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      {selected.phone && (
-                        <div>
-                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Phone</span>
-                          <p className="text-[var(--color-pib-text)]">{selected.phone}</p>
-                        </div>
-                      )}
-                      {selected.website && (
-                        <div>
-                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Website</span>
-                          <p className="text-[var(--color-pib-text)] break-all">{selected.website}</p>
-                        </div>
-                      )}
-                      {selected.pitch && (
-                        <div className="sm:col-span-2">
-                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Pitch</span>
-                          <p className="text-[var(--color-pib-text)] whitespace-pre-wrap">{selected.pitch}</p>
-                        </div>
-                      )}
-                      {selected.status === 'rejected' && selected.rejectionReason && (
-                        <div className="sm:col-span-2">
-                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Rejection reason</span>
-                          <p className="text-red-400">{selected.rejectionReason}</p>
-                        </div>
-                      )}
-                    </div>
+                  {isSelected && selected ? (
+                    <div className="mt-4 space-y-4 border-t border-[var(--sc-line)] pt-4">
+                      <DataList>
+                        {selected.phone ? <DataItem label="Phone">{selected.phone}</DataItem> : null}
+                        {selected.website ? <DataItem label="Website">{selected.website}</DataItem> : null}
+                        {selected.pitch ? <DataItem label="Pitch">{selected.pitch}</DataItem> : null}
+                        {selected.status === 'rejected' && selected.rejectionReason ? (
+                          <DataItem label="Rejection reason">
+                            <span className="text-[var(--st-danger)]">{selected.rejectionReason}</span>
+                          </DataItem>
+                        ) : null}
+                      </DataList>
 
-                    {panelError && <p className="text-xs text-red-400">{panelError}</p>}
+                      {panelError ? <Notice tone="danger">{panelError}</Notice> : null}
 
-                    {/* Actions */}
-                    {(selected.status === 'pending' || selected.status === 'suspended') && (
-                      <div className="space-y-3 border-t border-[var(--color-pib-text)]/10 pt-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <label className="block">
-                            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                              Commission %
-                            </span>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="0.5"
-                              value={commissionInput}
-                              onChange={(e) => setCommissionInput(e.target.value)}
-                              className="pib-input w-full mt-1"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                              Payout method
-                            </span>
-                            <select
-                              value={payoutMethod}
-                              onChange={(e) => setPayoutMethod(e.target.value as 'eft' | 'paypal')}
-                              className="pib-input w-full mt-1"
-                            >
-                              <option value="eft">EFT</option>
-                              <option value="paypal">PayPal</option>
-                            </select>
-                          </label>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => runAction('approve')}
-                            disabled={busy}
-                            className="pib-btn-primary text-xs font-label"
-                          >
+                      {(selected.status === 'pending' || selected.status === 'suspended') ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field id="partner-commission" label="Commission %">
+                              <Input aria-label="Commission %" id="partner-commission"
+                                type="number"
+                                min={0}
+                                max={100}
+                                step="0.5"
+                                value={commissionInput}
+                                onChange={(e) => setCommissionInput(e.target.value)}
+                                className="st-num"
+                              />
+                            </Field>
+                            <Field id="partner-payout" label="Payout method">
+                              <Select aria-label="Payout method" id="partner-payout"
+                                value={payoutMethod}
+                                onChange={(e) => setPayoutMethod(e.target.value as 'eft' | 'paypal')}
+                              >
+                                <option value="eft">EFT</option>
+                                <option value="paypal">PayPal</option>
+                              </Select>
+                            </Field>
+                          </div>
+                          <Button type="button" disabled={busy} onClick={() => runAction('approve')}>
                             {busy ? 'Working...' : 'Approve'}
-                          </button>
+                          </Button>
                         </div>
-                      </div>
-                    )}
+                      ) : null}
 
-                    {selected.status === 'approved' && (
-                      <div className="flex flex-wrap gap-2 border-t border-[var(--color-pib-text)]/10 pt-3">
-                        <button
-                          onClick={() => runAction('suspend')}
-                          disabled={busy}
-                          className="pib-btn-secondary text-xs font-label"
-                        >
+                      {selected.status === 'approved' ? (
+                        <Button type="button" variant="secondary" disabled={busy} onClick={() => runAction('suspend')}>
                           {busy ? 'Working...' : 'Suspend'}
-                        </button>
-                      </div>
-                    )}
+                        </Button>
+                      ) : null}
 
-                    {selected.status !== 'rejected' && (
-                      <div className="space-y-2 border-t border-[var(--color-pib-text)]/10 pt-3">
-                        <label className="block">
-                          <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                            Rejection reason
-                          </span>
-                          <input
-                            type="text"
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="Why this application is declined"
-                            className="pib-input w-full mt-1"
-                          />
-                        </label>
-                        <button
-                          onClick={() => runAction('reject')}
-                          disabled={busy}
-                          className="pib-btn-ghost text-xs font-label text-red-400"
-                        >
-                          {busy ? 'Working...' : 'Reject'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {selected.status !== 'rejected' ? (
+                        <div className="space-y-2">
+                          <Field id="partner-reject" label="Rejection reason">
+                            <Input aria-label="Rejection reason" id="partner-reject"
+                              value={rejectionReason}
+                              onChange={(e) => setRejectionReason(e.target.value)}
+                              placeholder="Why this application is declined"
+                            />
+                          </Field>
+                          <Button type="button" variant="danger" disabled={busy} onClick={() => runAction('reject')}>
+                            {busy ? 'Working...' : 'Reject'}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </Panel>
               </li>
             )
           })}
         </ul>
       )}
 
-      {/* Active partners section */}
-      {!loading && activePartners.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Active partners</h2>
-          <div className="pib-card overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-text)]/10">
-                  <th className="px-4 py-2">Company</th>
-                  <th className="px-4 py-2">Commission</th>
-                  <th className="px-4 py-2 text-right">Referrals</th>
-                  <th className="px-4 py-2 text-right">Total commission</th>
-                </tr>
-              </thead>
+      {!loading && activePartners.length > 0 ? (
+        <div className="space-y-4">
+          <Title as="h2">Active partners.</Title>
+          <Panel className="overflow-x-auto p-0">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Company</TH>
+                  <TH>Commission</TH>
+                  <TH className="text-right">Referrals</TH>
+                  <TH className="text-right">Total commission</TH>
+                </TR>
+              </THead>
               <tbody>
                 {activePartners.map((a) => (
-                  <tr key={a.id} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
-                    <td className="px-4 py-2 text-[var(--color-pib-text)]">{a.companyName}</td>
-                    <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{a.commissionPercent}%</td>
-                    <td className="px-4 py-2 text-right text-[var(--color-pib-text-muted)]">{a.referralsCount ?? 0}</td>
-                    <td className="px-4 py-2 text-right text-[var(--color-pib-text)]">{formatZar(a.totalCommissionZar ?? 0)}</td>
-                  </tr>
+                  <TR key={a.id}>
+                    <TD>{a.companyName}</TD>
+                    <TD className="st-num">{a.commissionPercent}%</TD>
+                    <TD className="st-num text-right">{a.referralsCount ?? 0}</TD>
+                    <TD className="st-num text-right">{formatZar(a.totalCommissionZar ?? 0)}</TD>
+                  </TR>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </Panel>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

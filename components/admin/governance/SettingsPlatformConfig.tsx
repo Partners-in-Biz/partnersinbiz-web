@@ -115,7 +115,7 @@ export function SettingsPlatformConfig({ canEdit }: { canEdit: boolean }) {
               <p className="text-sm text-[var(--color-pib-text)]">Maintenance mode</p>
               <p className="text-[11px] text-[var(--color-pib-text-muted)]">Read-only mirror. Toggle on the maintenance page.</p>
             </div>
-            <span className={`text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-full border ${form.maintenanceMode ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+            <span className={`text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-md border ${form.maintenanceMode ? 'bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] text-[var(--st-warning)] border-amber-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
               {form.maintenanceMode ? 'Active' : 'Off'}
             </span>
           </div>

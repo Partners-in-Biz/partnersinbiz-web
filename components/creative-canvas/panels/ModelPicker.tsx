@@ -82,7 +82,7 @@ function ModelRow({
         )}
         {model.maxReferenceImages === 1 && (
           <span
-            title="Accepts a single reference image — multi-reference combines switch to Nano Banana automatically"
+            title="Accepts a single reference image  -  multi-reference combines switch to Nano Banana automatically"
             style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '6px', border: `1px solid ${canvasTheme.border}`, color: canvasTheme.textMuted }}
           >
             1 ref
@@ -111,7 +111,7 @@ export default function ModelPicker({
     [connectedProviders],
   )
 
-  // Providers that ship at least one model of this kind — the chip row.
+  // Providers that ship at least one model of this kind  -  the chip row.
   const kindProviders = useMemo(() => {
     const seen: CreativeCanvasProviderKey[] = []
     for (const model of modelsForKind(kind)) {
@@ -226,7 +226,7 @@ export default function ModelPicker({
           borderRadius: '10px',
           outline: 'none',
         }}
-      />
+       aria-label="Search models"/>
 
       {groupedFamilies.length > 0 ? (
         <section>

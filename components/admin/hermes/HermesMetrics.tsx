@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { Notice, Table, THead, TR, TH, TD, Button, Toolbar, Choice } from '@/components/studio'
 import { StatCard } from '@/components/ui/StatCard'
 
 interface AgentMetrics {
@@ -49,7 +50,7 @@ function unwrap<T>(body: unknown): T | null {
 }
 
 function fmtMs(ms: number | null): string {
-  if (ms == null) return '—'
+  if (ms == null) return '-'
   if (ms < 1000) return `${ms} ms`
   const s = ms / 1000
   if (s < 60) return `${s.toFixed(1)} s`
@@ -57,7 +58,7 @@ function fmtMs(ms: number | null): string {
 }
 
 function fmtPct(rate: number | null): string {
-  return rate == null ? '—' : `${(rate * 100).toFixed(1)}%`
+  return rate == null ? '-' : `${(rate * 100).toFixed(1)}%`
 }
 
 function fmtNum(n: number): string {
@@ -65,7 +66,7 @@ function fmtNum(n: number): string {
 }
 
 function fmtCost(usd: number | null): string {
-  return usd == null ? '—' : `$${usd.toFixed(2)}`
+  return usd == null ? '-' : `$${usd.toFixed(2)}`
 }
 
 function telemetryReason(reason?: string | null): string {
@@ -90,9 +91,9 @@ function modelSummary(agent: AgentMetrics): string {
 }
 
 function relative(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const ms = Date.parse(iso)
-  if (!Number.isFinite(ms)) return '—'
+  if (!Number.isFinite(ms)) return '-'
   const diff = Date.now() - ms
   const mins = Math.round(diff / 60000)
   const hrs = Math.round(diff / 3600000)
@@ -192,7 +193,7 @@ export function HermesMetrics() {
       {loading ? (
         <Surface className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading Hermes metrics…</Surface>
       ) : error ? (
-        <Surface className="border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</Surface>
+        <Notice tone="danger">{error}</Notice>
       ) : payload && summary ? (
         <>
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -212,11 +213,11 @@ export function HermesMetrics() {
 
           <Surface className="overflow-hidden p-0">
             <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
-              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Per-agent breakdown</h2>
+              <h2 className="sc-tiny text-[var(--color-pib-text)]">Per-agent breakdown</h2>
               <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">Sorted by run volume. Response time covers finished runs with timestamps.</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <Table>
                 <thead>
                   <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     <th className="px-5 py-3">Agent</th>
@@ -236,15 +237,15 @@ export function HermesMetrics() {
                         <div>{titleCase(a.agentId)}</div>
                         <div className="mt-1 text-xs font-normal text-[var(--color-pib-text-muted)]">{modelSummary(a)}</div>
                       </td>
-                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtNum(a.runVolume)}</td>
-                      <td className={`px-5 py-3 text-right text-sm ${a.successRate != null && a.successRate < 0.9 ? 'text-amber-400' : 'text-[var(--color-pib-text)]'}`}>{fmtPct(a.successRate)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.avgResponseMs)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.p95ResponseMs)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{a.tokens.runsWithUsage > 0 ? fmtNum(a.tokens.total) : '—'}</td>
-                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">
+                      <td className="px-5 py-3 st-num text-right text-sm text-[var(--color-pib-text)]">{fmtNum(a.runVolume)}</td>
+                      <td className={`px-5 py-3 text-right text-sm ${a.successRate != null && a.successRate < 0.9 ? 'text-[var(--sc-ink-soft)]' : 'text-[var(--color-pib-text)]'}`}>{fmtPct(a.successRate)}</td>
+                      <td className="px-5 py-3 st-num text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.avgResponseMs)}</td>
+                      <td className="px-5 py-3 st-num text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.p95ResponseMs)}</td>
+                      <td className="px-5 py-3 st-num text-right text-sm text-[var(--color-pib-text)]">{a.tokens.runsWithUsage > 0 ? fmtNum(a.tokens.total) : '-'}</td>
+                      <td className="px-5 py-3 st-num text-right text-sm text-[var(--color-pib-text)]">
                         <div>{fmtCost(a.cost.usd)}</div>
                         {a.cost.usd == null || a.cost.source === 'mixed' ? (
-                          <div className="mt-1 text-xs text-amber-300">{telemetryReason(a.cost.unavailableReason)}</div>
+                          <div className="mt-1 text-xs text-[var(--sc-ink-soft)]">{telemetryReason(a.cost.unavailableReason)}</div>
                         ) : (
                           <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Upstream · {fmtNum(a.cost.runsWithCost)} runs</div>
                         )}
@@ -253,7 +254,7 @@ export function HermesMetrics() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </Surface>
         </>

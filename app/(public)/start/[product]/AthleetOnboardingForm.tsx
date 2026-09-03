@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useState } from 'react'
 import type { AthleetSubmission, Coach, Program, Stat } from '@/lib/onboarding/types'
 
@@ -56,23 +58,24 @@ const STEP_TITLES = [
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="font-headline text-[0.65rem] uppercase tracking-widest text-white/40">{label}</label>
+    <label className="flex flex-col gap-2">
+      <span className="font-headline text-[0.65rem] uppercase tracking-widest text-white/40">{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 
 const inputCls = 'bg-transparent border-0 border-b border-white/20 py-3 text-white font-body placeholder:text-white/15 focus:border-white focus:outline-none transition-colors w-full'
 const selectCls = `${inputCls} cursor-pointer appearance-none`
 
-function TextInput({ name, value, onChange, placeholder, required, type = 'text' }: {
-  name: string; value: string; onChange: (v: string) => void; placeholder?: string; required?: boolean; type?: string
+function TextInput({ name, value, onChange, placeholder, required, type = 'text', label }: {
+  name: string; value: string; onChange: (v: string) => void; placeholder?: string; required?: boolean; type?: string; label?: string
 }) {
   return (
     <input
       name={name} type={type} value={value} required={required}
       placeholder={placeholder}
+      aria-label={label ?? name}
       onChange={e => onChange(e.target.value)}
       className={inputCls}
     />
@@ -85,15 +88,18 @@ function Toggle({ label, description, checked, onChange }: {
   return (
     <div className="flex items-center justify-between py-5 border-b border-white/10 last:border-0">
       <div>
-        <p className="font-headline font-bold text-sm uppercase tracking-widest">{label}</p>
+        <p className="font-headline font-medium text-sm uppercase tracking-widest">{label}</p>
         <p className="text-white/40 text-xs mt-1 font-body">{description}</p>
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
-        className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ml-6 ${checked ? 'bg-white' : 'bg-white/20'}`}
+        className={`relative w-12 h-6 rounded-md transition-colors flex-shrink-0 ml-6 ${checked ? 'bg-white' : 'bg-white/20'}`}
       >
-        <span className={`absolute top-1 w-4 h-4 rounded-full transition-all ${checked ? 'bg-black left-7' : 'bg-white/60 left-1'}`} />
+        <span className={`absolute top-1 w-4 h-4 rounded-md transition-all ${checked ? 'bg-black left-7' : 'bg-white/60 left-1'}`} />
       </button>
     </div>
   )
@@ -112,11 +118,11 @@ function Step1({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       </Field>
       <Field label="Sport / Vertical *">
         <div className="relative">
-          <select value={d.sport} onChange={e => set('sport', e.target.value)} className={selectCls}>
+          <select value={d.sport} onChange={e => set('sport', e.target.value)} aria-label="Sport / Vertical" className={selectCls}>
             {['wrestling', 'boxing', 'jiu-jitsu', 'judo', 'mma', 'soccer', 'basketball', 'gym / fitness', 'martial arts', 'other']
               .map(s => <option key={s} value={s} className="bg-neutral-900">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
-          <span className="material-symbols-outlined absolute right-0 top-3 text-white/30 pointer-events-none">expand_more</span>
+          <Icon name="expand_more" className="absolute right-0 top-3 text-white/30 pointer-events-none" />
         </div>
       </Field>
       <Field label="Tagline / Slogan">
@@ -130,11 +136,11 @@ function Step1({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       </Field>
       <Field label="Country *">
         <div className="relative">
-          <select value={d.country} onChange={e => set('country', e.target.value)} className={selectCls}>
+          <select value={d.country} onChange={e => set('country', e.target.value)} aria-label="Country" className={selectCls}>
             {['United States', 'United Kingdom', 'Canada', 'Australia', 'New Zealand', 'South Africa', 'Germany', 'France', 'Netherlands', 'Other']
               .map(c => <option key={c} value={c} className="bg-neutral-900">{c}</option>)}
           </select>
-          <span className="material-symbols-outlined absolute right-0 top-3 text-white/30 pointer-events-none">expand_more</span>
+          <Icon name="expand_more" className="absolute right-0 top-3 text-white/30 pointer-events-none" />
         </div>
       </Field>
       <Field label="Year Founded">
@@ -151,42 +157,46 @@ function Step2({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
         {([
           { key: 'primaryColor',   label: 'Primary Color',   hint: 'Main brand color (usually white or your club color)' },
           { key: 'secondaryColor', label: 'Secondary Color', hint: 'Supporting text and accents' },
-          { key: 'accentColor',    label: 'Accent / CTA',    hint: 'Buttons, highlights, call-to-action' },
+          { key: 'accentColor',    label: 'Accent / CTA',    hint: 'Buttons, highlights, call to action' },
         ] as const).map(({ key, label, hint }) => (
           <div key={key} className="flex flex-col gap-3">
-            <label className="font-headline text-[0.65rem] uppercase tracking-widest text-white/40">{label}</label>
-            <div className="flex items-center gap-4">
-              <input
-                type="color"
-                value={d[key] as string}
-                onChange={e => set(key, e.target.value)}
-                className="w-12 h-12 rounded-lg cursor-pointer border border-white/20 bg-transparent p-0.5 flex-shrink-0"
-              />
-              <input
-                type="text"
-                value={d[key] as string}
-                onChange={e => set(key, e.target.value)}
-                placeholder="#ffffff"
-                className={`${inputCls} flex-1 font-mono text-sm uppercase`}
-              />
-            </div>
+            <label className="flex flex-col gap-3">
+              <span className="font-headline text-[0.65rem] uppercase tracking-widest text-white/40">{label}</span>
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  value={d[key] as string}
+                  onChange={e => set(key, e.target.value)}
+                  aria-label={`${label} picker`}
+                  className="w-12 h-12 rounded-lg cursor-pointer border border-white/20 bg-transparent p-0.5 flex-shrink-0"
+                />
+                <input
+                  type="text"
+                  value={d[key] as string}
+                  onChange={e => set(key, e.target.value)}
+                  placeholder="#ffffff"
+                  aria-label={`${label} hex`}
+                  className={`${inputCls} flex-1 font-mono text-sm uppercase`}
+                />
+              </div>
+            </label>
             <p className="text-white/25 text-xs font-body">{hint}</p>
           </div>
         ))}
       </div>
-      <div className="glass rounded-xl p-6 flex items-center gap-6">
-        <div className="w-16 h-16 rounded-xl border border-white/20 flex-shrink-0" style={{ backgroundColor: d.primaryColor as string }} />
-        <div className="w-16 h-16 rounded-xl border border-white/20 flex-shrink-0" style={{ backgroundColor: d.secondaryColor as string }} />
-        <div className="w-16 h-16 rounded-xl border border-white/20 flex-shrink-0" style={{ backgroundColor: d.accentColor as string }} />
+      <div className="glass rounded-md p-6 flex items-center gap-6">
+        <div className="w-16 h-16 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: d.primaryColor as string }} />
+        <div className="w-16 h-16 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: d.secondaryColor as string }} />
+        <div className="w-16 h-16 rounded-md border border-white/20 flex-shrink-0" style={{ backgroundColor: d.accentColor as string }} />
         <div>
-          <p className="font-headline font-bold text-sm uppercase tracking-widest mb-1">Color Preview</p>
+          <p className="font-headline font-medium text-sm uppercase tracking-widest mb-1">Color Preview</p>
           <p className="text-white/40 text-xs font-body">Primary · Secondary · Accent</p>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Field label="Logo URL">
           <TextInput name="logoUrl" value={d.logoUrl} onChange={v => set('logoUrl', v)} placeholder="https://..." />
-          <p className="text-white/25 text-xs font-body mt-1">Leave blank — we&apos;ll upload your logo during setup.</p>
+          <p className="text-white/25 text-xs font-body mt-1">Leave blank - we&apos;ll upload your logo during setup.</p>
         </Field>
         <Field label="Hero Background Video URL">
           <TextInput name="heroVideoUrl" value={d.heroVideoUrl} onChange={v => set('heroVideoUrl', v)} placeholder="https://..." />
@@ -213,7 +223,7 @@ function Step3({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       </Field>
       <Field label="Timezone">
         <div className="relative">
-          <select value={d.timezone} onChange={e => set('timezone', e.target.value)} className={selectCls}>
+          <select value={d.timezone} onChange={e => set('timezone', e.target.value)} aria-label="Timezone" className={selectCls}>
             {[
               ['America/New_York',    'US Eastern (UTC-5)'],
               ['America/Chicago',     'US Central (UTC-6)'],
@@ -226,16 +236,16 @@ function Step3({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
               ['Asia/Tokyo',          'Tokyo (UTC+9)'],
             ].map(([v, l]) => <option key={v} value={v} className="bg-neutral-900">{l}</option>)}
           </select>
-          <span className="material-symbols-outlined absolute right-0 top-3 text-white/30 pointer-events-none">expand_more</span>
+          <Icon name="expand_more" className="absolute right-0 top-3 text-white/30 pointer-events-none" />
         </div>
       </Field>
       <Field label="Currency">
         <div className="relative">
-          <select value={d.currency} onChange={e => set('currency', e.target.value)} className={selectCls}>
-            {[['USD','USD — US Dollar'],['EUR','EUR — Euro'],['GBP','GBP — British Pound'],['AUD','AUD — Australian Dollar'],['CAD','CAD — Canadian Dollar'],['ZAR','ZAR — South African Rand'],['NZD','NZD — New Zealand Dollar']]
+          <select value={d.currency} onChange={e => set('currency', e.target.value)} aria-label="Currency" className={selectCls}>
+            {[['USD','USD - US Dollar'],['EUR','EUR - Euro'],['GBP','GBP - British Pound'],['AUD','AUD - Australian Dollar'],['CAD','CAD - Canadian Dollar'],['ZAR','ZAR - South African Rand'],['NZD','NZD - New Zealand Dollar']]
               .map(([v, l]) => <option key={v} value={v} className="bg-neutral-900">{l}</option>)}
           </select>
-          <span className="material-symbols-outlined absolute right-0 top-3 text-white/30 pointer-events-none">expand_more</span>
+          <Icon name="expand_more" className="absolute right-0 top-3 text-white/30 pointer-events-none" />
         </div>
       </Field>
     </div>
@@ -279,38 +289,38 @@ function Step5({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
   return (
     <div className="space-y-10">
       {coaches.map((coach, i) => (
-        <div key={i} className="glass rounded-xl p-8 space-y-6 relative">
+        <div key={i} className="glass rounded-md p-8 space-y-6 relative">
           <div className="flex justify-between items-center">
-            <h3 className="font-headline font-bold uppercase tracking-widest text-sm">
+            <h3 className="font-headline font-medium uppercase tracking-widest text-sm">
               {i === 0 ? 'Head Coach' : `Coach ${i + 1}`}
             </h3>
             {i > 0 && (
-              <button type="button" onClick={() => remove(i)} className="text-white/30 hover:text-white transition-colors">
-                <span className="material-symbols-outlined">delete</span>
+              <button type="button" onClick={() => remove(i)} aria-label={`Remove coach ${i + 1}`} className="text-white/30 hover:text-white transition-colors">
+                <Icon name="delete" />
               </button>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
             <Field label="Name *">
               <input type="text" value={coach.name} onChange={e => update(i, 'name', e.target.value)}
-                     placeholder="JOHN SMITH" className={inputCls} />
+                     placeholder="JOHN SMITH" aria-label="Coach name" className={inputCls} />
             </Field>
             <Field label="Title">
               <input type="text" value={coach.title} onChange={e => update(i, 'title', e.target.value)}
-                     placeholder="Head Coach" className={inputCls} />
+                     placeholder="Head Coach" aria-label="Coach title" className={inputCls} />
             </Field>
             <div className="md:col-span-2">
               <Field label="Short Bio">
                 <textarea value={coach.bio} onChange={e => update(i, 'bio', e.target.value)}
                           placeholder="20 years of competitive experience, 3x state champion..."
-                          rows={3} className={`${inputCls} resize-none`} />
+                          rows={3} aria-label="Coach bio" className={`${inputCls} resize-none`} />
               </Field>
             </div>
             <div className="md:col-span-2">
               <Field label="Photo URL">
                 <input type="url" value={coach.photoUrl} onChange={e => update(i, 'photoUrl', e.target.value)}
                        placeholder="https://... (or leave blank, we'll upload during setup)"
-                       className={inputCls} />
+                       aria-label="Coach photo URL" className={inputCls} />
               </Field>
             </div>
           </div>
@@ -319,7 +329,7 @@ function Step5({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       {coaches.length < 6 && (
         <button type="button" onClick={add}
                 className="flex items-center gap-2 font-headline uppercase text-sm tracking-widest text-white/40 hover:text-white transition-colors">
-          <span className="material-symbols-outlined">add</span> Add Another Coach
+          <Icon name="add" /> Add Another Coach
         </button>
       )}
     </div>
@@ -343,28 +353,28 @@ function Step6({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
         List the training programs or membership tiers your club offers. These appear in your navigation and footer.
       </p>
       {programs.map((prog, i) => (
-        <div key={i} className="glass rounded-xl p-8 relative">
+        <div key={i} className="glass rounded-md p-8 relative">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-headline font-bold uppercase tracking-widest text-sm">Program {i + 1}</h3>
+            <h3 className="font-headline font-medium uppercase tracking-widest text-sm">Program {i + 1}</h3>
             {programs.length > 1 && (
-              <button type="button" onClick={() => remove(i)} className="text-white/30 hover:text-white transition-colors">
-                <span className="material-symbols-outlined">delete</span>
+              <button type="button" onClick={() => remove(i)} aria-label={`Remove program ${i + 1}`} className="text-white/30 hover:text-white transition-colors">
+                <Icon name="delete" />
               </button>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
             <Field label="Program Name *">
               <input type="text" value={prog.name} onChange={e => update(i, 'name', e.target.value)}
-                     placeholder="Greco-Roman Elite" className={inputCls} />
+                     placeholder="Greco-Roman Elite" aria-label="Program name" className={inputCls} />
             </Field>
             <Field label="Age Range">
               <input type="text" value={prog.ageRange} onChange={e => update(i, 'ageRange', e.target.value)}
-                     placeholder="Ages 14–18" className={inputCls} />
+                     placeholder="Ages 14–18" aria-label="Program age range" className={inputCls} />
             </Field>
             <div className="md:col-span-2">
               <Field label="Short Description">
                 <input type="text" value={prog.description} onChange={e => update(i, 'description', e.target.value)}
-                       placeholder="Master classical wrestling technique." className={inputCls} />
+                       placeholder="Master classical wrestling technique." aria-label="Program description" className={inputCls} />
               </Field>
             </div>
           </div>
@@ -373,7 +383,7 @@ function Step6({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
       {programs.length < 8 && (
         <button type="button" onClick={add}
                 className="flex items-center gap-2 font-headline uppercase text-sm tracking-widest text-white/40 hover:text-white transition-colors">
-          <span className="material-symbols-outlined">add</span> Add Program
+          <Icon name="add" /> Add Program
         </button>
       )}
     </div>
@@ -388,19 +398,19 @@ function Step7({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
   return (
     <div className="space-y-6">
       <p className="text-white/40 font-body text-sm">
-        Four key numbers displayed prominently on your homepage. Use real data if you have it — coaches and clubs with strong numbers convert better.
+        Four key numbers displayed prominently on your homepage. Use real data if you have it - coaches and clubs with strong numbers convert better.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className="glass rounded-xl p-8 space-y-6">
-            <h3 className="font-headline font-bold uppercase tracking-widest text-sm">Stat {i + 1}</h3>
+          <div key={i} className="glass rounded-md p-8 space-y-6">
+            <h3 className="font-headline font-medium uppercase tracking-widest text-sm">Stat {i + 1}</h3>
             <Field label="Value (e.g. 200+, 98%, 4×)">
               <input type="text" value={stat.value} onChange={e => update(i, 'value', e.target.value)}
-                     placeholder="500+" className={inputCls} />
+                     placeholder="500+" aria-label="Stat value" className={inputCls} />
             </Field>
             <Field label="Label">
               <input type="text" value={stat.label} onChange={e => update(i, 'label', e.target.value)}
-                     className={inputCls} />
+                     aria-label="Stat label" className={inputCls} />
             </Field>
           </div>
         ))}
@@ -420,9 +430,9 @@ function Step8({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
     { key: 'enableEmailNotifications', label: 'Email Notifications',    description: 'Automated emails for schedules, payments, and announcements.' },
   ]
   return (
-    <div className="glass rounded-xl p-8">
+    <div className="glass rounded-md p-8">
       <p className="text-white/40 font-body text-sm mb-6">
-        All features are included. Toggle off anything you don&apos;t need — we&apos;ll hide those modules from your interface.
+        All features are included. Toggle off anything you don&apos;t need - we&apos;ll hide those modules from your interface.
       </p>
       {toggles.map(({ key, label, description }) => (
         <Toggle
@@ -440,8 +450,8 @@ function Step8({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
 function Step9({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v: unknown) => void }) {
   return (
     <div className="space-y-10">
-      <div className="glass rounded-xl p-8 space-y-6">
-        <h3 className="font-headline font-bold uppercase tracking-widest text-sm">Domain</h3>
+      <div className="glass rounded-md p-8 space-y-6">
+        <h3 className="font-headline font-medium uppercase tracking-widest text-sm">Domain</h3>
         <div className="flex gap-8">
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="radio" checked={!d.hasDomain} onChange={() => set('hasDomain', false)} className="accent-white" />
@@ -467,8 +477,8 @@ function Step9({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
           </Field>
         )}
       </div>
-      <div className="glass rounded-xl p-8 space-y-6">
-        <h3 className="font-headline font-bold uppercase tracking-widest text-sm">Admin Account</h3>
+      <div className="glass rounded-md p-8 space-y-6">
+        <h3 className="font-headline font-medium uppercase tracking-widest text-sm">Admin Account</h3>
         <p className="text-white/40 font-body text-sm">This will be your primary admin login for the management portal.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
           <Field label="Your Full Name *">
@@ -488,8 +498,8 @@ function Step9({ d, set }: { d: typeof INITIAL; set: (k: keyof typeof INITIAL, v
 
 function ReviewSection({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
-    <div className="glass rounded-xl p-8 space-y-4">
-      <h3 className="font-headline font-bold uppercase tracking-widest text-sm text-white/60">{title}</h3>
+    <div className="glass rounded-md p-8 space-y-4">
+      <h3 className="font-headline font-medium uppercase tracking-widest text-sm text-white/60">{title}</h3>
       <div className="space-y-2">
         {rows.map(([label, value]) => value ? (
           <div key={label} className="flex gap-4">
@@ -537,7 +547,7 @@ function Step10Review({ d }: { d: typeof INITIAL }) {
         ['Instagram', d.instagram], ['Facebook', d.facebook], ['X', d.x],
         ['YouTube', d.youtube], ['TikTok', d.tiktok],
       ]} />
-      <ReviewSection title="Coaches" rows={coaches.map((c, i) => [`Coach ${i + 1}`, `${c.name} — ${c.title}`])} />
+      <ReviewSection title="Coaches" rows={coaches.map((c, i) => [`Coach ${i + 1}`, `${c.name} - ${c.title}`])} />
       <ReviewSection title="Programs" rows={programs.map((p, i) => [`Program ${i + 1}`, `${p.name}${p.ageRange ? ` (${p.ageRange})` : ''}`])} />
       <ReviewSection title="Stats" rows={stats.map(s => [s.label, s.value])} />
       <ReviewSection title="Features" rows={[['Enabled', enabledFeatures]]} />
@@ -613,8 +623,8 @@ export default function AthleetOnboardingForm() {
   if (status === 'success') {
     return (
       <div className="glass-card p-16 text-center max-w-2xl mx-auto">
-        <span className="material-symbols-outlined text-5xl text-white/60 mb-8 block">check_circle</span>
-        <h2 className="font-headline text-3xl font-bold tracking-tighter mb-4 uppercase">
+        <Icon name="check_circle" className="text-white/60 mb-8" />
+        <h2 className="font-headline text-3xl font-medium tracking-tighter mb-4 uppercase">
           Configuration Received
         </h2>
         <p className="text-white/50 font-body leading-relaxed mb-8">
@@ -639,9 +649,9 @@ export default function AthleetOnboardingForm() {
             {STEP_TITLES[step - 1]}
           </span>
         </div>
-        <div className="h-[2px] bg-white/10 rounded-full">
+        <div className="h-[2px] bg-white/10 rounded-md">
           <div
-            className="h-full bg-white rounded-full transition-all duration-500"
+            className="h-full bg-white rounded-md transition-all duration-500"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -650,7 +660,7 @@ export default function AthleetOnboardingForm() {
           {STEP_TITLES.map((_, i) => (
             <div
               key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+              className={`w-1.5 h-1.5 rounded-md transition-colors ${
                 i + 1 < step ? 'bg-white' : i + 1 === step ? 'bg-white scale-150' : 'bg-white/20'
               }`}
             />
@@ -681,7 +691,7 @@ export default function AthleetOnboardingForm() {
 
       {/* Error */}
       {errorMsg && (
-        <p className="text-red-400 text-sm font-body mb-6">{errorMsg}</p>
+        <p className="text-[var(--st-danger)] text-sm font-body mb-6">{errorMsg}</p>
       )}
 
       {/* Navigation */}
@@ -692,7 +702,7 @@ export default function AthleetOnboardingForm() {
           disabled={step === 1}
           className="group flex items-center gap-2 font-headline uppercase text-sm tracking-widest text-white/40 hover:text-white transition-colors disabled:opacity-0 disabled:pointer-events-none"
         >
-          <span className="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
+          <Icon name="arrow_back" className="transition-transform group-hover:-translate-x-1" />
           Back
         </button>
 
@@ -700,21 +710,21 @@ export default function AthleetOnboardingForm() {
           <button
             type="button"
             onClick={next}
-            className="group flex items-center gap-3 bg-white text-black px-10 py-4 rounded-md font-headline font-bold uppercase tracking-widest text-sm hover:bg-white/90 transition-all active:scale-[0.98]"
+            className="group flex items-center gap-3 bg-white text-black px-10 py-4 rounded-md font-headline font-medium uppercase tracking-widest text-sm hover:bg-white/90 transition-all active:scale-[0.98]"
           >
             Continue
-            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+            <Icon name="arrow_forward" className="transition-transform group-hover:translate-x-1" />
           </button>
         ) : (
           <button
             type="button"
             onClick={handleSubmit}
             disabled={status === 'loading'}
-            className="group flex items-center gap-3 bg-white text-black px-10 py-4 rounded-md font-headline font-bold uppercase tracking-widest text-sm hover:bg-white/90 transition-all active:scale-[0.98] disabled:opacity-50"
+            className="group flex items-center gap-3 bg-white text-black px-10 py-4 rounded-md font-headline font-medium uppercase tracking-widest text-sm hover:bg-white/90 transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {status === 'loading' ? 'Submitting...' : 'Submit Configuration'}
             {status !== 'loading' && (
-              <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">send</span>
+              <Icon name="send" className="transition-transform group-hover:translate-x-1" />
             )}
           </button>
         )}

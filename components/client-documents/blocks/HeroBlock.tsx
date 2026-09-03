@@ -13,7 +13,7 @@ export function HeroBlock({ block, index }: { block: DocumentBlock; index: numbe
           {subtitle}
         </p>
         <div
-          className="mt-12 h-[3px] w-24 rounded-full"
+          className="mt-12 h-[3px] w-24 rounded-md"
           style={{ background: 'var(--doc-accent)' }}
           data-testid="hero-stripe"
         />

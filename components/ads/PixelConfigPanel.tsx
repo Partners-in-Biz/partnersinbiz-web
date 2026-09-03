@@ -156,7 +156,7 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Delete pixel config?</h2>
+              <h2 className="font-medium text-red-100">Delete pixel config?</h2>
               <p className="mt-1 text-sm text-red-100/80">
                 This removes the conversion tracking configuration for this workspace. Existing campaign history stays in PiB.
               </p>
@@ -199,7 +199,7 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
 
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Pixel &amp; Conversion API</h1>
+          <h1 className="text-2xl font-medium">Pixel &amp; Conversion API</h1>
           <p className="text-sm text-white/60 mt-1">
             Server-side conversion tracking. Configure per Property or org-wide. CAPI tokens
             encrypted at rest.
@@ -310,12 +310,12 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
                       <div className="font-medium">{c.name}</div>
                       <div className="text-xs text-white/40">
                         {c.propertyId ? `Property: ${c.propertyId}` : 'Org-wide'} &middot; Meta:{' '}
-                        {c.meta?.pixelId ?? '—'}
+                        {c.meta?.pixelId ?? ' - '}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
-                        className="text-xs text-[#F5A623] underline"
+                        className="text-xs text-[var(--sc-accent)] underline"
                         onClick={() => startEdit(c)}
                       >
                         Edit
@@ -361,7 +361,7 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
                       }`}
                     >
                       {testResult.sent
-                        ? `✓ Sent ${testResult.metaEventsReceived ?? '?'} event(s) — check Meta Events Manager → Test Events`
+                        ? `✓ Sent ${testResult.metaEventsReceived ?? '?'} event(s) - check Meta Events Manager → Test Events`
                         : `✗ ${testResult.error}`}
                     </div>
                   )}

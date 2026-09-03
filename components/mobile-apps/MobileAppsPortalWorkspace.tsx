@@ -175,9 +175,9 @@ export function MobileAppsPortalWorkspace() {
   }
 
   const renderLinkForm = (requireAppName: boolean) => (
-    <div className="mt-5 space-y-3 rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4 text-left">
+    <div className="mt-5 space-y-3 rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-4 text-left">
       <div>
-        <p className="font-semibold text-[var(--color-pib-text)]">Connect or link a profile/account</p>
+        <p className="font-medium text-[var(--color-pib-text)]">Connect or link a profile/account</p>
         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
           Link an App Store Connect, Google Play, analytics, or support profile so PiB can connect the correct mobile app account to this workspace.
         </p>
@@ -188,7 +188,7 @@ export function MobileAppsPortalWorkspace() {
           <input
             value={linkForm.appName}
             onChange={(e) => updateLinkForm('appName', e.target.value)}
-            className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
           />
         </label>
       ) : null}
@@ -198,7 +198,7 @@ export function MobileAppsPortalWorkspace() {
           <input
             value={linkForm.label}
             onChange={(e) => updateLinkForm('label', e.target.value)}
-            className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
           />
         </label>
         <label className="block text-sm">
@@ -206,7 +206,7 @@ export function MobileAppsPortalWorkspace() {
           <input
             value={linkForm.accountId}
             onChange={(e) => updateLinkForm('accountId', e.target.value)}
-            className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
           />
         </label>
         <label className="block text-sm">
@@ -214,7 +214,7 @@ export function MobileAppsPortalWorkspace() {
           <select
             value={linkForm.platform}
             onChange={(e) => updateLinkForm('platform', e.target.value as MobileAppPlatform)}
-            className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-3"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-3"
           >
             <option value="android">Android / Google Play</option>
             <option value="ios">iOS / App Store</option>
@@ -228,7 +228,7 @@ export function MobileAppsPortalWorkspace() {
           <select
             value={linkForm.type}
             onChange={(e) => updateLinkForm('type', e.target.value as ProfileLinkForm['type'])}
-            className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-3"
+            className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-3"
           >
             <option value="developer_account">Developer account</option>
             <option value="store_account">Store account</option>
@@ -243,7 +243,7 @@ export function MobileAppsPortalWorkspace() {
         <input
           value={linkForm.url}
           onChange={(e) => updateLinkForm('url', e.target.value)}
-          className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+          className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
         />
       </label>
       <label className="block text-sm">
@@ -252,7 +252,7 @@ export function MobileAppsPortalWorkspace() {
           value={linkForm.notes}
           onChange={(e) => updateLinkForm('notes', e.target.value)}
           rows={3}
-          className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+          className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
         />
       </label>
       <div className="flex flex-wrap gap-2">
@@ -277,7 +277,7 @@ export function MobileAppsPortalWorkspace() {
         loading={loading}
         className="p-4 sm:p-6 lg:p-8"
       >
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
           Mobile Apps is not enabled for this portal.
         </div>
       </MobileAppsWorkspaceShell>
@@ -335,12 +335,12 @@ export function MobileAppsPortalWorkspace() {
         renderFooter={(app) => (
           <>
             {app.profileLinks?.length ? (
-              <section className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              <section className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                 <p className="eyebrow !text-[10px]">Linked profiles/accounts</p>
                 <div className="mt-2 space-y-2">
                   {app.profileLinks.map((link) => (
-                    <div key={link.id ?? `${link.type}-${link.label}`} className="rounded-xl bg-white/[0.03] p-3 text-sm">
-                      <p className="font-semibold text-[var(--color-pib-text)]">{link.label}</p>
+                    <div key={link.id ?? `${link.type}-${link.label}`} className="rounded-md bg-white/[0.03] p-3 text-sm">
+                      <p className="font-medium text-[var(--color-pib-text)]">{link.label}</p>
                       <p className="mt-1 text-xs capitalize text-[var(--color-pib-text-muted)]">
                         {link.type.replace(/_/g, ' ')} · {link.status}
                       </p>
@@ -350,16 +350,16 @@ export function MobileAppsPortalWorkspace() {
               </section>
             ) : null}
             {linkingAppId === app.id ? renderLinkForm(false) : null}
-            {app.clientNotes && <p className="rounded-2xl bg-white/[0.04] p-3 text-sm">{app.clientNotes}</p>}
+            {app.clientNotes && <p className="rounded-md bg-white/[0.04] p-3 text-sm">{app.clientNotes}</p>}
             {capabilities.canEdit && editingId === app.id ? (
-              <div className="space-y-3 rounded-2xl border border-[var(--color-pib-line)] p-3">
+              <div className="space-y-3 rounded-md border border-[var(--color-pib-line)] p-3">
                 <label className="block text-sm">
                   <span className="eyebrow !text-[10px]">Notes for PiB</span>
                   <textarea
                     value={clientNotes}
                     onChange={(e) => setClientNotes(e.target.value)}
                     rows={3}
-                    className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+                    className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
                   />
                 </label>
                 <label className="block text-sm">
@@ -368,7 +368,7 @@ export function MobileAppsPortalWorkspace() {
                     value={clientFeedback}
                     onChange={(e) => setClientFeedback(e.target.value)}
                     rows={3}
-                    className="mt-2 w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3"
+                    className="mt-2 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent p-3"
                   />
                 </label>
                 <div className="flex gap-2">

@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Confirmed browser screenshot artifacts are intentionally rendered without Next image optimization. */
 
 import { type FormEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Icon } from '@/components/studio'
 import type {
   WorkbenchBrowserSessionViewState,
   WorkbenchBrowserSessionViewStatus,
@@ -46,10 +47,10 @@ const TUNNEL_STATUS_LABEL: Record<WorkbenchTunnelViewStatus, string> = {
 
 const TUNNEL_STATUS_DOT: Record<WorkbenchTunnelViewStatus, string> = {
   idle: 'bg-white/30',
-  starting: 'bg-primary animate-pulse',
-  awaiting_approval: 'bg-amber-300 animate-pulse',
-  queued: 'bg-amber-300 animate-pulse',
-  claimed: 'bg-amber-300 animate-pulse',
+  starting: 'bg-primary ',
+  awaiting_approval: 'bg-[var(--sc-surface)] ',
+  queued: 'bg-[var(--sc-surface)] ',
+  claimed: 'bg-[var(--sc-surface)] ',
   running: 'bg-emerald-400',
   exited: 'bg-white/40',
   killed: 'bg-white/40',
@@ -74,11 +75,11 @@ const BROWSER_SESSION_STATUS_LABEL: Record<WorkbenchBrowserSessionViewStatus, st
 
 const BROWSER_SESSION_STATUS_DOT: Record<WorkbenchBrowserSessionViewStatus, string> = {
   idle: 'bg-white/30',
-  starting: 'bg-primary animate-pulse',
-  awaiting_approval: 'bg-amber-300 animate-pulse',
-  queued: 'bg-amber-300 animate-pulse',
-  claimed: 'bg-amber-300 animate-pulse',
-  running: 'bg-primary animate-pulse',
+  starting: 'bg-primary ',
+  awaiting_approval: 'bg-[var(--sc-surface)] ',
+  queued: 'bg-[var(--sc-surface)] ',
+  claimed: 'bg-[var(--sc-surface)] ',
+  running: 'bg-primary ',
   exited: 'bg-white/40',
   killed: 'bg-white/40',
   failed: 'bg-red-400',
@@ -86,7 +87,7 @@ const BROWSER_SESSION_STATUS_DOT: Record<WorkbenchBrowserSessionViewStatus, stri
   error: 'bg-red-400',
 }
 
-/** Best-effort `host` of a URL string — used to allowlist the active tunnel's public host, never to validate it. */
+/** Best-effort `host` of a URL string - used to allowlist the active tunnel's public host, never to validate it. */
 function hostOf(value: string | null | undefined): string | null {
   if (!value) return null
   try {
@@ -122,8 +123,8 @@ function privateHostname(hostname: string): boolean {
 }
 
 /**
- * Validates a URL for the observer preview. `allowedHost` — the active
- * tunnel's `publicUrl` host, if any — is exempted from the private-hostname
+ * Validates a URL for the observer preview. `allowedHost` - the active
+ * tunnel's `publicUrl` host, if any - is exempted from the private-hostname
  * block so a just-opened tunnel URL can always be prepared; a raw
  * `localhost`/private-network URL typed directly is still blocked, since it
  * will never equal the tunnel's (public) host.
@@ -221,7 +222,7 @@ export interface WorkbenchBrowserPanelProps {
   /**
    * Drives a real click in the agent's browser at a point on the current
    * frame, given in percent of the frame's width/height. The host converts
-   * percentages to viewport CSS pixels — the panel never sees the viewport.
+   * percentages to viewport CSS pixels - the panel never sees the viewport.
    */
   onClickAt?: (xPct: number, yPct: number) => void
   /** Types text into whatever the agent's browser currently has focused (usually right after a drive click). */
@@ -273,12 +274,12 @@ export function WorkbenchBrowserPanel({
   const [streaming, setStreaming] = useState(false)
   const [followingSession, setFollowingSession] = useState(false)
   const [designMode, setDesignMode] = useState(false)
-  // Draft point/note being composed on the current frame — cleared on frame/target changes.
+  // Draft point/note being composed on the current frame - cleared on frame/target changes.
   const [draftPoint, setDraftPoint] = useState<WorkbenchDesignPoint | null>(null)
   const [draftNote, setDraftNote] = useState('')
   const [driveTypeText, setDriveTypeText] = useState('')
   const [driveTypeOpen, setDriveTypeOpen] = useState(false)
-  // Committed pins — intentionally NOT reset by live frame updates or target switches, only by "Clear pins".
+  // Committed pins - intentionally NOT reset by live frame updates or target switches, only by "Clear pins".
   const [pins, setPins] = useState<WorkbenchDesignPin[]>([])
   const [tunnelPortInput, setTunnelPortInput] = useState(String(DEFAULT_TUNNEL_PORT))
   const [tunnelPortError, setTunnelPortError] = useState<string | null>(null)
@@ -289,7 +290,7 @@ export function WorkbenchBrowserPanel({
   const latestFrame = frames[frames.length - 1]
   const activeTunnelHost = useMemo(() => hostOf(tunnel?.publicUrl), [tunnel?.publicUrl])
 
-  /** The frame a point picked *right now* would belong to — see `WorkbenchDesignPin.frameId`. */
+  /** The frame a point picked *right now* would belong to - see `WorkbenchDesignPin.frameId`. */
   const currentFrameId = preparedImageUrl ?? preparedUrl ?? null
 
   // Following is device-side state, so it has to be turned back off on every exit path
@@ -333,7 +334,7 @@ export function WorkbenchBrowserPanel({
     if (!targets.some((target) => target.id === selectedId)) setSelectedId(targets[0]?.id ?? null)
   }, [selectedId, targets])
 
-  // Escape leaves Design Mode — a full-bleed crosshair overlay needs a keyboard way out.
+  // Escape leaves Design Mode - a full-bleed crosshair overlay needs a keyboard way out.
   useEffect(() => {
     if (!designMode) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -438,7 +439,7 @@ export function WorkbenchBrowserPanel({
       stopFollowingSession()
       return
     }
-    // Following can be armed before the first frame lands — the device starts streaming once it's on.
+    // Following can be armed before the first frame lands - the device starts streaming once it's on.
     if (browserSession?.latestFrameUrl) {
       const result = safeObservedUrl(browserSession.latestFrameUrl, activeTunnelHost)
       if (!result.url) {
@@ -569,9 +570,9 @@ export function WorkbenchBrowserPanel({
       {onStartTunnel && (
         <div data-testid="workbench-tunnel-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-black/10 p-2">
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">cable</span>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Tunnel</p>
-            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${TUNNEL_STATUS_DOT[tunnelStatus]}`} />
+            <Icon name="cable" className="text-[14px] text-primary" />
+            <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Tunnel</p>
+            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded ${TUNNEL_STATUS_DOT[tunnelStatus]}`} />
             <span data-testid="workbench-tunnel-status" aria-live="polite" className="text-[10px] text-[var(--color-pib-text-muted)]">{TUNNEL_STATUS_LABEL[tunnelStatus]}</span>
           </div>
           {/* noValidate: the inline error below is the single source of truth, instead of a native range tooltip. */}
@@ -603,7 +604,7 @@ export function WorkbenchBrowserPanel({
                 type="button"
                 onClick={() => onApproveTunnel?.()}
                 data-testid="workbench-tunnel-approve"
-                className="min-h-8 shrink-0 rounded-md border border-amber-400/35 bg-amber-400/10 px-2 text-[10px] font-medium text-amber-200 hover:bg-amber-400/15"
+                className="min-h-8 shrink-0 rounded-md border border-amber-400/35 bg-[var(--sc-surface)]/10 px-2 text-[10px] font-medium text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/15"
               >
                 Approve
               </button>
@@ -643,7 +644,7 @@ export function WorkbenchBrowserPanel({
           )}
           {tunnel?.error && <p role="alert" data-testid="workbench-tunnel-error" className="text-[10px] text-red-300">{tunnel.error}</p>}
           {tunnelInstallHintVisible && (
-            <p data-testid="workbench-tunnel-install-hint" className="rounded-md border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1 text-[10px] text-amber-200">
+            <p data-testid="workbench-tunnel-install-hint" className="rounded-md border border-amber-400/25 bg-[var(--sc-surface)]/[0.06] px-2 py-1 text-[10px] text-[var(--sc-ink-soft)]">
               cloudflared does not look installed. On macOS: <code className="font-mono">brew install cloudflared</code>
             </p>
           )}
@@ -656,32 +657,32 @@ export function WorkbenchBrowserPanel({
       {onStartBrowserSession && (
         <div data-testid="workbench-agent-browser-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-black/10 p-2">
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Agent browser</p>
-            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${BROWSER_SESSION_STATUS_DOT[browserSessionStatus]}`} />
+            <Icon name="smart_toy" className="text-[14px] text-primary" />
+            <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Agent browser</p>
+            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded ${BROWSER_SESSION_STATUS_DOT[browserSessionStatus]}`} />
             <span data-testid="workbench-agent-browser-status" aria-live="polite" className="text-[10px] text-[var(--color-pib-text-muted)]">{BROWSER_SESSION_STATUS_LABEL[browserSessionStatus]}</span>
             {agentDriving && (
-              <span data-testid="workbench-agent-driving" className="ml-auto inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[9px] font-semibold text-amber-200">
-                <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
+              <span data-testid="workbench-agent-driving" className="ml-auto inline-flex items-center gap-1 rounded border border-amber-400/30 bg-[var(--sc-surface)]/10 px-2 py-0.5 text-[9px] text-[var(--sc-ink-soft)]">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded bg-[var(--sc-surface)]" />
                 Agent is driving
               </span>
             )}
             {userDriving && (
-              <span data-testid="workbench-user-driving" className="ml-auto inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-0.5 text-[9px] font-medium text-emerald-200">
+              <span data-testid="workbench-user-driving" className="ml-auto inline-flex items-center gap-1 rounded border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-0.5 text-[9px] font-medium text-emerald-200">
                 You&apos;re driving
               </span>
             )}
           </div>
           {(agentDriving && onTakeControl) && (
-            <div className="flex items-center gap-1.5 rounded-md border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1">
-              <p className="min-w-0 flex-1 text-[10px] leading-snug text-amber-200/90">
-                The agent is controlling this page. Your clicks and typing are paused — take control to drive it yourself.
+            <div className="flex items-center gap-1.5 rounded-md border border-amber-400/25 bg-[var(--sc-surface)]/[0.06] px-2 py-1">
+              <p className="min-w-0 flex-1 text-[10px] leading-snug text-[var(--sc-ink-soft)]/90">
+                The agent is controlling this page. Your clicks and typing are paused - take control to drive it yourself.
               </p>
               <button
                 type="button"
                 onClick={() => onTakeControl?.()}
                 data-testid="workbench-agent-take-control"
-                className="shrink-0 rounded-md border border-amber-400/40 bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-200 hover:bg-amber-400/25"
+                className="shrink-0 rounded-md border border-amber-400/40 bg-[var(--sc-surface)]/15 px-2 py-1 text-[10px] text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/25"
               >
                 Take control
               </button>
@@ -691,10 +692,10 @@ export function WorkbenchBrowserPanel({
             <div className="flex items-center gap-1.5">
               <p className="min-w-0 flex-1 text-[10px] text-[var(--color-pib-text-muted)]">
                 Agent preview session. Private-network access is{' '}
-                <span className={browserSession?.allowPrivateNetwork ? 'text-emerald-300' : 'text-amber-200'}>
+                <span className={browserSession?.allowPrivateNetwork ? 'text-emerald-300' : 'text-[var(--sc-ink-soft)]'}>
                   {browserSession?.allowPrivateNetwork ? 'allowed' : 'blocked'}
                 </span>{' '}
-                — the agent cannot reach localhost/private hosts until you allow it.
+ - the agent cannot reach localhost/private hosts until you allow it.
               </p>
               <button
                 type="button"
@@ -749,7 +750,7 @@ export function WorkbenchBrowserPanel({
                 type="button"
                 onClick={() => onApproveBrowserSession?.()}
                 data-testid="workbench-agent-browser-approve"
-                className="min-h-8 shrink-0 rounded-md border border-amber-400/35 bg-amber-400/10 px-2 text-[10px] font-medium text-amber-200 hover:bg-amber-400/15"
+                className="min-h-8 shrink-0 rounded-md border border-amber-400/35 bg-[var(--sc-surface)]/10 px-2 text-[10px] font-medium text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/15"
               >
                 Approve
               </button>
@@ -839,7 +840,7 @@ export function WorkbenchBrowserPanel({
               onClick={toggleStream}
               className={`inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${streaming ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{streaming ? 'pause' : 'play_arrow'}</span>
+              <Icon name={streaming ? 'pause' : 'play_arrow'} className="text-[14px]" />
               {streaming ? `Live · ${frames.length} frames` : 'Start live stream'}
             </button>
           )}
@@ -851,7 +852,7 @@ export function WorkbenchBrowserPanel({
               onClick={() => { setDesignMode((value) => !value); setDraftPoint(null); setDriveTypeOpen(false) }}
               className={`ml-auto inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${designMode ? 'border-primary/40 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">design_services</span>
+              <Icon name="design_services" className="text-[14px]" />
               Design Mode
             </button>
           )}
@@ -882,7 +883,7 @@ export function WorkbenchBrowserPanel({
                 }}
                 className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] ${active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
               >
-                <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px] text-primary">{target.imageUrl && !target.url ? 'image' : 'public'}</span>
+                <Icon name={target.imageUrl && !target.url ? 'image' : 'public'} className="shrink-0 text-[14px] text-primary" />
                 <span className="min-w-0 flex-1 truncate">{target.title || target.url || 'Screenshot'}</span>
               </button>
             )
@@ -917,7 +918,7 @@ export function WorkbenchBrowserPanel({
                     <span
                       key={pin.id}
                       aria-hidden="true"
-                      className="absolute grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white/70 bg-white/20 text-[8px] font-bold text-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)]"
+                      className="absolute grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded border-2 border-white/70 bg-white/20 text-[8px] text-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)]"
                       style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
                     >
                       {index + 1}
@@ -926,7 +927,7 @@ export function WorkbenchBrowserPanel({
                   {draftPoint && (
                     <span
                       aria-hidden="true"
-                      className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow-[0_0_0_3px_rgba(0,0,0,0.45)]"
+                      className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded border-2 border-white bg-primary shadow-[0_0_0_3px_rgba(0,0,0,0.45)]"
                       style={{ left: `${draftPoint.xPct}%`, top: `${draftPoint.yPct}%` }}
                     />
                   )}
@@ -938,11 +939,11 @@ export function WorkbenchBrowserPanel({
               <span data-testid="workbench-preview-kind" aria-live="polite">
                 {preparedImageUrl
                   ? followingSession
-                    ? 'Agent frames — live from the browser running on your Mac.'
+                    ? 'Agent frames - live from the browser running on your Mac.'
                     : streaming
-                      ? 'Agent frames — following screenshot events.'
-                      : 'Agent frames — confirmed screenshot artifact.'
-                  : 'Public preview iframe — sandboxed. If framing is blocked, open it in a new tab.'}
+                      ? 'Agent frames - following screenshot events.'
+                      : 'Agent frames - confirmed screenshot artifact.'
+                  : 'Public preview iframe - sandboxed. If framing is blocked, open it in a new tab.'}
               </span>
               {preparedUrl && (
                 <a href={preparedUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="shrink-0 text-primary hover:underline">Open preview in new tab</a>
@@ -959,8 +960,8 @@ export function WorkbenchBrowserPanel({
                         : 'Pick a point on the frame to click it in the agent browser.'}
                     </p>
                     {draftPointStale && (
-                      <p role="status" data-testid="workbench-design-frame-drift" className="mb-1.5 text-[10px] text-amber-200">
-                        The frame changed after you picked this point — re-pick it before clicking.
+                      <p role="status" data-testid="workbench-design-frame-drift" className="mb-1.5 text-[10px] text-[var(--sc-ink-soft)]">
+                        The frame changed after you picked this point - re-pick it before clicking.
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -969,7 +970,7 @@ export function WorkbenchBrowserPanel({
                         onClick={driveClick}
                         disabled={!draftPoint}
                         data-testid="workbench-design-click-here"
-                        className="min-h-7 rounded-md border border-emerald-400/40 bg-emerald-400/15 px-2 text-[10px] font-semibold text-emerald-200 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="min-h-7 rounded-md border border-emerald-400/40 bg-emerald-400/15 px-2 text-[10px] text-emerald-200 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Click here
                       </button>
@@ -1013,7 +1014,7 @@ export function WorkbenchBrowserPanel({
                 <div className="rounded-md border border-primary/25 bg-primary/[0.06] p-2">
                   <p className="mb-1 text-[10px] text-[var(--color-pib-text-muted)]">
                     {driveEnabled
-                      ? 'Or describe the change and add a pin — pins are only added to the composer, never sent.'
+                      ? 'Or describe the change and add a pin - pins are only added to the composer, never sent.'
                       : 'Click the preview, describe the change, then add a pin. Nothing is sent automatically.'}
                   </p>
                   <textarea
@@ -1071,13 +1072,13 @@ export function WorkbenchBrowserPanel({
                     <ul className="space-y-1">
                       {pins.map((pin, index) => (
                         <li key={pin.id} className="flex items-start gap-2 rounded-md border border-white/5 bg-black/20 px-2 py-1.5">
-                          <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-white/30 text-[8px] font-bold text-[var(--color-pib-text-muted)]">
+                          <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-white/30 text-[8px] text-[var(--color-pib-text-muted)]">
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="text-[9px] text-[var(--color-pib-text-muted)]">
                               {Math.round(pin.xPct)}%, {Math.round(pin.yPct)}%
-                              {pin.frameId !== currentFrameId && <span className="ml-1 text-amber-200/80">· from an earlier frame</span>}
+                              {pin.frameId !== currentFrameId && <span className="ml-1 text-[var(--sc-ink-soft)]/80">· from an earlier frame</span>}
                             </p>
                             <p className="truncate text-[10px] text-[var(--color-pib-text)]" title={pin.note}>{pin.note}</p>
                           </div>
@@ -1087,18 +1088,18 @@ export function WorkbenchBrowserPanel({
                                 type="button"
                                 aria-label={`Add pin ${index + 1} to chat`}
                                 onClick={() => addPinToChat(pin)}
-                                className="grid h-6 w-6 place-items-center rounded-full text-primary hover:bg-primary/10"
+                                className="grid h-6 w-6 place-items-center rounded text-primary hover:bg-primary/10"
                               >
-                                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                                <Icon name="add_comment" className="text-[14px]" />
                               </button>
                             )}
                             <button
                               type="button"
                               aria-label={`Remove pin ${index + 1}`}
                               onClick={() => removePin(pin.id)}
-                              className="grid h-6 w-6 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                              className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                             >
-                              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">close</span>
+                              <Icon name="close" className="text-[14px]" />
                             </button>
                           </div>
                         </li>
@@ -1111,16 +1112,16 @@ export function WorkbenchBrowserPanel({
           </>
         ) : (
           <div data-testid="workbench-browser-empty-state" className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[11px] text-[var(--color-pib-text-muted)]">
-            <span aria-hidden="true" className="material-symbols-outlined text-[24px]">visibility_off</span>
-            <p>Nothing is loaded yet. Start a browser session — once it is running, its latest frame loads here automatically.</p>
+            <Icon name="visibility_off" className="text-[24px]" />
+            <p>Nothing is loaded yet. Start a browser session - once it is running, its latest frame loads here automatically.</p>
             <ol className="w-full max-w-[260px] space-y-1.5 text-left text-[10px]">
               {[
-                { label: 'Open tunnel', hint: 'Only needed to preview a local app in the iframe — agent frames stream without it.' },
+                { label: 'Open tunnel', hint: 'Only needed to preview a local app in the iframe - agent frames stream without it.' },
                 { label: 'Start browser', hint: 'Runs headless Chrome on your Mac after you approve it.' },
-                { label: 'Follow frames', hint: 'Starts automatically when the session is running — frames stream here live.' },
+                { label: 'Follow frames', hint: 'Starts automatically when the session is running - frames stream here live.' },
               ].map((step, index) => (
                 <li key={step.label} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 py-1.5">
-                  <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-primary/40 text-[8px] font-bold text-primary">{index + 1}</span>
+                  <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-primary/40 text-[8px] text-primary">{index + 1}</span>
                   <span className="min-w-0">
                     <span className="block font-medium text-[var(--color-pib-text)]">{step.label}</span>
                     <span className="block opacity-80">{step.hint}</span>

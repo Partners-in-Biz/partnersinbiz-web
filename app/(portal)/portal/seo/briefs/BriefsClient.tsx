@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
 import { briefToMarkdown, type ContentBrief } from '@/lib/seo/content-brief'
+import { Icon } from '@/components/studio'
 
 export type SavedBrief = {
   id: string
@@ -126,47 +127,47 @@ export function BriefsClient({
       <SeoToolHeader
         eyebrow="Content SEO"
         title="AI content-brief generator"
-        description="Generate a structured SEO brief — title, meta, H2 outline, semantic keywords, word count and FAQs — from a keyword. Copy, save, or export to PDF."
+        description="Generate a structured SEO brief  -  title, meta, H2 outline, semantic keywords, word count and FAQs  -  from a keyword. Copy, save, or export to PDF."
         sprints={sprints}
         activeSprintId={activeSprintId}
       />
 
       <section className="pib-card-section">
         <div className="pib-card-section-header">
-          <h3 className="text-sm font-semibold">Brief inputs</h3>
+          <h3 className="text-sm">Brief inputs</h3>
           <p className="text-xs text-[var(--color-pib-text-muted)]">Keyword is required. URL and competitor sharpen the brief.</p>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-3">
           <div>
             <label className="pib-label" htmlFor="kw">Target keyword *</label>
-            <input id="kw" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="property management software" className="pib-input" disabled={loading} />
+            <input name="briefsclient-field-45" id="kw" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="property management software" className="pib-input" disabled={loading} />
           </div>
           <div>
             <label className="pib-label" htmlFor="url">Target URL (optional)</label>
-            <input id="url" value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} placeholder="https://yoursite.com/page" className="pib-input" disabled={loading} />
+            <input name="briefsclient-field-46" id="url" value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} placeholder="https://yoursite.com/page" className="pib-input" disabled={loading} />
           </div>
           <div>
             <label className="pib-label" htmlFor="comp">Competitor (optional)</label>
-            <input id="comp" value={competitor} onChange={(e) => setCompetitor(e.target.value)} placeholder="competitor.com" className="pib-input" disabled={loading} />
+            <input name="briefsclient-field-47" id="comp" value={competitor} onChange={(e) => setCompetitor(e.target.value)} placeholder="competitor.com" className="pib-input" disabled={loading} />
           </div>
         </div>
         <div className="flex items-center gap-3 px-4 pb-4">
-          <button onClick={generate} disabled={loading || !keyword.trim()} className="pib-btn-primary text-sm disabled:opacity-40">
+          <button name="briefsclient-action-48" onClick={generate} disabled={loading || !keyword.trim()} className="pib-btn-primary text-sm disabled:opacity-40">
             {loading ? (
               <>
-                <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                <Icon name="autorenew" className="animate-spin" />
                 Generating…
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                <Icon name="auto_awesome" />
                 Generate brief
               </>
             )}
           </button>
           {error && (
             <span className="flex items-center gap-1.5 text-xs text-red-300">
-              <span className="material-symbols-outlined text-sm">error</span>
+              <Icon name="error" />
               {error}
             </span>
           )}
@@ -177,20 +178,20 @@ export function BriefsClient({
         <section className="pib-card-section">
           <div className="pib-card-section-header flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="text-sm font-semibold">Brief: {brief.keyword}</h3>
+              <h3 className="text-sm">Brief: {brief.keyword}</h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{brief.generatedBy === 'ai' ? 'Generated with AI.' : 'Template fallback (AI unavailable).'}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={copyToClipboard} className="pib-btn-secondary text-sm">
-                <span className="material-symbols-outlined text-[18px]">content_copy</span>
+              <button name="briefsclient-action-49" onClick={copyToClipboard} className="pib-btn-secondary text-sm">
+                <Icon name="content_copy" />
                 Copy
               </button>
-              <button onClick={save} disabled={saving || !activeSprintId} className="pib-btn-secondary text-sm disabled:opacity-40">
-                <span className="material-symbols-outlined text-[18px]">save</span>
+              <button name="briefsclient-action-50" onClick={save} disabled={saving || !activeSprintId} className="pib-btn-secondary text-sm disabled:opacity-40">
+                <Icon name="save" />
                 Save
               </button>
-              <button onClick={downloadPdf} disabled={pdfLoading} className="pib-btn-secondary text-sm disabled:opacity-40">
-                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              <button name="briefsclient-action-51" onClick={downloadPdf} disabled={pdfLoading} className="pib-btn-secondary text-sm disabled:opacity-40">
+                <Icon name="picture_as_pdf" />
                 {pdfLoading ? 'Building…' : 'PDF'}
               </button>
             </div>
@@ -205,11 +206,11 @@ export function BriefsClient({
             </div>
 
             <div>
-              <p className="eyebrow !text-[10px] mb-2">H2 outline</p>
+              <p className="sc-tiny !text-[10px] mb-2">H2 outline</p>
               <div className="space-y-2">
                 {brief.h2Outline.map((sec, i) => (
-                  <div key={i} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-                    <p className="text-sm font-semibold">{i + 1}. {sec.heading}</p>
+                  <div key={i} className="border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                    <p className="text-sm">{i + 1}. {sec.heading}</p>
                     <ul className="mt-1 list-disc pl-5 text-xs text-[var(--color-pib-text-muted)] space-y-0.5">
                       {sec.talkingPoints.map((p, j) => <li key={j}>{p}</li>)}
                     </ul>
@@ -219,17 +220,17 @@ export function BriefsClient({
             </div>
 
             <div>
-              <p className="eyebrow !text-[10px] mb-2">Semantic keywords</p>
+              <p className="sc-tiny !text-[10px] mb-2">Semantic keywords</p>
               <div className="flex flex-wrap gap-2">
                 {brief.semanticKeywords.map((k) => <span key={k} className="pib-pill pib-pill-success text-xs">{k}</span>)}
               </div>
             </div>
 
             <div>
-              <p className="eyebrow !text-[10px] mb-2">FAQs</p>
+              <p className="sc-tiny !text-[10px] mb-2">FAQs</p>
               <div className="space-y-2">
                 {brief.faqs.map((f, i) => (
-                  <div key={i} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                  <div key={i} className="border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                     <p className="text-sm font-medium">{f.question}</p>
                     <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{f.answerHint}</p>
                   </div>
@@ -239,7 +240,7 @@ export function BriefsClient({
 
             {brief.internalLinkIdeas.length > 0 && (
               <div>
-                <p className="eyebrow !text-[10px] mb-2">Internal link ideas</p>
+                <p className="sc-tiny !text-[10px] mb-2">Internal link ideas</p>
                 <ul className="list-disc pl-5 text-xs text-[var(--color-pib-text-muted)] space-y-0.5">
                   {brief.internalLinkIdeas.map((l, i) => <li key={i}>{l}</li>)}
                 </ul>
@@ -253,12 +254,12 @@ export function BriefsClient({
       {savedBriefs.length > 0 && (
         <section className="pib-card-section overflow-hidden">
           <div className="pib-card-section-header">
-            <h3 className="text-sm font-semibold">Saved briefs</h3>
+            <h3 className="text-sm">Saved briefs</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Previously saved briefs for this sprint.</p>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
             {savedBriefs.map((b) => (
-              <button
+              <button name="briefsclient-action-52"
                 key={b.id}
                 onClick={() => setBrief(b.brief)}
                 className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left text-sm hover:bg-[var(--color-pib-surface-2)]"
@@ -275,7 +276,7 @@ export function BriefsClient({
       )}
 
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm">
           {toast}
         </div>
       )}
@@ -285,9 +286,9 @@ export function BriefsClient({
 
 function Field({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+    <div className="border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
       <div className="flex items-center justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
+        <p className="sc-tiny !text-[10px]">{label}</p>
         {hint && <span className="text-[10px] text-[var(--color-pib-text-muted)]">{hint}</span>}
       </div>
       <p className="mt-1 text-sm">{value}</p>

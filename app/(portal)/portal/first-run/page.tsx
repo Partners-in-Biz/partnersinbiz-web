@@ -1,6 +1,6 @@
 // app/(portal)/portal/first-run/page.tsx
 //
-// Growth-onboarding wizard — the PRIMARY first-run experience for the client
+// Growth-onboarding wizard - the PRIMARY first-run experience for the client
 // portal. A stepped flow that gets a workspace from empty to live:
 //   1) Org name + logo   2) Connect social   3) Verify domain
 //   4) Add first contact 5) Install analytics
@@ -16,8 +16,21 @@
 export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Avatar,
+  Button,
+  ButtonLink,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Status,
+  Steps,
+  Title,
+} from '@/components/studio'
 import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type StepKey = 'org' | 'social' | 'domain' | 'contact' | 'analytics'
@@ -30,6 +43,7 @@ const STEP_LABELS: Record<StepKey, string> = {
   contact: 'Contact',
   analytics: 'Analytics',
 }
+const STEP_LIST = STEP_ORDER.map((key) => STEP_LABELS[key])
 
 function unwrap(body: unknown): unknown {
   if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>)) {
@@ -48,7 +62,6 @@ export default function FirstRunGrowthWizard() {
   const [stepIndex, setStepIndex] = useState(0)
   const step = STEP_ORDER[stepIndex]
 
-  // Step 1 — org name + logo
   const [orgName, setOrgName] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [logoUploading, setLogoUploading] = useState(false)
@@ -56,26 +69,20 @@ export default function FirstRunGrowthWizard() {
   const [orgError, setOrgError] = useState('')
   const [canEditOrg, setCanEditOrg] = useState(true)
 
-  // Step 2 — social connected?
   const [socialConnected, setSocialConnected] = useState(false)
-
-  // Step 3 — domain verified?
   const [domainVerified, setDomainVerified] = useState(false)
 
-  // Step 4 — add a contact
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactSaving, setContactSaving] = useState(false)
   const [contactAdded, setContactAdded] = useState(false)
   const [contactError, setContactError] = useState('')
 
-  // Step 5 — analytics installed?
   const [analyticsInstalled, setAnalyticsInstalled] = useState(false)
 
   const [finishing, setFinishing] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  // Load existing org name + logo and signal states.
   useEffect(() => {
     fetch(scopedApi('/api/v1/portal/settings/organization'))
       .then((r) => (r.ok ? r.json() : null))
@@ -95,7 +102,6 @@ export default function FirstRunGrowthWizard() {
       .finally(() => setLoaded(true))
   }, [scopedApi])
 
-  // Poll the real signal-state for steps 2, 3, 5 so they auto-tick.
   useEffect(() => {
     let cancelled = false
     async function refreshSignals() {
@@ -140,7 +146,6 @@ export default function FirstRunGrowthWizard() {
         return
       }
       setLogoUrl(url)
-      // Persist logo onto the brand profile immediately.
       await fetch(scopedApi('/api/v1/portal/brand-profile'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -215,7 +220,6 @@ export default function FirstRunGrowthWizard() {
       if (!ok) return
     }
     if (step === 'contact' && !contactAdded) {
-      // Only block if the user actually typed something; otherwise "Next" acts as skip.
       if (contactName.trim() || contactEmail.trim()) {
         const ok = await addContact()
         if (!ok) return
@@ -244,88 +248,54 @@ export default function FirstRunGrowthWizard() {
     }
   }
 
-  const progress = ((stepIndex + 1) / STEP_ORDER.length) * 100
   const isLast = stepIndex === STEP_ORDER.length - 1
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <p className="eyebrow">Workspace setup</p>
-        <h1 className="pib-page-title mt-2">Let&apos;s get your workspace growing</h1>
-        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-          Five quick steps to a live, connected workspace. Skip anything you want to handle later.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Workspace setup"
+        title="Let's get your workspace growing."
+        description="Five quick steps to a live, connected workspace. Skip anything you want to handle later."
+      />
 
-      {/* Progress bar + step pills */}
-      <div className="space-y-3">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
-          <div
-            className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {STEP_ORDER.map((key, i) => (
-            <span
-              key={key}
-              className={[
-                'rounded-full px-3 py-1 text-[11px] font-label uppercase tracking-wide border',
-                i === stepIndex
-                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
-                  : i < stepIndex
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]',
-              ].join(' ')}
-            >
-              {i + 1}. {STEP_LABELS[key]}
-            </span>
-          ))}
-        </div>
-      </div>
+      <Steps steps={STEP_LIST} current={stepIndex} />
 
-      <div className="pib-card space-y-5" aria-busy={!loaded}>
-        {/* STEP 1 — org name + logo */}
+      <Panel className="space-y-5">
+        <div aria-busy={!loaded} className="contents">
         {step === 'org' && (
           <div className="space-y-4">
             <div>
-              <p className="eyebrow !text-[10px]">Step 1</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Name your workspace</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Step 1</p>
+              <Title as="h2">Name your workspace</Title>
+              <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
                 Set the workspace name and upload a logo for your branding.
               </p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="pib-label !mb-0" htmlFor="growth-org-name">Workspace name</label>
-              <input
+            <Field id="growth-org-name" label="Workspace name" help={!canEditOrg ? 'Only workspace owners and admins can rename the workspace.' : undefined}>
+              <Input
                 id="growth-org-name"
-                className="pib-input"
+                aria-label="Workspace name"
                 value={orgName}
                 disabled={!canEditOrg}
                 onChange={(e) => setOrgName(e.target.value)}
                 placeholder="Acme Inc."
               />
-              {!canEditOrg && (
-                <p className="text-xs text-[var(--color-pib-text-muted)]">
-                  Only workspace owners and admins can rename the workspace.
-                </p>
-              )}
-            </div>
+            </Field>
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="Workspace logo" className="h-full w-full object-contain" />
-                ) : (
-                  <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[24px]">image</span></span>
-                )}
-              </div>
-              <label className="pib-btn-secondary cursor-pointer text-sm font-label">
+              {logoUrl ? (
+                <Avatar src={logoUrl} alt={orgName || 'Workspace logo'} size="lg" />
+              ) : (
+                <div className="grid h-16 w-16 place-items-center overflow-hidden border border-[var(--sc-line)] bg-[var(--sc-surface)]" style={{ borderRadius: '4px' }}>
+                  <Icon name="image" />
+                </div>
+              )}
+              <label className="st-btn st-btn--secondary st-btn--sm cursor-pointer">
                 {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
                 <input
                   type="file"
                   accept="image/*"
-                  className="hidden"
+                  className="sr-only"
+                  aria-label={logoUrl ? 'Replace logo' : 'Upload logo'}
                   disabled={logoUploading}
                   onChange={(e) => {
                     const file = e.target.files?.[0]
@@ -334,17 +304,16 @@ export default function FirstRunGrowthWizard() {
                 />
               </label>
             </div>
-            {orgError && <p className="text-sm text-red-400">{orgError}</p>}
+            {orgError ? <Notice tone="danger">{orgError}</Notice> : null}
           </div>
         )}
 
-        {/* STEP 2 — connect social */}
         {step === 'social' && (
           <div className="space-y-4">
             <div>
-              <p className="eyebrow !text-[10px]">Step 2</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Connect a social account</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Step 2</p>
+              <Title as="h2">Connect a social account</Title>
+              <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
                 Link a platform so you can schedule and publish content from the portal.
               </p>
             </div>
@@ -353,19 +322,18 @@ export default function FirstRunGrowthWizard() {
               doneLabel="A social account is connected."
               todoLabel="No social accounts connected yet."
             />
-            <Link href={scopedHref('/portal/integrations')} className="pib-btn-primary inline-flex text-sm font-label">
+            <ButtonLink href={scopedHref('/portal/integrations')} size="sm">
               {socialConnected ? 'Manage connections' : 'Connect a platform'}
-            </Link>
+            </ButtonLink>
           </div>
         )}
 
-        {/* STEP 3 — verify domain */}
         {step === 'domain' && (
           <div className="space-y-4">
             <div>
-              <p className="eyebrow !text-[10px]">Step 3</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Verify your domain</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Step 3</p>
+              <Title as="h2">Verify your domain</Title>
+              <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
                 Run the portal on your own white-label domain.
               </p>
             </div>
@@ -374,75 +342,72 @@ export default function FirstRunGrowthWizard() {
               doneLabel="Your domain is verified."
               todoLabel="Domain not verified yet."
             />
-            <Link href={scopedHref('/portal/settings/domain')} className="pib-btn-primary inline-flex text-sm font-label">
+            <ButtonLink href={scopedHref('/portal/settings/domain')} size="sm">
               {domainVerified ? 'Manage domain' : 'Set up domain'}
-            </Link>
+            </ButtonLink>
           </div>
         )}
 
-        {/* STEP 4 — add a contact */}
         {step === 'contact' && (
           <div className="space-y-4">
             <div>
-              <p className="eyebrow !text-[10px]">Step 4</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Add your first contact</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Step 4</p>
+              <Title as="h2">Add your first contact</Title>
+              <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
                 Start building your audience right inside the CRM.
               </p>
             </div>
             {contactAdded ? (
               <SignalRow done doneLabel="Contact added to your CRM." todoLabel="" />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="pib-label !mb-0" htmlFor="growth-contact-name">Name</label>
-                  <input
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field id="growth-contact-name" label="Name">
+                  <Input
                     id="growth-contact-name"
-                    className="pib-input"
+                    aria-label="Name"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="Jane Doe"
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="pib-label !mb-0" htmlFor="growth-contact-email">Email</label>
-                  <input
+                </Field>
+                <Field id="growth-contact-email" label="Email">
+                  <Input
                     id="growth-contact-email"
+                    aria-label="Email"
                     type="email"
-                    className="pib-input"
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="jane@acme.com"
                   />
-                </div>
+                </Field>
               </div>
             )}
-            {contactError && <p className="text-sm text-red-400">{contactError}</p>}
-            {!contactAdded && (
+            {contactError ? <Notice tone="danger">{contactError}</Notice> : null}
+            {!contactAdded ? (
               <div className="flex flex-wrap items-center gap-3">
-                <button
+                <Button
                   type="button"
                   onClick={addContact}
                   disabled={contactSaving || !contactName.trim() || !contactEmail.trim()}
-                  className="pib-btn-primary text-sm font-label disabled:opacity-50"
+                  loading={contactSaving}
+                  size="sm"
                 >
-                  {contactSaving ? 'Adding…' : 'Add contact'}
-                </button>
-                <Link href={scopedHref('/portal/contacts/new')} className="text-sm text-[var(--color-pib-accent)] hover:underline">
-                  Use the full contact form →
-                </Link>
+                  Add contact
+                </Button>
+                <ButtonLink href={scopedHref('/portal/contacts/new')} variant="ghost" size="sm">
+                  Use the full contact form
+                </ButtonLink>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
-        {/* STEP 5 — install analytics */}
         {step === 'analytics' && (
           <div className="space-y-4">
             <div>
-              <p className="eyebrow !text-[10px]">Step 5</p>
-              <h2 className="font-display text-2xl text-[var(--color-pib-text)]">Install analytics</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="sc-tiny">Step 5</p>
+              <Title as="h2">Install analytics</Title>
+              <p className="sc-body mt-1 text-[var(--sc-ink-soft)]">
                 Connect a property so KPIs and revenue flow into your dashboard.
               </p>
             </div>
@@ -451,47 +416,44 @@ export default function FirstRunGrowthWizard() {
               doneLabel="An analytics connection is live."
               todoLabel="No analytics connections yet."
             />
-            <Link href={scopedHref('/portal/properties')} className="pib-btn-primary inline-flex text-sm font-label">
+            <ButtonLink href={scopedHref('/portal/properties')} size="sm">
               {analyticsInstalled ? 'Manage properties' : 'Set up a property'}
-            </Link>
+            </ButtonLink>
           </div>
         )}
-      </div>
+        </div>
+      </Panel>
 
-      {/* Footer controls */}
       <div className="flex items-center justify-between gap-3">
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
           disabled={stepIndex === 0}
-          className="pib-btn-secondary text-sm font-label disabled:opacity-40"
         >
           Back
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
-          {!isLast && (
-            <button type="button" onClick={skip} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+          {!isLast ? (
+            <Button type="button" variant="ghost" size="sm" onClick={skip}>
               Skip for now
-            </button>
-          )}
+            </Button>
+          ) : null}
           {isLast ? (
-            <button
-              type="button"
-              onClick={finish}
-              disabled={finishing}
-              className="pib-btn-primary text-sm font-label disabled:opacity-60"
-            >
-              {finishing ? 'Finishing…' : 'Finish setup'}
-            </button>
+            <Button type="button" onClick={finish} disabled={finishing} loading={finishing} size="sm">
+              Finish setup
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
               onClick={goNext}
               disabled={orgSaving || contactSaving}
-              className="pib-btn-primary text-sm font-label disabled:opacity-60"
+              loading={orgSaving || contactSaving}
+              size="sm"
             >
-              {orgSaving || contactSaving ? 'Saving…' : 'Next'}
-            </button>
+              Next
+            </Button>
           )}
         </div>
       </div>
@@ -502,16 +464,15 @@ export default function FirstRunGrowthWizard() {
 function SignalRow({ done, doneLabel, todoLabel }: { done: boolean; doneLabel: string; todoLabel: string }) {
   if (done) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-200">
-        <span className="material-symbols-outlined text-[20px] text-emerald-300">check_circle</span>
-        {doneLabel}
+      <div className="flex items-center gap-2 border border-[var(--sc-line)] bg-[var(--sc-surface)] px-3 py-2.5" style={{ borderRadius: '6px' }}>
+        <Status tone="success">{doneLabel}</Status>
       </div>
     )
   }
   if (!todoLabel) return null
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2.5 text-sm text-[var(--color-pib-text-muted)]">
-      <span className="material-symbols-outlined text-[20px]">radio_button_unchecked</span>
+    <div className="flex items-center gap-2 border border-[var(--sc-line)] bg-[var(--sc-surface)] px-3 py-2.5 sc-body text-[var(--sc-ink-soft)]" style={{ borderRadius: '6px' }}>
+      <Icon name="radio_button_unchecked" />
       {todoLabel}
     </div>
   )

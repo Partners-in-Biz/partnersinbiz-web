@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Icon } from '@/components/studio'
 import type { ClientDocumentType, UserDocumentTemplate } from '@/lib/client-documents/types'
 
 type TemplateRecord = UserDocumentTemplate & { id: string }
@@ -110,7 +111,7 @@ export default function ManageTemplatesPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bookmarks</span>
+          <Icon name="bookmarks" />
           <h2 className="pib-empty-state-title">No saved templates yet</h2>
           <p className="pib-empty-state-description">
             Open a document and use “Save as template” to create one.
@@ -122,11 +123,9 @@ export default function ManageTemplatesPage() {
             <div key={template.id} className="pib-card flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-3">
-                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
-                    <span className="material-symbols-outlined text-[18px]">bookmark</span>
-                  </span>
+                  <Icon name="bookmark" className="text-[18px]" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{template.name}</p>
+                    <p className="truncate text-sm">{template.name}</p>
                     <p className="pib-label mt-0.5">
                       {TYPE_LABELS[template.type] ?? template.type}
                     </p>
@@ -137,11 +136,9 @@ export default function ManageTemplatesPage() {
                   onClick={() => handleDelete(template)}
                   disabled={deletingId === template.id}
                   aria-label="Delete template"
-                  className="rounded-full border border-[var(--color-pib-line)] p-1.5 text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)] disabled:opacity-50"
+                  className="border border-[var(--color-pib-line)] p-1.5 text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)] disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    {deletingId === template.id ? 'hourglass_empty' : 'delete'}
-                  </span>
+                  <Icon name={deletingId === template.id ? 'hourglass_empty' : 'delete'} />
                 </button>
               </div>
 
@@ -158,7 +155,7 @@ export default function ManageTemplatesPage() {
                 href={`/portal/documents/new?templateId=${template.id}`}
                 className="btn-pib-secondary justify-center"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <Icon name="add" className="text-[16px]" />
                 Use this template
               </Link>
             </div>

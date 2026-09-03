@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
@@ -222,15 +224,15 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
         {mode === 'admin' && (
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-pib-secondary" onClick={() => runAction(`/api/v1/research/${id}/export-obsidian`, 'Exporting')}>
-              <span className="material-symbols-outlined text-base">sync</span>
+              <Icon name="sync" />
               Export Obsidian
             </button>
             <button type="button" className="btn-pib-secondary" onClick={() => openResearchReport('preview')}>
-              <span className="material-symbols-outlined text-base">visibility</span>
+              <Icon name="visibility" />
               Preview Report
             </button>
             <button type="button" className="btn-pib-accent" onClick={() => openResearchReport('edit')}>
-              <span className="material-symbols-outlined text-base">description</span>
+              <Icon name="description" />
               {item.linked.documentIds?.length ? 'Open client document draft' : 'Create client document draft'}
             </button>
           </div>
@@ -241,26 +243,26 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
       {busy && <div className="rounded-md border border-[var(--color-border)] bg-black/20 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{busy}...</div>}
 
       <section className="grid gap-4 md:grid-cols-4">
-        <div className="bento-card"><p className="eyebrow !text-[9px]">Kind</p><p className="mt-2 font-display text-xl">{label(item.kind)}</p></div>
-        <div className="bento-card"><p className="eyebrow !text-[9px]">Status</p><p className="mt-2 font-display text-xl">{label(item.status)}</p></div>
-        <div className="bento-card"><p className="eyebrow !text-[9px]">Visibility</p><p className="mt-2 font-display text-xl">{label(item.visibility)}</p><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.visibility === 'client_visible' ? 'Client-visible research: verify confidential notes are removed.' : 'Internal only'}</p></div>
-        <div className="bento-card"><p className="eyebrow !text-[9px]">Obsidian</p><p className="mt-2 font-display text-xl">{item.obsidian?.exported ? 'Exported' : 'Not exported'}</p></div>
+        <div className="bento-card"><p className="sc-tiny !text-[9px]">Kind</p><p className="mt-2 text-xl">{label(item.kind)}</p></div>
+        <div className="bento-card"><p className="sc-tiny !text-[9px]">Status</p><p className="mt-2 text-xl">{label(item.status)}</p></div>
+        <div className="bento-card"><p className="sc-tiny !text-[9px]">Visibility</p><p className="mt-2 text-xl">{label(item.visibility)}</p><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.visibility === 'client_visible' ? 'Client-visible research: verify confidential notes are removed.' : 'Internal only'}</p></div>
+        <div className="bento-card"><p className="sc-tiny !text-[9px]">Obsidian</p><p className="mt-2 text-xl">{item.obsidian?.exported ? 'Exported' : 'Not exported'}</p></div>
       </section>
 
       {mode === 'admin' && (
         <section className="bento-card space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
-            <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus)} className="pib-select">
+            <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus)} className="pib-select" aria-label="Input">
               {RESEARCH_STATUSES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
             </select>
-            <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility)} className="pib-select">
+            <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility)} className="pib-select" aria-label="Input">
               {RESEARCH_VISIBILITIES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
             </select>
           </div>
-          <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} className="pib-textarea" placeholder="Research summary" />
-          <textarea value={notesMarkdown} onChange={(event) => setNotesMarkdown(event.target.value)} rows={6} className="pib-textarea font-mono" placeholder="Working notes markdown" />
+          <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} className="pib-textarea" placeholder="Research summary"  aria-label="Research summary"/>
+          <textarea value={notesMarkdown} onChange={(event) => setNotesMarkdown(event.target.value)} rows={6} className="pib-textarea font-mono" placeholder="Working notes markdown"  aria-label="Working notes markdown"/>
           <button type="button" className="btn-pib-accent" onClick={() => patchItem({ status, visibility, summary, notesMarkdown })}>
-            <span className="material-symbols-outlined text-base">save</span>
+            <Icon name="save" />
             Save Research
           </button>
         </section>
@@ -269,12 +271,12 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
           <section className="bento-card space-y-4">
-            <h2 className="font-display text-2xl">Findings</h2>
+            <h2 className="text-2xl">Findings</h2>
             {item.findings.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">No findings captured yet.</p> : item.findings.map((finding) => (
               <article key={finding.id} className="rounded-md border border-[var(--color-border)] p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-display text-lg">{finding.title}</h3>
+                    <h3 className="text-lg">{finding.title}</h3>
                     <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{finding.body}</p>
                   </div>
                   {mode === 'admin' && (
@@ -285,7 +287,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
                         patchItem({ findings })
                       }}
                       className="pib-select !w-auto !py-1 !pl-2 !pr-7 text-xs"
-                    >
+                     aria-label="Input">
                       {RESEARCH_FINDING_STATUSES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
                     </select>
                   )}
@@ -296,10 +298,10 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
           </section>
 
           <section className="bento-card space-y-4">
-            <h2 className="font-display text-2xl">Recommendations</h2>
+            <h2 className="text-2xl">Recommendations</h2>
             {item.recommendations.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">No recommendations captured yet.</p> : item.recommendations.map((recommendation) => (
               <article key={recommendation.id} className="rounded-md border border-[var(--color-border)] p-4">
-                <h3 className="font-display text-lg">{recommendation.title}</h3>
+                <h3 className="text-lg">{recommendation.title}</h3>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{recommendation.body}</p>
                 <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Priority: {recommendation.priority} · Status: {recommendation.status}</p>
               </article>
@@ -309,13 +311,13 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
 
         <aside className="space-y-6">
           <section className="bento-card space-y-4">
-            <h2 className="font-display text-2xl">Sources</h2>
+            <h2 className="text-2xl">Sources</h2>
             {mode === 'admin' && (
               <div className="space-y-2">
-                <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} placeholder="Source title" className="pib-input" />
-                <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="Source URL" className="pib-input" />
+                <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} placeholder="Source title" className="pib-input"  aria-label="Source title"/>
+                <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="Source URL" className="pib-input"  aria-label="Source URL"/>
                 <button type="button" className="btn-pib-secondary !py-1.5 !text-sm" onClick={addSource}>
-                  <span className="material-symbols-outlined text-base">add_link</span>
+                  <Icon name="add_link" />
                   Add Source
                 </button>
               </div>
@@ -330,8 +332,8 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
           </section>
 
           <section className="bento-card space-y-4">
-            <h2 className="font-display text-2xl">Comments</h2>
-            <textarea value={newComment} onChange={(event) => setNewComment(event.target.value)} rows={3} className="pib-textarea" placeholder="Comment on this research" />
+            <h2 className="text-2xl">Comments</h2>
+            <textarea value={newComment} onChange={(event) => setNewComment(event.target.value)} rows={3} className="pib-textarea" placeholder="Comment on this research"  aria-label="Comment on this research"/>
             <ContextReferencePicker
               orgId={item.orgId}
               value={commentContextRefs}
@@ -342,7 +344,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
               compact
             />
             <button type="button" className="btn-pib-accent !py-1.5 !text-sm" onClick={() => postComment()}>
-              <span className="material-symbols-outlined text-base">comment</span>
+              <Icon name="comment" />
               Post Comment
             </button>
             <div className="space-y-3">

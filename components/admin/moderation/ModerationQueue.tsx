@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { Notice, Icon } from '@/components/studio'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 type ContentType = 'social_post' | 'campaign'
@@ -159,7 +160,7 @@ export function ModerationQueue() {
       />
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
+        <Notice tone="danger">{error}</Notice>
       )}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -170,13 +171,8 @@ export function ModerationQueue() {
           { label: 'Suspended orgs', value: metrics.suspended, icon: 'block' },
         ].map((m) => (
           <div key={m.label} className="pib-card p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
-                <span className="material-symbols-outlined text-[14px]">{m.icon}</span>
-              </span>
-            </div>
-            <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+            <p className="sc-tiny">{m.label}</p>
+            <p className="st-num mt-2 text-xl text-[var(--color-pib-text)]">{m.value}</p>
           </div>
         ))}
       </section>
@@ -264,7 +260,7 @@ export function ModerationQueue() {
                   <ul className="mt-2 space-y-1">
                     {s.warnings.map((w, i) => (
                       <li key={`${s.orgId}-${i}`} className="text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="opacity-70">{formatDateTime(w.at)}</span> — {w.reason || 'No reason recorded'}
+                        <span className="opacity-70">{formatDateTime(w.at)}</span> - {w.reason || 'No reason recorded'}
                       </li>
                     ))}
                   </ul>
@@ -335,7 +331,7 @@ export function ModerationQueue() {
             </p>
           )}
           <label className="block text-sm text-[var(--color-pib-text)]">
-            Reason <span className="text-red-400">*</span>
+            Reason (required)
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -344,7 +340,7 @@ export function ModerationQueue() {
               className="pib-input mt-1 w-full"
             />
           </label>
-          {actionError && <p className="text-sm text-red-400">{actionError}</p>}
+          {actionError && <Notice tone="danger">{actionError}</Notice>}
         </div>
       </DialogDrawer>
     </div>

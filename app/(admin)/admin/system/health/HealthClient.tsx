@@ -1,6 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import {
+  Button,
+  Checkbox,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Title,
+  Toolbar,
+} from '@/components/studio'
 
 type ServiceStatus = 'ok' | 'degraded' | 'down' | 'not-configured'
 
@@ -37,26 +51,29 @@ interface ServiceAlert {
   latencyThresholdMs: number
 }
 
-const STATUS_META: Record<ServiceStatus, { dot: string; label: string; text: string }> = {
-  ok: { dot: 'bg-emerald-500', label: 'Operational', text: 'text-emerald-400' },
-  degraded: { dot: 'bg-amber-500', label: 'Degraded', text: 'text-amber-400' },
-  down: { dot: 'bg-red-500', label: 'Down', text: 'text-red-400' },
-  'not-configured': { dot: 'bg-white/30', label: 'Not configured', text: 'text-[var(--color-pib-text-muted)]' },
+const STATUS_TONE: Record<ServiceStatus, 'success' | 'warning' | 'danger' | 'info'> = {
+  ok: 'success',
+  degraded: 'warning',
+  down: 'danger',
+  'not-configured': 'info',
 }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`pib-skeleton ${className}`} />
+const STATUS_LABEL: Record<ServiceStatus, string> = {
+  ok: 'Operational',
+  degraded: 'Degraded',
+  down: 'Down',
+  'not-configured': 'Not configured',
 }
 
 function fmtLatency(ms: number | null, instrumented: boolean): string {
   if (!instrumented) return 'not instrumented'
-  if (ms === null) return '—'
+  if (ms === null) return '-'
   return `${ms} ms`
 }
 
 function timeAgo(iso: string): string {
   const d = Date.now() - new Date(iso).getTime()
-  if (Number.isNaN(d)) return '—'
+  if (Number.isNaN(d)) return '-'
   const s = Math.floor(d / 1000)
   if (s < 60) return `${s}s ago`
   const m = Math.floor(s / 60)
@@ -163,190 +180,153 @@ export default function HealthClient() {
   const uptimeFor = (key: string) => uptime.find((u) => u.service === key)
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
-            System
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Service Health</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-            Live per-service probes with real measured latency, 30-day uptime, and incident history.
-            Auto-refreshes every 30s.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {!loading && (
-            <span className={`flex items-center gap-1.5 text-sm font-label ${STATUS_META[overall].text}`}>
-              <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_META[overall].dot}`} />
-              {STATUS_META[overall].label}
-            </span>
-          )}
-          <button onClick={refresh} className="pib-btn-ghost text-sm font-label flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="System"
+        title="Service health."
+        description="Live per-service probes with measured latency, 30-day uptime, and incident history. Auto-refreshes every 30s."
+        meta={!loading ? <Status tone={STATUS_TONE[overall]}>{STATUS_LABEL[overall]}</Status> : undefined}
+        actions={(
+          <Button variant="ghost" size="sm" onClick={refresh} aria-label="Refresh health">
+            <Icon name="refresh" />
             Refresh
-          </button>
-        </div>
-      </div>
+          </Button>
+        )}
+      />
 
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>
-      )}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
-      {/* Service status cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
+          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height="8rem" />)
           : services.map((svc) => {
-              const meta = STATUS_META[svc.status]
               const up = uptimeFor(svc.key)
               return (
-                <div key={svc.key} className="pib-card p-4">
+                <Panel key={svc.key} className="space-y-4">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-block w-2.5 h-2.5 rounded-full ${meta.dot}`} />
-                      <h3 className="font-headline font-semibold text-[var(--color-pib-text)]">{svc.name}</h3>
-                    </div>
-                    <span className={`text-xs font-label ${meta.text}`}>{meta.label}</span>
+                    <Title as="h3" className="!text-base">{svc.name}</Title>
+                    <Status tone={STATUS_TONE[svc.status]}>{STATUS_LABEL[svc.status]}</Status>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Latency</p>
-                      <p className="font-mono text-[var(--color-pib-text)]">{fmtLatency(svc.latencyMs, svc.latencyInstrumented)}</p>
+                      <p className="sc-tiny">Latency</p>
+                      <p className="st-num font-mono text-[var(--sc-ink)]">{fmtLatency(svc.latencyMs, svc.latencyInstrumented)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Uptime (30d)</p>
-                      <p className="font-mono text-[var(--color-pib-text)]">
+                      <p className="sc-tiny">Uptime (30d)</p>
+                      <p className="st-num font-mono text-[var(--sc-ink)]">
                         {up && up.uptimePct !== null ? `${up.uptimePct}%` : 'no data'}
-                        {up && up.totalChecks > 0 && (
-                          <span className="text-[var(--color-pib-text-muted)] text-xs"> ({up.totalChecks} chk)</span>
-                        )}
+                        {up && up.totalChecks > 0 ? (
+                          <span className="text-[var(--sc-ink-soft)] text-xs"> ({up.totalChecks} chk)</span>
+                        ) : null}
                       </p>
                     </div>
                   </div>
-                  {svc.detail && <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{svc.detail}</p>}
-                  <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]">Checked {timeAgo(svc.lastCheckedAt)}</p>
-                </div>
+                  {svc.detail ? <p className="sc-body text-[0.875rem]">{svc.detail}</p> : null}
+                  <p className="sc-tiny text-[var(--sc-ink-soft)]">Checked {timeAgo(svc.lastCheckedAt)}</p>
+                </Panel>
               )
             })}
       </div>
 
-      {/* Firebase / Social / PayPal breakdown */}
-      {!loading && (
-        <div className="pib-card p-4">
-          <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Breakdown</h2>
-          <div className="grid gap-3 sm:grid-cols-3 text-sm">
+      {!loading ? (
+        <Panel className="space-y-4">
+          <Title as="h2">Breakdown</Title>
+          <div className="grid gap-4 sm:grid-cols-3">
             {[
               { label: 'Firebase', keys: ['firestore', 'auth'] },
               { label: 'PayPal', keys: ['paypal'] },
               { label: 'Social', keys: ['social'] },
             ].map((group) => (
-              <div key={group.label} className="rounded-lg border border-[var(--color-pib-line-strong)]/40 p-3">
-                <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">{group.label}</p>
-                <div className="space-y-1.5">
-                  {group.keys.map((k) => {
-                    const svc = services.find((s) => s.key === k)
-                    if (!svc) return null
-                    const meta = STATUS_META[svc.status]
-                    return (
-                      <div key={k} className="flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1.5 text-[var(--color-pib-text)]">
-                          <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
-                          {svc.name}
-                        </span>
-                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
-                          {fmtLatency(svc.latencyMs, svc.latencyInstrumented)}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+              <div key={group.label} className="st-panel st-panel--flat p-4 space-y-2">
+                <p className="sc-tiny">{group.label}</p>
+                {group.keys.map((k) => {
+                  const svc = services.find((s) => s.key === k)
+                  if (!svc) return null
+                  return (
+                    <div key={k} className="flex items-center justify-between gap-2 text-sm">
+                      <Status tone={STATUS_TONE[svc.status]}>{svc.name}</Status>
+                      <span className="st-num font-mono text-xs text-[var(--sc-ink-soft)]">
+                        {fmtLatency(svc.latencyMs, svc.latencyInstrumented)}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        </Panel>
+      ) : null}
 
-      {/* Incidents */}
-      <div className="pib-card p-4">
-        <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-1">Incidents (30d)</h2>
-        <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">{uptimeNote}</p>
+      <Panel className="space-y-4">
+        <div>
+          <Title as="h2">Incidents (30d)</Title>
+          {uptimeNote ? <p className="sc-body text-[0.875rem] mt-1">{uptimeNote}</p> : null}
+        </div>
         {incidents.length === 0 ? (
-          <p className="text-sm text-[var(--color-pib-text-muted)] py-4 text-center">
-            No degraded/down periods recorded in the last 30 days.
-          </p>
+          <EmptyState title="No degraded or down periods in the last 30 days." />
         ) : (
           <div className="space-y-2">
             {incidents.map((inc, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5 text-sm">
+              <div key={i} className="flex flex-wrap items-center justify-between gap-3 st-panel st-panel--flat p-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-block w-2 h-2 rounded-full ${inc.worstStatus === 'down' ? 'bg-red-500' : 'bg-amber-500'}`}
-                  />
-                  <span className="text-[var(--color-pib-text)] font-label">{inc.serviceName}</span>
-                  <span className={`text-xs ${inc.worstStatus === 'down' ? 'text-red-400' : 'text-amber-400'}`}>
-                    {inc.worstStatus}
-                  </span>
+                  <Status tone={inc.worstStatus === 'down' ? 'danger' : 'warning'}>{inc.worstStatus}</Status>
+                  <span className="text-[var(--sc-ink)]">{inc.serviceName}</span>
                 </div>
-                <div className="text-xs text-[var(--color-pib-text-muted)]">
-                  {new Date(inc.startedAt).toLocaleString()} → {inc.endedAt ? new Date(inc.endedAt).toLocaleString() : 'ongoing'}{' '}
+                <div className="sc-tiny text-[var(--sc-ink-soft)]">
+                  {new Date(inc.startedAt).toLocaleString()} to {inc.endedAt ? new Date(inc.endedAt).toLocaleString() : 'ongoing'}{' '}
                   ({inc.checks} chk)
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Panel>
 
-      {/* Alert settings */}
-      <form onSubmit={saveAlerts} className="pib-card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-headline font-semibold text-[var(--color-pib-text)]">Alert Settings</h2>
-          {!isSuperAdmin && (
-            <span className="text-xs text-[var(--color-pib-text-muted)]">Super admin only — view only</span>
-          )}
-        </div>
-        <div className="space-y-2">
-          {Object.entries(alerts).map(([key, cfg]) => {
-            const svc = services.find((s) => s.key === key)
-            return (
-              <div key={key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5">
-                <span className="text-sm text-[var(--color-pib-text)] font-label capitalize">{svc?.name ?? key}</span>
-                <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
-                  threshold
-                  <input
-                    type="number"
-                    min={1}
-                    className="pib-input w-24 text-sm font-mono"
-                    value={cfg.latencyThresholdMs}
-                    disabled={!isSuperAdmin}
-                    onChange={(e) =>
-                      setAlerts((p) => ({ ...p, [key]: { ...p[key], latencyThresholdMs: Number(e.target.value) } }))
-                    }
-                  />
-                  ms
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
-                  <input
-                    type="checkbox"
+      <form onSubmit={saveAlerts}>
+        <Panel className="space-y-4">
+          <Toolbar>
+            <Title as="h2">Alert settings</Title>
+            {!isSuperAdmin ? <span className="sc-tiny">Super admin only. View only.</span> : null}
+          </Toolbar>
+          <div className="space-y-2">
+            {Object.entries(alerts).map(([key, cfg]) => {
+              const svc = services.find((s) => s.key === key)
+              return (
+                <div key={key} className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_auto] items-center st-panel st-panel--flat p-4">
+                  <span className="text-sm text-[var(--sc-ink)] capitalize">{svc?.name ?? key}</span>
+                  <Field id={`health-threshold-${key}`} label="Threshold (ms)">
+                    <Input
+                      id={`health-threshold-${key}`}
+                      aria-label={`${svc?.name ?? key} latency threshold in milliseconds`}
+                      type="number"
+                      min={1}
+                      className="w-28 font-mono st-num"
+                      value={cfg.latencyThresholdMs}
+                      disabled={!isSuperAdmin}
+                      onChange={(e) =>
+                        setAlerts((p) => ({ ...p, [key]: { ...p[key], latencyThresholdMs: Number(e.target.value) } }))
+                      }
+                    />
+                  </Field>
+                  <Checkbox
+                    id={`health-enabled-${key}`}
+                    label="Enabled"
                     checked={cfg.enabled}
                     disabled={!isSuperAdmin}
                     onChange={(e) => setAlerts((p) => ({ ...p, [key]: { ...p[key], enabled: e.target.checked } }))}
                   />
-                  enabled
-                </label>
-              </div>
-            )
-          })}
-        </div>
-        {isSuperAdmin && (
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={savingAlerts} className="pib-btn-primary text-sm font-label disabled:opacity-50">
-              {savingAlerts ? 'Saving…' : 'Save thresholds'}
-            </button>
-            {alertsMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{alertsMsg}</span>}
+                </div>
+              )
+            })}
           </div>
-        )}
+          {isSuperAdmin ? (
+            <Toolbar>
+              <Button type="submit" disabled={savingAlerts}>{savingAlerts ? 'Saving...' : 'Save thresholds'}</Button>
+              {alertsMsg ? <span className="sc-tiny">{alertsMsg}</span> : null}
+            </Toolbar>
+          ) : null}
+        </Panel>
       </form>
     </div>
   )

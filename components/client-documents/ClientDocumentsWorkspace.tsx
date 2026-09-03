@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -220,7 +222,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
               Manage templates →
             </Link>
             <Link href={orgDocumentPath(orgSlug, '/new')} className="btn-pib-accent btn-pib-sm">
-              <span className="material-symbols-outlined text-base">add</span>
+              <Icon name="add" />
               New Document
             </Link>
           </div>
@@ -303,11 +305,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
   )
 
   if (surface === 'admin') {
-    return (
-      <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
-        {content}
-      </OrgThemedFrame>
-    )
+    return <OrgThemedFrame orgId={orgId}>{content}</OrgThemedFrame>
   }
 
   return content

@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useEffect, useMemo, useState } from 'react'
 
 import { fmtTimestamp } from '@/lib/format/timestamp'
@@ -67,7 +69,7 @@ function VersionPreview({ version, label }: { version: ClientDocumentVersion | n
                       {readableType(block.type)}
                     </span>
                     {block.visibility && block.visibility !== 'client-visible' ? (
-                      <span className="text-[9px] uppercase tracking-wider text-amber-300/80">
+                      <span className="text-[9px] uppercase tracking-wider text-[var(--st-warning)]/80">
                         {block.visibility.replace('-', ' ')}
                       </span>
                     ) : null}
@@ -184,13 +186,13 @@ export function VersionHistoryDrawer({
         className="flex-1 cursor-default"
         onClick={onClose}
       />
-      <div className="flex h-full w-full max-w-3xl flex-col border-l border-white/10 bg-[var(--color-pib-surface,#0A0A0B)] shadow-2xl">
+      <div className="flex h-full w-full max-w-3xl flex-col border-l border-white/10 bg-[var(--color-pib-surface,var(--sc-ink))]">
         <header className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
-              <span className="material-symbols-outlined text-[18px]">history</span>
+            <span aria-hidden="true" className="">
+              <Icon name="history" />
             </span>
-            <h2 className="font-display text-lg">Version history</h2>
+            <h2 className="text-lg">Version history</h2>
           </div>
           <button
             type="button"
@@ -198,9 +200,7 @@ export function VersionHistoryDrawer({
             aria-label="Close"
             className="rounded-md p-1.5 text-[var(--color-pib-text-muted)] hover:bg-white/5 hover:text-[var(--color-pib-text)]"
           >
-            <span className="material-symbols-outlined" aria-hidden>
-              close
-            </span>
+            <Icon name="close" />
           </button>
         </header>
 
@@ -257,9 +257,7 @@ export function VersionHistoryDrawer({
                             disabled={restoringId !== null}
                             className="mt-2 inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] font-medium hover:bg-white/5 disabled:opacity-50"
                           >
-                            <span className="material-symbols-outlined text-[14px]" aria-hidden>
-                              restore
-                            </span>
+                            <Icon name="restore" />
                             {restoringId === version.id ? 'Restoring…' : 'Restore this version'}
                           </button>
                         ) : null}

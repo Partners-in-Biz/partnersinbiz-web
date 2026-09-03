@@ -1,5 +1,5 @@
 // app/(admin)/admin/org/[slug]/ads/ad-sets/[id]/page.tsx
-// Sub-3a Phase 2 Batch 4 — mounts KeywordEditor for Google ad sets.
+// Sub-3a Phase 2 Batch 4  -  mounts KeywordEditor for Google ad sets.
 import Link from 'next/link'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { getAdSet } from '@/lib/ads/adsets/store'
@@ -56,7 +56,7 @@ export default async function AdSetDetailPage({
           <dl className="pib-card grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div>
               <dt className="text-[var(--color-pib-text-muted)]">Countries</dt>
-              <dd>{adSet.targeting.geo.countries?.join(', ') ?? '—'}</dd>
+              <dd>{adSet.targeting.geo.countries?.join(', ') ?? ' - '}</dd>
             </div>
             <div>
               <dt className="text-[var(--color-pib-text-muted)]">Age range</dt>
@@ -81,7 +81,7 @@ export default async function AdSetDetailPage({
         </section>
       )}
 
-      {/* Keywords panel — Google only */}
+      {/* Keywords panel  -  Google only */}
       {adSet.platform === 'google' && (
         <AdSetKeywordsSection
           orgId={orgId}
@@ -97,7 +97,7 @@ export default async function AdSetDetailPage({
             <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <Link
                 href={`/admin/org/${slug}/ads/ads/${a.id}`}
-                className="font-medium hover:text-[var(--color-pib-rose)]"
+                className="font-medium hover:text-[var(--st-danger)]"
               >
                 {a.name} <span className="text-xs text-[var(--color-pib-text-faint)]">{a.format.toLowerCase()}</span>
               </Link>

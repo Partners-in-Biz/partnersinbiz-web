@@ -1,11 +1,25 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { PartnerRecordPicker, type ShareableRecord } from '@/components/crm/PartnerRecordPicker'
+import {
+  Button,
+  ButtonLink,
+  Checkbox,
+  Field,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  Skeleton,
+  Status,
+  Textarea,
+  Title,
+} from '@/components/studio'
 
 interface PartnerLink {
   relationshipId: string
@@ -61,11 +75,9 @@ function unwrap(body: unknown): Record<string, unknown> | null {
   return (b.data as Record<string, unknown>) ?? b
 }
 
-const CARD = 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]'
-
 export default function PartnersPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading…</div>}>
+    <Suspense fallback={<Skeleton height="8rem" />}>
       <PartnersPageInner />
     </Suspense>
   )
@@ -122,8 +134,6 @@ function PartnersPageInner() {
 
   useEffect(() => { void load() }, [load])
 
-  // Pre-select the company when arriving from a company command center's
-  // "Invite to link workspaces" action.
   useEffect(() => {
     const companyId = searchParams.get('companyId')
     if (!companyId) return
@@ -302,51 +312,37 @@ function PartnersPageInner() {
   const endedLinks = links.filter((l) => l.status !== 'active')
 
   return (
-    <div className="space-y-5 p-4">
-      <header>
-        <p className="eyebrow">CRM</p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-[var(--color-pib-text)]">Partners</h1>
-        <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Businesses whose workspace is linked to yours. A link is mutual — they appear in your CRM,
-          you appear in theirs. Each side keeps its own private records.
-        </p>
-        <Link
-          href="/portal/partners/orders"
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-        >
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">receipt_long</span>
-          Partner orders
-        </Link>
-        <Link
-          href="/portal/partners/settlements"
-          className="mt-2 ml-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-        >
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">account_balance</span>
-          Settlements
-        </Link>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Partners"
+        title="Partners."
+        description="Businesses whose workspace is linked to yours. A link is mutual: they appear in your CRM, you appear in theirs. Each side keeps its own private records."
+        actions={
+          <>
+            <ButtonLink href="/portal/partners/orders" variant="secondary" size="sm">Partner orders</ButtonLink>
+            <ButtonLink href="/portal/partners/settlements" variant="secondary" size="sm">Settlements</ButtonLink>
+          </>
+        }
+      />
 
-      {error ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>
-      ) : null}
-      {notice ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{notice}</p>
-      ) : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
 
       {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+        <div className="space-y-4">
+          <Skeleton height="10rem" />
+          <Skeleton height="8rem" />
+        </div>
       ) : (
         <>
-          <section className={`${CARD} p-4`}>
-            <h2 className="mb-1 text-sm font-semibold text-[var(--color-pib-text)]">Invite a partner</h2>
-            <p className="mb-3 text-xs text-[var(--color-pib-text-muted)]">
+          <Panel>
+            <Title>Invite a partner</Title>
+            <p className="mb-4 mt-2 sc-body text-[0.875rem]">
               Pick a company already in your CRM and send its contact an invitation to link workspaces.
             </p>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
-                  Company
-                </label>
+                <p className="sc-tiny mb-2">Company</p>
                 <CompanyPicker
                   currentCompanyId={inviteCompany?.id}
                   currentCompanyName={inviteCompany?.name}
@@ -356,112 +352,116 @@ function PartnersPageInner() {
                     setInviteCompany(companyId ? { id: companyId, name: companyName ?? '' } : null)}
                 />
               </div>
-              <div>
-                <label htmlFor="partner-invite-email" className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
-                  Their email
-                </label>
-                <input
+              <Field id="partner-invite-email" label="Their email">
+                <Input
                   id="partner-invite-email"
+                  aria-label="Their email"
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="owner@theircompany.com"
-                  className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-accent-v2)]"
                 />
-              </div>
+              </Field>
             </div>
-            <div className="mt-3">
-              <label htmlFor="partner-invite-message" className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
-                Message (optional)
-              </label>
-              <textarea
-                id="partner-invite-message"
-                rows={2}
-                value={inviteMessage}
-                onChange={(e) => setInviteMessage(e.target.value)}
-                placeholder="Hi — linking our workspaces will make shared projects easier to run."
-                className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-accent-v2)]"
-              />
+            <div className="mt-4">
+              <Field id="partner-invite-message" label="Message" hint="Optional">
+                <Textarea
+                  id="partner-invite-message"
+                  aria-label="Message"
+                  rows={2}
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  placeholder="Hi. Linking our workspaces will make shared projects easier to run."
+                />
+              </Field>
             </div>
-            <button
+            <Button
               type="button"
+              className="mt-4"
               onClick={() => void sendInvite()}
               disabled={sending || !inviteCompany || !inviteEmail.trim()}
-              className="mt-3 rounded-lg bg-[var(--color-accent-v2)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+              loading={sending}
             >
-              {sending ? 'Sending…' : 'Send invitation'}
-            </button>
-          </section>
+              Send invitation
+            </Button>
+          </Panel>
 
-          <section className={`${CARD} p-4`}>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               Linked partners {activeLinks.length > 0 ? `(${activeLinks.length})` : ''}
-            </h2>
+            </Title>
             {activeLinks.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">
-                No linked partners yet. Open a company in your CRM and send a partner invitation to link workspaces.
-              </p>
+              <EmptyState
+                title="No linked partners yet."
+                description="Open a company in your CRM and send a partner invitation to link workspaces."
+              />
             ) : (
-              <ul className="divide-y divide-[var(--color-pib-line)]">
+              <ul className="mt-4 divide-y divide-[var(--sc-line)]">
                 {activeLinks.map((link) => (
-                  <li key={link.relationshipId} className="flex flex-wrap items-center gap-3 py-2.5">
+                  <li key={link.relationshipId} className="flex flex-wrap items-center gap-4 py-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link
+                        <ButtonLink
                           href={`/portal/partners/${link.relationshipId}`}
-                          className="truncate text-sm font-medium text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]"
+                          variant="ghost"
+                          size="sm"
+                          className="!justify-start !px-0 truncate"
                         >
                           {link.companyName || link.partnerOrgName || 'Partner'}
-                        </Link>
+                        </ButtonLink>
                         <SystemLinkBadge kind="org" label={link.partnerOrgName} />
                       </div>
-                      <p className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                      <p className="mt-1 sc-tiny text-[var(--sc-ink-soft)]">
                         {link.sharedCapabilities.length > 0
                           ? `You share: ${link.sharedCapabilities.join(', ')}`
                           : 'You share nothing with this partner'}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
+                    <div className="flex flex-wrap gap-2">
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="secondary"
                         onClick={() => { setEditingId(editingId === link.relationshipId ? null : link.relationshipId); setShareForId(null); setCatalogForId(null) }}
                         aria-label={`Edit sharing for ${link.companyName || 'partner'}`}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         Sharing
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="secondary"
                         onClick={() => { setShareForId(shareForId === link.relationshipId ? null : link.relationshipId); setEditingId(null); setCatalogForId(null) }}
                         aria-label={`Share a record with ${link.companyName || 'partner'}`}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         Share record
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="secondary"
                         onClick={() => { setCatalogForId(catalogForId === link.relationshipId ? null : link.relationshipId); setEditingId(null); setShareForId(null) }}
                         aria-label={`Manage what ${link.companyName || 'this partner'} can order from you`}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         Catalogue
-                      </button>
-                      <Link
+                      </Button>
+                      <ButtonLink
                         href={`/portal/partners/catalog/${link.relationshipId}`}
-                        aria-label={`Order from ${link.companyName || 'this partner'}`}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                        variant="ghost"
+                        size="sm"
                       >
                         Order from them
-                      </Link>
-                      <button
+                      </ButtonLink>
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="ghost"
                         onClick={() => void unlink(link)}
                         disabled={busyId === link.relationshipId}
                         aria-label={`Unlink ${link.companyName || 'partner'}`}
-                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         {busyId === link.relationshipId ? 'Working…' : 'Unlink'}
-                      </button>
+                      </Button>
                     </div>
 
                     {editingId === link.relationshipId ? (
@@ -478,27 +478,26 @@ function PartnersPageInner() {
                     ) : null}
 
                     {shareForId === link.relationshipId ? (
-                      <div className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
-                        <p className="mb-2 text-xs text-[var(--color-pib-text-muted)]">
+                      <div className="w-full st-panel st-panel--flat p-4">
+                        <p className="mb-4 sc-body text-[0.875rem]">
                           Share one specific record with {link.partnerOrgName || 'this partner'}. Only record types
                           you share above can be selected.
                         </p>
-                        <div className="flex flex-wrap items-end gap-2">
-                          <div>
-                            <label htmlFor={`type-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Type</label>
-                            <select
+                        <div className="flex flex-wrap items-end gap-4">
+                          <Field id={`type-${link.relationshipId}`} label="Type">
+                            <Select
                               id={`type-${link.relationshipId}`}
+                              aria-label="Type"
                               value={shareType}
                               onChange={(e) => setShareType(e.target.value)}
-                              className="rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                             >
                               {RESOURCE_TYPES.map((t) => (
                                 <option key={t} value={t}>{t.replace('_', ' ')}</option>
                               ))}
-                            </select>
-                          </div>
+                            </Select>
+                          </Field>
                           <div className="min-w-[220px] flex-1">
-                            <span className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Record</span>
+                            <p className="sc-tiny mb-2">Record</p>
                             <PartnerRecordPicker
                               resourceType={shareType}
                               relationshipId={link.relationshipId}
@@ -507,26 +506,25 @@ function PartnersPageInner() {
                               ariaLabel={`Search ${shareType.replace('_', ' ')}s to share with ${link.companyName || 'this partner'}`}
                             />
                           </div>
-                          <div>
-                            <label htmlFor={`perm-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Access</label>
-                            <select
+                          <Field id={`perm-${link.relationshipId}`} label="Access">
+                            <Select
                               id={`perm-${link.relationshipId}`}
+                              aria-label="Access"
                               value={sharePermission}
                               onChange={(e) => setSharePermission(e.target.value as 'view' | 'comment')}
-                              className="rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
                             >
                               <option value="view">View only</option>
                               <option value="comment">Can comment</option>
-                            </select>
-                          </div>
-                          <button
+                            </Select>
+                          </Field>
+                          <Button
                             type="button"
+                            size="sm"
                             onClick={() => void shareRecord(link)}
                             disabled={busyId === link.relationshipId || !shareRecordSel}
-                            className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
                           >
                             Share
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : null}
@@ -534,136 +532,143 @@ function PartnersPageInner() {
                 ))}
               </ul>
             )}
-          </section>
+          </Panel>
 
-          <section className={`${CARD} p-4`}>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">
+          <Panel>
+            <Title>
               Invitations in flight {invites.length > 0 ? `(${invites.length})` : ''}
-            </h2>
+            </Title>
             {invites.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No pending invitations.</p>
+              <p className="mt-4 sc-body">No pending invitations.</p>
             ) : (
-              <ul className="divide-y divide-[var(--color-pib-line)]">
+              <ul className="mt-4 divide-y divide-[var(--sc-line)]">
                 {invites.map((invite) => (
-                  <li key={invite.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                  <li key={invite.id} className="flex flex-wrap items-center gap-4 py-4">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-[var(--color-pib-text)]">
+                      <p className="truncate sc-body text-[var(--sc-ink)]">
                         {invite.recipientCompanyName || invite.recipientName || invite.recipientEmail}
                       </p>
-                      <p className="truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                      <p className="truncate sc-tiny text-[var(--sc-ink-soft)]">
                         {invite.recipientEmail} · {invite.kind} invite · {invite.status}
                         {invite.expiresAt ? ` · expires ${new Date(invite.expiresAt).toLocaleDateString()}` : ''}
                       </p>
                     </div>
                     {invite.status === 'pending' ? (
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="secondary"
                           onClick={() => void inviteAction(invite, 'resend')}
                           disabled={busyId === invite.id}
-                          className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                         >
                           Resend
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="ghost"
                           onClick={() => void inviteAction(invite, 'revoke')}
                           disabled={busyId === invite.id}
-                          className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                         >
                           Revoke
-                        </button>
+                        </Button>
                       </div>
                     ) : null}
                   </li>
                 ))}
               </ul>
             )}
-          </section>
+          </Panel>
 
           {(outgoing.length > 0 || incoming.length > 0) ? (
-            <section className={`${CARD} p-4`}>
-              <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">Shared records</h2>
-              <div className="grid gap-5 md:grid-cols-2">
+            <Panel>
+              <Title>Shared records</Title>
+              <div className="mt-4 grid gap-8 md:grid-cols-2">
                 <div>
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
+                  <p className="mb-2 sc-tiny">
                     You shared out ({outgoing.length})
                   </p>
                   {outgoing.length === 0 ? (
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">Nothing shared yet.</p>
+                    <p className="sc-body text-[0.875rem]">Nothing shared yet.</p>
                   ) : (
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {outgoing.map((share) => (
-                        <li key={share.id} className="flex items-center gap-2 text-xs">
-                          <span className="pib-pill px-1.5 py-0.5 text-[10px]">{share.resourceType.replace('_', ' ')}</span>
-                          <Link
+                        <li key={share.id} className="flex items-center gap-2 text-[0.875rem]">
+                          <Status>{share.resourceType.replace('_', ' ')}</Status>
+                          <ButtonLink
                             href={`/portal/partners/shared/${share.id}`}
-                            className="min-w-0 flex-1 truncate text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]"
+                            variant="ghost"
+                            size="sm"
+                            className="min-w-0 flex-1 truncate !justify-start !px-0"
                           >
                             {share.resourceTitle || share.resourceId}
-                          </Link>
-                          <select
+                          </ButtonLink>
+                          <Select
                             value={share.permission === 'comment' ? 'comment' : 'view'}
                             onChange={(e) => void changeSharePermission(share, e.target.value as 'view' | 'comment')}
                             disabled={busyId === share.id}
                             aria-label={`Access level for ${share.resourceTitle || share.resourceId}`}
-                            className="rounded border border-[var(--color-pib-line)] bg-black/30 px-1 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] disabled:opacity-50"
+                            className="!h-auto !min-h-0 py-1 text-[0.75rem]"
                           >
                             <option value="view">View only</option>
                             <option value="comment">Can comment</option>
-                          </select>
-                          <button
+                          </Select>
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => void revokeShare(share)}
                             disabled={busyId === share.id}
                             aria-label={`Stop sharing ${share.resourceTitle || share.resourceId}`}
-                            className="text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
                           >
                             Stop
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
                 <div>
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
+                  <p className="mb-2 sc-tiny">
                     Shared with you ({incoming.length})
                   </p>
                   {incoming.length === 0 ? (
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">Nothing shared with you yet.</p>
+                    <p className="sc-body text-[0.875rem]">Nothing shared with you yet.</p>
                   ) : (
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {incoming.map((share) => (
-                        <li key={share.id} className="flex items-center gap-2 text-xs">
-                          <span className="pib-pill px-1.5 py-0.5 text-[10px]">{share.resourceType.replace('_', ' ')}</span>
-                          <Link
+                        <li key={share.id} className="flex items-center gap-2 text-[0.875rem]">
+                          <Status>{share.resourceType.replace('_', ' ')}</Status>
+                          <ButtonLink
                             href={`/portal/partners/shared/${share.id}`}
-                            className="min-w-0 flex-1 truncate text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]"
+                            variant="ghost"
+                            size="sm"
+                            className="min-w-0 flex-1 truncate !justify-start !px-0"
                           >
                             {share.resourceTitle || share.resourceId}
-                          </Link>
+                          </ButtonLink>
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
               </div>
-            </section>
+            </Panel>
           ) : null}
 
           {endedLinks.length > 0 ? (
-            <section className={`${CARD} p-4`}>
-              <h2 className="mb-3 text-sm font-semibold text-[var(--color-pib-text)]">Ended links</h2>
-              <ul className="divide-y divide-[var(--color-pib-line)]">
+            <Panel>
+              <Title>Ended links</Title>
+              <ul className="mt-4 divide-y divide-[var(--sc-line)]">
                 {endedLinks.map((link) => (
-                  <li key={link.relationshipId} className="flex items-center gap-3 py-2 text-sm text-[var(--color-pib-text-muted)]">
+                  <li key={link.relationshipId} className="flex items-center gap-4 py-2 sc-body text-[var(--sc-ink-soft)]">
                     <span className="min-w-0 flex-1 truncate">{link.companyName || link.partnerOrgName}</span>
-                    <span className="pib-pill px-2 py-0.5 text-[10px]">{link.status}</span>
+                    <Status>{link.status}</Status>
                   </li>
                 ))}
               </ul>
-            </section>
+            </Panel>
           ) : null}
         </>
       )}
@@ -687,66 +692,57 @@ function SharingEditor({
   }
 
   return (
-    <div className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
-      <p className="mb-2 text-xs text-[var(--color-pib-text-muted)]">
-        What <strong className="text-[var(--color-pib-text)]">you</strong> share with{' '}
-        {link.partnerOrgName || 'this partner'}. This is one-sided — they control their own side
+    <div className="w-full st-panel st-panel--flat p-4">
+      <p className="mb-4 sc-body text-[0.875rem]">
+        What <strong className="text-[var(--sc-ink)]">you</strong> share with{' '}
+        {link.partnerOrgName || 'this partner'}. This is one-sided: they control their own side
         independently.
       </p>
 
-      <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Capabilities</p>
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <p className="mb-2 sc-tiny">Capabilities</p>
+      <div className="mb-4 flex flex-wrap gap-2">
         {CAPABILITIES.map((cap) => {
           const on = caps.includes(cap)
           return (
-            <button
+            <Button
               key={cap}
               type="button"
+              size="sm"
+              variant={on ? 'secondary' : 'ghost'}
               aria-pressed={on}
               onClick={() => toggleCap(cap)}
-              className={`rounded-md border px-2 py-1 text-[11px] transition ${
-                on
-                  ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-[var(--color-pib-text)]'
-                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'
-              }`}
             >
               {cap}
-            </button>
+            </Button>
           )
         })}
       </div>
 
-      <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Field sharing</p>
-      <div className="mb-3 flex flex-wrap gap-3">
+      <p className="mb-2 sc-tiny">Field sharing</p>
+      <div className="mb-4 flex flex-wrap gap-4">
         {POLICY_KEYS.map((key) => (
-          <label key={key} className="flex cursor-pointer items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
-            <input
-              type="checkbox"
-              checked={Boolean(policy[key])}
-              onChange={(e) => setPolicy((prev) => ({ ...prev, [key]: e.target.checked }))}
-              className="h-3.5 w-3.5 rounded accent-[var(--color-accent-v2)]"
-            />
-            {key}
-          </label>
+          <Checkbox
+            key={key}
+            label={key}
+            checked={Boolean(policy[key])}
+            onChange={(e) => setPolicy((prev) => ({ ...prev, [key]: e.target.checked }))}
+          />
         ))}
       </div>
 
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => onSave(caps, policy)}
           disabled={busy}
-          className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+          loading={busy}
         >
-          {busy ? 'Saving…' : 'Save sharing'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05]"
-        >
+          Save sharing
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -769,10 +765,6 @@ interface PublishedItem {
   currency: string
 }
 
-/**
- * Supplier-side catalogue for one partner link: which of my products they can
- * order, and at what negotiated price.
- */
 function CatalogEditor({ link }: { link: PartnerLink }) {
   const [products, setProducts] = useState<OrgProduct[]>([])
   const [published, setPublished] = useState<PublishedItem[]>([])
@@ -834,89 +826,92 @@ function CatalogEditor({ link }: { link: PartnerLink }) {
   const availableProducts = products.filter((p) => !published.some((i) => i.productId === p.id))
 
   return (
-    <div className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
-      <p className="mb-2 text-xs text-[var(--color-pib-text-muted)]">
+    <div className="w-full st-panel st-panel--flat p-4">
+      <p className="mb-4 sc-body text-[0.875rem]">
         Products {link.partnerOrgName || 'this partner'} can order from you, at the price you set for them.
       </p>
 
       {!canTrade ? (
-        <p className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200">
+        <Notice tone="warning">
           Enable the <strong>orders</strong> capability under Sharing before publishing a catalogue.
-        </p>
+        </Notice>
       ) : (
         <>
           {published.length > 0 ? (
-            <ul className="mb-3 space-y-1">
+            <ul className="mb-4 space-y-2">
               {published.map((item) => (
-                <li key={item.id} className="flex items-center gap-2 text-xs">
-                  <span className="min-w-0 flex-1 truncate text-[var(--color-pib-text)]">
+                <li key={item.id} className="flex items-center gap-2 text-[0.875rem]">
+                  <span className="min-w-0 flex-1 truncate text-[var(--sc-ink)]">
                     {item.name}{item.sku ? ` · ${item.sku}` : ''}
                   </span>
-                  <span className="font-mono text-[var(--color-pib-text-muted)]">
+                  <span className="st-num text-[var(--sc-ink-soft)]">
                     {item.currency} {item.unitPrice.toFixed(2)}
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
+                    variant="ghost"
                     onClick={() => void unpublish(item.id)}
                     disabled={busy}
                     aria-label={`Stop offering ${item.name}`}
-                    className="text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
                   >
                     Remove
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mb-3 text-xs text-[var(--color-pib-text-muted)]">Nothing published to them yet.</p>
+            <p className="mb-4 sc-body text-[0.875rem]">Nothing published to them yet.</p>
           )}
 
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="min-w-[180px] flex-1">
-              <label htmlFor={`prod-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Product</label>
-              <select
-                id={`prod-${link.relationshipId}`}
-                value={productId}
-                onChange={(e) => setProductId(e.target.value)}
-                className="w-full rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
-              >
-                <option value="">Choose a product…</option>
-                {availableProducts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.currency} {p.unitPrice}
-                  </option>
-                ))}
-              </select>
+              <Field id={`prod-${link.relationshipId}`} label="Product">
+                <Select
+                  id={`prod-${link.relationshipId}`}
+                  aria-label="Product"
+                  value={productId}
+                  onChange={(e) => setProductId(e.target.value)}
+                >
+                  <option value="">Choose a product…</option>
+                  {availableProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} - {p.currency} {p.unitPrice}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
             </div>
-            <div>
-              <label htmlFor={`price-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Their price</label>
-              <input
+            <Field id={`price-${link.relationshipId}`} label="Their price">
+              <Input
                 id={`price-${link.relationshipId}`}
+                aria-label="Their price"
                 type="number"
                 min={0}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="list"
-                className="w-24 rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                className="w-24"
               />
-            </div>
-            <button
+            </Field>
+            <Button
               type="button"
+              size="sm"
               onClick={() => void publish()}
               disabled={busy || !productId}
-              className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+              loading={busy}
             >
               Publish
-            </button>
+            </Button>
           </div>
-          <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
+          <p className="mt-2 sc-tiny text-[var(--sc-ink-soft)]">
             Leave the price blank to use your list price.
           </p>
         </>
       )}
 
-      {err ? <p className="mt-2 text-[11px] text-rose-300">{err}</p> : null}
-      {msg ? <p className="mt-2 text-[11px] text-emerald-300">{msg}</p> : null}
+      {err ? <Notice tone="danger">{err}</Notice> : null}
+      {msg ? <Notice tone="info">{msg}</Notice> : null}
     </div>
   )
 }

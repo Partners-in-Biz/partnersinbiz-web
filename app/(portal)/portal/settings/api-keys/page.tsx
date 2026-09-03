@@ -2,6 +2,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopeFromSearchParams, scopedApiPath } from '@/lib/portal/scoped-routing'
@@ -61,7 +63,7 @@ function toMillis(ts: FsTimestamp | string | null | undefined): number | null {
 
 function formatDate(ts: FsTimestamp | string | null | undefined): string {
   const ms = toMillis(ts)
-  if (ms === null) return '—'
+  if (ms === null) return ' - '
   return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
@@ -219,7 +221,7 @@ export default function ApiKeysSettingsPage() {
         accent="cyan"
         eyebrow="Workspace settings"
         title="API keys"
-        description="Issue scoped API keys so agents and integrations can act on this workspace. Keys are shown once at creation — store them securely."
+        description="Issue scoped API keys so agents and integrations can act on this workspace. Keys are shown once at creation - store them securely."
         actions={(
           <button
                     type="button"
@@ -229,24 +231,20 @@ export default function ApiKeysSettingsPage() {
                       setNewKey(null)
                     }}
                   >
-                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                      {showForm ? 'close' : 'add'}
-                    </span>
+                    <Icon name={showForm ? 'close' : 'add'} />
                     {showForm ? 'Cancel' : 'Create key'}
                   </button>
         )}
       />
 
-      {/* Raw key reveal — shown ONCE */}
+      {/* Raw key reveal - shown ONCE */}
       {newKey && (
         <div className="pib-card border border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)] p-5">
           <div className="flex items-start gap-3">
-            <span className="pib-icon-tint-cyan shrink-0">
-              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">vpn_key</span>
-            </span>
+            <Icon name="vpn_key" />
             <div className="min-w-0 flex-1 space-y-3">
               <div>
-                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Your new API key</h2>
+                <h2 className="text-sm text-[var(--color-pib-text)]">Your new API key</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   Copy this key now. For security it is hashed on our side and{' '}
                   <strong className="text-[var(--color-pib-text)]">will not be shown again</strong>.
@@ -257,9 +255,7 @@ export default function ApiKeysSettingsPage() {
                   {newKey.rawKey}
                 </code>
                 <button type="button" className="pib-btn-secondary shrink-0" onClick={handleCopy}>
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                    {copied ? 'check' : 'content_copy'}
-                  </span>
+                  <Icon name={copied ? 'check' : 'content_copy'} />
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
@@ -268,7 +264,7 @@ export default function ApiKeysSettingsPage() {
                 className="text-xs text-[var(--color-pib-text-muted)] underline underline-offset-2 hover:text-[var(--color-pib-text)]"
                 onClick={() => setNewKey(null)}
               >
-                I&rsquo;ve saved it — dismiss
+                I&rsquo;ve saved it - dismiss
               </button>
             </div>
           </div>
@@ -302,7 +298,7 @@ export default function ApiKeysSettingsPage() {
               <p className="mb-3 text-xs text-[var(--color-pib-text-muted)]">
                 Grant the minimum scopes this key needs. Each row is a resource; tick the actions to allow.
               </p>
-              <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+              <div className="overflow-hidden rounded border border-[var(--color-pib-line)]">
                 {RESOURCES.map((r, idx) => (
                   <div
                     key={r.value}
@@ -311,12 +307,7 @@ export default function ApiKeysSettingsPage() {
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span
-                        className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]"
-                        aria-hidden="true"
-                      >
-                        {r.icon}
-                      </span>
+                      <Icon name={r.icon} />
                       <span className="text-sm text-[var(--color-pib-text)]">{r.label}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -327,7 +318,7 @@ export default function ApiKeysSettingsPage() {
                             key={a.value}
                             type="button"
                             onClick={() => toggleAction(r.value, a.value)}
-                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                            className={`rounded border px-3 py-1 text-xs transition-colors ${
                               active
                                 ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
                                 : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
@@ -417,14 +408,12 @@ export default function ApiKeysSettingsPage() {
             </div>
           ) : error ? (
             <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                error
-              </span>
+              <Icon name="error" />
               {error}
             </div>
           ) : keys.length === 0 ? (
             <div className="pib-empty-state">
-              <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">key_off</span>
+              <Icon name="key_off" />
               <h3 className="pib-empty-state-title">No API keys yet</h3>
               <p className="pib-empty-state-description">
                 Create a scoped key to let an agent or integration work on this workspace.
@@ -438,12 +427,12 @@ export default function ApiKeysSettingsPage() {
                 return (
                   <li
                     key={key.id}
-                    className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4"
+                    className="rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{key.name}</span>
+                          <span className="text-sm text-[var(--color-pib-text)]">{key.name}</span>
                           <span
                             className={`pib-pill ${
                               status.tone === 'success'
@@ -490,9 +479,7 @@ export default function ApiKeysSettingsPage() {
                           onClick={() => handleRevoke(key)}
                           disabled={revokingId === key.id}
                         >
-                          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                            delete
-                          </span>
+                          <Icon name="delete" />
                           {revokingId === key.id ? 'Revoking…' : 'Revoke'}
                         </button>
                       )}

@@ -9,6 +9,8 @@ import type { SupportCategory, SupportMessage, SupportPriority, SupportTicket } 
 import { SharedWithUsSection } from '@/components/crm/SharedWithUsSection'
 import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
+import { Icon } from '@/components/studio'
+
 const CATEGORY_OPTIONS: Array<{ value: SupportCategory; label: string; icon: string }> = [
   { value: 'question', label: 'Question', icon: 'help' },
   { value: 'bug', label: 'Bug', icon: 'bug_report' },
@@ -207,14 +209,14 @@ export function SupportDrawer({
         <button
           type="button"
           aria-label="Close support"
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/70"
           onClick={() => setOpen(false)}
         />
-        <aside className="absolute right-0 top-0 h-full w-full max-w-[720px] overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
-          <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-5 py-4 backdrop-blur">
+        <aside className="absolute right-0 top-0 h-full w-full max-w-[720px] overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]">
+          <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-5 py-4">
             <div>
               <p className="eyebrow !text-[10px]">Support</p>
-              <h2 className="font-display text-2xl">How can we help?</h2>
+              <h2 className="text-2xl">How can we help?</h2>
             </div>
             <button
               type="button"
@@ -222,7 +224,7 @@ export function SupportDrawer({
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
               aria-label="Close support"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <Icon name="close" className="text-[20px]" />
             </button>
           </header>
 
@@ -230,7 +232,7 @@ export function SupportDrawer({
               <section className="space-y-4">
                 <SharedWithUsSection module="support" orgId={orgId} interactive={false} />
                 <div className="bento-card p-4">
-                  <h3 className="text-sm font-semibold">Create a ticket</h3>
+                  <h3 className="text-sm font-medium">Create a ticket</h3>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                     We reply asynchronously. Urgent tickets are flagged for faster triage.
                   </p>
@@ -247,7 +249,7 @@ export function SupportDrawer({
                             : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
                         ].join(' ')}
                       >
-                        <span className="material-symbols-outlined text-[17px]">{option.icon}</span>
+                        <Icon name={option.icon} className="text-[17px]" />
                         {option.label}
                       </button>
                     ))}
@@ -269,14 +271,14 @@ export function SupportDrawer({
                   />
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Context</p>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Context</p>
                       {currentPageContext && (
                         <button
                           type="button"
                           onClick={useCurrentPage}
                           className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[14px]">my_location</span>
+                          <Icon name="my_location" className="text-[14px]" />
                           Use current page
                         </button>
                       )}
@@ -295,14 +297,14 @@ export function SupportDrawer({
                     onClick={createTicket}
                     className="btn-pib-accent mt-3 w-full justify-center disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    <span className="material-symbols-outlined text-[18px]">add_comment</span>
+                    <Icon name="add_comment" className="text-[18px]" />
                     {saving ? 'Creating...' : 'Create ticket'}
                   </button>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Your tickets</h3>
+                    <h3 className="text-sm font-medium">Your tickets</h3>
                     {loading && <span className="text-xs text-[var(--color-pib-text-muted)]">Loading...</span>}
                   </div>
                   {tickets.length === 0 && !loading ? (
@@ -345,7 +347,7 @@ export function SupportDrawer({
                           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                             {selectedTicket.category.replace('_', ' ')}
                           </p>
-                          <h3 className="mt-1 font-display text-xl leading-tight">{selectedTicket.subject}</h3>
+                          <h3 className="mt-1 text-xl leading-tight">{selectedTicket.subject}</h3>
                         </div>
                         <span className="pib-pill shrink-0">{STATUS_LABEL[selectedTicket.status]}</span>
                       </div>
@@ -363,7 +365,7 @@ export function SupportDrawer({
                           <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                             <div
                               className={[
-                                'max-w-[86%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+                                'max-w-[86%] rounded-md px-4 py-2.5 text-sm leading-relaxed',
                                 mine
                                   ? 'rounded-br-md bg-[var(--color-pib-accent)] text-black'
                                   : 'rounded-bl-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]',
@@ -379,7 +381,7 @@ export function SupportDrawer({
                     <div className="border-t border-[var(--color-pib-line)] p-3">
                       <div className="flex gap-2">
                         <input
-                          className="pib-input flex-1 !rounded-full !py-2.5"
+                          className="pib-input flex-1 rounded-md !py-2.5"
                           value={reply}
                           onChange={(event) => setReply(event.target.value)}
                           onKeyDown={(event) => {
@@ -423,7 +425,7 @@ export function SupportDrawer({
         aria-label="Need help? Open support"
         className={triggerClassName}
       >
-        <span className="material-symbols-outlined text-[18px]">support_agent</span>
+        <Icon name="support_agent" className="text-[18px]" />
         <span>Need help?</span>
       </button>
 

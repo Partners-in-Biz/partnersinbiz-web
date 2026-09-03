@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { CustomFieldDefinition, CustomFieldType, CustomFieldDropdownOption } from '@/lib/customFields/types'
+import { Icon } from '@/components/studio'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -63,10 +64,10 @@ function Field({ label, htmlFor, required, error, children }: {
   return (
     <div className="space-y-1">
       <label htmlFor={htmlFor} className="block text-xs font-label text-[var(--color-pib-text-muted)]">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        {label}{required && <span className="text-[var(--st-danger)] ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--st-danger)]">{error}</p>}
     </div>
   )
 }
@@ -131,9 +132,9 @@ function OptionsEditor({
             type="button"
             onClick={() => removeOption(idx)}
             aria-label={`Remove option ${idx + 1}`}
-            className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
+            className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <Icon name="close" className="text-[18px]" />
           </button>
         </div>
       ))}
@@ -142,7 +143,7 @@ function OptionsEditor({
         onClick={addOption}
         className="cursor-pointer text-xs text-[var(--color-accent-v2)] hover:underline flex items-center gap-1"
       >
-        <span className="material-symbols-outlined text-[14px]">add</span>
+        <Icon name="add" className="text-[14px]" />
         Add option
       </button>
     </div>
@@ -301,14 +302,14 @@ export function CustomFieldDefinitionDrawer({
       <div className="relative w-full max-w-lg h-full bg-transparent flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-3">
-          <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{title}</h2>
+          <h2 className="text-base font-medium text-[var(--color-pib-text)]">{title}</h2>
           <button
             type="button"
             aria-label={`Close ${title} drawer`}
             onClick={onClose}
             className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <Icon name="close" />
           </button>
         </div>
 
@@ -319,6 +320,7 @@ export function CustomFieldDefinitionDrawer({
             <input
               id="cfd-label"
               type="text"
+              aria-label="Label"
               value={form.label}
               onChange={(e) => handleLabelChange(e.target.value)}
               placeholder="e.g. Contract Start Date"
@@ -330,6 +332,7 @@ export function CustomFieldDefinitionDrawer({
             <input
               id="cfd-key"
               type="text"
+              aria-label="Key"
               value={form.key}
               onChange={(e) => handleKeyChange(e.target.value)}
               placeholder="e.g. contract_start_date"
@@ -344,6 +347,7 @@ export function CustomFieldDefinitionDrawer({
             <input
               id="cfd-help"
               type="text"
+              aria-label="Help text"
               value={form.helpText}
               onChange={(e) => set('helpText', e.target.value)}
               placeholder="Shown below the input"
@@ -355,6 +359,7 @@ export function CustomFieldDefinitionDrawer({
             <input
               id="cfd-group"
               type="text"
+              aria-label="Group"
               value={form.group}
               onChange={(e) => set('group', e.target.value)}
               placeholder="e.g. Billing, Compliance"
@@ -368,6 +373,7 @@ export function CustomFieldDefinitionDrawer({
             <div className="relative group/type">
               <select
                 id="cfd-type"
+                aria-label="Field type"
                 value={form.type}
                 onChange={(e) => set('type', e.target.value as CustomFieldType)}
                 disabled={mode === 'edit'}
@@ -416,6 +422,7 @@ export function CustomFieldDefinitionDrawer({
                   <input
                     id="cfd-minlen"
                     type="number"
+                    aria-label="Min length"
                     min={0}
                     value={form.minLength}
                     onChange={(e) => set('minLength', e.target.value)}
@@ -426,6 +433,7 @@ export function CustomFieldDefinitionDrawer({
                   <input
                     id="cfd-maxlen"
                     type="number"
+                    aria-label="Max length"
                     min={0}
                     value={form.maxLength}
                     onChange={(e) => set('maxLength', e.target.value)}
@@ -445,6 +453,7 @@ export function CustomFieldDefinitionDrawer({
                   <input
                     id="cfd-currency"
                     type="text"
+                    aria-label="Currency code"
                     value={form.currencyCode}
                     maxLength={3}
                     onChange={(e) => set('currencyCode', e.target.value.toUpperCase())}
@@ -458,6 +467,7 @@ export function CustomFieldDefinitionDrawer({
                   <input
                     id="cfd-min"
                     type="number"
+                    aria-label="Min value"
                     value={form.min}
                     onChange={(e) => set('min', e.target.value)}
                     className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] w-full"
@@ -467,6 +477,7 @@ export function CustomFieldDefinitionDrawer({
                   <input
                     id="cfd-max"
                     type="number"
+                    aria-label="Max value"
                     value={form.max}
                     onChange={(e) => set('max', e.target.value)}
                     className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] w-full"
@@ -496,7 +507,7 @@ export function CustomFieldDefinitionDrawer({
           >
             {saving ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <Icon name="progress_activity" className="text-[16px] animate-spin" />
                 Saving…
               </>
             ) : (

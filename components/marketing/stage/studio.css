@@ -1,0 +1,599 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   The Studio stage. Tokens come from .sc-stage (stage.css). One sticky frame,
+   four acts keyed off --sc-p (written by ScrollCraft onto [data-sc-rebuild]).
+   Warm paper, terracotta blocks and shadows, real screenshots only.
+   Motion is transform, opacity and clip-path. Reduced motion keeps the fades.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sh-root {
+  --sc-p: 0;
+  --sh-span: 520vh;
+  position: relative;
+  height: calc(100svh + var(--sh-span));
+
+  /* Act envelopes, each 0..1 across its own slice of --sc-p. */
+  --open-out: clamp(0, calc((var(--sc-p) - 0.11) / 0.05), 1);
+  --work-in: clamp(0, calc((var(--sc-p) - 0.13) / 0.04), 1);
+  --ink-in: clamp(0, calc((var(--sc-p) - 0.58) / 0.06), 1);
+  --ink-out: clamp(0, calc((var(--sc-p) - 0.76) / 0.06), 1);
+  --close-in: clamp(0, calc((var(--sc-p) - 0.8) / 0.08), 1);
+  --work-out: clamp(0, calc((var(--sc-p) - 0.66) / 0.04), 1);
+  --ink-on: calc(var(--ink-in) * (1 - var(--ink-out)));
+}
+
+.sh-frame {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── Type ───────────────────────────────────────────────────────────────── */
+
+.sh-h1 {
+  font-size: clamp(2.6rem, 1.1rem + 5.4vw, 6.5rem);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  text-wrap: balance;
+  max-width: 11ch;
+  margin: calc(var(--sc-u) * 4) 0 0;
+}
+.sh-h2 {
+  font-size: clamp(1.75rem, 0.9rem + 2.8vw, 3.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.032em;
+  font-weight: 500;
+  text-wrap: balance;
+  max-width: 15ch;
+  margin: 0;
+}
+
+/* ── Chrome: wordmark, tiny nav, the ZA / US links. ─────────────────────── */
+
+.sh-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 6);
+  padding: calc(var(--sc-u) * 4) var(--sc-pad);
+  /* Reads as ink on paper, paper on ink while the proof panel is up. */
+  color: color-mix(in srgb, #f3efe6 calc(var(--ink-on) * 100%), var(--sc-ink));
+}
+.sh-chrome .sc-wordmark,
+.sh-chrome .sc-link,
+.sh-chrome .sc-cta,
+.sh-chrome .sc-tiny {
+  color: inherit;
+}
+.sh-chrome .sc-wordmark {
+  position: static;
+}
+.sh-chrome__nav ul {
+  display: flex;
+  gap: calc(var(--sc-u) * 6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sh-chrome__cta {
+  color: var(--sc-ink);
+}
+.sh-chrome__markets .sc-chrome__markets {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Acts share a frame-filling grid. ───────────────────────────────────── */
+
+.sh-act {
+  position: absolute;
+  inset: 0;
+  padding: calc(var(--sc-u) * 22) var(--sc-pad) calc(var(--sc-u) * 10);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 6);
+  align-items: center;
+}
+
+/* ── Shots: real screenshots, terracotta drop. ──────────────────────────── */
+
+.sh-shot {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: visible;
+  margin: 0;
+  background: var(--sc-surface);
+  box-shadow: 12px 12px 0 var(--sc-accent);
+}
+.sh-shot img {
+  object-fit: cover;
+  object-position: top center;
+}
+.sh-shot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(26, 23, 20, 0.18);
+  z-index: 2;
+}
+
+/* ── 1 Open ─────────────────────────────────────────────────────────────── */
+
+.sh-open {
+  opacity: calc(1 - var(--open-out));
+  z-index: 4;
+}
+.sh-open__copy {
+  grid-column: 1 / 7;
+  transform: translateY(calc(var(--open-out) * -28px));
+}
+.sh-open__dek {
+  max-width: 38ch;
+}
+.sh-open__cta {
+  margin-top: calc(var(--sc-u) * 8);
+  color: var(--sc-ink);
+}
+.sh-open__art {
+  grid-column: 7 / 13;
+  position: relative;
+  align-self: stretch;
+  min-height: 0;
+}
+.sh-block {
+  position: absolute;
+  top: 6%;
+  right: calc(var(--sc-pad) * -1);
+  width: 74%;
+  height: 86%;
+  background: var(--sc-accent);
+  transform-origin: right center;
+  animation: sh-block-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.sh-open__shot {
+  position: absolute;
+  width: 64%;
+  z-index: calc(3 - var(--k));
+  animation: sh-shot-in 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(120ms + var(--k) * 140ms);
+  transform: translateY(calc(var(--sc-p) * (-160px - var(--k) * 90px)));
+}
+.sh-open__shot:nth-child(2) {
+  top: 4%;
+  left: 2%;
+}
+.sh-open__shot:nth-child(3) {
+  top: 36%;
+  left: 34%;
+  width: 62%;
+}
+.sh-open__shot:nth-child(4) {
+  top: 62%;
+  left: 10%;
+  width: 52%;
+}
+@keyframes sh-shot-in {
+  from {
+    opacity: 0;
+    translate: 48px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes sh-block-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ── 2 Work: the filmstrip ──────────────────────────────────────────────── */
+
+.sh-work {
+  opacity: calc(var(--work-in) * (1 - var(--work-out)));
+  z-index: 5;
+}
+.sh-work__kicker {
+  position: absolute;
+  top: calc(var(--sc-u) * 14);
+  left: var(--sc-pad);
+  margin: 0;
+  color: var(--sc-accent);
+}
+.sh-rail {
+  position: absolute;
+  top: calc(var(--sc-u) * 14);
+  right: var(--sc-pad);
+  display: flex;
+  gap: calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sh-rail__item,
+.sh-slide {
+  --on: calc(
+    clamp(0, calc((var(--sc-p) - var(--s0)) / 0.025), 1) *
+      clamp(0, calc((var(--s1) - var(--sc-p)) / 0.025), 1)
+  );
+}
+.sh-rail__item {
+  color: color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), rgba(78, 72, 65, 0.55));
+  border-bottom: 2px solid color-mix(in srgb, var(--sc-accent) calc(var(--on) * 100%), transparent);
+  padding-bottom: calc(var(--sc-u) * 1);
+}
+.sh-slide {
+  position: absolute;
+  inset: 0;
+  padding: calc(var(--sc-u) * 22) var(--sc-pad) calc(var(--sc-u) * 10);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 6);
+  align-items: center;
+  opacity: var(--on);
+  /* The aperture: nothing is hit-testable while a slide is off. */
+  clip-path: inset(calc((1 - var(--on)) * 50%));
+}
+.sh-slide__copy {
+  grid-column: 1 / 6;
+  transform: translateY(calc((1 - var(--on)) * 18px));
+}
+.sh-slide__service {
+  color: var(--sc-accent);
+  margin: 0 0 calc(var(--sc-u) * 4);
+}
+.sh-slide__index {
+  display: inline-block;
+  min-width: 2.2em;
+}
+.sh-slide__line {
+  margin: calc(var(--sc-u) * 5) 0 0;
+  max-width: 44ch;
+}
+.sh-slide__price {
+  font-size: clamp(2rem, 1rem + 3.2vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: calc(var(--sc-u) * 8) 0 0;
+}
+.sh-slide__terms {
+  margin: calc(var(--sc-u) * 2) 0 calc(var(--sc-u) * 5);
+}
+.sh-slide__plate {
+  grid-column: 6 / 13;
+  transform: translateY(calc((1 - var(--on)) * -14px));
+}
+.sh-slide__credit {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 26px);
+  margin: 0;
+  color: var(--sc-ink-soft);
+}
+
+/* ── 3 Proof: the ink panel ─────────────────────────────────────────────── */
+
+.sh-ink {
+  z-index: 8;
+  background: var(--sc-ink);
+  color: #f3efe6;
+  transform: translateY(calc((1 - var(--ink-in)) * 100% + var(--ink-out) * -100%));
+  align-items: stretch;
+}
+.sh-ink .sc-body,
+.sh-ink .sc-dek,
+.sh-ink .sc-tiny {
+  color: rgba(243, 239, 230, 0.72);
+}
+.sh-ink__inner {
+  grid-column: 1 / 13;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 6);
+  row-gap: calc(var(--sc-u) * 12);
+  align-content: space-between;
+}
+.sh-ink__head {
+  grid-column: 1 / 13;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: calc(var(--sc-u) * 6);
+  align-items: end;
+}
+.sh-ink__h2 {
+  grid-column: 1 / 8;
+  color: #f3efe6;
+  font-size: clamp(2.6rem, 1.1rem + 5.4vw, 6.5rem);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  max-width: 11ch;
+}
+.sh-ink__dek {
+  grid-column: 8 / 12;
+  margin: 0;
+  align-self: end;
+}
+.sh-stats {
+  grid-column: 1 / 13;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: calc(var(--sc-u) * 6);
+  margin: 0;
+  padding: calc(var(--sc-u) * 8) 0 0;
+  list-style: none;
+  border-top: 1px solid rgba(243, 239, 230, 0.18);
+}
+.sh-stat {
+  --reveal: clamp(0, calc((var(--ink-in) - 0.45 - var(--k) * 0.1) / 0.3), 1);
+  opacity: var(--reveal);
+  transform: translateY(calc((1 - var(--reveal)) * 16px));
+}
+.sh-stat__n {
+  font-size: clamp(2.25rem, 0.8rem + 4.6vw, 5.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-accent);
+  margin: 0;
+}
+.sh-stat__line {
+  margin: calc(var(--sc-u) * 4) 0 0;
+  color: #f3efe6;
+  max-width: 28ch;
+}
+.sh-stat__credit {
+  margin: calc(var(--sc-u) * 3) 0 0;
+}
+
+/* ── 4 Close ────────────────────────────────────────────────────────────── */
+
+.sh-close {
+  z-index: 6;
+  opacity: var(--close-in);
+  transform: translateY(calc((1 - var(--close-in)) * 24px));
+}
+.sh-close__how {
+  grid-column: 1 / 7;
+}
+.sh-steps {
+  margin: calc(var(--sc-u) * 8) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+  max-width: 46ch;
+}
+.sh-step {
+  display: grid;
+  grid-template-columns: 2.6em 1fr;
+  color: var(--sc-ink);
+  border-top: 1px solid var(--sc-line);
+  padding-top: calc(var(--sc-u) * 3);
+}
+.sh-step__n {
+  font-family: var(--sc-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--sc-accent);
+  padding-top: 0.35em;
+}
+.sh-close__offer {
+  grid-column: 8 / 13;
+  align-self: center;
+}
+.sh-anchors {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--sc-ink);
+}
+.sh-anchor {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--sc-u) * 4);
+  padding: calc(var(--sc-u) * 4) 0;
+  border-bottom: 1px solid var(--sc-line);
+}
+.sh-anchor__price {
+  font-size: clamp(1.25rem, 0.9rem + 1.2vw, 1.875rem);
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.sh-close__statement {
+  margin-top: calc(var(--sc-u) * 8);
+  color: var(--sc-ink);
+}
+.sh-close__cta {
+  margin-top: calc(var(--sc-u) * 4);
+  color: var(--sc-ink);
+}
+
+/* ── Colophon on paper, one terracotta rule. ───────────────────────────── */
+
+.sh-colophon {
+  position: relative;
+  border-top: 6px solid var(--sc-accent);
+  padding: calc(var(--sc-u) * 14) var(--sc-pad) calc(var(--sc-u) * 16);
+  background: var(--sc-canvas);
+}
+.sh-colophon__inner {
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+}
+.sh-colophon__note {
+  margin: 0;
+}
+.sh-colophon__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 6);
+  margin: calc(var(--sc-u) * 4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Short viewports: tighten the frame. ────────────────────────────────── */
+
+@media (max-height: 760px) and (min-width: 861px) {
+  .sh-act,
+  .sh-slide {
+    padding-top: calc(var(--sc-u) * 18);
+  }
+  .sh-h1 {
+    font-size: clamp(2.25rem, 1rem + 4.4vw, 4.75rem);
+  }
+  .sh-slide__line {
+    display: none;
+  }
+  .sh-stat__line {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Mobile and narrow: unstick, stack the acts in order. ──────────────── */
+
+@media (max-width: 860px) {
+  .sh-root {
+    --sc-gate: 0;
+    height: auto;
+  }
+  .sh-frame {
+    position: relative;
+    height: auto;
+    overflow: visible;
+  }
+  .sh-chrome {
+    position: sticky;
+    background: var(--sc-canvas);
+    box-shadow: 0 1px 0 var(--sc-line);
+  }
+  .sh-chrome__nav {
+    display: none;
+  }
+  .sh-act,
+  .sh-slide {
+    position: relative;
+    inset: auto;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    display: grid;
+    grid-template-columns: 1fr;
+    row-gap: calc(var(--sc-u) * 8);
+    padding: calc(var(--sc-u) * 12) var(--sc-pad);
+  }
+  .sh-open__copy,
+  .sh-open__art,
+  .sh-slide__copy,
+  .sh-slide__plate,
+  .sh-ink__inner,
+  .sh-ink__head,
+  .sh-ink__h2,
+  .sh-ink__dek,
+  .sh-stats,
+  .sh-close__how,
+  .sh-close__offer {
+    grid-column: 1 / -1;
+  }
+  .sh-open__art {
+    height: auto;
+    display: grid;
+    gap: calc(var(--sc-u) * 6);
+    padding-right: 12px;
+  }
+  .sh-block {
+    display: none;
+  }
+  .sh-open__shot {
+    position: static;
+    width: 100%;
+    animation: none;
+  }
+  .sh-open__shot:nth-child(4) {
+    display: none;
+  }
+  .sh-work {
+    padding: 0;
+  }
+  .sh-work__kicker {
+    position: static;
+    padding: calc(var(--sc-u) * 12) var(--sc-pad) 0;
+  }
+  .sh-rail {
+    display: none;
+  }
+  .sh-slide {
+    padding-top: calc(var(--sc-u) * 8);
+  }
+  .sh-slide__plate {
+    margin-right: 12px;
+    margin-bottom: calc(var(--sc-u) * 10);
+  }
+  .sh-ink {
+    transform: none !important;
+  }
+  .sh-ink__inner,
+  .sh-ink__head {
+    display: grid;
+    grid-template-columns: 1fr;
+    row-gap: calc(var(--sc-u) * 6);
+  }
+  .sh-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sh-stat {
+    opacity: 1;
+    transform: none;
+  }
+  .sh-stat__n {
+    font-size: clamp(2rem, 1rem + 6vw, 3.5rem);
+  }
+}
+
+@media (max-width: 520px) {
+  .sh-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Reduced motion: fades only. ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-open__copy,
+  .sh-open__shot,
+  .sh-slide__copy,
+  .sh-slide__plate,
+  .sh-stat,
+  .sh-close {
+    transform: none !important;
+  }
+  .sh-open__shot,
+  .sh-block {
+    animation: none;
+  }
+  .sh-slide {
+    clip-path: none;
+  }
+  .sh-ink {
+    transform: none;
+    opacity: calc(var(--ink-in) * (1 - var(--ink-out)));
+  }
+}

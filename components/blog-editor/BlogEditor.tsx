@@ -16,7 +16,7 @@ interface Props {
 
 /**
  * Minimal WYSIWYG editor for blog body markdown. Round-trips through the
- * tiptap-markdown serializer so the stored format stays markdown — what
+ * tiptap-markdown serializer so the stored format stays markdown  -  what
  * publishes to /insights/[slug] keeps working without changes.
  */
 export function BlogEditor({ initialMarkdown, busy, onSave, onCancel }: Props) {
@@ -65,7 +65,7 @@ export function BlogEditor({ initialMarkdown, busy, onSave, onCancel }: Props) {
 
   if (!editor) {
     return (
-      <div className="pib-skeleton h-96 rounded-2xl" />
+      <div className="pib-skeleton h-96 rounded-md" />
     )
   }
 

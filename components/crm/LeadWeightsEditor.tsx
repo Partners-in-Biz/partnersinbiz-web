@@ -1,7 +1,7 @@
 'use client'
 
 // components/crm/LeadWeightsEditor.tsx
-// Controlled editor for LeadSignalsWeights — used on /portal/settings/scoring
+// Controlled editor for LeadSignalsWeights - used on /portal/settings/scoring
 
 import type { LeadSignalsWeights } from '@/lib/scoring/types'
 

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/studio'
 'use client'
 
 export const BULK_ACTIONS = ['assign', 'stage', 'type', 'add-tags', 'remove-tags', 'assign-segment'] as const
@@ -100,7 +101,7 @@ export function ContactsBulkCommandBar({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="pib-label">Bulk command center</p>
-          <h2 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">Shape this contact set in one controlled move.</h2>
+          <h2 className="truncate text-xs text-[var(--color-pib-text)]">Shape this contact set in one controlled move.</h2>
           <p className="mt-0.5 max-w-2xl text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Apply ownership, lifecycle, type, or tag updates to the selected contacts without leaving the list.
           </p>
@@ -113,7 +114,7 @@ export function ContactsBulkCommandBar({
               className="btn-pib-secondary h-8 gap-1.5 px-2 text-xs"
               aria-label="Export selected contacts as CSV"
             >
-              <span className="material-symbols-outlined text-[14px]">file_download</span>
+              <Icon name="file_download" />
               Export selected
             </button>
           )}
@@ -122,7 +123,7 @@ export function ContactsBulkCommandBar({
             className="btn-pib-ghost h-8 gap-1.5 px-2 text-xs"
             aria-label="Clear selected contacts"
           >
-            <span className="material-symbols-outlined text-[14px]">close</span>
+            <Icon name="close" />
             Clear selection
           </button>
         </div>
@@ -130,11 +131,11 @@ export function ContactsBulkCommandBar({
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="pib-stat-card">
-          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">{selectedCount} selected</p>
+          <p className="text-lg leading-6 text-[var(--color-pib-text)]">{selectedCount} selected</p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Selected records</p>
         </div>
         <div className="pib-stat-card">
-          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">{coverage}%</p>
+          <p className="text-lg leading-6 text-[var(--color-pib-text)]">{coverage}%</p>
           <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Coverage</p>
         </div>
         <div className="pib-stat-card">
@@ -269,7 +270,7 @@ export function ContactsBulkCommandBar({
           aria-label="Apply updates"
           className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
         >
-          <span className="material-symbols-outlined text-[14px]">done_all</span>
+          <Icon name="done_all" />
           {bulkPending ? 'Applying...' : 'Apply updates'}
         </button>
 
@@ -279,7 +280,7 @@ export function ContactsBulkCommandBar({
           className="btn-pib-danger h-8 gap-1.5 px-2 text-xs"
           aria-label="Delete selected contacts"
         >
-          <span className="material-symbols-outlined text-[14px]">delete</span>
+          <Icon name="delete" />
           Delete selected
         </button>
       </div>

@@ -273,9 +273,9 @@ export default function CouponsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Coupons
           </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Discount Coupons</h1>
+          <h1 className="text-2xl font-headline font-medium text-[var(--color-pib-text)]">Discount Coupons</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-            Manual EFT / PayPal discount codes applied to platform invoices. No Stripe — discounts
+            Manual EFT / PayPal discount codes applied to platform invoices. No Stripe - discounts
             are applied when an operator or agent raises an invoice for an org.
           </p>
         </div>
@@ -285,30 +285,30 @@ export default function CouponsPage() {
               setShowCreate((v) => !v)
               setCreateError(null)
             }}
-            className="pib-btn-primary text-sm font-label"
+            className="st-btn st-btn--primary text-sm font-label"
           >
             {showCreate ? 'Cancel' : '+ New coupon'}
           </button>
-          <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/settings" className="st-btn st-btn--ghost text-sm font-label">
             Back to settings
           </Link>
         </div>
       </div>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="st-panel border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-[var(--st-danger)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="st-panel border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
       )}
 
       {showCreate && (
-        <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
+        <form onSubmit={handleCreate} className="st-panel p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
               <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -319,7 +319,7 @@ export default function CouponsPage() {
                 value={form.code}
                 onChange={(e) => patchForm({ code: e.target.value.toUpperCase() })}
                 placeholder="LAUNCH20"
-                className="pib-input w-full mt-1 font-mono"
+                className="st-input w-full mt-1 font-mono"
                 required
               />
             </label>
@@ -330,7 +330,7 @@ export default function CouponsPage() {
               <select
                 value={form.type}
                 onChange={(e) => patchForm({ type: e.target.value as CouponType })}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               >
                 <option value="percent">Percent (%)</option>
                 <option value="fixed">Fixed (ZAR)</option>
@@ -347,7 +347,7 @@ export default function CouponsPage() {
                 value={form.value}
                 onChange={(e) => patchForm({ value: e.target.value })}
                 placeholder={form.type === 'percent' ? '20' : '500'}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
                 required
               />
             </label>
@@ -358,7 +358,7 @@ export default function CouponsPage() {
               <select
                 value={form.duration}
                 onChange={(e) => patchForm({ duration: e.target.value as CouponDuration })}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               >
                 <option value="once">Once</option>
                 <option value="repeating">Repeating</option>
@@ -377,7 +377,7 @@ export default function CouponsPage() {
                   value={form.durationMonths}
                   onChange={(e) => patchForm({ durationMonths: e.target.value })}
                   placeholder="3"
-                  className="pib-input w-full mt-1"
+                  className="st-input w-full mt-1"
                 />
               </label>
             )}
@@ -392,7 +392,7 @@ export default function CouponsPage() {
                 value={form.maxRedemptions}
                 onChange={(e) => patchForm({ maxRedemptions: e.target.value })}
                 placeholder="Unlimited"
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               />
             </label>
             <label className="block">
@@ -403,7 +403,7 @@ export default function CouponsPage() {
                 type="date"
                 value={form.expiresAt}
                 onChange={(e) => patchForm({ expiresAt: e.target.value })}
-                className="pib-input w-full mt-1"
+                className="st-input w-full mt-1"
               />
             </label>
             <div className="block md:col-span-2">
@@ -412,7 +412,7 @@ export default function CouponsPage() {
               </span>
               {plans.length === 0 ? (
                 <p className="text-xs text-[var(--color-pib-text-muted)]/60 mt-1">
-                  No plans loaded — coupon will apply to all plans.
+                  No plans loaded - coupon will apply to all plans.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -423,7 +423,7 @@ export default function CouponsPage() {
                         type="button"
                         key={plan.id}
                         onClick={() => togglePlanKey(plan.key)}
-                        className="text-xs font-label px-3 py-1 rounded-full border transition-colors"
+                        className="text-xs font-label px-3 py-1 rounded border transition-colors"
                         style={{
                           borderColor: selected ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.12)',
                           background: selected ? 'var(--color-pib-accent)' : 'transparent',
@@ -447,15 +447,15 @@ export default function CouponsPage() {
               <textarea
                 value={form.notes}
                 onChange={(e) => patchForm({ notes: e.target.value })}
-                placeholder="Internal note — e.g. Q3 launch promo for new EFT customers"
-                className="pib-input w-full mt-1"
+                placeholder="Internal note - e.g. Q3 launch promo for new EFT customers"
+                className="st-input w-full mt-1"
                 rows={2}
               />
             </label>
           </div>
-          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          {createError && <p className="text-xs text-[var(--st-danger)]">{createError}</p>}
           <div className="flex justify-end">
-            <button type="submit" disabled={creating} className="pib-btn-primary text-sm font-label">
+            <button type="submit" disabled={creating} className="st-btn st-btn--primary text-sm font-label">
               {creating ? 'Creating...' : 'Create coupon'}
             </button>
           </div>
@@ -464,16 +464,16 @@ export default function CouponsPage() {
 
       {loading ? (
         <div className="space-y-2">
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
-          <Skeleton className="h-14 rounded-xl" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
+          <Skeleton className="h-14 rounded-[6px]" />
         </div>
       ) : coupons.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No coupons yet. Create your first discount code above.
         </div>
       ) : (
-        <div className="pib-card overflow-hidden">
+        <div className="st-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -499,7 +499,7 @@ export default function CouponsPage() {
                     <Fragment key={coupon.id}>
                       <tr className="border-b border-[var(--color-pib-text)]/5 last:border-0">
                         <td className="px-4 py-3">
-                          <span className="font-mono font-semibold text-[var(--color-pib-text)]">{coupon.code}</span>
+                          <span className="font-mono font-medium text-[var(--color-pib-text)]">{coupon.code}</span>
                           {coupon.notes ? (
                             <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 truncate max-w-[200px]">{coupon.notes}</p>
                           ) : null}
@@ -521,7 +521,7 @@ export default function CouponsPage() {
                             <button
                               onClick={() => toggleActive(coupon)}
                               disabled={busy}
-                              className={`pib-pill ${coupon.active ? 'pib-pill-success' : ''}`}
+                              className={`st-status ${coupon.active ? 'st-status st-status--success' : ''}`}
                               title="Toggle active"
                             >
                               {coupon.active ? 'Active' : 'Inactive'}
@@ -529,14 +529,14 @@ export default function CouponsPage() {
                             <button
                               onClick={() => toggleUsage(coupon)}
                               disabled={busy}
-                              className="pib-btn-ghost text-xs font-label"
+                              className="st-btn st-btn--ghost text-xs font-label"
                             >
                               {expanded ? 'Hide usage' : 'Usage'}
                             </button>
                             <button
                               onClick={() => deleteCoupon(coupon)}
                               disabled={busy}
-                              className="text-xs font-label px-2.5 py-1 rounded-full text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                              className="text-xs font-label px-2.5 py-1 rounded text-[var(--st-danger)] hover:bg-red-500/10 disabled:opacity-50"
                             >
                               Delete
                             </button>
@@ -552,7 +552,7 @@ export default function CouponsPage() {
                                 <Skeleton className="h-8 rounded-lg" />
                               </div>
                             ) : usageError ? (
-                              <p className="text-xs text-red-400">{usageError}</p>
+                              <p className="text-xs text-[var(--st-danger)]">{usageError}</p>
                             ) : usageRows.length === 0 ? (
                               <p className="text-xs text-[var(--color-pib-text-muted)]">No redemptions yet for this coupon.</p>
                             ) : (
@@ -570,9 +570,9 @@ export default function CouponsPage() {
                                   {usageRows.map((row) => (
                                     <tr key={row.id} className="border-t border-[var(--color-pib-text)]/5">
                                       <td className="py-1.5 pr-4 text-[var(--color-pib-text)]">{row.orgName}</td>
-                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)] font-mono">{row.invoiceId ?? '—'}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)] font-mono">{row.invoiceId ?? '-'}</td>
                                       <td className="py-1.5 pr-4 text-[var(--color-pib-text)]">{formatZar(row.discountZar)}</td>
-                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)]">{row.redeemedBy || '—'}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)]">{row.redeemedBy || '-'}</td>
                                       <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)]">{formatDate(row.createdAt)}</td>
                                     </tr>
                                   ))}

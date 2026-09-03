@@ -1,20 +1,29 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SITE } from '@/lib/seo/site'
+import { SITE, TECH_STACK } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
-import { Reveal } from '@/components/marketing/Reveal'
-import { SectionHead } from '@/components/marketing/SectionHead'
+import { WORK_SHOTS } from '@/lib/marketing/stage-content'
+import {
+  Article,
+  ArticleHead,
+  ArticleList,
+  ArticleRow,
+  CtaSentence,
+  Plate,
+  Proof,
+} from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
+
+const DESCRIPTION =
+  'Straight answers about working with Partners in Biz: what we build, how long it takes, what it costs, what we build with, and what happens after launch.'
 
 export const metadata: Metadata = {
   title: 'FAQ',
-  description:
-    'Answers to the most common questions about working with Partners in Biz — from scoping and pricing to timelines, tech stack, and what happens after launch.',
+  description: DESCRIPTION,
   alternates: { canonical: '/faq' },
   openGraph: {
-    title: 'FAQ — Partners in Biz',
-    description:
-      'Common questions about working with Partners in Biz — pricing, process, tech stack, and more.',
+    title: `FAQ | ${SITE.name}`,
+    description: DESCRIPTION,
     url: `${SITE.url}/faq`,
     type: 'website',
   },
@@ -23,173 +32,206 @@ export const metadata: Metadata = {
 const GENERAL_FAQ = [
   {
     q: 'Who is Partners in Biz for?',
-    a: 'Ambitious South African SMEs that want software working for them — not against them. Our clients are typically founders, operators, and marketing leads who are done with generic agencies and want a technical partner that ships fast and thinks commercially.',
+    a: 'Founders, operators and marketing leads at South African businesses who want software that brings in clients, built by the person who quoted it. We keep client numbers low so quality stays high.',
   },
   {
-    q: 'What do you actually build?',
-    a: 'Marketing websites, custom web applications, AI-powered tools, client portals, and growth automation. We also run 90-day SEO sprints and social media management for clients who want ongoing results alongside their tech.',
+    q: 'What do you build?',
+    a: 'Marketing sites that make the phone ring, custom web applications, mobile apps, AI agents that do real work, client portals, and growth systems. We also run SEO sprints and social media for clients who want the ongoing work handled.',
   },
   {
-    q: 'Where are you based? Do you work remotely?',
-    a: 'Remote-first, Pretoria-based. We work with clients across South Africa and internationally. Everything runs async — no need to be in the same city or timezone.',
+    q: 'Where are you based?',
+    a: 'Pretoria. We work with clients across South Africa and abroad, mostly on WhatsApp and preview links, so you do not need to be in the same city or time zone.',
   },
   {
-    q: 'How is Partners in Biz different from a regular agency?',
-    a: 'You get the founder in your corner — not a junior developer managed by an account handler. Every project is built by Peet (principal engineer) with a small, senior team. We keep client numbers intentionally low so quality stays high.',
+    q: 'How is this different from an agency?',
+    a: 'One person scopes the work, writes the code, sends the invoice and answers the WhatsApp. No junior developer behind an account manager. You own everything we build the day it ships.',
   },
 ]
 
 const PROCESS_FAQ = [
   {
     q: 'How does a project start?',
-    a: 'Fill in the four-question brief on /start-a-project. We reply within one business day with questions or a scope draft. Fixed-scope quotes arrive within 3 working days. No discovery retainers, no surprise NDAs.',
+    a: 'Book a 20-minute call. We talk through what you have and what you need, and you get a fixed-scope quote within three working days. No discovery retainers, no surprise NDAs.',
   },
   {
     q: 'How long does a project take?',
-    a: 'Marketing sites: 4–6 weeks. Web applications: 8–16 weeks depending on scope. We share a milestone-based timeline at kickoff so you always know what\'s being built and when.',
+    a: 'A marketing site is live in 2 to 4 weeks. A web application takes 6 to 12 weeks for a working first version, with a usable preview from week two. You get a milestone timeline at kick-off.',
   },
   {
     q: 'Do you work on existing codebases?',
-    a: 'Yes — we do audits, migrations, and feature work on existing projects. The first step is a code review to assess the health of the codebase and scope the work honestly.',
+    a: 'Yes. Audits, migrations and feature work. The first step is a code review so we can scope the work honestly.',
   },
   {
-    q: 'What does your development process look like day to day?',
-    a: 'Daily Loom updates on active projects. You see work-in-progress every 24 hours. Decisions get documented in writing. You\'re never waiting a week to hear what\'s happening.',
+    q: 'What does the week look like while you build?',
+    a: 'A preview link you can open any time, a WhatsApp channel for the things that do not need a meeting, and decisions written down. You never wait a week to hear what is happening.',
   },
   {
     q: 'Do you do design as well as development?',
-    a: 'Yes. We design in Figma before we write a line of code. For marketing sites we work from your brand assets. For web apps we run a full design sprint and get sign-off before moving to build.',
+    a: 'Yes. We design in Figma before writing code. For marketing sites we work from your brand. For web apps we run a design sprint and get sign-off before the build.',
   },
 ]
 
 const TECH_FAQ = [
   {
-    q: 'What\'s your tech stack?',
-    a: 'Next.js (App Router) on Vercel, Firebase or Supabase for database and auth, Tailwind CSS, TypeScript throughout. For AI features we use the Anthropic API (Claude). We pick the right tool for the job — no religious attachment to any one framework.',
+    q: 'What do you build with?',
+    a: 'Next.js on Vercel, Firebase or Supabase for data and auth, Tailwind and TypeScript throughout, Claude and OpenAI for AI features. Boring, supported tools, chosen for what they look like in five years.',
   },
   {
     q: 'Do you build mobile apps?',
-    a: 'We build mobile-first web apps that work beautifully on any device. Native iOS/Android is not our core offering, but we have delivered Capacitor-wrapped web apps for clients who need app store presence without a separate native codebase.',
+    a: 'Yes. iOS and Android from one codebase, with offline support, push notifications and store submission for both platforms. See the mobile apps service page for what ships and what it costs.',
   },
   {
     q: 'Who hosts the site after launch?',
-    a: 'Vercel for the application, Firebase or Supabase for the database — all on your accounts, not ours. You own the infrastructure. Most marketing sites cost under R500/month to run. We help you set everything up and hand over access cleanly.',
+    a: 'Vercel for the application, Firebase or Supabase for the database, all on your accounts. Most marketing sites cost under R500 a month to run. We set it up and hand over access cleanly.',
   },
   {
     q: 'Do you handle SEO?',
-    a: 'Yes — every marketing site ships with full technical SEO: schema markup, sitemap, llms.txt, and meta setup. For clients who want ongoing SEO work, our 90-day sprint programme targets specific keywords and tracks position improvements monthly.',
+    a: 'Every marketing site ships with the technical work done: schema, sitemap, llms.txt, and metadata. For ongoing ranking work, our 90-day sprint targets specific terms and tracks positions monthly.',
   },
 ]
 
 const PRICING_FAQ = [
   {
     q: 'What does it cost?',
-    a: 'Marketing sites from R35,000. Web applications from R120,000. Retainers from R15,000/month. Add-ons (SEO sprint, performance audit, AI feature, brand identity) are fixed-scope and priced on the /pricing page. No hidden costs.',
+    a: 'A marketing site from R35,000. A web application from R120,000. Retainers from R15,000 a month. Fixed-scope extras such as an SEO sprint, a performance audit, an AI feature or a brand identity are priced on the pricing page.',
   },
   {
     q: 'How do payment terms work?',
-    a: 'Standard split: 40% to start, 30% at design sign-off, 30% at launch. For longer engagements we structure monthly milestones. EFT for SA clients (no fees). PayPal for international clients (3.5%).',
+    a: 'For a marketing site, half to start and half at launch. For larger builds, 40% to start, 30% at design sign-off, 30% at launch. EFT for South African clients with no fees; PayPal for international clients at 3.5%.',
   },
   {
     q: 'Do you offer retainers?',
-    a: 'Yes. Lite (R15k/month, 8 hrs), Growth (R35k/month, 20 hrs + roadmap reviews), and Embedded (R75k/month, 40 hrs + on-call). Retainers are month-to-month with 30 days notice.',
+    a: 'Yes. Lite is R15,000 a month for eight hours. Growth is R35,000 for twenty hours with roadmap reviews. Embedded is R75,000 for forty hours with on-call. All month to month with 30 days notice.',
   },
   {
     q: 'Can we do equity or revenue share?',
-    a: 'For bespoke engagements, yes. We take equity in roughly 1 in 5 projects. The bar is high: real founders, real traction, and a problem we want to solve. Equity layers on top of a discounted cash rate.',
+    a: 'For bespoke builds, sometimes. Roughly one in five of those projects. The bar is real founders, real traction, and a problem we want to solve. Equity sits on top of a discounted cash rate.',
   },
 ]
 
-const ALL_SECTIONS = [
-  { eyebrow: 'General', title: 'The basics.', items: GENERAL_FAQ },
-  { eyebrow: 'Process', title: 'How we work.', items: PROCESS_FAQ },
-  { eyebrow: 'Technology', title: 'What we build with.', items: TECH_FAQ },
-  { eyebrow: 'Pricing', title: 'What it costs.', items: PRICING_FAQ },
-]
-
 const ALL_FAQ = [...GENERAL_FAQ, ...PROCESS_FAQ, ...TECH_FAQ, ...PRICING_FAQ]
+
+const WEEKLY = [
+  'A preview link for every pull request.',
+  'A board you can read, with every ticket and blocker.',
+  'A short video of what shipped and what is next.',
+  'A WhatsApp channel for the things that do not need a meeting.',
+] as const
 
 export default function FaqPage() {
   const breadcrumb = breadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'FAQ', url: '/faq' },
   ])
-  const faq = faqSchema(ALL_FAQ)
 
   return (
-    <main className="relative">
+    <Article>
       <JsonLd data={breadcrumb} />
-      <JsonLd data={faq} />
+      <JsonLd data={faqSchema(ALL_FAQ)} />
 
-      {/* Hero */}
-      <section className="section relative overflow-hidden">
-        <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
-        <div className="container-pib">
-          <Reveal>
-            <p className="eyebrow mb-6">FAQ</p>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1 className="h-display text-balance max-w-4xl">
-              Questions we get asked a lot.
-            </h1>
-          </Reveal>
-          <Reveal delay={160}>
-            <p className="mt-8 max-w-2xl text-lg md:text-xl text-[var(--color-pib-text-muted)] text-pretty">
-              Straight answers — no sales speak. If yours isn&rsquo;t here, email us at{' '}
-              <a
-                href={`mailto:${SITE.email}`}
-                className="text-[var(--color-pib-accent)] hover:underline"
-              >
-                {SITE.email}
-              </a>
+      <ArticleHead
+        kicker="FAQ"
+        title="Questions we get asked a lot."
+        lede={
+          <>
+            Straight answers. If yours is not here, write to{' '}
+            <a href={`mailto:${SITE.email}`} className="sc-link">
+              {SITE.email}
+            </a>{' '}
+            and you will hear back from a person.
+          </>
+        }
+        plate={
+          <Plate
+            src={WORK_SHOTS.ahsLaw.src}
+            alt={WORK_SHOTS.ahsLaw.alt}
+            caption="AHS Law. Number one on Google in eight weeks."
+            wide
+            priority
+          />
+        }
+      />
+
+      <ArticleRow
+        title="The basics"
+        aside={
+          <Proof
+            line="One person scopes the work, writes the code, sends the invoice and answers the WhatsApp. You own everything the day it ships."
+            credit="How the studio works"
+            href="/about"
+          />
+        }
+      >
+        <FAQ items={GENERAL_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="How we work"
+        flip
+        aside={
+          <>
+            <p className="sc-tiny">Every week, without asking</p>
+            <ArticleList items={WEEKLY} />
+          </>
+        }
+      >
+        <FAQ items={PROCESS_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="What we build with"
+        aside={
+          <>
+            <p className="sc-tiny">Tools we trust</p>
+            <p className="sc-body">
+              {TECH_STACK.join(', ')}. Picked for what they look like in five years, not for what is on Hacker News this week.
+            </p>
+            <p className="sc-body">
+              <Link href="/services" prefetch={false} className="sc-link">
+                Everything we do
+              </Link>
+            </p>
+          </>
+        }
+      >
+        <FAQ items={TECH_FAQ} />
+      </ArticleRow>
+
+      <ArticleRow
+        title="What it costs"
+        flip
+        aside={
+          <>
+            <p className="sc-article__price">From R35,000</p>
+            <p className="sc-body">
+              A marketing site, fixed scope and fixed price, live in 2 to 4 weeks. Every number is on the{' '}
+              <Link href="/pricing" prefetch={false} className="sc-link">
+                pricing page
+              </Link>
               .
             </p>
-          </Reveal>
-        </div>
-      </section>
+          </>
+        }
+      >
+        <FAQ items={PRICING_FAQ} />
+      </ArticleRow>
 
-      {/* FAQ sections */}
-      {ALL_SECTIONS.map((section) => (
-        <section key={section.eyebrow} className="section pt-0">
-          <div className="container-pib">
-            <SectionHead eyebrow={section.eyebrow} title={section.title} />
-            <FAQ items={section.items} />
-          </div>
-        </section>
-      ))}
-
-      {/* CTA */}
-      <section className="section pt-0">
-        <div className="container-pib">
-          <Reveal>
-            <div className="bento-card p-10 md:p-14 flex flex-col md:flex-row md:items-center justify-between gap-8">
-              <div className="max-w-xl">
-                <p className="eyebrow mb-3">Still have questions?</p>
-                <h3 className="h-display text-3xl md:text-4xl text-balance">
-                  Let&rsquo;s talk it through.
-                </h3>
-                <p className="mt-4 text-[var(--color-pib-text-muted)] text-pretty">
-                  Tell us what you&rsquo;re building and we&rsquo;ll tell you honestly if we&rsquo;re the right fit.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 shrink-0">
-                <Link href="/start-a-project" className="btn-pib-accent">
-                  Start a project
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </Link>
-                <a
-                  href={SITE.cal.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-pib-secondary"
-                >
-                  Book a call
-                </a>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-    </main>
+      <ArticleRow
+        title="Still not sure?"
+        aside={
+          <Proof
+            line="AHS Law. Number one on Google in eight weeks. Athleet. Club platform live for three clubs in under four weeks."
+            credit="See the work"
+            href="/work"
+          />
+        }
+      >
+        <p>
+          Twenty minutes is enough to know if this is the right shape for you. No discovery retainer, no deck, no
+          follow-up sequence. If we are not the right fit, we will say so and point you to someone who is.
+        </p>
+        <CtaSentence lead="Tell us what you are building and we will tell you honestly if we are the right fit." />
+      </ArticleRow>
+    </Article>
   )
 }

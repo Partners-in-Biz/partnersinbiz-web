@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '@/components/studio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { filterAgentsByGate } from '@/lib/conversations/new-conversation-agent-gate'
 
@@ -64,9 +65,9 @@ interface WorkforceBlueprintResponse {
 type DepartmentName = string
 
 const AGENT_COLOR: Record<string, { dot: string; label: string; icon: string }> = {
-  violet:  { dot: 'bg-violet-400', label: 'text-violet-300',  icon: 'text-violet-300' },
+  violet:  { dot: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]', label: 'text-[var(--st-info)]',  icon: 'text-[var(--st-info)]' },
   sky:     { dot: 'bg-sky-400',    label: 'text-sky-300',     icon: 'text-sky-300' },
-  amber:   { dot: 'bg-amber-400',  label: 'text-amber-300',   icon: 'text-amber-300' },
+  amber:   { dot: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',  label: 'text-[var(--st-warning)]',   icon: 'text-[var(--st-warning)]' },
   emerald: { dot: 'bg-emerald-400',label: 'text-emerald-300', icon: 'text-emerald-300' },
   rose:    { dot: 'bg-rose-400',   label: 'text-rose-300',    icon: 'text-rose-300' },
 }
@@ -158,7 +159,7 @@ export default function ParticipantPicker({
     const agentsUrl = `/api/v1/orgs/${orgId}/visible-agents${
       runtimeTargetId ? `?runtimeTarget=${encodeURIComponent(runtimeTargetId)}` : ''
     }`
-    // Prefer /people — some privacy filters block paths containing "contacts".
+    // Prefer /people - some privacy filters block paths containing "contacts".
     const peopleUrl = `/api/v1/orgs/${orgId}/people`
     const workforceBlueprintParam = workforceBlueprintId ? `?blueprint=${encodeURIComponent(workforceBlueprintId)}` : ''
     const workforceUrl = `/api/v1/orgs/${orgId}/workforce-blueprint${workforceBlueprintParam}`
@@ -439,7 +440,7 @@ export default function ParticipantPicker({
             return (
               <span
                 key={p.kind === 'agent' ? p.agentId : p.uid}
-                className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/40 px-2.5 py-0.5 text-xs text-[var(--color-pib-text)]"
+                className="inline-flex items-center gap-1 rounded-[4px] bg-primary/20 border border-primary/40 px-2.5 py-0.5 text-xs text-[var(--color-pib-text)]"
               >
                 {label}
                 <button
@@ -449,7 +450,7 @@ export default function ParticipantPicker({
                   className="ml-0.5 hover:text-red-300 transition-colors"
                   aria-label={`Remove ${label}`}
                 >
-                  <span className="material-symbols-outlined text-[12px]">close</span>
+                  <Icon name="close" className="text-[12px]" />
                 </button>
               </span>
             )
@@ -458,33 +459,33 @@ export default function ParticipantPicker({
       )}
 
       {selected.length >= MAX_SELECTIONS && (
-        <p className="text-xs text-amber-300">Max {MAX_SELECTIONS} participants.</p>
+        <p className="text-xs text-[var(--st-warning)]">Max {MAX_SELECTIONS} participants.</p>
       )}
 
       {error && (
-        <p className="px-1 text-xs text-amber-200" data-testid="participants-agents-warning">
+        <p className="px-1 text-xs text-[var(--st-warning)]" data-testid="participants-agents-warning">
           {error}
         </p>
       )}
       {peopleWarning && (
-        <p className="px-1 text-xs text-amber-200" data-testid="participants-people-warning">
+        <p className="px-1 text-xs text-[var(--st-warning)]" data-testid="participants-people-warning">
           {peopleWarning}
         </p>
       )}
 
-      {/* Agents section — after context + machine in the parent modal */}
+      {/* Agents section - after context + machine in the parent modal */}
       {showAgentSection && (
         <div>
           {workforce && (
             <div
               data-testid="workforce-blueprint"
-              className="mb-3 rounded-xl border border-primary/20 bg-primary/[0.06] px-3 py-2.5"
+              className="mb-3 rounded-[6px] border border-primary/20 bg-primary/[0.06] px-3 py-2.5"
             >
               <div className="flex flex-wrap items-center justify-between gap-1.5">
-                <p className="text-xs font-semibold text-[var(--color-pib-text)]">
+                <p className="text-xs font-medium text-[var(--color-pib-text)]">
                   Recommended for {workforce.blueprint.label}
                 </p>
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                <span className="rounded-[4px] bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                   {recommendedAvailableCount}/{workforce.blueprint.recommendedAgentIds.length} available here
                 </span>
               </div>
@@ -496,22 +497,22 @@ export default function ParticipantPicker({
                 {` • policy v${workforce.policyEvidence.policyVersion}`}
               </p>
               {!workforce.policyEvidence.policyReady && missingCoverage.length > 0 && (
-                <p className="mt-1 text-[10px] text-amber-200">
+                <p className="mt-1 text-[10px] text-[var(--st-warning)]">
                   Skill coverage gaps: {missingCoverage.map((coverage) => coverage.skillId).join(', ')}
                 </p>
               )}
               {missingPolicies.length > 0 && (
-                <p className="mt-1 text-[10px] text-amber-200">
+                <p className="mt-1 text-[10px] text-[var(--st-warning)]">
                   {missingPolicies.length} recommended agents are missing policy definitions.
                 </p>
               )}
               {recommendedMissingCount > 0 && (
-                <p className="mt-1.5 text-[10px] text-amber-200">
+                <p className="mt-1.5 text-[10px] text-[var(--st-warning)]">
                   {recommendedMissingCount} recommended {recommendedMissingCount === 1 ? 'agent needs' : 'agents need'} an owner grant or ready runtime.
                 </p>
               )}
               {workforce.blueprint.specialistGaps.map((gap) => (
-                <p key={gap.id} className="mt-1.5 text-[10px] text-amber-200" title={gap.reason}>
+                <p key={gap.id} className="mt-1.5 text-[10px] text-[var(--st-warning)]" title={gap.reason}>
                   Gap: {gap.label} is not provisioned yet.
                 </p>
               ))}
@@ -550,32 +551,26 @@ export default function ParticipantPicker({
                     onClick={() => {
                       if (!disabled) toggleAgent(agent)
                     }}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
-                      isChecked
-                        ? 'bg-white/8 border border-white/15'
-                        : 'hover:bg-white/5 border border-transparent'
-                    } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <div className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center shrink-0">
-                      <span className={`material-symbols-outlined text-[15px] ${c.icon}`}>
-                        {agent.iconKey ?? 'smart_toy'}
-                      </span>
+                    <div className="w-7 h-7 rounded-[4px] bg-white/8 flex items-center justify-center shrink-0">
+                      <Icon name={agent.iconKey ?? 'smart_toy'} className={`text-[15px] ${c.icon}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <p className={`truncate text-sm font-medium ${c.label}`}>{agent.name}</p>
                         {recommendedAgentIds.has(agent.agentId) && (
-                          <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                          <span className="shrink-0 rounded-[4px] border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
                             Recommended
                           </span>
                         )}
                         {policy && !policy.policyDefined && (
-                          <span className="shrink-0 rounded-full border border-red-300/35 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-200">
+                          <span className="shrink-0 rounded-[4px] border border-red-300/35 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-200">
                             Policy missing
                           </span>
                         )}
                         {policy && policy.policyDefined && policy.approvalGates.length > 0 && !policy.approvalGates.includes('approve') && (
-                          <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-100">
+                          <span className="shrink-0 rounded-[4px] border border-amber-300/25 bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--st-warning)]">
                             Approval gated
                           </span>
                         )}
@@ -583,7 +578,7 @@ export default function ParticipantPicker({
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
                         {policy && policy.policyDefined && coverage.length > 0 && (
-                          <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-[4px] bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                             Covers {coverage.length} required skill{coverage.length === 1 ? '' : 's'}
                           </span>
                         )}
@@ -591,17 +586,11 @@ export default function ParticipantPicker({
                     </div>
                     {agent.lastHealthStatus && (
                       <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          agent.lastHealthStatus === 'ok'
-                            ? 'bg-emerald-400'
-                            : agent.lastHealthStatus === 'degraded'
-                            ? 'bg-amber-400'
-                            : 'bg-red-400'
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-[4px] shrink-0 ${ agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]' : 'bg-red-400' }`}
                       />
                     )}
                     {isChecked && (
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                      <Icon name="check_circle" className="text-primary text-[18px]" />
                     )}
                   </button>
                 )
@@ -626,16 +615,12 @@ export default function ParticipantPicker({
               const groupDisabled = selected.length >= MAX_SELECTIONS && !allSelected
               const isExpanded = expandedDepartments.has(department)
               return (
-                <div key={department} className="space-y-1.5 rounded-xl border border-white/[0.08] px-2 py-2">
+                <div key={department} className="space-y-1.5 rounded-[6px] border border-white/[0.08] px-2 py-2">
                   <label
                     onMouseDown={(event) => {
                       if (!groupDisabled) event.preventDefault()
                     }}
-                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${
-                      allSelected || someSelected
-                        ? 'bg-white/8 border border-white/15'
-                        : 'hover:bg-white/5 border border-transparent'
-                    } ${groupDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${groupDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <input
                       type="checkbox"
@@ -648,11 +633,9 @@ export default function ParticipantPicker({
                       aria-label={`Select department ${department} (${selectedCount}/${totalCount})`}
                       className="sr-only"
                     />
-                    <span className="material-symbols-outlined text-sm text-[var(--color-pib-text-muted)]">
-                      {isExpanded ? 'expand_less' : 'expand_more'}
-                    </span>
+                    <Icon name={isExpanded ? 'expand_less' : 'expand_more'} className="text-sm text-[var(--color-pib-text-muted)]" />
                     <span className="min-w-0 flex-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-pib-text)]">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--color-pib-text)]">
                         {department}
                       </span>
                       <span className="text-[10px] text-[var(--color-pib-text-muted)]">
@@ -671,7 +654,7 @@ export default function ParticipantPicker({
                       aria-label={`Toggle ${department} contacts`}
                       onMouseDown={(event) => event.preventDefault()}
                     >
-                      <span className="material-symbols-outlined text-[16px]">{isExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                      <Icon name={isExpanded ? 'unfold_less' : 'unfold_more'} className="text-[16px]" />
                     </button>
                   </label>
                   {isExpanded && (
@@ -696,13 +679,9 @@ export default function ParticipantPicker({
                             onClick={() => {
                               if (!disabled) toggleContact(contact)
                             }}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
-                              isChecked
-                                ? 'bg-white/8 border border-white/15'
-                                : 'hover:bg-white/5 border border-transparent'
-                            } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${ isChecked ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-blue-soft)] text-xs font-bold text-[#93C5FD]">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] bg-[color-mix(in_srgb,var(--sc-ink)_6%,transparent)] text-xs font-medium text-[#93C5FD]">
                               {inits || '?'}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -711,7 +690,7 @@ export default function ParticipantPicker({
                               <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{roleLabel}</p>
                             </div>
                             {isChecked && (
-                              <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                              <Icon name="check_circle" className="text-primary text-[18px]" />
                             )}
                           </button>
                         )

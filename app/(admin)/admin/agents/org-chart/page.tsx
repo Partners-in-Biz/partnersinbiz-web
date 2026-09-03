@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Admin Agent Org Chart — multi-org switcher + full live runtime drawer.
+ * Admin Agent Org Chart - multi-org switcher + full live runtime drawer.
  * Shared surface: components/agents/org-chart/AgentOrgChartClient.tsx
  */
 import { useCallback, useEffect, useState } from 'react'

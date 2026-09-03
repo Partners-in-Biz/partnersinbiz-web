@@ -27,7 +27,7 @@ export default async function SavedAudiencesPage({ params }: { params: Promise<P
 
       {sas.length === 0 ? (
         <div className="pib-empty-state">
-          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bookmark</span>
+          
           <p className="pib-empty-state-description">No saved audiences yet.</p>
         </div>
       ) : (
@@ -40,7 +40,7 @@ export default async function SavedAudiencesPage({ params }: { params: Promise<P
                   <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sa.description}</div>
                 )}
                 <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                  {sa.targeting.geo.countries?.join(', ') ?? '—'} · age {sa.targeting.demographics.ageMin}-{sa.targeting.demographics.ageMax}
+                  {sa.targeting.geo.countries?.join(', ') ?? ' - '} · age {sa.targeting.demographics.ageMin}-{sa.targeting.demographics.ageMax}
                   {sa.targeting.customAudiences?.include?.length ? ` · ${sa.targeting.customAudiences.include.length} CA include` : ''}
                   {sa.targeting.customAudiences?.exclude?.length ? ` · ${sa.targeting.customAudiences.exclude.length} CA exclude` : ''}
                 </div>

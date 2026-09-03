@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 import { useEffect, useState, useCallback } from 'react'
 import { AgentCard } from '@/components/agents/AgentCard'
@@ -50,7 +51,7 @@ export default function AgentsBoardClient() {
     // Set all to loading first
     setHealthMap(Object.fromEntries(agentList.map((a) => [a.agentId, 'loading' as HealthStatus])))
 
-    // Ping in parallel — update map as each resolves
+    // Ping in parallel - update map as each resolves
     await Promise.allSettled(
       agentList.map(async (agent) => {
         try {
@@ -181,19 +182,19 @@ export default function AgentsBoardClient() {
               <button
                 type="button"
                 onClick={() => setShowCreate((v) => !v)}
-                className="btn-pib-primary btn-pib-sm font-label inline-flex items-center gap-1.5"
+                className="st-btn st-btn--primary st-btn--sm font-label inline-flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <Icon name="add" className="text-[16px]" />
                 New Agent
               </button>
             )}
             <button
               type="button"
               onClick={() => loadAgents()}
-              className="btn-pib-ghost btn-pib-sm font-label inline-flex items-center gap-1.5"
+              className="st-btn st-btn--ghost st-btn--sm font-label inline-flex items-center gap-1.5"
               title="Refresh"
             >
-              <span className="material-symbols-outlined text-[16px]">refresh</span>
+              <Icon name="refresh" className="text-[16px]" />
               Refresh
             </button>
           </>
@@ -201,39 +202,39 @@ export default function AgentsBoardClient() {
       />
 
       {isSuperAdmin && showCreate && (
-        <form onSubmit={createAgent} className="pib-card space-y-3 p-4">
+        <form onSubmit={createAgent} className="st-panel space-y-3 p-4">
           <div className="rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)] p-3 text-xs text-[var(--color-pib-text-muted)]">
             Creating an agent here asks Pip to provision the VPS profile, then registers the new profile with the platform dispatch config. You only need to ask Pip manually if this provisioning step fails or the agent needs a non-standard setup.
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="pib-label">Agent ID</span>
-              <input className="pib-input w-full font-mono text-sm" value={newAgentId} onChange={(e) => setNewAgentId(e.target.value.toLowerCase())} placeholder="zara" required />
+              <span className="sc-tiny">Agent ID</span>
+              <input className="st-input w-full font-mono text-sm" value={newAgentId} onChange={(e) => setNewAgentId(e.target.value.toLowerCase())} placeholder="zara" required />
             </label>
             <label className="space-y-1">
-              <span className="pib-label">Name</span>
-              <input className="pib-input w-full text-sm" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Zara" required />
+              <span className="sc-tiny">Name</span>
+              <input className="st-input w-full text-sm" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Zara" required />
             </label>
             <label className="space-y-1">
-              <span className="pib-label">Role</span>
-              <input className="pib-input w-full text-sm" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
+              <span className="sc-tiny">Role</span>
+              <input className="st-input w-full text-sm" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
             </label>
             <label className="space-y-1">
-              <span className="pib-label">Provider / model</span>
+              <span className="sc-tiny">Provider / model</span>
               <div className="grid grid-cols-2 gap-2">
-                <input className="pib-input w-full font-mono text-sm" value={newProvider} onChange={(e) => setNewProvider(e.target.value)} required />
-                <input className="pib-input w-full font-mono text-sm" value={newModel} onChange={(e) => setNewModel(e.target.value)} required />
+                <input className="st-input w-full font-mono text-sm" value={newProvider} onChange={(e) => setNewProvider(e.target.value)} required />
+                <input className="st-input w-full font-mono text-sm" value={newModel} onChange={(e) => setNewModel(e.target.value)} required />
               </div>
             </label>
           </div>
           <label className="block space-y-1">
-            <span className="pib-label">Persona / SOUL seed</span>
-            <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
+            <span className="sc-tiny">Persona / SOUL seed</span>
+            <textarea className="st-input min-h-20 w-full resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
           </label>
-          {createError && <div className="pib-card p-3 text-xs text-[var(--color-error)]">{createError}</div>}
+          {createError && <div className="st-panel p-3 text-xs text-[var(--color-error)]">{createError}</div>}
           <div className="flex justify-end gap-1.5">
-            <button type="button" onClick={() => setShowCreate(false)} className="btn-pib-ghost btn-pib-sm font-label">Cancel</button>
-            <button type="submit" disabled={creating} className="btn-pib-primary btn-pib-sm font-label disabled:opacity-50">
+            <button type="button" onClick={() => setShowCreate(false)} className="st-btn st-btn--ghost st-btn--sm font-label">Cancel</button>
+            <button type="submit" disabled={creating} className="st-btn st-btn--primary st-btn--sm font-label disabled:opacity-50">
               {creating ? 'Provisioning via Pip...' : 'Provision via Pip'}
             </button>
           </div>
@@ -241,7 +242,7 @@ export default function AgentsBoardClient() {
       )}
 
       {topError && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
@@ -256,14 +257,14 @@ export default function AgentsBoardClient() {
             { label: 'Capabilities', value: String(capabilityCount), icon: 'admin_panel_settings' },
             { label: 'Runtime Skills', value: String(installedRuntimeSkillCount), icon: 'extension' },
           ].map((item) => (
-            <div key={item.label} className="pib-card p-3">
+            <div key={item.label} className="st-panel p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="pib-label">{item.label}</span>
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
-                  <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
+                <span className="sc-tiny">{item.label}</span>
+                <span aria-hidden="true" className="!h-6 !w-6 rounded-md">
+                  <Icon name={item.icon} className="text-[14px]" />
                 </span>
               </div>
-              <div className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{item.value}</div>
+              <div className="mt-2 text-lg font-medium text-[var(--color-pib-text)]">{item.value}</div>
             </div>
           ))}
         </section>
@@ -273,11 +274,11 @@ export default function AgentsBoardClient() {
       {loading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-[6px]" />
           ))}
         </div>
       ) : agents.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="st-panel p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No agents found. The agent team API may be unavailable.
         </div>
       ) : (
@@ -298,14 +299,14 @@ export default function AgentsBoardClient() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/50"
             onClick={closePanel}
             aria-hidden
           />
 
           {/* Panel */}
           <div
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]"
             data-module-accent="cyan"
             style={{ animation: 'slideIn 0.2s ease-out' }}
           >

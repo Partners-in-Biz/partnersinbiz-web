@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import {
+import { Icon } from '@/components/studio'
   DndContext,
   closestCenter,
   PointerSensor,
@@ -120,7 +121,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden"
+      className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden"
     >
       <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start">
         <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -133,14 +134,14 @@ function SortableRow({
               {...listeners}
               className="cursor-grab active:cursor-grabbing text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors touch-none"
             >
-              <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
+              <Icon name="drag_indicator" className="text-[18px]" />
             </button>
           )}
 
           {/* Label + key */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
+              <p className="text-base font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
               <TypeChip type={def.type} />
               {def.required && (
                 <span className="pib-pill pib-pill-danger">Required</span>
@@ -163,7 +164,7 @@ function SortableRow({
                   onClick={() => onEdit(def)}
                   className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
                 >
-                  <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                  <Icon name="edit_note" className="text-[13px]" />
                   Add help text
                 </button>
               )}
@@ -179,26 +180,26 @@ function SortableRow({
           <div className="p-2">
             {missingOptions ? (
               <div className="flex min-h-[28px] flex-col items-center justify-center gap-1">
-                <p className="text-[11px] font-medium text-amber-200">Options missing</p>
+                <p className="text-[11px] font-medium text-[var(--st-warning)]">Options missing</p>
                 {isAdmin && (
                   <button
                     type="button"
                     aria-label={`Add options for ${displayName}`}
                     onClick={() => onEdit(def)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-300/20 bg-[color-mix(in_srgb,var(--st-warning)_10%,transparent)] px-2 py-1 text-[11px] font-medium text-[var(--st-warning)] transition-colors hover:border-amber-200/50 hover:bg-[color-mix(in_srgb,var(--st-warning)_15%,transparent)]"
                   >
-                    <span className="material-symbols-outlined text-[13px]">add_circle</span>
+                    <Icon name="add_circle" className="text-[13px]" />
                     Add
                   </button>
                 )}
               </div>
             ) : (
-              <p className="text-sm font-semibold text-[var(--color-pib-text)]">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
+              <p className="text-sm font-medium text-[var(--color-pib-text)]">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
             )}
             <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Rules</p>
           </div>
           <div className="p-2">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)]">{def.order}</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">{def.order}</p>
             <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Order</p>
           </div>
         </div>
@@ -214,16 +215,16 @@ function SortableRow({
             title="Edit field"
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">edit</span>
+            <Icon name="edit" className="text-[18px]" />
           </button>
           <button
             type="button"
             aria-label={`Delete ${displayName}`}
             onClick={() => onDelete(def)}
             title="Delete field"
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
+            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-[var(--st-danger)] hover:bg-red-400/[0.08] transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">delete</span>
+            <Icon name="delete" className="text-[18px]" />
           </button>
         </div>
       )}

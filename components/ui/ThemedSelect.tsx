@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Icon } from '@/components/studio'
 import { cn } from '@/lib/utils'
 
 export type ThemedSelectOption = {
@@ -17,15 +18,30 @@ type ThemedSelectProps = {
   onValueChange: (value: string) => void
   disabled?: boolean
   className?: string
+  /**
+   * @deprecated Prefer Studio defaults. `custom` skips `.st-select` so callers can supply their own chrome via `buttonClassName`.
+   */
   buttonChrome?: 'default' | 'custom'
   buttonClassName?: string
   valueClassName?: string
+  /** @deprecated Popover uses raised-paper `st-menu__list`; extra classes are still merged. */
   menuClassName?: string
+  /** @deprecated Option rows use `st-menu__item`; extra classes are still merged. */
   optionClassName?: string
   buttonTestId?: string
   renderValue?: (option: ThemedSelectOption | undefined) => ReactNode
 }
 
+/**
+ * Themed select with a frozen public API.
+ *
+ * Default trigger: `.st-select`. Option popover: Studio Menu surface
+ * (`.st-menu` / `.st-menu__list` / `.st-menu__item`  -  same markup Menu ships).
+ *
+ * The Studio `Menu` component is not mounted here: it always wraps its trigger
+ * in a secondary `Button` and uses `role="menu"`, which would break listbox
+ * semantics, `buttonChrome="custom"`, `id`, and `buttonTestId`.
+ */
 export function ThemedSelect({
   id,
   ariaLabel,
@@ -67,7 +83,7 @@ export function ThemedSelect({
   }, [open])
 
   return (
-    <div ref={rootRef} className={cn('relative inline-flex min-w-0', className)}>
+    <div ref={rootRef} className={cn('st-menu relative inline-flex min-w-0', className)}>
       <button
         id={id}
         type="button"
@@ -86,59 +102,50 @@ export function ThemedSelect({
         }}
         className={cn(
           buttonChrome === 'default' &&
-            'inline-flex min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:cursor-not-allowed disabled:opacity-60',
+            'st-select inline-flex min-w-0 cursor-pointer items-center justify-between gap-2 text-left outline-none disabled:cursor-not-allowed disabled:opacity-60',
           buttonClassName,
         )}
       >
         <span className={cn('min-w-0 truncate text-left', valueClassName)}>
           {renderValue ? renderValue(selected) : selected?.label}
         </span>
-        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[18px] text-current">
-          expand_more
-        </span>
+        <Icon name="expand_more" className="shrink-0" />
       </button>
 
       {open ? (
-        <div
+        <ul
           id={listboxId}
           role="listbox"
           aria-label={ariaLabel}
-          className={cn(
-            'absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-lg border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] shadow-2xl',
-            menuClassName,
-          )}
+          className={cn('st-menu__list max-h-64 min-w-full overflow-y-auto', menuClassName)}
         >
           {options.map((option) => {
             const selectedOption = option.value === value
             return (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={selectedOption}
-                aria-disabled={option.disabled}
-                disabled={option.disabled}
-                onClick={() => {
-                  if (option.disabled) return
-                  onValueChange(option.value)
-                  setOpen(false)
-                }}
-                className={cn(
-                  'flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50',
-                  selectedOption ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
-                  optionClassName,
-                )}
-              >
-                <span className="min-w-0 truncate">{option.label}</span>
-                {selectedOption ? (
-                  <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[16px]">
-                    check
+              <li key={option.value} role="none">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selectedOption}
+                  aria-disabled={option.disabled}
+                  disabled={option.disabled}
+                  data-active={selectedOption ? 'true' : undefined}
+                  onClick={() => {
+                    if (option.disabled) return
+                    onValueChange(option.value)
+                    setOpen(false)
+                  }}
+                  className={cn('st-menu__item disabled:cursor-not-allowed disabled:opacity-50', optionClassName)}
+                >
+                  <span className="inline-flex w-full items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">{option.label}</span>
+                    {selectedOption ? <Icon name="check" className="shrink-0" /> : null}
                   </span>
-                ) : null}
-              </button>
+                </button>
+              </li>
             )
           })}
-        </div>
+        </ul>
       ) : null}
     </div>
   )

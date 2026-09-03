@@ -1,4 +1,5 @@
 'use client'
+import { Icon } from '@/components/studio'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,9 +40,9 @@ type PostAction =
   | { action: 'gsc-submit' }
 
 function fmt(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString()
 }
 
@@ -52,20 +53,20 @@ function Skeleton({ className = '' }: { className?: string }) {
 function statusChip(status: string) {
   if (status === 'ok') {
     return (
-      <span className="pib-pill pib-pill-success">
+      <span className="st-status st-status st-status--success">
         {status}
       </span>
     )
   }
   if (status === 'not-configured') {
     return (
-      <span className="pib-pill pib-pill-warn">
+      <span className="st-status st-status st-status--warning">
         not configured
       </span>
     )
   }
   return (
-    <span className="pib-pill">
+    <span className="st-status">
       {status}
     </span>
   )
@@ -148,7 +149,7 @@ export default function SitemapManagerPage() {
         latest?.status === 'not-configured' || next?.gscConfigured === false
       if (notConfigured) {
         setGscWarning(
-          'GSC not configured — the submission was recorded but not sent to Google. Configure GSC credentials to enable live submission.',
+          'GSC not configured - the submission was recorded but not sent to Google. Configure GSC credentials to enable live submission.',
         )
       } else {
         setNotice('Sitemap submitted to Google Search Console.')
@@ -196,58 +197,58 @@ export default function SitemapManagerPage() {
           <button
             onClick={handleRegenerate}
             disabled={regenerating || submitting}
-            className="btn-pib-primary inline-flex items-center gap-1.5"
+            className="st-btn st-btn--primary inline-flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-base">sync</span>
+            <Icon name="sync" className="text-base" />
             {regenerating ? 'Regenerating...' : 'Regenerate'}
           </button>
           <button
             onClick={handleGscSubmit}
             disabled={submitting || regenerating}
-            className="btn-pib-secondary inline-flex items-center gap-1.5"
+            className="st-btn st-btn--secondary inline-flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-base">send</span>
+            <Icon name="send" className="text-base" />
             {submitting ? 'Submitting...' : 'Submit to GSC'}
           </button>
         </div>
       </header>
 
       {topError && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
+        <div className="st-panel px-4 py-3 text-sm text-[var(--st-success)]">
           {notice}
         </div>
       )}
 
       {gscWarning && (
-        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-amber)] flex items-start gap-2">
-          <span className="material-symbols-outlined text-base">warning</span>
+        <div className="st-panel px-4 py-3 text-sm text-[var(--sc-accent)] flex items-start gap-2">
+          <Icon name="warning" className="text-base" />
           <span>{gscWarning}</span>
         </div>
       )}
 
       {loading ? (
         <div className="space-y-3">
-          <Skeleton className="h-24 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-24 rounded-[6px]" />
+          <Skeleton className="h-64 rounded-[6px]" />
+          <Skeleton className="h-40 rounded-[6px]" />
         </div>
       ) : !data ? (
-        <div className="pib-card p-8 text-center">
+        <div className="st-panel p-8 text-center">
           <p className="text-sm text-[var(--color-pib-text-muted)]">No sitemap data available.</p>
         </div>
       ) : (
         <>
           {/* Info card */}
-          <div className="pib-card p-5">
+          <div className="st-panel p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <p className="pib-label mb-1">
+                <p className="sc-tiny mb-1">
                   Canonical sitemap
                 </p>
                 <a
@@ -255,36 +256,36 @@ export default function SitemapManagerPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-sm break-all hover:underline"
-                  style={{ color: "var(--color-pib-green)" }}
+                  style={{ color: "var(--st-success)" }}
                 >
                   {data.sitemapUrl}
                 </a>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 shrink-0">
                 <div>
-                  <p className="pib-label">
+                  <p className="sc-tiny">
                     Pages
                   </p>
-                  <p className="text-xl font-headline font-bold text-[var(--color-pib-text)] mt-0.5">
+                  <p className="text-xl font-headline font-medium text-[var(--color-pib-text)] mt-0.5">
                     {data.totalPages}
                   </p>
                 </div>
                 <div>
-                  <p className="pib-label">
+                  <p className="sc-tiny">
                     Entries
                   </p>
-                  <p className="text-xl font-headline font-bold text-[var(--color-pib-text)] mt-0.5">
+                  <p className="text-xl font-headline font-medium text-[var(--color-pib-text)] mt-0.5">
                     {data.totalEntries}
                   </p>
                 </div>
                 <div>
-                  <p className="pib-label">
+                  <p className="sc-tiny">
                     Last regenerated
                   </p>
                   <p className="text-xs text-[var(--color-pib-text)] mt-1">{fmt(data.lastRegeneratedAt)}</p>
                 </div>
                 <div>
-                  <p className="pib-label">
+                  <p className="sc-tiny">
                     Last GSC submit
                   </p>
                   <p className="text-xs text-[var(--color-pib-text)] mt-1">{fmt(data.lastGscSubmittedAt)}</p>
@@ -294,9 +295,9 @@ export default function SitemapManagerPage() {
           </div>
 
           {/* Pages table */}
-          <div className="pib-card p-0 overflow-hidden">
+          <div className="st-panel p-0 overflow-hidden">
             <div className="px-5 py-3 border-b border-[var(--color-pib-line)]">
-              <h2 className="text-base font-headline font-bold text-[var(--color-pib-text)]">Pages</h2>
+              <h2 className="text-base font-headline font-medium text-[var(--color-pib-text)]">Pages</h2>
             </div>
             {data.pages.length === 0 ? (
               <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">
@@ -306,7 +307,7 @@ export default function SitemapManagerPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left pib-label">
+                    <tr className="text-left sc-tiny">
                       <th className="px-5 py-2 font-label">Path</th>
                       <th className="px-3 py-2 font-label">Source</th>
                       <th className="px-3 py-2 font-label">Title</th>
@@ -329,7 +330,7 @@ export default function SitemapManagerPage() {
                           </td>
                           <td className="px-3 py-2.5">
                             <span
-                              className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                              className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded ${
                                 page.source === 'article'
                                   ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
                                   : ''
@@ -337,7 +338,7 @@ export default function SitemapManagerPage() {
                               style={
                                 page.source === 'static'
                                   ? {
-                                      background: "var(--color-pib-green-soft)", color: "var(--color-pib-green)",
+                                      background: "color-mix(in srgb, var(--st-success) 10%, transparent)", color: "var(--st-success)",
                                     }
                                   : undefined
                               }
@@ -346,7 +347,7 @@ export default function SitemapManagerPage() {
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-[var(--color-pib-text-muted)] max-w-xs truncate">
-                            {page.title || '—'}
+                            {page.title || '-'}
                           </td>
                           <td className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
                             {fmt(page.lastmod)}
@@ -378,8 +379,8 @@ export default function SitemapManagerPage() {
           </div>
 
           {/* Ping log */}
-          <div className="pib-card p-5">
-            <h2 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-3">Ping log</h2>
+          <div className="st-panel p-5">
+            <h2 className="text-base font-headline font-medium text-[var(--color-pib-text)] mb-3">Ping log</h2>
             {pingLog.length === 0 ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">No activity recorded yet.</p>
             ) : (
@@ -389,10 +390,8 @@ export default function SitemapManagerPage() {
                     key={entry.id ?? `${entry.at}-${i}`}
                     className="flex items-start gap-3 rounded-md border border-[var(--color-pib-line)] px-3 py-2"
                   >
-                    <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7 !rounded-md">
-                      <span className="material-symbols-outlined text-[15px]">
-                        {entry.action === 'regenerate' ? 'sync' : 'send'}
-                      </span>
+                    <span aria-hidden="true" className="!h-7 !w-7 rounded-md">
+                      <Icon name={entry.action === 'regenerate' ? 'sync' : 'send'} className="text-[15px]" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">

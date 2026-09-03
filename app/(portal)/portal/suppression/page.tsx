@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { SuppressionList } from '@/components/crm/SuppressionList'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalSuppressionPage() {
@@ -12,16 +13,12 @@ export default function PortalSuppressionPage() {
   const apiPath = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Email · Deliverability</p>
-        <h1 className="pib-page-title mt-2">Suppression list</h1>
-        <p className="pib-page-sub">
-          Addresses on this list never receive email. Bounces, spam complaints and unsubscribes
-          are added automatically — add or import addresses manually, or remove ones added in error.
-        </p>
-      </header>
-
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="CRM"
+        title="Suppression list."
+        description="Addresses on this list never receive email. Bounces, complaints, and unsubscribes are added automatically."
+      />
       <SuppressionList apiPath={apiPath} />
     </div>
   )

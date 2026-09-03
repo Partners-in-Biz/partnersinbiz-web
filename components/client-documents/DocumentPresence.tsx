@@ -1,5 +1,7 @@
 'use client'
 
+import { Icon } from '@/components/studio'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getClientDb } from '@/lib/firebase/client'
 import {
@@ -59,10 +61,10 @@ const ACCENT_COLORS = [
 ]
 
 const ACCENT_BG_CLASSES = [
-  'bg-violet-500',
+  'bg-[var(--sc-ink-soft)]/10',
   'bg-sky-500',
   'bg-emerald-500',
-  'bg-amber-500',
+  'bg-[var(--st-warning)]/15',
   'bg-rose-500',
   'bg-indigo-500',
 ]
@@ -229,14 +231,14 @@ export function DocumentPresence({
                   <div
                     key={user.userId}
                     title={user.name}
-                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ring-2 ring-[var(--color-pib-surface)] ${ACCENT_BG_CLASSES[colorIndexForUser(user.userId)]} ${i > 0 ? '-ml-2' : ''}`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium text-white ring-2 ring-[var(--color-pib-surface)] ${ACCENT_BG_CLASSES[colorIndexForUser(user.userId)]} ${i > 0 ? '-ml-2' : ''}`}
                   >
                     {getInitials(user.name) || '?'}
                   </div>
                 ))}
                 {overflow > 0 && (
                   <div
-                    className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-pib-line)] text-xs font-semibold text-[var(--color-pib-text-muted)] ring-2 ring-[var(--color-pib-surface)]"
+                    className="-ml-2 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-pib-line)] text-xs font-medium text-[var(--color-pib-text-muted)] ring-2 ring-[var(--color-pib-surface)]"
                     title={`${overflow} more viewer${overflow === 1 ? '' : 's'}`}
                   >
                     +{overflow}
@@ -251,11 +253,9 @@ export function DocumentPresence({
           {connectionLost && (
             <span
               className="pib-pill pib-pill-warn"
-              title="Live presence lost connection — reconnecting"
+              title="Live presence lost connection - reconnecting"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden>
-                cloud_off
-              </span>
+              <Icon name="cloud_off" />
               Reconnecting…
             </span>
           )}
