@@ -1,8 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
-import { WORK_SHOTS } from '@/lib/marketing/stage-content'
-import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, serviceMeta, type ServiceSlug } from '@/lib/marketing/service-content'
+import { SERVICE_CONTENT, SERVICE_ORDER, plateFor, serviceMeta } from '@/lib/marketing/service-content'
 import { ScrollCraft } from '@/components/marketing/stage/ScrollCraft'
 import './services-filmstrip.css'
 
@@ -15,16 +14,6 @@ import './services-filmstrip.css'
 
 const COUNT = SERVICE_ORDER.length
 const WIDTH = 1 / COUNT
-
-/** Real screenshots only. Where the proof case has no shot, the nearest one that does, credited honestly. */
-const PLATES: Record<ServiceSlug, { shot: { src: string; alt: string }; credit: string }> = {
-  'web-development': { shot: WORK_SHOTS.ahsLaw, credit: 'AHS Law. Number one on Google in eight weeks.' },
-  'web-applications': { shot: WORK_SHOTS.athleet, credit: 'Athleet. Club platform live for three clubs in under four weeks.' },
-  'mobile-apps': { shot: WORK_SHOTS.velox, credit: 'Velox. In the App Store and on Google Play.' },
-  'ai-integration': { shot: WORK_SHOTS.lumen, credit: 'Lumen. AI-generated reading passages in three languages.' },
-  'growth-systems': { shot: WORK_SHOTS.scrolledBrain, credit: 'Scrolled Brain. A 38% sign-up rate on the new landing page.' },
-  'bespoke-builds': { shot: WORK_SHOTS.athleet, credit: 'Athleet. Club platform live for three clubs in under four weeks.' },
-}
 
 export const SERVICES_FILMSTRIP_ACTS_ATTR = SERVICE_ORDER.map((_, i) => `s${i + 1}:${(i * WIDTH).toFixed(4)}`).join(',')
 
@@ -67,10 +56,7 @@ export function ServicesFilmstrip() {
           {SERVICE_ORDER.map((slug, i) => {
             const meta = serviceMeta(slug)
             const content = SERVICE_CONTENT[slug]
-            const study = caseFor(content.proof.caseSlug)
-            const plate = content.plate
-              ? { shot: content.plate, credit: `${study.client}, ${study.industry}.` }
-              : PLATES[slug]
+            const plate = plateFor(slug)
             const { s0, s1 } = slideWindow(i)
             return (
               <article

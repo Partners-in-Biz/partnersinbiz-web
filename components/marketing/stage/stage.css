@@ -1118,12 +1118,20 @@ body:has(.sc-stage) ::selection {
 .sc-article {
   max-width: 82.5rem;
   margin: 0 auto;
-  padding: calc(var(--sc-u) * 12) var(--sc-pad) 0;
+  /* Clears the 56px nav with a breath of paper above the kicker. */
+  padding: calc(var(--sc-u) * 26) var(--sc-pad) 0;
   display: grid;
+  /* minmax(0, 1fr) so a long unbreakable child cannot widen the column past the viewport. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sc-section-pad);
+}
+/* Running-text CTAs wrap on paper pages; nowrap is for the stage only. */
+.sc-article .sc-cta {
+  white-space: normal;
 }
 .sc-article__head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: calc(var(--sc-u) * 5);
   max-width: 60rem;
 }
@@ -1140,6 +1148,7 @@ body:has(.sc-stage) ::selection {
 }
 .sc-article__row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: calc(var(--sc-u) * 8);
   align-items: start;
   padding-top: calc(var(--sc-u) * 8);
@@ -1224,7 +1233,8 @@ body:has(.sc-stage) ::selection {
   aspect-ratio: 16 / 9;
   margin: 0;
   background: var(--sc-surface);
-  box-shadow: 10px 10px 0 var(--sc-accent);
+  /* Same drop as the home and the pinned sections. */
+  box-shadow: 12px 12px 0 var(--sc-accent);
   flex-shrink: 0;
 }
 .sc-plate img {

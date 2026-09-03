@@ -1,4 +1,5 @@
 import { CASE_STUDIES, SERVICES } from '@/lib/seo/site'
+import { WORK_SHOTS, type StageStill } from './stage-content'
 
 /**
  * Copy for `/services` and `/services/[slug]`. Outcome first, then who it is
@@ -40,11 +41,34 @@ export interface ServiceContent {
   }
   faqs: { q: string; a: string }[]
   relatedInsightSlugs: string[]
-  /** Screenshot plate under /public/marketing/work, if one exists yet. */
-  plate?: { src: string; alt: string }
+  /** A real screenshot of this service's proof case, when one exists. Falls back to SERVICE_PLATES. */
+  plate?: StageStill
 }
 
 const ZAR = (n: number) => `R${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)}`
+
+/**
+ * One plate per service, shared by the filmstrip and the detail page so the two
+ * never disagree. Real screenshots only; where the proof case has no shot, the
+ * nearest one that does, credited honestly.
+ */
+export const SERVICE_PLATES: Record<ServiceSlug, { shot: StageStill; credit: string }> = {
+  'web-development': { shot: WORK_SHOTS.ahsLaw, credit: 'AHS Law. Number one on Google in eight weeks.' },
+  'web-applications': { shot: WORK_SHOTS.athleet, credit: 'Athleet. Club platform live for three clubs in under four weeks.' },
+  'mobile-apps': { shot: WORK_SHOTS.velox, credit: 'Velox. In the App Store and on Google Play.' },
+  'ai-integration': { shot: WORK_SHOTS.lumen, credit: 'Lumen. AI-generated reading passages in three languages.' },
+  'growth-systems': { shot: WORK_SHOTS.scrolledBrain, credit: 'Scrolled Brain. A 38% sign-up rate on the new landing page.' },
+  'bespoke-builds': { shot: WORK_SHOTS.lumen, credit: 'Lumen. Reading trainer shipped to both stores from one codebase.' },
+}
+
+export function plateFor(slug: ServiceSlug): { shot: StageStill; credit: string } {
+  const content = SERVICE_CONTENT[slug]
+  if (content.plate) {
+    const study = caseFor(content.proof.caseSlug)
+    return { shot: content.plate, credit: `${study.client}, ${study.industry}.` }
+  }
+  return SERVICE_PLATES[slug]
+}
 
 export const SERVICE_CONTENT: Record<ServiceSlug, ServiceContent> = {
   'web-development': {

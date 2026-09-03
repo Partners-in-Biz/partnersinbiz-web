@@ -48,7 +48,7 @@ export default function ServicesIndexPage() {
         kicker="Services"
         title={TITLE}
         lede="Most people arrive for the site. Some need the software behind it. This is the whole firm on one page, with the price next to each thing, so you can decide before the call."
-        plate={<Plate src={WORK_SHOTS.athleet.src} alt={WORK_SHOTS.athleet.alt} caption="Athleet. Club platform, live in under four weeks." wide priority />}
+        plate={<Plate src={WORK_SHOTS.velox.src} alt={WORK_SHOTS.velox.alt} caption="Velox. In the App Store and on Google Play." wide priority />}
       />
 
       <ServicesFilmstrip />

@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation'
 import { SERVICES, SITE } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
 import { JsonLd, breadcrumbSchema, serviceSchema, faqSchema } from '@/lib/seo/schema'
-import { WORK_SHOTS } from '@/lib/marketing/stage-content'
-import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, type ServiceSlug } from '@/lib/marketing/service-content'
+import { SERVICE_CONTENT, SERVICE_ORDER, caseFor, plateFor } from '@/lib/marketing/service-content'
 import {
   Article,
   ArticleHead,
@@ -16,15 +15,6 @@ import {
   Proof,
 } from '@/components/marketing/paper/Article'
 import { FAQ } from '@/components/marketing/FAQ'
-
-const PLATES: Record<ServiceSlug, { src: string; alt: string }> = {
-  'web-development': WORK_SHOTS.ahsLaw,
-  'web-applications': WORK_SHOTS.athleet,
-  'mobile-apps': WORK_SHOTS.velox,
-  'ai-integration': WORK_SHOTS.lumen,
-  'growth-systems': WORK_SHOTS.scrolledBrain,
-  'bespoke-builds': WORK_SHOTS.lumen,
-}
 
 export function generateStaticParams() {
   return SERVICES.map((s) => ({ slug: s.slug }))
@@ -56,7 +46,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
   const content = SERVICE_CONTENT[service.slug]
   const study = caseFor(content.proof.caseSlug)
-  const plate = content.plate ?? PLATES[service.slug]
+  const plate = plateFor(service.slug)
   const related = content.relatedInsightSlugs
     .map((s) => POSTS.find((p) => p.slug === s))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
@@ -93,7 +83,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
         }
         title={content.headline}
         lede={content.lede}
-        plate={<Plate src={plate.src} alt={plate.alt} wide priority />}
+        plate={<Plate src={plate.shot.src} alt={plate.shot.alt} caption={plate.credit} wide priority />}
       />
 
       <ArticleRow
