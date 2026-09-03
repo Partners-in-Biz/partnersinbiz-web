@@ -935,14 +935,14 @@
     "note": ""
   },
   "app/(portal)/portal/billing/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/billing/usage/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/book-studio/[bookId]/page.tsx": {
     "status": "todo",
@@ -1035,9 +1035,9 @@
     "note": ""
   },
   "app/(portal)/portal/changelog/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/communications/page.tsx": {
     "status": "todo",
@@ -1100,14 +1100,14 @@
     "note": ""
   },
   "app/(portal)/portal/dashboard/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/data/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/deals/[id]/page.tsx": {
     "status": "todo",
@@ -1335,9 +1335,9 @@
     "note": ""
   },
   "app/(portal)/portal/first-run/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/geo-seo/page.tsx": {
     "status": "todo",
@@ -1350,9 +1350,9 @@
     "note": ""
   },
   "app/(portal)/portal/integrations/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/invoicing/[id]/page.tsx": {
     "status": "todo",
@@ -1430,9 +1430,9 @@
     "note": ""
   },
   "app/(portal)/portal/payments/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/personal/campaigns/[id]/page.tsx": {
     "status": "todo",
@@ -1525,9 +1525,9 @@
     "note": ""
   },
   "app/(portal)/portal/referrals/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/reports/crm/page.tsx": {
     "status": "todo",
@@ -2000,9 +2000,9 @@
     "note": ""
   },
   "app/(portal)/portal/wiki/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.4",
-    "note": ""
+    "note": "Studio batch 4.4"
   },
   "app/(portal)/portal/youtube-studio/editor/[projectId]/page.tsx": {
     "status": "todo",
@@ -2066,8 +2066,8 @@
   },
   "app/(public)/offline/page.tsx": {
     "status": "done",
-    "batch": "public",
-    "note": "public Studio"
+    "batch": "4.2",
+    "note": "Studio batch 4.2"
   },
   "app/(public)/our-process/page.tsx": {
     "status": "done",
@@ -2165,34 +2165,34 @@
     "note": "public Studio"
   },
   "app/admin-access-denied/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.2",
-    "note": ""
+    "note": "Studio batch 4.2"
   },
   "app/c/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/c/canvas/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/d/[shareToken]/edit/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/d/[shareToken]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/d/[shareToken]/sign/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/embed/layout.tsx": {
     "status": "todo",
@@ -2200,19 +2200,19 @@
     "note": ""
   },
   "app/embed/newsletter/[sourceId]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/global-error.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.2",
-    "note": ""
+    "note": "Studio batch 4.2"
   },
   "app/invoice/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/layout.tsx": {
     "status": "todo",
@@ -2220,9 +2220,9 @@
     "note": ""
   },
   "app/lead/confirm/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/lead/layout.tsx": {
     "status": "todo",
@@ -2230,28 +2230,28 @@
     "note": ""
   },
   "app/not-found.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.2",
-    "note": ""
+    "note": "Studio batch 4.2"
   },
   "app/partners/invite/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/preferences/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/reports/[token]/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.3",
-    "note": ""
+    "note": "Studio batch 4.3"
   },
   "app/status/page.tsx": {
-    "status": "todo",
+    "status": "done",
     "batch": "4.2",
-    "note": ""
+    "note": "Studio batch 4.2"
   }
 }

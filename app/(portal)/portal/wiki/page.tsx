@@ -19,7 +19,7 @@ export default function PortalWikiPage() {
       readOnly
       sections={['wiki', 'logs']}
       eyebrow="Workspace"
-      title="Wiki"
+      title="Wiki."
       description="Read-only knowledge notes and activity logs shared with your workspace."
     />
   )

@@ -30,7 +30,7 @@ describe('PortalWikiPage company workspace scope', () => {
 
     expect(screen.getByTestId('knowledge-browser')).toHaveAttribute(
       'data-api-path',
-      '/api/v1/portal/knowledge?orgId=lumen-org',
+      '/api/v1/portal/knowledge?orgId=lumen-org&companyId=company-1',
     )
   })
 })

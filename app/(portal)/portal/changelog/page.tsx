@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { Icon, Panel, Skeleton, Status } from '@/components/studio'
 
 interface ChangelogRelease {
   id: string
@@ -48,7 +50,6 @@ export default function ChangelogPage() {
         if (!cancelled) setLoading(false)
       })
 
-    // Mark as read on view.
     fetch('/api/v1/portal/changelog', { method: 'POST' }).catch(() => {})
 
     return () => {
@@ -57,46 +58,42 @@ export default function ChangelogPage() {
   }, [])
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-8">
-        <p className="eyebrow">What&apos;s new</p>
-        <h1 className="pib-page-title">Changelog</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-          Recent releases, improvements, and fixes across the platform.
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-8">
+      <PageHeader
+        eyebrow="What is new"
+        title="Changelog."
+        description="Recent releases, improvements, and fixes across the platform."
+      />
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <span className="w-5 h-5 border-2 border-[var(--color-pib-accent)] border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col gap-4 py-8" aria-busy="true">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
       ) : releases.length === 0 ? (
-        <div className="pib-card p-8 text-center text-[var(--color-pib-text-muted)]">No releases yet.</div>
+        <EmptyState title="No releases yet." description="New platform updates will appear here when published." />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-8">
           {releases.map((release) => {
             const isUnread = Date.parse(release.date) > lastReadMs
             return (
-              <article key={release.id} className="pib-card p-5">
-                <div className="flex items-center gap-3 mb-3 flex-wrap">
-                  <span className="pib-pill pib-pill-cyan">{release.version}</span>
-                  <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{release.title}</h2>
-                  {isUnread && (
-                    <span className="pib-pill pib-pill-cyan !text-[10px] normal-case">
-                      New
-                    </span>
-                  )}
-                  <span className="ml-auto text-xs text-[var(--color-pib-text-muted)]">{formatDate(release.date)}</span>
+              <Panel key={release.id} className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Status tone="info">{release.version}</Status>
+                  <h2 className="st-title text-[var(--sc-ink)]">{release.title}</h2>
+                  {isUnread ? <Status tone="info">New</Status> : null}
+                  <span className="sc-tiny ml-auto text-[var(--sc-ink-soft)]">{formatDate(release.date)}</span>
                 </div>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {release.notes.map((note, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-cyan)] mt-0.5">check</span>
+                    <li key={i} className="sc-body flex items-start gap-2 text-[var(--sc-ink-soft)]">
+                      <Icon name="check" className="mt-0.5 shrink-0" />
                       <span>{note}</span>
                     </li>
                   ))}
                 </ul>
-              </article>
+              </Panel>
             )
           })}
         </div>

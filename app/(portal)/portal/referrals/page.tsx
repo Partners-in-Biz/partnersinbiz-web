@@ -3,6 +3,23 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import {
+  Button,
+  ButtonLink,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Skeleton,
+  Status,
+  Table,
+  THead,
+  TR,
+  TH,
+  TD,
+} from '@/components/studio'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type ReferralStatus = 'pending' | 'approved' | 'disputed' | 'paid'
@@ -43,18 +60,15 @@ const STATUS_LABEL: Record<ReferralStatus, string> = {
   paid: 'Paid',
 }
 
-function zar(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(amount || 0)
+const STATUS_TONE: Record<ReferralStatus, 'warning' | 'success' | 'danger' | 'info' | undefined> = {
+  pending: 'warning',
+  approved: 'success',
+  disputed: 'danger',
+  paid: 'info',
 }
 
-function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
-  return (
-    <div className="pib-stat-card">
-      <p className="pib-label mb-0">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{helper}</p>
-    </div>
-  )
+function zar(amount: number): string {
+  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 }).format(amount || 0)
 }
 
 export default function PortalReferralsPage() {
@@ -93,7 +107,7 @@ export default function PortalReferralsPage() {
     if (!data) return '#'
     const subject = encodeURIComponent('Try Partners in Biz')
     const body = encodeURIComponent(
-      `I use Partners in Biz to run growth, content, and CRM for my business — thought you'd find it useful.\n\n` +
+      `I use Partners in Biz to run growth, content, and CRM for my business. Thought you would find it useful.\n\n` +
         `Sign up with my referral link and we both get account credit:\n${data.link}\n\n` +
         `Referral code: ${data.code}`,
     )
@@ -114,11 +128,11 @@ export default function PortalReferralsPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl space-y-4">
-        <div className="pib-skeleton h-6 w-48" />
-        <div className="pib-skeleton h-32" />
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-32 w-full" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="pib-skeleton h-28" />
+            <Skeleton key={i} className="h-28 w-full" />
           ))}
         </div>
       </div>
@@ -127,10 +141,9 @@ export default function PortalReferralsPage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-7xl">
-        <div className="pib-card p-6">
-          <p className="text-sm text-[var(--color-error)]">{error || 'No referral data available.'}</p>
-        </div>
+      <div className="mx-auto max-w-7xl space-y-4">
+        <PageHeader eyebrow="Referrals" title="Refer and earn." description="Invite other businesses and earn account credit." />
+        <Notice tone="danger">{error || 'No referral data available.'}</Notice>
       </div>
     )
   }
@@ -139,98 +152,91 @@ export default function PortalReferralsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <header>
-        <p className="eyebrow">Referrals</p>
-        <h1 className="pib-page-title mt-2">Refer &amp; earn</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Invite other businesses to Partners in Biz. When they sign up and become a paying customer, you earn{' '}
-          <strong className="text-[var(--color-pib-text)]">{zar(settings.referrerCreditZar)}</strong> in account credit and they get{' '}
-          <strong className="text-[var(--color-pib-text)]">{zar(settings.referredCreditZar)}</strong> off.
-        </p>
-        {!settings.active && (
-          <p className="mt-3 rounded-lg border border-[var(--color-pib-accent)]/35 bg-[var(--color-pib-accent-soft)] p-3 text-xs text-[var(--color-pib-accent-hover)]">
-            The referral programme is currently paused. Your link still works and referrals will be recorded for when it reopens.
-          </p>
-        )}
-      </header>
+      <PageHeader
+        eyebrow="Referrals"
+        title="Refer and earn."
+        description={`Invite other businesses to Partners in Biz. When they sign up and become a paying customer, you earn ${zar(settings.referrerCreditZar)} in account credit and they get ${zar(settings.referredCreditZar)} off.`}
+      />
 
-      {/* Link + code */}
-      <section className="pib-card space-y-4 p-6">
-        <p className="pib-label mb-0">Your referral link</p>
+      {!settings.active ? (
+        <Notice tone="info">
+          The referral programme is currently paused. Your link still works and referrals will be recorded for when it reopens.
+        </Notice>
+      ) : null}
+
+      <Panel className="space-y-4">
+        <p className="sc-tiny">Your referral link</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input
+          <Input
             readOnly
             value={data.link}
             aria-label="Referral link"
-            className="pib-input flex-1 font-mono text-sm"
+            className="flex-1 font-mono text-sm"
             onFocus={(e) => e.currentTarget.select()}
           />
           <div className="flex gap-2">
-            <button type="button" onClick={copyLink} className="btn-pib-primary shrink-0">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                {copied ? 'check' : 'content_copy'}
-              </span>
+            <Button type="button" onClick={copyLink} className="shrink-0">
+              <Icon name={copied ? 'check' : 'content_copy'} />
               {copied ? 'Copied' : 'Copy link'}
-            </button>
-            <a href={shareMailto} className="btn-pib-secondary shrink-0">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">mail</span>
+            </Button>
+            <ButtonLink href={shareMailto} variant="secondary" className="shrink-0">
+              <Icon name="mail" />
               Share via email
-            </a>
+            </ButtonLink>
           </div>
         </div>
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
-          Referral code: <span className="font-mono font-semibold text-[var(--color-pib-text)]">{data.code}</span>
+        <p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">
+          Referral code: <span className="font-mono text-[var(--sc-ink)]">{data.code}</span>
         </p>
-      </section>
+      </Panel>
 
-      {/* Stats */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Invites signed up" value={String(stats.signedUp)} helper="Businesses that joined via your link." />
-        <StatCard label="Converted" value={String(stats.converted)} helper="Signups that became paying customers." />
-        <StatCard label="Credit earned" value={zar(stats.creditEarnedZar)} helper="Approved + paid referral credit." />
-        <StatCard label="Credit paid out" value={zar(stats.creditPaidZar)} helper="Settled on EFT invoices." />
+        <StatCard label="Invites signed up" value={String(stats.signedUp)} detail="Businesses that joined via your link." />
+        <StatCard label="Converted" value={String(stats.converted)} detail="Signups that became paying customers." />
+        <StatCard label="Credit earned" value={zar(stats.creditEarnedZar)} detail="Approved + paid referral credit." />
+        <StatCard label="Credit paid out" value={zar(stats.creditPaidZar)} detail="Settled on EFT invoices." />
       </section>
 
-      {/* Referral list */}
-      <section className="pib-card p-6">
-        <p className="pib-label mb-0">Your referrals</p>
+      <Panel>
+        <p className="sc-tiny">Your referrals</p>
         {data.referrals.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">
-            No referrals yet. Share your link above to get started.
-          </p>
+          <EmptyState
+            className="mt-4"
+            title="No referrals yet."
+            description="Share your link above to get started."
+          />
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-pib-line)] text-left text-xs text-[var(--color-pib-text-muted)]">
-                  <th className="pb-2 pr-4 font-medium">Business</th>
-                  <th className="pb-2 pr-4 font-medium">Status</th>
-                  <th className="pb-2 pr-4 font-medium">Credit</th>
-                  <th className="pb-2 font-medium">Date</th>
-                </tr>
-              </thead>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Business</TH>
+                  <TH>Status</TH>
+                  <TH>Credit</TH>
+                  <TH>Date</TH>
+                </TR>
+              </THead>
               <tbody>
                 {data.referrals.map((r) => (
-                  <tr key={r.id} className="border-b border-[var(--color-pib-line)]/50">
-                    <td className="py-3 pr-4 font-medium text-[var(--color-pib-text)]">{r.referredName}</td>
-                    <td className="py-3 pr-4">
-                      <span className="pib-pill text-[11px]">{STATUS_LABEL[r.status]}</span>
-                    </td>
-                    <td className="py-3 pr-4 text-[var(--color-pib-text-muted)]">{zar(r.creditZar)}</td>
-                    <td className="py-3 text-[var(--color-pib-text-muted)]">
-                      {r.createdAtMs ? new Date(r.createdAtMs).toLocaleDateString('en-ZA') : '—'}
-                    </td>
-                  </tr>
+                  <TR key={r.id}>
+                    <TD className="text-[var(--sc-ink)]">{r.referredName}</TD>
+                    <TD>
+                      <Status tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Status>
+                    </TD>
+                    <TD className="st-num text-[var(--sc-ink-soft)]">{zar(r.creditZar)}</TD>
+                    <TD className="text-[var(--sc-ink-soft)]">
+                      {r.createdAtMs ? new Date(r.createdAtMs).toLocaleDateString('en-ZA') : '-'}
+                    </TD>
+                  </TR>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         )}
-      </section>
+      </Panel>
 
-      {/* How it works */}
-      <section className="pib-card p-6">
-        <p className="pib-label mb-0">How it works</p>
+      <Panel>
+        <p className="sc-tiny">How it works</p>
         <ol className="mt-4 space-y-4">
           {[
             { icon: 'share', title: 'Share your link', body: 'Send your unique referral link or code to other business owners.' },
@@ -240,20 +246,18 @@ export default function PortalReferralsPage() {
               title: 'They become a customer',
               body: `Once they pay ${settings.minPaidInvoices} invoice${settings.minPaidInvoices === 1 ? '' : 's'}${settings.requireApproval ? ' and we approve the referral' : ''}, the credit qualifies.`,
             },
-            { icon: 'savings', title: 'You earn credit', body: `You get ${zar(settings.referrerCreditZar)} applied to your next EFT invoice. No card, no payout fees — pure account credit.` },
-          ].map((step, i) => (
-            <li key={i} className="flex gap-4">
-              <span className="pib-icon-tint rounded-full">
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{step.icon}</span>
-              </span>
+            { icon: 'savings', title: 'You earn credit', body: `You get ${zar(settings.referrerCreditZar)} applied to your next EFT invoice. No card, no payout fees. Pure account credit.` },
+          ].map((step) => (
+            <li key={step.title} className="flex gap-4">
+              <Icon name={step.icon} className="mt-0.5 shrink-0 text-[var(--sc-ink-soft)]" />
               <div>
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{step.title}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">{step.body}</p>
+                <p className="sc-body text-[var(--sc-ink)]">{step.title}</p>
+                <p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">{step.body}</p>
               </div>
             </li>
           ))}
         </ol>
-      </section>
+      </Panel>
     </div>
   )
 }

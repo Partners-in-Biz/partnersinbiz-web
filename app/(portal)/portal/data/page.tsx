@@ -3,6 +3,9 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import { ButtonLink, Field, Icon, Input, Panel } from '@/components/studio'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalData() {
@@ -21,82 +24,69 @@ export default function PortalData() {
   }
 
   return (
-    <div className="space-y-10 max-w-5xl">
-      <header>
-        <p className="eyebrow">CRM data ops</p>
-        <h1 className="pib-page-title mt-2">Data export command center</h1>
-        <p className="pib-page-sub">
-          Pull a clean, company-scoped backup of the metrics and raw payloads your team relies on for board packs, BI, and CRM audits.
-        </p>
-      </header>
+    <div className="max-w-5xl space-y-8">
+      <PageHeader
+        eyebrow="CRM data ops"
+        title="Data export command center."
+        description="Pull a company-scoped backup of metrics and raw payloads for board packs, BI, and CRM audits."
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['Workspace', workspaceLabel],
-          ['Default window', '90 days'],
-          ['Formats', 'CSV + JSON'],
-          ['Use case', 'CRM-ready backup'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-[var(--color-pib-border)] bg-white/80 p-4 shadow-sm">
-            <p className="eyebrow">{label}</p>
-            <p className="mt-2 text-base font-semibold text-[var(--color-pib-text)]">{value}</p>
-          </div>
-        ))}
+        <StatCard label="Workspace" value={workspaceLabel} />
+        <StatCard label="Default window" value="90 days" />
+        <StatCard label="Formats" value="CSV + JSON" />
+        <StatCard label="Use case" value="CRM-ready backup" />
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-        <div className="bento-card !p-7 space-y-6">
-          <div>
-            <p className="eyebrow">Date range</p>
-            <div className="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">From</span>
-                <input
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+        <Panel className="space-y-8">
+          <div className="space-y-4">
+            <p className="sc-tiny">Date range</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field id="data-export-from" label="From">
+                <Input
+                  id="data-export-from"
+                  aria-label="From"
                   type="date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
                   max={to}
-                  className="pib-input mt-1.5"
                 />
-              </label>
-              <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">To</span>
-                <input
+              </Field>
+              <Field id="data-export-to" label="To">
+                <Input
+                  id="data-export-to"
+                  aria-label="To"
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   max={today}
-                  className="pib-input mt-1.5"
                 />
-              </label>
+              </Field>
             </div>
           </div>
 
-          <div>
-            <p className="eyebrow">Export format</p>
-            <div className="flex gap-3 mt-3 flex-wrap">
-              <a href={exportUrl('csv')} role="button" className="btn-pib-accent !py-2 !px-4 !text-sm">
-                <span className="material-symbols-outlined text-base" aria-hidden="true">
-                  download
-                </span>
+          <div className="space-y-4">
+            <p className="sc-tiny">Export format</p>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={exportUrl('csv')} size="sm">
+                <Icon name="download" />
                 Download CSV
-              </a>
-              <a href={exportUrl('json')} role="button" className="btn-pib-secondary !py-2 !px-4 !text-sm">
-                <span className="material-symbols-outlined text-base" aria-hidden="true">
-                  code
-                </span>
+              </ButtonLink>
+              <ButtonLink href={exportUrl('json')} variant="secondary" size="sm">
+                <Icon name="code" />
                 Download JSON
-              </a>
+              </ButtonLink>
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            <p className="sc-body text-[0.875rem] text-[var(--sc-ink-soft)]">
               Exports are locked to the selected workspace before the file is generated.
             </p>
           </div>
-        </div>
+        </Panel>
 
-        <div className="bento-card !p-7">
-          <p className="eyebrow">What&rsquo;s in the export</p>
-          <ul className="mt-4 space-y-2.5 text-sm text-[var(--color-pib-text)] leading-relaxed">
+        <Panel>
+          <p className="sc-tiny">What is in the export</p>
+          <ul className="mt-4 space-y-2 sc-body text-[var(--sc-ink)]">
             {[
               'Daily metric rows from every connected source: RevenueCat, AdSense, AdMob, App Store Connect, Play Console, Google Ads, and GA4.',
               'Original currency plus ZAR-converted value using the FX rate at the row date.',
@@ -104,14 +94,12 @@ export default function PortalData() {
               'Every JSON row includes the date, property, source, metric kind, and raw provider payload.',
             ].map((item) => (
               <li key={item} className="flex gap-2">
-                <span className="material-symbols-outlined mt-0.5 text-base text-[var(--color-pib-accent)]" aria-hidden="true">
-                  check_circle
-                </span>
+                <Icon name="check_circle" className="mt-0.5 shrink-0" />
                 <span>{item}</span>
               </li>
             ))}
           </ul>
-        </div>
+        </Panel>
       </div>
     </div>
   )
