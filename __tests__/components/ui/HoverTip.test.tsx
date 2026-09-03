@@ -12,9 +12,9 @@ describe('HoverTip', () => {
     fireEvent.mouseEnter(screen.getByText('Partners in Biz F…'))
 
     await waitFor(() => {
-      expect(screen.getByTestId('hover-tip')).toHaveTextContent(
-        'Partners in Biz Finance, Accounting, Payroll',
-      )
+      const tip = screen.getByTestId('hover-tip')
+      expect(tip).toHaveTextContent('Partners in Biz Finance, Accounting, Payroll')
+      expect(tip).toHaveClass('bg-[var(--sc-surface)]', 'text-[var(--sc-ink)]', 'rounded-[var(--st-radius,4px)]')
     })
   })
 

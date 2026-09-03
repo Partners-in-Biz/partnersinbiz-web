@@ -33,20 +33,27 @@ describe('app-wide UI foundation primitives', () => {
         description="Manage delivery across clients."
         meta={<span>Updated now</span>}
         actions={<button type="button">New task</button>}
+        accent="amber"
         tabs={<PageTabs tabs={[{ label: 'Board', value: 'board' }, { label: 'List', value: 'list' }]} value="board" />}
       />,
     )
 
-    expect(screen.getByText('Projects')).toHaveClass('eyebrow')
-    expect(screen.getByRole('heading', { name: 'Kanban command centre' })).toHaveClass('pib-page-title')
-    expect(screen.getByText('Manage delivery across clients.')).toHaveClass('pib-page-sub')
+    const header = screen.getByRole('heading', { name: 'Kanban command centre' }).closest('header')
+    expect(header).toHaveClass('pib-page-header')
+    expect(header).not.toHaveAttribute('data-accent')
+    expect(header).not.toHaveAttribute('data-module-accent')
+    expect(screen.getByText('Projects')).toHaveClass('sc-tiny')
+    expect(screen.getByRole('heading', { name: 'Kanban command centre' })).toHaveClass('sc-article__h2')
+    expect(screen.getByText('Manage delivery across clients.')).toHaveClass('sc-body')
     expect(screen.getByText('Updated now')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
-    expect(screen.getByRole('tablist', { name: 'Page tabs' })).toHaveClass('pib-tabs-segmented')
+    expect(screen.getByRole('tablist', { name: 'Page tabs' })).toHaveClass('pib-tabs')
+    expect(screen.getByRole('tablist', { name: 'Page tabs' })).not.toHaveClass('pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Board' })).toHaveClass('pib-tab-active')
   })
 
-  it('provides accessible tabs and segmented controls with icon support', () => {
+  it('provides accessible text tabs with icon support and ignores variant', () => {
     const onValueChange = jest.fn()
     render(
       <PageTabs
@@ -62,7 +69,8 @@ describe('app-wide UI foundation primitives', () => {
       />,
     )
 
-    expect(screen.getByRole('tablist', { name: 'View mode' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getByRole('tablist', { name: 'View mode' })).toHaveClass('pib-tabs')
+    expect(screen.getByRole('tablist', { name: 'View mode' })).not.toHaveClass('pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: /List/ })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('view_list')).toHaveClass('material-symbols-outlined')
     expect(screen.getByText('3')).toHaveClass('pib-tabs-badge')
@@ -101,6 +109,7 @@ describe('app-wide UI foundation primitives', () => {
       <PageLinkTabs
         ariaLabel="Document status filters"
         activeValue="approved"
+        variant="segmented"
         tabs={[
           { label: 'All', value: 'all', href: '/admin/documents', icon: 'description', badge: 9 },
           { label: 'Approved', value: 'approved', href: '/admin/documents?status=approved', badge: 2 },
@@ -108,7 +117,8 @@ describe('app-wide UI foundation primitives', () => {
       />,
     )
 
-    expect(screen.getByRole('tablist', { name: 'Document status filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getByRole('tablist', { name: 'Document status filters' })).toHaveClass('pib-tabs')
+    expect(screen.getByRole('tablist', { name: 'Document status filters' })).not.toHaveClass('pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('href', '/admin/documents')
     expect(screen.getByRole('tab', { name: /Approved/ })).toHaveClass('pib-tab-active')
@@ -117,37 +127,49 @@ describe('app-wide UI foundation primitives', () => {
     expect(screen.getByText('2')).toHaveClass('pib-tabs-badge')
   })
 
-  it('uses one surface primitive for cards, lists, and table containers', () => {
+  it('emits st-panel surfaces, flat when quiet', () => {
     const { rerender } = render(<Surface variant="card">Card content</Surface>)
-    expect(screen.getByText('Card content')).toHaveClass('pib-card')
+    expect(screen.getByText('Card content')).toHaveClass('st-panel')
+    expect(screen.getByText('Card content')).not.toHaveClass('st-panel--flat')
+
+    rerender(<Surface variant="quiet">Quiet panel</Surface>)
+    expect(screen.getByText('Quiet panel')).toHaveClass('st-panel', 'st-panel--flat')
 
     rerender(<Surface variant="list" header={<h2>Task list</h2>} footer={<button>More</button>}>Rows</Surface>)
     expect(screen.getByText('Task list').closest('[data-slot="surface-header"]')).toHaveClass('pib-surface-header')
     expect(screen.getByText('Rows')).toHaveClass('pib-surface-body')
     expect(screen.getByText('More').closest('[data-slot="surface-footer"]')).toHaveClass('pib-surface-footer')
-    expect(screen.getByText('Rows').closest('section')).toHaveClass('pib-surface', 'pib-surface-list')
+    expect(screen.getByText('Rows').closest('section')).toHaveClass('st-panel')
 
     rerender(<Surface variant="table" as="div">Table shell</Surface>)
     const tableBody = screen.getByText('Table shell')
     expect(tableBody).toHaveClass('pib-surface-body')
-    expect(tableBody.parentElement).toHaveClass('pib-surface-table')
+    expect(tableBody.parentElement).toHaveClass('st-panel')
   })
 
-  it('normalizes empty states and semantic status pills', () => {
-    render(
+  it('normalizes empty states without icons and Studio status pills', () => {
+    const { container } = render(
       <>
         <EmptyState icon="inventory_2" title="No tasks yet" description="Create a task to start this board." action={<button>Plan task</button>} />
         <StatusPill tone="success">Done</StatusPill>
         <StatusPill tone="danger" dot>Blocked</StatusPill>
+        <StatusPill tone="warn">Pending</StatusPill>
+        <StatusPill tone="info">Note</StatusPill>
+        <StatusPill tone="neutral">Idle</StatusPill>
       </>,
     )
 
-    expect(screen.getByText('inventory_2')).toHaveClass('material-symbols-outlined')
-    expect(screen.getByRole('heading', { name: 'No tasks yet' })).toBeInTheDocument()
-    expect(screen.getByText('Create a task to start this board.')).toHaveClass('pib-empty-state-description')
-    expect(screen.getByText('Done')).toHaveClass('pib-pill-success')
-    expect(screen.getByText('Blocked')).toHaveClass('pib-pill-danger')
-    expect(screen.getByTestId('status-dot')).toHaveClass('pib-status-dot-danger')
+    expect(container.querySelector('.material-symbols-outlined.pib-empty-state-icon')).toBeNull()
+    expect(screen.queryByText('inventory_2')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'No tasks yet' })).toHaveClass('sc-article__h2')
+    expect(screen.getByText('Create a task to start this board.')).toHaveClass('sc-body')
+    expect(screen.getByText('Done')).toHaveClass('st-status', 'st-status--success')
+    expect(screen.getByText('Blocked')).toHaveClass('st-status', 'st-status--danger')
+    expect(screen.getByText('Pending')).toHaveClass('st-status', 'st-status--warning')
+    expect(screen.getByText('Note')).toHaveClass('st-status', 'st-status--info')
+    expect(screen.getByText('Idle')).toHaveClass('st-status')
+    expect(screen.getByText('Idle')).not.toHaveClass('st-status--success', 'st-status--warning', 'st-status--danger', 'st-status--info')
+    expect(screen.queryByTestId('status-dot')).not.toBeInTheDocument()
   })
 
   it('standardizes responsive header tabs and dialog/drawer shells', () => {

@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import type { DocumentBlock } from '@/lib/client-documents/types'
 import { BlockFrame } from './BlockFrame'
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { chartPalette } from '@/lib/client-documents/chartPalette'
 
 type Item = { label: string; amount: number; currency?: string }
 type Content = { items: Item[]; total: number; currency?: string; notes?: string }
@@ -21,22 +19,22 @@ function formatMoney(amount: number, currency = 'ZAR') {
   }
 }
 
+/** Studio chart series (brand 11.11): terracotta primary, ink-soft rest. */
+function seriesFill(index: number) {
+  return index === 0 ? 'var(--sc-accent)' : 'var(--sc-ink-soft)'
+}
+
+const AXIS_TICK = {
+  className: 'sc-tiny',
+  fill: 'var(--sc-ink-soft)',
+  fontSize: 11,
+} as const
+
 export function InvestmentBlock({ block, index }: { block: DocumentBlock; index: number }) {
   const content = (block.content as Content) ?? { items: [], total: 0 }
   const items = content.items ?? []
   const total = content.total ?? 0
   const currency = content.currency ?? 'ZAR'
-
-  const [accent, setAccent] = useState('#F5A623')
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const computed = getComputedStyle(globalThis.document.documentElement)
-      .getPropertyValue('--doc-accent')
-      .trim()
-    if (computed) setAccent(computed)
-  }, [])
-
-  const palette = chartPalette(accent, Math.max(items.length, 1))
 
   return (
     <BlockFrame block={block} index={index}>
@@ -80,24 +78,27 @@ export function InvestmentBlock({ block, index }: { block: DocumentBlock; index:
                 data={items.map((i) => ({ name: i.label, value: i.amount }))}
                 layout="vertical"
               >
-                <XAxis type="number" stroke="var(--doc-muted)" fontSize={11} />
+                <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                 <YAxis
                   dataKey="name"
                   type="category"
                   width={140}
-                  stroke="var(--doc-muted)"
-                  fontSize={11}
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--doc-bg)',
-                    border: '1px solid var(--doc-border)',
+                    background: 'var(--sc-surface)',
+                    border: '1px solid var(--sc-line)',
+                    borderRadius: 6,
+                    color: 'var(--sc-ink)',
                   }}
                   formatter={(v) => formatMoney(Number(v) || 0, currency)}
                 />
                 <Bar dataKey="value">
                   {items.map((_, i) => (
-                    <Cell key={i} fill={palette[i % palette.length]} />
+                    <Cell key={i} fill={seriesFill(i)} />
                   ))}
                 </Bar>
               </BarChart>

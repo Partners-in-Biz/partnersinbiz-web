@@ -1,5 +1,6 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react'
 import Link from 'next/link'
+import { Status } from '@/components/studio'
 import { cn } from '@/lib/utils'
 
 type AppShellProps = ComponentPropsWithoutRef<'div'> & {
@@ -52,26 +53,29 @@ type PageHeaderProps = {
   actions?: ReactNode
   tabs?: ReactNode
   className?: string
-  /** Module spectral underline + data-module-accent */
+  /**
+   * @deprecated Spectral underline retired. Accepted for API compatibility; ignored.
+   */
   accent?: ModuleAccent
 }
 
-export function PageHeader({ eyebrow, title, description, meta, actions, tabs, className, accent }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, meta, actions, tabs, className, accent: _accent }: PageHeaderProps) {
+  void _accent
   return (
-    <header
-      className={cn('pib-page-header', className)}
-      data-accent={accent || undefined}
-      data-module-accent={accent || undefined}
-    >
+    <header className={cn('pib-page-header', className)}>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
+        {eyebrow ? <div className="sc-tiny">{eyebrow}</div> : null}
         <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h1 className="pib-page-title">{title}</h1>
-            {description ? <p className="pib-page-sub">{description}</p> : null}
-            {meta ? <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">{meta}</div> : null}
+            <h1 className="sc-article__h2">{title}</h1>
+            {description ? <p className="sc-body">{description}</p> : null}
+            {meta ? <div className="mt-2 flex flex-wrap items-center gap-1.5 sc-tiny">{meta}</div> : null}
           </div>
-          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-1.5 [&_.btn-pib-primary]:btn-pib-sm [&_.btn-pib-secondary]:btn-pib-sm [&_.btn-pib-ghost]:btn-pib-sm [&_.pib-btn-primary]:btn-pib-sm [&_.pib-btn-secondary]:btn-pib-sm">{actions}</div> : null}
+          {actions ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5 [&_.btn-pib-primary]:btn-pib-sm [&_.btn-pib-secondary]:btn-pib-sm [&_.btn-pib-ghost]:btn-pib-sm [&_.pib-btn-primary]:btn-pib-sm [&_.pib-btn-secondary]:btn-pib-sm [&_.st-btn]:st-btn--sm">
+              {actions}
+            </div>
+          ) : null}
         </div>
       </div>
       {tabs ? <div className="pib-page-header-tabs">{tabs}</div> : null}
@@ -92,13 +96,17 @@ type PageTabsProps = {
   value: string
   onValueChange?: (value: string) => void
   ariaLabel?: string
+  /**
+   * @deprecated Segmented and underline tabs render identically. Accepted; ignored.
+   */
   variant?: 'tabs' | 'segmented'
   className?: string
 }
 
-export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageTabsProps) {
+export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant: _variant, className }: PageTabsProps) {
+  void _variant
   return (
-    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', variant === 'segmented' && 'pib-tabs-segmented', className)}>
+    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === value
         return (
@@ -132,13 +140,17 @@ type PageLinkTabsProps = {
   tabs: PageLinkTab[]
   activeValue: string
   ariaLabel?: string
+  /**
+   * @deprecated Segmented and underline tabs render identically. Accepted; ignored.
+   */
   variant?: 'tabs' | 'segmented'
   className?: string
 }
 
-export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageLinkTabsProps) {
+export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant: _variant, className }: PageLinkTabsProps) {
+  void _variant
   return (
-    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', variant === 'segmented' && 'pib-tabs-segmented', className)}>
+    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === activeValue
         return (
@@ -171,7 +183,7 @@ type ResponsiveHeaderTabsProps = {
 export function ResponsiveHeaderTabs({ title, tabs, actions, className }: ResponsiveHeaderTabsProps) {
   return (
     <div data-slot="responsive-header-tabs" className={cn('pib-responsive-header-tabs', className)}>
-      {title ? <div className="min-w-0 text-sm font-medium text-[var(--color-pib-text)]">{title}</div> : null}
+      {title ? <div className="min-w-0 sc-body">{title}</div> : null}
       <div className="min-w-0 flex-1 overflow-x-auto">{tabs}</div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
@@ -186,6 +198,9 @@ type SurfaceOwnProps<T extends ElementType> = {
   children: ReactNode
   className?: string
   bodyClassName?: string
+  /**
+   * @deprecated Accent edges retired. Accepted for API compatibility; ignored.
+   */
   accentEdge?: boolean | ModuleAccent
 }
 
@@ -199,41 +214,25 @@ export function Surface<T extends ElementType = 'section'>({
   children,
   className,
   bodyClassName,
-  accentEdge,
+  accentEdge: _accentEdge,
   ...props
 }: SurfaceProps<T>) {
+  void _accentEdge
   const Component = as ?? 'section'
   const isPlainCard = (variant === 'card' || variant === 'glass' || variant === 'quiet') && !header && !footer
-  const accent = typeof accentEdge === 'string' ? accentEdge : undefined
-  const edgeClass = accentEdge ? 'pib-accent-edge' : undefined
-  const variantClass =
-    variant === 'glass' ? 'pib-card pib-surface-glass'
-      : variant === 'quiet' ? 'pib-card pib-surface-quiet'
-        : variant === 'card' ? 'pib-card'
-          : cn('pib-surface', `pib-surface-${variant}`)
+  const flat = variant === 'quiet' || variant === 'glass'
+  const panelClass = cn('st-panel', flat && 'st-panel--flat', className)
 
   if (isPlainCard) {
     return (
-      <Component
-        className={cn(variantClass, edgeClass, className)}
-        data-module-accent={accent}
-        {...props}
-      >
+      <Component className={panelClass} {...props}>
         {children}
       </Component>
     )
   }
 
   return (
-    <Component
-      className={cn(
-        variant === 'glass' || variant === 'quiet' ? variantClass : cn('pib-surface', `pib-surface-${variant === 'list' || variant === 'table' ? variant : 'card'}`),
-        edgeClass,
-        className,
-      )}
-      data-module-accent={accent}
-      {...props}
-    >
+    <Component className={panelClass} {...props}>
       {header ? <div data-slot="surface-header" className="pib-surface-header">{header}</div> : null}
       <div className={cn('pib-surface-body', bodyClassName)}>{children}</div>
       {footer ? <div data-slot="surface-footer" className="pib-surface-footer">{footer}</div> : null}
@@ -242,6 +241,9 @@ export function Surface<T extends ElementType = 'section'>({
 }
 
 type EmptyStateProps = {
+  /**
+   * @deprecated Empty states no longer render icons. Accepted; ignored.
+   */
   icon?: string
   title: ReactNode
   description?: ReactNode
@@ -251,12 +253,12 @@ type EmptyStateProps = {
   dense?: boolean
 }
 
-export function EmptyState({ icon, title, description, action, className, dense = true }: EmptyStateProps) {
+export function EmptyState({ icon: _icon, title, description, action, className, dense = true }: EmptyStateProps) {
+  void _icon
   return (
     <div className={cn('pib-empty-state', dense && '!py-8', className)}>
-      {icon ? <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">{icon}</span> : null}
-      <h2 className="pib-empty-state-title">{title}</h2>
-      {description ? <p className="pib-empty-state-description">{description}</p> : null}
+      <h2 className="pib-empty-state-title sc-article__h2">{title}</h2>
+      {description ? <p className="pib-empty-state-description sc-body">{description}</p> : null}
       {action ? <div className={cn('flex justify-center', dense ? 'mt-3' : 'mt-5')}>{action}</div> : null}
     </div>
   )
@@ -266,13 +268,48 @@ type StatusTone = 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' 
 
 type StatusPillProps = ComponentPropsWithoutRef<'span'> & {
   tone?: StatusTone
+  /**
+   * @deprecated Studio Status always shows the status dot via CSS. Accepted; ignored.
+   */
   dot?: boolean
 }
 
-export function StatusPill({ tone = 'neutral', dot, children, className, ...props }: StatusPillProps) {
+type StudioStatusTone = 'success' | 'warning' | 'danger' | 'info'
+
+function mapStatusTone(tone: StatusTone): StudioStatusTone | undefined {
+  switch (tone) {
+    case 'success':
+      return 'success'
+    case 'warn':
+      return 'warning'
+    case 'danger':
+    case 'rose':
+      return 'danger'
+    case 'info':
+    case 'blue':
+    case 'cyan':
+      return 'info'
+    default:
+      return undefined
+  }
+}
+
+export function StatusPill({ tone = 'neutral', dot: _dot, children, className, ...props }: StatusPillProps) {
+  void _dot
+  const studioTone = mapStatusTone(tone)
+  // Status from the kit owns the visual; forward remaining span attrs on the same node shape.
+  if (Object.keys(props).length === 0) {
+    return (
+      <Status tone={studioTone} className={className}>
+        {children}
+      </Status>
+    )
+  }
   return (
-    <span className={cn('pib-pill', tone !== 'neutral' && `pib-pill-${tone}`, className)} {...props}>
-      {dot ? <span data-testid="status-dot" className={cn('pib-status-dot', `pib-status-dot-${tone}`)} /> : null}
+    <span
+      className={cn('st-status sc-tiny', studioTone && `st-status--${studioTone}`, className)}
+      {...props}
+    >
       {children}
     </span>
   )

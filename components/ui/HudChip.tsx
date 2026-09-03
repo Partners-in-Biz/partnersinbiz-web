@@ -9,48 +9,42 @@ type HudChipProps = ComponentPropsWithoutRef<'span'> & {
   children: ReactNode
 }
 
-function resolveHudTone(tone: HudChipTone, live?: boolean): 'default' | 'accent' | 'live' {
-  if (live) return 'live'
-  if (tone === 'neutral') return 'default'
-  if (tone === 'success') return 'live'
-  if (tone === 'warning' || tone === 'warn') return 'accent'
-  return tone
+type StudioStatusTone = 'success' | 'warning' | 'danger' | 'info'
+
+function resolveStudioTone(tone: HudChipTone, live?: boolean): StudioStatusTone | undefined {
+  if (live || tone === 'live' || tone === 'success') return 'success'
+  if (tone === 'warning' || tone === 'warn' || tone === 'accent') return 'warning'
+  return undefined
 }
 
-/** Compact meta chip for dense HUDs and page headers. */
+/** Status word with dot. Emits Studio `st-status` markup. */
 export function HudChip({ tone = 'default', live, children, className, ...props }: HudChipProps) {
-  const resolved = resolveHudTone(tone, live)
+  const studioTone = resolveStudioTone(tone, live)
   return (
     <span
-      className={cn('pib-hud-chip messages-info-chip', className)}
-      data-tone={resolved === 'default' ? undefined : resolved}
-      data-source-tone={tone === 'default' ? undefined : tone}
+      className={cn('st-status sc-tiny', studioTone && `st-status--${studioTone}`, className)}
       {...props}
     >
-      {live || resolved === 'live' ? <span className="pib-live-dot messages-hud-pulse" aria-hidden="true" /> : null}
       {children}
     </span>
   )
 }
 
-export function SignalMeter({ className, title = 'Signal' }: { className?: string; title?: string }) {
-  return (
-    <span className={cn('pib-signal-meter messages-hud-meter', className)} title={title} aria-hidden="true">
-      <i />
-    </span>
-  )
+/** @deprecated Atmosphere chrome retired. Renders nothing. */
+export function SignalMeter(_props: { className?: string; title?: string }) {
+  void _props
+  return null
 }
 
-export function GlassBar({ children, className, ...props }: ComponentPropsWithoutRef<'div'>) {
-  return (
-    <div className={cn('pib-glass-bar', className)} {...props}>
-      {children}
-    </div>
-  )
+/** @deprecated Glass chrome retired. Renders children without chrome. */
+export function GlassBar({ children }: ComponentPropsWithoutRef<'div'>) {
+  return <>{children}</>
 }
 
-export function LiveDot({ className }: { className?: string }) {
-  return <span className={cn('pib-live-dot messages-hud-pulse', className)} aria-hidden="true" />
+/** @deprecated Live-dot chrome retired. Renders nothing. */
+export function LiveDot(_props: { className?: string }) {
+  void _props
+  return null
 }
 
 export default HudChip

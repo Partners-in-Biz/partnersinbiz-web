@@ -13,6 +13,8 @@ jest.mock('recharts', () => {
     },
     BarChart: passthrough,
     Bar: passthrough,
+    LineChart: passthrough,
+    Line: passthrough,
     AreaChart: passthrough,
     Area: passthrough,
     PieChart: passthrough,
@@ -23,9 +25,6 @@ jest.mock('recharts', () => {
     CartesianGrid: passthrough,
     Tooltip: passthrough,
     ReferenceLine: passthrough,
-    defs: passthrough,
-    linearGradient: passthrough,
-    stop: passthrough,
   }
 })
 
@@ -52,5 +51,13 @@ describe('shared chart wrappers', () => {
         expect.objectContaining({ initialDimension: { width: 320, height: 160 } }),
       ]),
     )
+  })
+
+  it('renders TrendAreaChart as a line (no area fill / gradient defs)', () => {
+    const { container } = render(
+      <TrendAreaChart data={[{ label: 'Week 1', value: 1 }]} height={160} />,
+    )
+    expect(container.querySelector('defs')).toBeNull()
+    expect(container.innerHTML).not.toMatch(/linearGradient|AreaChart|<Area\b/)
   })
 })

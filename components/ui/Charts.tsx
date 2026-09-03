@@ -1,41 +1,43 @@
 'use client'
 
 import {
-  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
 
-// ── Theme constants ──────────────────────────────────────────────────────
+// ── Studio chart tokens (brand 11.11) ─────────────────────────────────────
+// Ink line on paper, terracotta for the primary series, ink-soft for the rest.
+// Hairline grid, .sc-tiny axes. No <defs> gradients, no area fills.
 
 const COLORS = {
-  accent: '#F59E0B',
-  accentDim: 'rgba(245,158,11,0.3)',
-  grey: '#2a2a2a',
-  greyLight: '#3a3a3a',
-  text: '#e2e2e2',
-  textDim: '#999',
-  bg: '#0A0A0A',
-  green: '#4ade80',
-  blue: '#60a5fa',
-  pink: '#f472b6',
-  red: '#ef4444',
-  purple: '#a78bfa',
-  cyan: '#22d3ee',
+  primary: 'var(--sc-accent)',
+  series: 'var(--sc-ink)',
+  rest: 'var(--sc-ink-soft)',
+  grid: 'var(--sc-line)',
+  text: 'var(--sc-ink)',
+  textDim: 'var(--sc-ink-soft)',
 }
 
-const DONUT_PALETTE = [COLORS.accent, COLORS.green, COLORS.blue, COLORS.pink, COLORS.purple, COLORS.cyan, COLORS.red]
+/** Primary slice terracotta; remaining slices ink-soft. */
+const DONUT_PALETTE = [COLORS.primary, COLORS.rest, COLORS.rest, COLORS.rest, COLORS.rest, COLORS.rest, COLORS.rest]
 const DEFAULT_CHART_WIDTH = 320
+
+const AXIS_TICK = {
+  className: 'sc-tiny',
+  fill: COLORS.textDim,
+  fontSize: 11,
+} as const
 
 // ── Custom Tooltip ───────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label, formatter }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="pib-card !p-2 !text-xs !shadow-lg border border-[var(--color-card-border)]">
-      {label && <p className="text-[var(--color-pib-text-muted)] mb-1">{label}</p>}
+    <div className="st-panel !p-2 !shadow-none border border-[var(--sc-line)] text-[0.75rem]">
+      {label && <p className="sc-tiny text-[var(--sc-ink-soft)] mb-1">{label}</p>}
       {payload.map((entry: any, i: number) => (
-        <p key={i} className="text-[var(--color-pib-text)] font-medium" style={{ color: entry.color }}>
+        <p key={i} className="sc-body text-[var(--sc-ink)]" style={{ color: entry.color }}>
           {entry.name}: {formatter ? formatter(entry.value) : entry.value.toLocaleString()}
         </p>
       ))}
@@ -61,19 +63,19 @@ export function StatCardWithChart({
   return (
     <div className="pib-stat-card flex items-end justify-between gap-4">
       <div className="flex-1 min-w-0">
-        <p className="pib-label mb-2">
+        <p className="sc-tiny mb-2">
           {label}
         </p>
         <p
-          className="text-3xl font-headline font-bold mb-1"
-          style={{ color: accent ? COLORS.accent : COLORS.text }}
+          className="st-num text-[1.75rem] mb-1"
+          style={{ color: accent ? COLORS.primary : COLORS.text }}
         >
           {value}
         </p>
         {sub && (
-          <p className="text-xs text-[var(--color-pib-text-muted)] flex items-center gap-1">
-            {trend === 'up' && <span className="text-green-400 text-xs">↑</span>}
-            {trend === 'down' && <span className="text-red-400 text-xs">↓</span>}
+          <p className="sc-body text-[0.75rem] text-[var(--sc-ink-soft)] flex items-center gap-1">
+            {trend === 'up' && <span className="text-[var(--st-success)] text-xs">↑</span>}
+            {trend === 'down' && <span className="text-[var(--st-danger)] text-xs">↓</span>}
             {sub}
           </p>
         )}
@@ -82,29 +84,22 @@ export function StatCardWithChart({
         <div className="w-24 h-14 shrink-0">
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 96, height: 56 }}>
             {chartType === 'area' ? (
-              <AreaChart data={data}>
-                <defs>
-                  <linearGradient id="accentGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.4} />
-                    <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
+              <LineChart data={data}>
+                <Line
                   type="monotone"
                   dataKey="value"
-                  stroke={COLORS.accent}
+                  stroke={COLORS.primary}
                   strokeWidth={2}
-                  fill="url(#accentGradient)"
                   dot={false}
                 />
-              </AreaChart>
+              </LineChart>
             ) : (
               <BarChart data={data}>
                 <Bar dataKey="value" radius={[2, 2, 0, 0]}>
                   {data.map((_, i) => (
                     <Cell
                       key={i}
-                      fill={i === data.length - 1 ? COLORS.accent : COLORS.grey}
+                      fill={i === data.length - 1 ? COLORS.primary : COLORS.rest}
                     />
                   ))}
                 </Bar>
@@ -135,15 +130,15 @@ export function RevenueBarChart({
   return (
     <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
       <BarChart data={data} barCategoryGap="20%">
-        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+        <CartesianGrid vertical={false} stroke={COLORS.grid} strokeWidth={1} />
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 11, fill: COLORS.textDim }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: COLORS.textDim }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
           tickFormatter={fmt}
@@ -153,13 +148,14 @@ export function RevenueBarChart({
         {target && (
           <ReferenceLine
             y={target}
-            stroke={COLORS.textDim}
+            stroke={COLORS.rest}
             strokeDasharray="6 3"
             label={{
               value: fmt(target),
               position: 'right',
               fill: COLORS.textDim,
               fontSize: 10,
+              className: 'sc-tiny',
             }}
           />
         )}
@@ -167,7 +163,7 @@ export function RevenueBarChart({
           {data.map((_, i) => (
             <Cell
               key={i}
-              fill={highlightLast && i === data.length - 1 ? COLORS.accent : COLORS.greyLight}
+              fill={highlightLast && i === data.length - 1 ? COLORS.primary : COLORS.rest}
             />
           ))}
         </Bar>
@@ -176,7 +172,7 @@ export function RevenueBarChart({
   )
 }
 
-// ── Trend Area Chart ─────────────────────────────────────────────────────
+// ── Trend chart (line only — no area fill / gradients) ───────────────────
 
 interface TrendAreaChartProps {
   data: { label: string; value: number }[]
@@ -186,45 +182,37 @@ interface TrendAreaChartProps {
 }
 
 export function TrendAreaChart({
-  data, height = 200, color = COLORS.accent, valueFormatter,
+  data, height = 200, color = COLORS.primary, valueFormatter,
 }: TrendAreaChartProps) {
   const fmt = valueFormatter ?? ((v: number) => v.toLocaleString())
-  const gradientId = `area-grad-${color.replace('#', '')}`
 
   return (
     <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
-      <AreaChart data={data}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={color} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+      <LineChart data={data}>
+        <CartesianGrid vertical={false} stroke={COLORS.grid} strokeWidth={1} />
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 11, fill: COLORS.textDim }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: COLORS.textDim }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
           tickFormatter={fmt}
           width={50}
         />
         <Tooltip content={<ChartTooltip formatter={fmt} />} />
-        <Area
+        <Line
           type="monotone"
           dataKey="value"
           stroke={color}
           strokeWidth={2}
-          fill={`url(#${gradientId})`}
           dot={false}
           name="Value"
         />
-      </AreaChart>
+      </LineChart>
     </ResponsiveContainer>
   )
 }
@@ -243,8 +231,6 @@ interface DonutChartProps {
 export function DonutChart({
   data, height = 220, innerRadius = 55, outerRadius = 80, centerLabel, centerValue,
 }: DonutChartProps) {
-  const total = data.reduce((sum, d) => sum + d.value, 0)
-
   return (
     <div className="relative">
       <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
@@ -269,10 +255,10 @@ export function DonutChart({
       {(centerLabel || centerValue) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           {centerValue && (
-            <span className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{centerValue}</span>
+            <span className="st-num text-2xl text-[var(--sc-ink)]">{centerValue}</span>
           )}
           {centerLabel && (
-            <span className="text-[10px] text-[var(--color-pib-text-muted)] uppercase tracking-wide">{centerLabel}</span>
+            <span className="sc-tiny text-[var(--sc-ink-soft)]">{centerLabel}</span>
           )}
         </div>
       )}
@@ -281,10 +267,13 @@ export function DonutChart({
         {data.map((entry, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ background: entry.color ?? DONUT_PALETTE[i % DONUT_PALETTE.length] }}
+              className="w-2 h-2 shrink-0"
+              style={{
+                borderRadius: 2,
+                background: entry.color ?? DONUT_PALETTE[i % DONUT_PALETTE.length],
+              }}
             />
-            <span className="text-[10px] text-[var(--color-pib-text-muted)]">
+            <span className="sc-tiny text-[var(--sc-ink-soft)]">
               {entry.name} ({entry.value})
             </span>
           </div>
@@ -311,10 +300,10 @@ export function HorizontalBarChart({
   return (
     <ResponsiveContainer width="100%" height={chartHeight} initialDimension={{ width: DEFAULT_CHART_WIDTH, height: chartHeight }}>
       <BarChart data={data} layout="vertical" barCategoryGap="25%">
-        <CartesianGrid horizontal={false} stroke="rgba(255,255,255,0.04)" />
+        <CartesianGrid horizontal={false} stroke={COLORS.grid} strokeWidth={1} />
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: COLORS.textDim }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
           tickFormatter={fmt}
@@ -322,7 +311,7 @@ export function HorizontalBarChart({
         <YAxis
           type="category"
           dataKey="label"
-          tick={{ fontSize: 12, fill: COLORS.text }}
+          tick={{ ...AXIS_TICK, fill: COLORS.text }}
           tickLine={false}
           axisLine={false}
           width={90}
@@ -330,7 +319,10 @@ export function HorizontalBarChart({
         <Tooltip content={<ChartTooltip formatter={fmt} />} cursor={false} />
         <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Value">
           {data.map((entry, i) => (
-            <Cell key={i} fill={entry.color ?? DONUT_PALETTE[i % DONUT_PALETTE.length]} />
+            <Cell
+              key={i}
+              fill={entry.color ?? (i === 0 ? COLORS.primary : COLORS.rest)}
+            />
           ))}
         </Bar>
       </BarChart>
