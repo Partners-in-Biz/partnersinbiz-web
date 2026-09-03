@@ -1,10 +1,17 @@
 import Link from 'next/link'
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TdHTMLAttributes,
+  type ThHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react'
 import './studio-ui.css'
 
@@ -242,5 +249,297 @@ export function Notice({
       {title && <strong>{title}</strong>}
       {children && <span>{children}</span>}
     </div>
+  )
+}
+
+/* ── Checkbox / Switch / Radio ──────────────────────────────────────────── */
+
+export function Checkbox({
+  label,
+  className,
+  id,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { label: ReactNode }) {
+  const autoId = useId()
+  const inputId = id ?? autoId
+  return (
+    <label className={cx('st-checkbox', className)} htmlFor={inputId}>
+      <input id={inputId} type="checkbox" {...rest} />
+      <span>{label}</span>
+    </label>
+  )
+}
+
+export function Switch({
+  label,
+  className,
+  id,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'role'> & { label: ReactNode }) {
+  const autoId = useId()
+  const inputId = id ?? autoId
+  return (
+    <label className={cx('st-switch', className)} htmlFor={inputId}>
+      <input id={inputId} type="checkbox" role="switch" {...rest} />
+      <span>{label}</span>
+    </label>
+  )
+}
+
+export function RadioGroup({
+  name,
+  label,
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  name: string
+  label?: ReactNode
+  options: readonly { value: string; label: ReactNode }[]
+  value?: string
+  onChange?: (value: string) => void
+  className?: string
+}) {
+  const groupId = useId()
+  return (
+    <div className={cx('st-radio-group', className)} role="radiogroup" aria-labelledby={label ? `${groupId}-label` : undefined}>
+      {label && (
+        <div id={`${groupId}-label`} className="sc-tiny">
+          {label}
+        </div>
+      )}
+      {options.map((opt) => {
+        const id = `${groupId}-${opt.value}`
+        return (
+          <label key={opt.value} className="st-radio" htmlFor={id}>
+            <input
+              id={id}
+              type="radio"
+              name={name}
+              value={opt.value}
+              checked={value === opt.value}
+              onChange={() => onChange?.(opt.value)}
+            />
+            <span>{opt.label}</span>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── Menu ───────────────────────────────────────────────────────────────── */
+
+export function Menu({
+  trigger,
+  items,
+  label,
+}: {
+  trigger: ReactNode
+  label: string
+  items: readonly { id: string; label: ReactNode; onSelect?: () => void; disabled?: boolean }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="st-menu" ref={rootRef}>
+      <Button
+        type="button"
+        variant="secondary"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {trigger}
+      </Button>
+      {open && (
+        <ul className="st-menu__list" role="menu" aria-label={label}>
+          {items.map((item) => (
+            <li key={item.id} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                className="st-menu__item"
+                disabled={item.disabled}
+                onClick={() => {
+                  item.onSelect?.()
+                  setOpen(false)
+                }}
+              >
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+
+export function Table({ children, className }: { children: ReactNode; className?: string }) {
+  return <table className={cx('st-table', className)}>{children}</table>
+}
+export function THead({ children }: { children: ReactNode }) {
+  return <thead>{children}</thead>
+}
+export function TFoot({ children }: { children: ReactNode }) {
+  return <tfoot>{children}</tfoot>
+}
+export function TR({ children, className }: { children: ReactNode; className?: string }) {
+  return <tr className={className}>{children}</tr>
+}
+export function TH({ children, className, ...rest }: ThHTMLAttributes<HTMLTableCellElement>) {
+  return (
+    <th className={cx('sc-tiny', className)} {...rest}>
+      {children}
+    </th>
+  )
+}
+export function TD({ children, className, ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
+  return (
+    <td className={cx(className)} {...rest}>
+      {children}
+    </td>
+  )
+}
+
+/* ── DataList ───────────────────────────────────────────────────────────── */
+
+export function DataList({ children, className }: { children: ReactNode; className?: string }) {
+  return <dl className={cx('st-datalist', className)}>{children}</dl>
+}
+
+export function DataItem({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div className="st-datalist__item">
+      <dt className="sc-tiny">{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  )
+}
+
+/* ── Avatar / Toolbar / Pagination / Crumbs / Skeleton / Icon ───────────── */
+
+export function Avatar({
+  initials,
+  src,
+  alt = '',
+  size = 'md',
+  className,
+}: {
+  initials?: string
+  src?: string
+  alt?: string
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+}) {
+  return (
+    <span className={cx('st-avatar', size !== 'md' && `st-avatar--${size}`, className)} aria-hidden={src ? undefined : !alt}>
+      {src ? <img src={src} alt={alt} /> : (initials ?? '?')}
+    </span>
+  )
+}
+
+export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx('st-toolbar', className)}>{children}</div>
+}
+
+export function Pagination({
+  from,
+  to,
+  total,
+  onPrev,
+  onNext,
+  prevDisabled,
+  nextDisabled,
+}: {
+  from: number
+  to: number
+  total: number
+  onPrev?: () => void
+  onNext?: () => void
+  prevDisabled?: boolean
+  nextDisabled?: boolean
+}) {
+  return (
+    <div className="st-pagination">
+      <p className="sc-tiny" style={{ margin: 0 }}>
+        Showing {from} to {to} of {total}
+      </p>
+      <div className="st-pagination__actions">
+        <Button type="button" variant="ghost" size="sm" onClick={onPrev} disabled={prevDisabled}>
+          Previous
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onNext} disabled={nextDisabled}>
+          Next
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function Crumbs({
+  items,
+}: {
+  items: readonly { href?: string; label: ReactNode }[]
+}) {
+  return (
+    <nav aria-label="Breadcrumb">
+      <ol className="st-crumbs sc-tiny">
+        {items.map((item, i) => (
+          <li key={i}>
+            {i > 0 && <span className="st-crumbs__sep" aria-hidden="true"> / </span>}
+            {item.href ? <a href={item.href}>{item.label}</a> : <span aria-current="page">{item.label}</span>}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  )
+}
+
+export function Skeleton({ className, style, width, height }: { className?: string; style?: CSSProperties; width?: string | number; height?: string | number }) {
+  return <span className={cx('st-skeleton', className)} style={{ width, height, ...style }} aria-hidden="true" />
+}
+
+export function Icon({
+  name,
+  label,
+  className,
+}: {
+  name: string
+  /** Accessible name. When omitted the icon is aria-hidden. */
+  label?: string
+  className?: string
+}) {
+  return (
+    <span
+      className={cx('st-icon', 'material-symbols-outlined', className)}
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      role={label ? 'img' : undefined}
+    >
+      {name}
+    </span>
   )
 }
