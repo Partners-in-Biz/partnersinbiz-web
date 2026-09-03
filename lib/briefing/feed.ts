@@ -15,6 +15,7 @@ import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, Briefin
 import { recordLinkedToUser, recordLinkedViaCrm, recordOperatorAddressed } from './personal-scope'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
+import { workKindForItem } from './workKind'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
 const DEFAULT_LIMIT = 40
@@ -1273,7 +1274,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     ignoreOptionalFeedSource()
   }
   const labelledItems = applyUserState(
-    withCrmFacts,
+    withCrmFacts.map((item) => ({ ...item, workKind: workKindForItem(item) })),
     await loadBriefingUserStates(user.uid, scopedOrgIds),
   )
 

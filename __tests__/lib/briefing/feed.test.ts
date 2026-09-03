@@ -428,8 +428,10 @@ describe('briefing feed', () => {
       priority: 'needs-peet',
       source: { type: 'social-post', id: 'post-1' },
       title: 'Social post awaiting client approval',
+      workKind: 'approval',
       metadata: expect.objectContaining({ actionStage: 'client', platforms: ['linkedin', 'facebook'] }),
     })
+    expect(qaItem?.workKind).toBe('approval')
     expect(JSON.stringify(feed.items)).not.toContain('sk-test-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
