@@ -1,4 +1,3 @@
-import { Icon } from '@/components/studio'
 // app/(admin)/admin/settings/page.tsx
 'use client'
 
@@ -9,6 +8,7 @@ import { copyToClipboard } from '@/lib/utils/clipboard'
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 import { SettingsPlatformConfig } from '@/components/admin/governance/SettingsPlatformConfig'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { Icon } from '@/components/studio'
 
 interface SessionInfo {
   email?: string | null
