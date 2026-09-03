@@ -431,11 +431,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         fallback={(
           <>
             <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-            <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-              </span>
+            <div className="min-h-screen bg-[var(--sc-canvas)] flex items-center justify-center">
+              <span className="st-status st-status--info sc-tiny" aria-live="polite">Loading</span>
             </div>
           </>
         )}
@@ -763,11 +760,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-        <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-          </span>
+        <div className="min-h-screen bg-[var(--sc-canvas)] flex items-center justify-center">
+          <span className="st-status st-status--info sc-tiny" aria-live="polite">Loading</span>
         </div>
       </>
     )
@@ -915,12 +909,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const mainClassName = isCockpitRoute
     ? 'flex-1 min-h-0 overflow-hidden w-full max-w-none'
     : isMessagesRoute
-    ? 'flex-1 min-h-0 overflow-hidden p-1 md:p-1.5 w-full max-w-none'
+    ? 'flex-1 min-h-0 overflow-hidden p-[calc(var(--sc-u)*1)] w-full max-w-none'
     : isWorkspaceRoute
-    ? 'flex-1 min-h-0 overflow-hidden px-3 py-3 md:px-5 md:py-4 w-full max-w-none'
+    ? 'flex-1 min-h-0 overflow-hidden p-[var(--sc-pad)] w-full max-w-none'
     : isProjectsListRoute
-    ? 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-6 md:py-6 w-full max-w-none'
-    : 'flex-1 overflow-y-auto px-3 py-4 sm:px-4 md:px-8 md:py-8 max-w-[1400px] mx-auto w-full'
+    ? 'flex-1 overflow-y-auto pib-app-shell-main w-full max-w-none'
+    : 'flex-1 overflow-y-auto pib-app-shell-main max-w-[1400px] mx-auto w-full'
 
   const topbarShared = {
     pathname,
@@ -960,7 +954,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
         <div data-message-push-root className={[
-          'flex flex-col bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]',
+          'flex flex-col bg-[var(--sc-canvas)] text-[var(--sc-ink)]',
           isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
         ].join(' ')}>
           {tracker}
@@ -981,7 +975,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     <>
       <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
       <div data-message-push-root className={[
-        'bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex',
+        'bg-[var(--sc-canvas)] text-[var(--sc-ink)] flex',
         isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
       ].join(' ')}>
         {tracker}

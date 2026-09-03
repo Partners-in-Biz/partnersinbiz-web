@@ -49,6 +49,10 @@ jest.mock('@/components/mailbox/MailboxDrawer', () => ({
   MailboxDrawer: () => <button type="button" aria-label="Open email">Email</button>,
 }))
 
+jest.mock('@/components/command-palette/CommandPalette', () => ({
+  CommandPalette: () => null,
+}))
+
 describe('AdminShell message drawer coordination', () => {
   beforeEach(() => {
     mockPathname = '/admin'

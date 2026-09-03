@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Icon } from '@/components/studio'
 
 export type PortalSubnavLink = {
   label: string
@@ -63,26 +64,20 @@ function DropdownItem({ item, pathname }: { item: PortalSubnavItem; pathname: st
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         data-active={active ? 'true' : undefined}
-        className="pib-nav-item"
+        className="pib-nav-item inline-flex items-center gap-2 min-h-11 px-2"
       >
-        {item.icon ? (
-          <span
-            className={cn('material-symbols-outlined text-[16px]', active ? 'text-[var(--color-pib-accent)]' : 'opacity-70')}
-            aria-hidden="true"
-          >
-            {item.icon}
-          </span>
-        ) : null}
-        <span className="font-medium">{item.label}</span>
-        <span className={cn('material-symbols-outlined text-[14px] transition-transform', open && 'rotate-180')} aria-hidden="true">
-          expand_more
-        </span>
+        {item.icon ? <Icon name={item.icon} className="shrink-0" /> : null}
+        <span>{item.label}</span>
+        <Icon
+          name="expand_more"
+          className={cn('transition-transform', open && 'rotate-180')}
+        />
       </button>
 
       {open ? (
         <div
           role="menu"
-          className="fixed left-3 right-3 top-[5.5rem] z-50 mt-0 max-h-[min(60vh,24rem)] overflow-y-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--pib-fx-glass-strong,var(--color-pib-surface))] py-1 shadow-2xl backdrop-blur-md sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-1 sm:min-w-[200px]"
+          className="fixed left-3 right-3 top-[calc(var(--sc-u)*28)] z-50 mt-0 max-h-[min(60vh,24rem)] overflow-y-auto border border-[var(--sc-line)] bg-[var(--sc-surface)] py-1 shadow-[var(--sc-shadow)] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-1 sm:min-w-[200px] rounded-[var(--st-radius-raised)]"
         >
           {item.children?.map((child) => {
             const childActive = linkIsActive(child, pathname)
@@ -93,17 +88,10 @@ function DropdownItem({ item, pathname }: { item: PortalSubnavItem; pathname: st
                 role="menuitem"
                 aria-current={childActive ? 'page' : undefined}
                 data-active={childActive ? 'true' : undefined}
-                className="pib-nav-item w-full rounded-none px-3"
+                className="pib-nav-item inline-flex items-center gap-2 w-full rounded-none px-3 min-h-11"
               >
-                {child.icon ? (
-                  <span
-                    className={cn('material-symbols-outlined text-[16px]', childActive ? 'text-[var(--color-pib-accent)]' : 'opacity-70')}
-                    aria-hidden="true"
-                  >
-                    {child.icon}
-                  </span>
-                ) : null}
-                <span className="font-medium">{child.label}</span>
+                {child.icon ? <Icon name={child.icon} className="shrink-0" /> : null}
+                <span>{child.label}</span>
               </Link>
             )
           })}
@@ -120,17 +108,10 @@ function DirectItem({ item, pathname }: { item: PortalSubnavItem; pathname: stri
       href={item.href}
       aria-current={active ? 'page' : undefined}
       data-active={active ? 'true' : undefined}
-      className="pib-nav-item shrink-0"
+      className="pib-nav-item inline-flex items-center gap-2 shrink-0 min-h-11 px-2"
     >
-      {item.icon ? (
-        <span
-          className={cn('material-symbols-outlined text-[16px]', active ? 'text-[var(--color-pib-accent)]' : 'opacity-70')}
-          aria-hidden="true"
-        >
-          {item.icon}
-        </span>
-      ) : null}
-      <span className="font-medium">{item.label}</span>
+      {item.icon ? <Icon name={item.icon} className="shrink-0" /> : null}
+      <span>{item.label}</span>
     </Link>
   )
 }
@@ -140,11 +121,14 @@ export function PortalSubnav({ ariaLabel, items, pathname, className }: PortalSu
 
   return (
     <div
-      className={cn('pib-chrome-sticky sticky top-11 z-40 shrink-0', className)}
+      className={cn(
+        'sticky top-[calc(var(--sc-u)*14)] z-40 shrink-0 border-b border-[var(--sc-line)] bg-[var(--sc-canvas)]',
+        className,
+      )}
     >
       <nav
         aria-label={ariaLabel}
-        className="mx-auto flex min-h-9 w-full max-w-[1400px] flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:overflow-visible sm:px-4 md:px-5"
+        className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:overflow-visible sm:px-4 md:px-5"
       >
         {items.map((item) =>
           item.children?.length

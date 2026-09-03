@@ -30,6 +30,12 @@
   background-size: 180px 180px;
 }
 
+/* Flat stage: same tokens, no grain (lead/embed shells). */
+.sc-stage--flat::after {
+  content: none;
+  display: none;
+}
+
 /* ── Type extras (base type classes live in studio-tokens.css) ───────────── */
 
 .sc-price {

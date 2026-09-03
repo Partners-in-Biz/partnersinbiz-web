@@ -10,6 +10,8 @@ import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { OrgSwitcher } from './OrgSwitcher'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { PortalViewSwitch } from './PortalViewSwitch'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { Avatar, Icon } from '@/components/studio'
 import {
   OPERATOR_NAV_TOPBAR,
   workspaceNav,
@@ -20,7 +22,9 @@ interface AdminTopbarNavProps {
   userEmail: string
   userUid: string
   orgId: string
+  /** @deprecated Layout switcher is retired. Prop kept for API compatibility. */
   onToggleLayout: () => void
+  onOpenSearch?: () => void
   messageAction?: ReactNode
 }
 
@@ -55,24 +59,18 @@ function TopbarDropdown({ item, pathname }: { item: NavItem; pathname: string })
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         data-active={isActive ? 'true' : undefined}
-        className={[
-          'pib-nav-item whitespace-nowrap',
-          isActive ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]' : '',
-        ].join(' ')}
+        className="pib-nav-item min-h-11 whitespace-nowrap"
       >
-        <span className={['material-symbols-outlined text-[16px] shrink-0', isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70'].join(' ')}>
-          {item.icon}
-        </span>
+        <Icon name={item.icon} className={isActive ? 'text-[var(--sc-accent)]' : 'opacity-70'} />
         <span className="hidden lg:inline font-medium">{item.label}</span>
-        <span className={['material-symbols-outlined text-[14px] transition-transform duration-150', open ? 'rotate-180' : ''].join(' ')}>
-          expand_more
-        </span>
+        <Icon name="expand_more" className={['transition-transform duration-150', open ? 'rotate-180' : ''].join(' ')} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] pib-glass-strong rounded-lg shadow-xl py-1 overflow-hidden">
+        <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-[var(--st-radius-raised)] border border-[var(--sc-line)] bg-[var(--sc-surface)] py-1 shadow-[var(--sc-shadow)]">
           {item.children!.map((child) => {
             const childActive = pathname === child.href || pathname.startsWith(child.href + '/')
             return (
@@ -80,10 +78,7 @@ function TopbarDropdown({ item, pathname }: { item: NavItem; pathname: string })
                 key={child.href}
                 href={child.href}
                 data-active={childActive ? 'true' : undefined}
-                className={[
-                  'pib-nav-item w-full rounded-none',
-                  childActive ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]' : '',
-                ].join(' ')}
+                className="pib-nav-item w-full rounded-none"
               >
                 {child.label}
               </Link>
@@ -103,14 +98,9 @@ function TopbarNavLink({ item, pathname }: { item: NavItem; pathname: string }) 
     <Link
       href={item.href}
       data-active={isActive ? 'true' : undefined}
-      className={[
-        'pib-nav-item whitespace-nowrap',
-        isActive ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]' : '',
-      ].join(' ')}
+      className="pib-nav-item min-h-11 whitespace-nowrap"
     >
-      <span className={['material-symbols-outlined text-[16px] shrink-0', isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70'].join(' ')}>
-        {item.icon}
-      </span>
+      <Icon name={item.icon} className={isActive ? 'text-[var(--sc-accent)]' : 'opacity-70'} />
       <span className="hidden lg:inline font-medium">{item.label}</span>
     </Link>
   )
@@ -123,7 +113,13 @@ function NavItemRenderer({ item, pathname }: { item: NavItem; pathname: string }
 
 // ── Main topbar nav ─────────────────────────────────────────────────────────
 
-export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: AdminTopbarNavProps) {
+export function AdminTopbarNav({
+  userEmail,
+  userUid,
+  orgId,
+  onOpenSearch,
+  messageAction,
+}: AdminTopbarNavProps) {
   const pathname = usePathname()
   const { selectedOrgId, orgs } = useOrg()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -146,58 +142,61 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
   return (
     <>
       <header
-        data-module-accent="cyan"
-        className="pib-glass-bar pib-topbar-dense sticky top-0 z-30 shrink-0 !px-0"
+        className="sticky top-0 z-30 shrink-0 border-b border-[var(--sc-line)] bg-[var(--sc-canvas)]"
+        style={{ height: 'calc(var(--sc-u) * 14)' }}
       >
-        <div className="flex items-center h-full w-full px-3 gap-2">
+        <div className="flex h-full w-full items-center gap-2 px-3">
 
           {/* Brand */}
-          <Link href="/admin/dashboard" className="flex items-center gap-1.5 shrink-0 mr-1">
-            <Image src="/pib-logo-512.png" alt="Partners in Biz" width={20} height={20} className="rounded-md object-contain" />
-            <span className="hidden sm:block font-display text-sm leading-none">Partners in Biz</span>
-            <span className={['pill !text-[10px] !py-0.5 !px-1.5', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
+          <Link href="/admin/dashboard" className="mr-1 flex shrink-0 items-center gap-1.5">
+            <Image src="/pib-logo-512.png" alt="Partners in Biz" width={20} height={20} className="rounded object-contain" />
+            <span className="sc-tiny hidden text-[var(--sc-ink)] sm:block">Partners in Biz</span>
+            <span className="sc-tiny text-[var(--sc-ink-soft)]">
               {isWorkspaceMode ? workspaceLabel : 'Admin'}
             </span>
           </Link>
 
           {/* Org switcher */}
-          <div className="hidden md:block shrink-0">
+          <div className="hidden shrink-0 md:block">
             <OrgSwitcher />
           </div>
 
-          <div className="w-px h-4 bg-[var(--pib-fx-line,var(--color-pib-line))] shrink-0 hidden md:block" />
+          <div className="hidden h-4 w-px shrink-0 bg-[var(--sc-line)] md:block" />
 
           {/* Nav + tools — scrollable */}
-          <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
+          <nav className="scrollbar-none hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto md:flex">
             {navItems.map((item) => (
               <NavItemRenderer key={item.href} item={item} pathname={pathname} />
             ))}
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {onOpenSearch ? (
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                data-tip="Search (⌘K)"
+                data-tip-side="bottom"
+                aria-label="Search"
+                className="flex h-11 w-11 items-center justify-center rounded text-[var(--sc-ink-soft)] hover:bg-black/[0.05] hover:text-[var(--sc-ink)] transition-colors"
+              >
+                <Icon name="search" />
+              </button>
+            ) : null}
+            <ThemeToggle />
             <NotificationBell mode="admin" orgId={orgId} userId={userUid} />
             {messageAction}
             {isWorkspaceMode && selectedOrg?.id && (
               <PortalViewSwitch orgId={selectedOrg.id} compact />
             )}
-            {/* Temporarily hidden while the admin layout switcher is being revisited.
-            <button
-              onClick={onToggleLayout}
-              title="Switch to sidebar layout"
-              className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
-            </button>
-            */}
-            <div className="h-7 w-7 rounded-full border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-cyan-soft)] flex items-center justify-center text-[11px] font-medium text-[#5EEAD4]">
-              {initials || '·'}
-            </div>
+            <Avatar initials={initials || '·'} size="sm" alt="" />
             <a
               href="/api/auth/logout"
-              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors inline-flex items-center gap-1"
+              aria-label="Logout"
+              className="inline-flex items-center gap-1 text-xs text-[var(--sc-ink-soft)] hover:text-[var(--sc-ink)] transition-colors"
             >
-              <span className="material-symbols-outlined text-[16px]">logout</span>
+              <Icon name="logout" />
             </a>
 
             {/* Mobile hamburger */}
@@ -205,11 +204,11 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
               aria-label="Open menu"
-              className="md:hidden flex flex-col justify-center items-center h-8 w-8 gap-[3px] rounded-md hover:bg-white/[0.06] transition-colors"
+              className="md:hidden flex min-h-11 min-w-11 flex-col items-center justify-center gap-[3px] rounded hover:bg-black/[0.05] transition-colors"
             >
-              <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-              <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
-              <span className="block w-3.5 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
+              <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
+              <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
+              <span className="block h-[1.5px] w-3.5 bg-[var(--sc-ink-soft)]" />
             </button>
           </div>
         </div>
@@ -217,30 +216,23 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex flex-col">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="relative z-10 mt-11 pib-glass-strong border-b border-[var(--pib-fx-line,var(--color-pib-line))] p-3 flex flex-col gap-0.5 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 z-40 flex flex-col md:hidden">
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="relative z-10 mt-14 flex max-h-[80vh] flex-col gap-0.5 overflow-y-auto border-b border-[var(--sc-line)] bg-[var(--sc-surface)] p-3">
             <OrgSwitcher />
-            <div className="h-px bg-[var(--pib-fx-line,var(--color-pib-line))] my-1.5" />
+            <div className="my-1.5 h-px bg-[var(--sc-line)]" />
             {isWorkspaceMode && selectedOrg?.id && (
               <PortalViewSwitch orgId={selectedOrg.id} />
             )}
             {isWorkspaceMode && selectedOrg?.id && (
-              <div className="h-px bg-[var(--pib-fx-line,var(--color-pib-line))] my-1.5" />
+              <div className="my-1.5 h-px bg-[var(--sc-line)]" />
             )}
             {navItems.map((item) => (
               <MobileNavItem key={item.href} item={item} pathname={pathname} />
             ))}
-            {/* Temporarily hidden while the admin layout switcher is being revisited.
-            <div className="h-px bg-[var(--color-pib-line)] my-2" />
-            <button
-              onClick={onToggleLayout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
-            >
-              <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
-              Switch to sidebar layout
-            </button>
-            */}
           </div>
         </div>
       )}
@@ -259,12 +251,9 @@ function MobileNavItem({ item, pathname }: { item: NavItem; pathname: string }) 
       <Link
         href={item.href}
         data-active={isActive ? 'true' : undefined}
-        className={[
-          'pib-nav-item',
-          isActive ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]' : '',
-        ].join(' ')}
+        className="pib-nav-item min-h-11"
       >
-        <span className={['material-symbols-outlined text-[16px]', isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70'].join(' ')}>{item.icon}</span>
+        <Icon name={item.icon} className={isActive ? 'text-[var(--sc-accent)]' : 'opacity-70'} />
         {item.label}
       </Link>
     )
@@ -273,18 +262,14 @@ function MobileNavItem({ item, pathname }: { item: NavItem; pathname: string }) 
   return (
     <div>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         data-active={isActive ? 'true' : undefined}
-        className={[
-          'pib-nav-item w-full',
-          isActive ? '!text-[#5EEAD4]' : '',
-        ].join(' ')}
+        className="pib-nav-item min-h-11 w-full"
       >
-        <span className={['material-symbols-outlined text-[16px]', isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70'].join(' ')}>{item.icon}</span>
+        <Icon name={item.icon} className={isActive ? 'text-[var(--sc-accent)]' : 'opacity-70'} />
         <span className="flex-1 text-left">{item.label}</span>
-        <span className={['material-symbols-outlined text-[14px] transition-transform duration-150', open ? 'rotate-180' : ''].join(' ')}>
-          expand_more
-        </span>
+        <Icon name="expand_more" className={['transition-transform duration-150', open ? 'rotate-180' : ''].join(' ')} />
       </button>
       {open && (
         <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
@@ -295,10 +280,7 @@ function MobileNavItem({ item, pathname }: { item: NavItem; pathname: string }) 
                 key={child.href}
                 href={child.href}
                 data-active={childActive ? 'true' : undefined}
-                className={[
-                  'pib-nav-item',
-                  childActive ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]' : '',
-                ].join(' ')}
+                className="pib-nav-item min-h-11"
               >
                 {child.label}
               </Link>

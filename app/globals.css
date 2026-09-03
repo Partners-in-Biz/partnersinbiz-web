@@ -876,6 +876,9 @@
 
   /* Nav item */
   .pib-nav-item {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--sc-u) * 2);
     border-left: 2px solid transparent;
     color: var(--sc-ink-soft);
     font-size: 0.9375rem;

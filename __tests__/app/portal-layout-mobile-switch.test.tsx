@@ -207,7 +207,10 @@ describe('PortalLayout mobile role switch', () => {
     ].join('\n')
 
     expect(source).toContain('Switch to admin view')
-    expect(source.match(/>\s*person\s*<\/span>/g)?.length).toBeGreaterThanOrEqual(5)
+    const personIcons =
+      (source.match(/name="person"/g)?.length ?? 0) +
+      (source.match(/>\s*person\s*<\/span>/g)?.length ?? 0)
+    expect(personIcons).toBeGreaterThanOrEqual(5)
   })
 
   it('keeps the portal workspace switcher dark instead of browser-white', () => {

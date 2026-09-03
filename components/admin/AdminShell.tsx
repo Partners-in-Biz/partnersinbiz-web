@@ -9,6 +9,7 @@ import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { MailboxDrawer } from '@/components/mailbox/MailboxDrawer'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { AppShell } from '@/components/ui/AppFoundation'
+import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
@@ -32,6 +33,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
   const [chromeRevealed, setChromeRevealed] = useState(false)
+  const [cmdOpen, setCmdOpen] = useState(false)
   const botModeParam = searchParams.get('mode')
 
   useEffect(() => {
@@ -48,6 +50,17 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   useEffect(() => {
     if (botModeParam !== 'bot') setChromeRevealed(false)
   }, [botModeParam])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCmdOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -115,7 +128,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
 
   if (searchParams.get('compact') === '1') {
     return (
-      <main className="min-h-dvh bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+      <main className="min-h-dvh bg-[var(--sc-canvas)] text-[var(--sc-ink)]">
         {children}
       </main>
     )
@@ -139,34 +152,40 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     <BotModeChromeToggle revealed onToggle={() => setChromeRevealed(false)} />
   ) : null
 
+  const commandPalette = <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+
   if (layoutMode === 'topbar') {
     return (
-      <AppShell
-        data-message-push-root
-        data-module-accent="cyan"
-        header={(
-          <>
-            {revealedChromeToggle}
-            <WelcomeFlashHandler />
-            <AdminTopbarNav
-              userEmail={userEmail}
-              userUid={userUid}
-              orgId={drawerOrgId}
-              onToggleLayout={toggleLayout}
-              messageAction={messageAction}
-            />
-          </>
-        )}
-        contentClassName={mainClassName}
-        innerClassName={innerClassName}
-      >
-        {children}
-      </AppShell>
+      <>
+        {commandPalette}
+        <AppShell
+          data-message-push-root
+          header={(
+            <>
+              {revealedChromeToggle}
+              <WelcomeFlashHandler />
+              <AdminTopbarNav
+                userEmail={userEmail}
+                userUid={userUid}
+                orgId={drawerOrgId}
+                onToggleLayout={toggleLayout}
+                onOpenSearch={() => setCmdOpen(true)}
+                messageAction={messageAction}
+              />
+            </>
+          )}
+          contentClassName={mainClassName}
+          innerClassName={innerClassName}
+        >
+          {children}
+        </AppShell>
+      </>
     )
   }
 
   return (
-    <div data-message-push-root data-module-accent="cyan" className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+    <div data-message-push-root className="flex h-screen overflow-hidden bg-[var(--sc-canvas)] text-[var(--sc-ink)]">
+      {commandPalette}
       {revealedChromeToggle}
       <WelcomeFlashHandler />
       <AdminSidebar open={open} onClose={() => setOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
@@ -178,6 +197,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
             orgId={drawerOrgId}
             onMenuClick={openSidebar}
             onToggleLayout={toggleLayout}
+            onOpenSearch={() => setCmdOpen(true)}
             messageAction={messageAction}
           />
         )}

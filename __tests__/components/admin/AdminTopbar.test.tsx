@@ -9,6 +9,10 @@ jest.mock('@/components/crm/NotificationBell', () => ({
   ),
 }))
 
+jest.mock('@/components/theme/ThemeToggle', () => ({
+  ThemeToggle: () => <button type="button" aria-label="Switch to Ink">Theme</button>,
+}))
+
 describe('AdminTopbar', () => {
   it('shows the admin notification bell in the top navbar without exposing the email address', () => {
     render(<AdminTopbar userEmail="peet@example.com" userUid="admin-1" orgId="pib-platform-owner" />)
@@ -17,6 +21,8 @@ describe('AdminTopbar', () => {
     expect(notifications).toHaveAttribute('data-org-id', 'pib-platform-owner')
     expect(notifications).toHaveAttribute('data-user-id', 'admin-1')
     expect(notifications).toHaveAttribute('data-mode', 'admin')
+    expect(screen.getByRole('button', { name: 'Switch to Ink' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
     expect(screen.queryByText('peet@example.com')).not.toBeInTheDocument()
   })
 })
