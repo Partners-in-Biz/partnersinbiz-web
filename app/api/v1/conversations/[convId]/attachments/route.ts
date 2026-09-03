@@ -66,7 +66,7 @@ export const POST = withAuth(
         filename: file.name,
         contentType,
         bytes: buffer,
-        actor: actorFrom(user),
+        actor: { ...actorFrom(user) },
         ...(conversation.crossOrg ? {
           visibility: {
             principalIds: conversation.crossOrg.participants

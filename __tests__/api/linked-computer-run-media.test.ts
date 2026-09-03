@@ -33,6 +33,10 @@ jest.mock('@/lib/conversations/conversations', () => ({
   getConversation: (...args: unknown[]) => getConversation(...args),
 }))
 
+jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: () => 'SERVER_TIMESTAMP' },
+}))
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: () => ({
@@ -100,6 +104,39 @@ describe('signed linked computer run media', () => {
     expect(json.success).toBe(false)
     expect(json.error).toBe('Unsupported file type')
     expect(storeConversationAttachment).not.toHaveBeenCalled()
+    expect(authenticateSignedDeviceRequest).toHaveBeenCalled()
+  })
+
+  it('stores a PNG and returns the conversation attachment URL', async () => {
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const response = await handleLinkedRunMedia(
+      mediaRequest({
+        filename: 'chart.png',
+        contentType: 'image/png',
+        bytesBase64: pngBytes.toString('base64'),
+      }),
+      'device-a',
+      'job-a',
+    )
+    expect(response.status).toBe(200)
+    const json = await response.json() as { success: boolean; data: { url: string } }
+    expect(json).toEqual({
+      success: true,
+      data: { url: '/api/v1/conversations/conv-1/attachments/abc' },
+    })
+    expect(storeConversationAttachment).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      conversationId: 'conv-1',
+      filename: 'chart.png',
+      contentType: 'image/png',
+      actor: { createdBy: 'user-a', createdByType: 'system' },
+    }))
+    const stored = storeConversationAttachment.mock.calls[0][0] as { bytes: Buffer }
+    expect(Buffer.isBuffer(stored.bytes)).toBe(true)
+    expect(stored.bytes.equals(pngBytes)).toBe(true)
+    expect(jobUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      mediaUploadCount: 1,
+    }))
     expect(authenticateSignedDeviceRequest).toHaveBeenCalled()
   })
 })

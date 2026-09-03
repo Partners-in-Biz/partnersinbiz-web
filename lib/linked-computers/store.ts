@@ -826,7 +826,7 @@ export async function setDeviceGrantBrowserIdentity(input: {
     const grantRef = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
     const grantSnap = await tx.get(grantRef)
     if (!grantSnap.exists) throw new Error('linked computers: browsing as you requires an owner-only grant')
-    const grant = grantSnap.data() as LinkedDeviceGrant
+    const grant = grantSnap.data() as unknown as LinkedDeviceGrant
     if (grant.status !== 'active' || effectiveGrantAccessMode(grant) !== 'owner') {
       throw new Error('linked computers: browsing as you requires an owner-only grant')
     }
