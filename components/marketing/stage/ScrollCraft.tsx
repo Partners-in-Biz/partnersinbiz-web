@@ -72,6 +72,16 @@ export function ScrollCraft() {
       gated.set(stage, Array.from(stage.querySelectorAll<HTMLElement>('[data-sc-show]')))
     }
 
+    // The gate only moves with the viewport (media queries), so it is read on
+    // resize rather than every scroll frame: a computed-style read right after
+    // the --sc-p write would force a recalc per frame per stage.
+    const gates = new Map<HTMLElement, boolean>()
+    const measureGates = () => {
+      for (const stage of stages) {
+        gates.set(stage, gatesActs(getComputedStyle(stage).getPropertyValue('--sc-gate')))
+      }
+    }
+
     // Keyed by stage: the act last applied, plus whether gating was on.
     const applied = new Map<HTMLElement, string>()
     let frame = 0
@@ -83,7 +93,7 @@ export function ScrollCraft() {
         const p = progressFor(rect.top, rect.height, viewport)
         stage.style.setProperty('--sc-p', p.toFixed(4))
         const act = actFor(p, acts.get(stage) ?? [])
-        const gate = gatesActs(getComputedStyle(stage).getPropertyValue('--sc-gate'))
+        const gate = gates.get(stage) ?? true
         const key = gate ? act : `open:${act}`
         if (applied.get(stage) !== key) {
           applied.set(stage, key)
@@ -100,16 +110,25 @@ export function ScrollCraft() {
       if (!frame) frame = window.requestAnimationFrame(update)
     }
 
+    const remeasure = () => {
+      measureGates()
+      request()
+    }
+
+    measureGates()
     update()
     window.addEventListener('scroll', request, { passive: true })
-    window.addEventListener('resize', request)
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(request) : null
+    window.addEventListener('resize', remeasure)
+    const motion = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    motion?.addEventListener?.('change', remeasure)
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(remeasure) : null
     for (const stage of stages) observer?.observe(stage)
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame)
       window.removeEventListener('scroll', request)
-      window.removeEventListener('resize', request)
+      window.removeEventListener('resize', remeasure)
+      motion?.removeEventListener?.('change', remeasure)
       observer?.disconnect()
     }
   }, [])
