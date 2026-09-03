@@ -83,8 +83,8 @@ export function DesignIterationCard({ part }: { part: RichMessagePart }) {
   const applied = statusLabel.toLowerCase() === 'applied'
 
   return (
-    <article aria-label={title} data-testid="design-iteration-card" className="my-2 max-w-full overflow-hidden rounded-lg border border-white/15 bg-white/[0.03] shadow-sm shadow-black/10">
-      <header className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b border-white/10 px-3 py-2.5">
+    <article aria-label={title} data-testid="design-iteration-card" className="my-2 max-w-full overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] shadow-sm shadow-black/10">
+      <header className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b border-[var(--color-pib-line)] px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Design this page</p>
           <p className="mt-0.5 break-words text-sm font-medium leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
@@ -100,9 +100,9 @@ export function DesignIterationCard({ part }: { part: RichMessagePart }) {
       </header>
 
       {metrics.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-b border-white/10 px-3 py-2">
+        <div className="flex flex-wrap gap-2 border-b border-[var(--color-pib-line)] px-3 py-2">
           {metrics.map((metric) => (
-            <span key={metric.label} className="inline-flex min-w-14 items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px]">
+            <span key={metric.label} className="inline-flex min-w-14 items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1 text-[11px]">
               <span className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</span>
               <span className="font-medium tabular-nums text-[var(--color-pib-text)]">{metric.value}</span>
             </span>
@@ -112,7 +112,7 @@ export function DesignIterationCard({ part }: { part: RichMessagePart }) {
 
       {images.length > 0 && (
         // eslint-disable-next-line @next/next/no-img-element -- baseline screenshot from workbench browser frame storage
-        <a href={images[0].url} target="_blank" rel="noreferrer" className="block border-b border-white/10" data-testid="design-iteration-screenshot">
+        <a href={images[0].url} target="_blank" rel="noreferrer" className="block border-b border-[var(--color-pib-line)]" data-testid="design-iteration-screenshot">
           {/* eslint-disable-next-line @next/next/no-img-element -- baseline screenshot from workbench browser frame storage */}
           <img src={images[0].url} alt={images[0].alt} className="max-h-64 w-full object-cover object-top" loading="lazy" />
           {images[0].caption && <span className="block px-3 py-1 text-[10px] text-[var(--color-pib-text-muted)]">{images[0].caption}</span>}
@@ -135,7 +135,7 @@ export function DesignIterationCard({ part }: { part: RichMessagePart }) {
                   </p>
                   <ul className="mt-1.5 space-y-1.5">
                     {section.items.map((item, index) => (
-                      <li key={`${item}-${index}`} className="rounded-md border border-white/[0.07] bg-black/15 px-2 py-1.5 text-[11px] leading-relaxed text-[var(--color-pib-text)]">
+                      <li key={`${item}-${index}`} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5 text-[11px] leading-relaxed text-[var(--color-pib-text)]">
                         <span className="min-w-0 [overflow-wrap:anywhere]">{item}</span>
                       </li>
                     ))}
@@ -147,7 +147,7 @@ export function DesignIterationCard({ part }: { part: RichMessagePart }) {
         )}
 
         {evidence.length > 0 && (
-          <ul className="mt-2 space-y-1 border-t border-white/[0.07] pt-2">
+          <ul className="mt-2 space-y-1 border-t border-[var(--color-pib-line)] pt-2">
             {evidence.map((item, index) => (
               <li key={`${item}-${index}`} className="flex min-w-0 gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
                 <span aria-hidden="true" className="mt-1 h-1 w-1 shrink-0 rounded-[4px] bg-primary/70" />

@@ -50,12 +50,11 @@ export function CockpitShell({
       accent="cyan"
       shellTestId="briefings-room-shell"
       data-briefings-experience="quiet-2026"
-      style={{ background: '#000' }}
-      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-black shadow-none"
+      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-pib-bg)] shadow-none"
     >
-      <header data-testid="briefings-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black px-3">
+      <header data-testid="briefings-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface)] px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.06] text-[var(--color-pib-text)]"><Icon name="radar" /></span>
+          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text)]"><Icon name="radar" /></span>
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm leading-tight text-[var(--color-pib-text)]">Briefings</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
@@ -68,13 +67,13 @@ export function CockpitShell({
         </div>
         <div className="flex items-center gap-1.5">
           <HudChip className="sm:hidden">{itemCount} open</HudChip>
-          <button type="button" onClick={onRefresh} disabled={loading} title="Refresh briefings" className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:opacity-50">
+          <button type="button" onClick={onRefresh} disabled={loading} title="Refresh briefings" className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] disabled:opacity-50">
             <Icon name="refresh" className={loading ? 'animate-spin' : undefined} />
           </button>
           <button
             type="button"
             onClick={() => setShowChat((value) => !value)}
-            className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs transition ${showChat ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'}`}
+            className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs transition ${showChat ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'}`}
             aria-label={showChat ? 'Close Pip briefing assistant' : 'Open Pip briefing assistant'}
           >
             <Icon name="smart_toy" />

@@ -102,14 +102,14 @@ export function RuntimeExecutionSection({
   if (!activeMessage?.runId) return null
 
   return (
-    <section role="region" aria-label="Execution" data-emphasized={important || undefined} className="rounded-md border border-[var(--color-card-border)] bg-black/10">
+    <section role="region" aria-label="Execution" data-emphasized={important || undefined} className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)]">
       <button type="button" aria-label={expanded ? 'Collapse execution' : 'Expand execution'} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center justify-between gap-2 p-2.5 text-left xl:min-h-0">
         <span className="flex items-center gap-2 text-xs font-medium text-[var(--color-pib-text)]"><Icon name="developer_board" className="text-[16px] text-[var(--sc-ink-soft)]" />Execution</span>
-        <span className="flex items-center gap-1.5"><span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[15px] text-[var(--color-pib-text-muted)]" /></span>
+        <span className="flex items-center gap-1.5"><span className="rounded-md bg-[var(--color-pib-surface-muted)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[15px] text-[var(--color-pib-text-muted)]" /></span>
       </button>
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
         <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div><div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider, { auto: isAuto })}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>}{isAuto && catalog?.autoLabel && <div className="truncate text-[10px] text-[var(--color-pib-text-muted)]">Live Hermes Auto</div>}</div>
-        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)] xl:h-6 xl:w-6"><Icon name={copiedRunId ? 'check' : 'content_copy'} className="text-[13px]" /></button></div>
+        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] xl:h-6 xl:w-6"><Icon name={copiedRunId ? 'check' : 'content_copy'} className="text-[13px]" /></button></div>
           {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex flex-wrap gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200 xl:min-h-7"><Icon name="stop_circle" className="text-[14px]" />Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-[var(--color-pib-text)] xl:min-h-7"><Icon name="refresh" className="text-[14px]" />Retry run</button>}</div> : null}
         </div>
         <div><div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Live events</div>{events.length === 0 ? <div className="text-[11px] text-[var(--color-pib-text-muted)]">No runtime events recorded.</div> : <div className="space-y-1.5">{events.slice(-8).map((event, index) => <div key={index} className="flex items-start gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]"><span className="mt-1 h-1.5 w-1.5 shrink-0 bg-primary/70" style={{ borderRadius: '50%' }}/><span className="flex min-w-0 items-center gap-1 truncate"><span>{eventLabel(event)}</span>{eventPreview(event) && <span aria-hidden="true">·</span>}{eventPreview(event) && <span>{eventPreview(event)}</span>}</span></div>)}</div>}</div>
@@ -145,12 +145,12 @@ export function RuntimeInspectorRail({
       <aside
         data-testid="runtime-inspector-rail"
         data-collapsed="true"
-        className="hidden min-h-0 w-11 flex-col items-center gap-2 overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/[0.08] py-2 xl:flex"
+        className="hidden min-h-0 w-11 flex-col items-center gap-2 overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] py-2 xl:flex"
       >
         <button
           type="button"
           onClick={() => onCollapsedChange?.(false)}
-          className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+          className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
           aria-label="Expand runtime inspector"
           title="Expand runtime inspector"
         >
@@ -163,12 +163,12 @@ export function RuntimeInspectorRail({
               ? 'bg-primary'
               : activeMessage?.runId
                 ? 'bg-emerald-400'
-                : 'bg-white/25',
+                : 'bg-[color-mix(in_srgb,var(--color-pib-text)_25%,transparent)]',
           ].join(' ')}
           title={`Runtime status: ${status}`}
         />
         {events.length > 0 && (
-          <span className="rounded-md bg-white/[0.06] px-1 text-[10px] text-[var(--color-pib-text-muted)]" title="Live runtime events">
+          <span className="rounded-md bg-[var(--color-pib-surface-muted)] px-1 text-[10px] text-[var(--color-pib-text-muted)]" title="Live runtime events">
             {events.length}
           </span>
         )}
@@ -183,7 +183,7 @@ export function RuntimeInspectorRail({
       className={[
         'hidden min-h-0 flex-col overflow-hidden border border-[var(--color-card-border)] xl:flex',
         variant === 'hermes'
-          ? 'w-[260px] rounded-md bg-black/[0.08]'
+          ? 'w-[260px] rounded-md bg-[var(--color-pib-surface-muted)]'
           : 'w-[280px] rounded-md bg-[var(--color-card)]/70',
       ].join(' ')}
     >
@@ -197,7 +197,7 @@ export function RuntimeInspectorRail({
             <button
               type="button"
               onClick={() => onCollapsedChange(true)}
-              className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+              className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
               aria-label="Collapse runtime inspector"
               title="Collapse runtime inspector"
             >
@@ -211,7 +211,7 @@ export function RuntimeInspectorRail({
       </div>
 
       <div className="space-y-3 overflow-y-auto p-3 text-xs">
-        <section className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
+        <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2.5">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div>
           <div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider, { auto: isAuto })}</div>
           {runtimeModel && (
@@ -224,13 +224,13 @@ export function RuntimeInspectorRail({
           </div>
         </section>
 
-        <section className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
+        <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2.5">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Latest run</div>
           {activeMessage ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-[var(--color-pib-text)]">{activeMessage.authorDisplayName}</span>
-                <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span>
+                <span className="rounded-md bg-[var(--color-pib-surface-muted)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>
@@ -241,7 +241,7 @@ export function RuntimeInspectorRail({
                     type="button"
                     onClick={copyRunId}
                     aria-label="Copy run ID"
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-[var(--color-pib-text)]"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                   >
                     <Icon name={copiedRunId ? 'check' : 'content_copy'} className="text-[13px]" />
                   </button>
@@ -263,7 +263,7 @@ export function RuntimeInspectorRail({
           )}
         </section>
 
-        <section className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
+        <section className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2.5">
           <div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Live events</div>
           {events.length === 0 ? (
             <div className="text-[11px] text-[var(--color-pib-text-muted)]">Events will appear here while Pip is working.</div>

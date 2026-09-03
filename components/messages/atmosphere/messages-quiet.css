@@ -1,24 +1,25 @@
-/* Quiet Messages overrides - solid black, no glass/glow motion.
-   Scoped to [data-messages-experience='quiet-2026'] only. */
+/* Quiet Messages overrides — flat theme-aware surfaces, no glass/glow.
+   Scoped to [data-messages-experience='quiet-2026'] only.
+   Colors follow Paper/Ink via --color-pib-* (ThemeProvider). */
 
 [data-messages-experience='quiet-2026'] {
-  background: #000 !important;
+  background: var(--color-pib-bg) !important;
 }
 
 /* Restore the outer frame around the WHOLE messaging UI (tabs, sidebar,
    input). messages-experience.css forces border:0 on the quiet shell; Peet
    wants this outer border kept and only the inner message-area borders
-   stripped, so re-assert a subtle light frame here. */
+   stripped, so re-assert a subtle frame here. */
 [data-messages-experience='quiet-2026'] {
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid var(--color-pib-line) !important;
 }
 
 [data-messages-experience='quiet-2026'] [data-testid='hermes-messages-shell-topbar'] {
-  background: #0a0a0a !important;
+  background: var(--color-pib-surface) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  border-bottom-color: var(--color-pib-line) !important;
 }
 
 [data-messages-experience='quiet-2026'] .messages-hud-pulse,
@@ -34,7 +35,7 @@
 }
 
 [data-messages-experience='quiet-2026'] [data-testid^='messages-workspace-pane-'] {
-  background: #050505 !important;
+  background: var(--color-pib-bg) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -42,7 +43,7 @@
 }
 
 [data-messages-experience='quiet-2026'] [data-testid^='messages-workspace-pane-'] > div:first-child {
-  background: #0a0a0a !important;
+  background: var(--color-pib-surface) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -52,11 +53,11 @@
 }
 
 [data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside {
-  background: #080808 !important;
+  background: var(--color-pib-surface) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--color-pib-line) !important;
 }
 
 [data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside::before {
@@ -107,17 +108,14 @@
   margin-top: 0.5rem !important;
 }
 
-/* User (mine) messages mirror the agent rail but on the right, in the primary
-   colour, with no card background or light border. */
+/* User (mine) messages mirror the agent rail but on the right, with no card
+   background. Text uses theme tokens so Paper and Ink both stay readable. */
 [data-messages-experience='quiet-2026'] .mx-bubble-mine {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
   padding-left: 0 !important;
   padding-right: 0.875rem !important;
-  /* Base messages-experience.css forces #121214 on .mx-bubble-mine; the
-     transparent (no-background) user bubble needs the same light text as the
-     agent rail, otherwise user messages are illegible on the dark pane. */
   color: var(--color-pib-text) !important;
   font-style: italic;
   font-size: 15px;
@@ -129,7 +127,22 @@
   inset: 0 0 0 auto;
   width: 2px;
   border-radius: 999px;
-  background: var(--sc-ink-soft);
+  background: var(--color-pib-accent);
   opacity: 0.8;
   pointer-events: none;
+}
+
+/* Composer / drop zone: keep flat, theme-aware */
+[data-messages-experience='quiet-2026'] [data-testid='chat-input-drop-zone'] {
+  background: var(--color-pib-surface) !important;
+  border-color: var(--color-pib-line) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Soften leftover dark utility chrome inside the quiet shell */
+[data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] {
+  color: var(--color-pib-text);
+  background: transparent;
 }

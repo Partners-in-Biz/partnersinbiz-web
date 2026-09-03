@@ -72,7 +72,7 @@ export function BotRoster({
             key={bot.id}
             data-testid={`bot-roster-card-${bot.id}`}
             className={`group/bot relative min-w-0 rounded-md ${
-              selected ? 'bg-white/[0.08] ring-1 ring-white/[0.06]' : 'hover:bg-white/[0.045]'
+              selected ? 'bg-[var(--color-row-hover)] ring-1 ring-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)]'
             }`}
           >
             <button
@@ -100,7 +100,7 @@ export function BotRoster({
                   type="button"
                   aria-label={`Share ${bot.name}`}
                   onClick={() => onShareBot(bot.id)}
-                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
+                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
                 >
                   <Icon name="ios_share" className="text-[15px]" />
                 </button>
@@ -110,7 +110,7 @@ export function BotRoster({
                   type="button"
                   aria-label={`Start channel with ${bot.name}`}
                   onClick={() => onStartChannel(bot.id)}
-                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
+                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
                 >
                   <Icon name="add" className="text-[15px]" />
                 </button>

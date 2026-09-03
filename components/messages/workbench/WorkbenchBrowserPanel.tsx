@@ -46,16 +46,16 @@ const TUNNEL_STATUS_LABEL: Record<WorkbenchTunnelViewStatus, string> = {
 }
 
 const TUNNEL_STATUS_DOT: Record<WorkbenchTunnelViewStatus, string> = {
-  idle: 'bg-white/30',
+  idle: 'bg-[color-mix(in_srgb,var(--color-pib-text)_30%,transparent)]',
   starting: 'bg-primary ',
   awaiting_approval: 'bg-[var(--sc-surface)] ',
   queued: 'bg-[var(--sc-surface)] ',
   claimed: 'bg-[var(--sc-surface)] ',
   running: 'bg-emerald-400',
-  exited: 'bg-white/40',
-  killed: 'bg-white/40',
+  exited: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
+  killed: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
   failed: 'bg-red-400',
-  expired: 'bg-white/40',
+  expired: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
   error: 'bg-red-400',
 }
 
@@ -74,16 +74,16 @@ const BROWSER_SESSION_STATUS_LABEL: Record<WorkbenchBrowserSessionViewStatus, st
 }
 
 const BROWSER_SESSION_STATUS_DOT: Record<WorkbenchBrowserSessionViewStatus, string> = {
-  idle: 'bg-white/30',
+  idle: 'bg-[color-mix(in_srgb,var(--color-pib-text)_30%,transparent)]',
   starting: 'bg-primary ',
   awaiting_approval: 'bg-[var(--sc-surface)] ',
   queued: 'bg-[var(--sc-surface)] ',
   claimed: 'bg-[var(--sc-surface)] ',
   running: 'bg-primary ',
-  exited: 'bg-white/40',
-  killed: 'bg-white/40',
+  exited: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
+  killed: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
   failed: 'bg-red-400',
-  expired: 'bg-white/40',
+  expired: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
   error: 'bg-red-400',
 }
 
@@ -568,7 +568,7 @@ export function WorkbenchBrowserPanel({
   return (
     <div data-testid="workbench-browser-panel" className="flex h-full min-h-0 flex-col">
       {onStartTunnel && (
-        <div data-testid="workbench-tunnel-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-black/10 p-2">
+        <div data-testid="workbench-tunnel-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2">
           <div className="flex items-center gap-2">
             <Icon name="cable" className="text-[14px] text-primary" />
             <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Tunnel</p>
@@ -589,7 +589,7 @@ export function WorkbenchBrowserPanel({
                 setTunnelPortError(null)
               }}
               disabled={tunnelActive}
-              className="min-h-8 w-20 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
+              className="min-h-8 w-20 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
             />
             <button
               type="submit"
@@ -655,7 +655,7 @@ export function WorkbenchBrowserPanel({
       )}
 
       {onStartBrowserSession && (
-        <div data-testid="workbench-agent-browser-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-black/10 p-2">
+        <div data-testid="workbench-agent-browser-strip" className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2">
           <div className="flex items-center gap-2">
             <Icon name="smart_toy" className="text-[14px] text-primary" />
             <p className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Agent browser</p>
@@ -701,7 +701,7 @@ export function WorkbenchBrowserPanel({
                 type="button"
                 onClick={() => onToggleAllowPrivate?.()}
                 data-testid="workbench-agent-allow-private"
-                className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]"
+                className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
               >
                 {browserSession?.allowPrivateNetwork ? 'Revoke' : 'Allow local'}
               </button>
@@ -714,14 +714,14 @@ export function WorkbenchBrowserPanel({
                 onClick={() => onRefreshSnapshot?.()}
                 disabled={!browserSessionControllable || snapshotLoading}
                 data-testid="workbench-agent-view-toggle"
-                className="shrink-0 self-start rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 self-start rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {snapshotLoading ? 'Reading the page as text…' : agentViewOpen ? 'Hide agent view' : 'Show agent view'}
               </button>
               {agentViewOpen && (
                 <pre
                   data-testid="workbench-agent-view-text"
-                  className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--color-card-border)] bg-black/30 p-2 font-mono text-[10px] leading-relaxed text-[var(--color-pib-text)]"
+                  className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--color-card-border)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)] p-2 font-mono text-[10px] leading-relaxed text-[var(--color-pib-text)]"
                 >
                   {snapshotText}
                 </pre>
@@ -735,7 +735,7 @@ export function WorkbenchBrowserPanel({
               onChange={(event) => setBrowserStartUrlInput(event.target.value)}
               disabled={browserSessionActive}
               placeholder={tunnel?.publicUrl || `http://127.0.0.1:${tunnelPortInput || DEFAULT_TUNNEL_PORT}`}
-              className="min-h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
+              className="min-h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
             />
             <button
               type="submit"
@@ -772,13 +772,13 @@ export function WorkbenchBrowserPanel({
               onChange={(event) => setBrowserNavigateUrlInput(event.target.value)}
               disabled={browserSessionControlsDisabled}
               placeholder="Navigate to…"
-              className="min-h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
+              className="min-h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={browserSessionControlsDisabled || agentDriving || !browserNavigateUrlInput.trim() || !onNavigateBrowserSession}
               data-testid="workbench-agent-browser-navigate"
-              className="min-h-8 shrink-0 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-8 shrink-0 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Navigate
             </button>
@@ -787,7 +787,7 @@ export function WorkbenchBrowserPanel({
               onClick={() => onCaptureBrowserSession?.()}
               disabled={browserSessionControlsDisabled || !onCaptureBrowserSession}
               data-testid="workbench-agent-browser-capture"
-              className="min-h-8 shrink-0 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-8 shrink-0 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Capture
             </button>
@@ -798,7 +798,7 @@ export function WorkbenchBrowserPanel({
                 aria-pressed={followingSession}
                 onClick={toggleFollowSession}
                 data-testid="workbench-agent-browser-follow"
-                className={`shrink-0 rounded-md border px-2 py-1.5 text-[10px] ${followingSession ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
+                className={`shrink-0 rounded-md border px-2 py-1.5 text-[10px] ${followingSession ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}
               >
                 {followingSession ? `Following · ${browserSession?.frameCount ?? 0}` : 'Follow agent frames'}
               </button>
@@ -826,9 +826,9 @@ export function WorkbenchBrowserPanel({
             setDraftPoint(null)
           }}
           placeholder="https://public-preview.example"
-          className="min-h-9 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+          className="min-h-9 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
         />
-        <button type="submit" className="min-h-9 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]">Prepare</button>
+        <button type="submit" className="min-h-9 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]">Prepare</button>
       </form>
 
       {(frames.length > 0 || (hasPreparedTarget && (onAddToChat || onClickAt))) && (
@@ -838,7 +838,7 @@ export function WorkbenchBrowserPanel({
               type="button"
               aria-label={streaming ? 'Pause live stream' : 'Start live stream'}
               onClick={toggleStream}
-              className={`inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${streaming ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
+              className={`inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${streaming ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}
             >
               <Icon name={streaming ? 'pause' : 'play_arrow'} className="text-[14px]" />
               {streaming ? `Live · ${frames.length} frames` : 'Start live stream'}
@@ -850,7 +850,7 @@ export function WorkbenchBrowserPanel({
               aria-label={designMode ? 'Disable Design Mode' : 'Enable Design Mode'}
               aria-pressed={designMode}
               onClick={() => { setDesignMode((value) => !value); setDraftPoint(null); setDriveTypeOpen(false) }}
-              className={`ml-auto inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${designMode ? 'border-primary/40 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
+              className={`ml-auto inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${designMode ? 'border-primary/40 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}
             >
               <Icon name="design_services" className="text-[14px]" />
               Design Mode
@@ -881,7 +881,7 @@ export function WorkbenchBrowserPanel({
                   setDesignMode(false)
                   setDraftPoint(null)
                 }}
-                className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] ${active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
+                className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] ${active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}
               >
                 <Icon name={target.imageUrl && !target.url ? 'image' : 'public'} className="shrink-0 text-[14px] text-primary" />
                 <span className="min-w-0 flex-1 truncate">{target.title || target.url || 'Screenshot'}</span>
@@ -891,10 +891,10 @@ export function WorkbenchBrowserPanel({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col bg-black/20 p-2">
+      <div className="flex min-h-0 flex-1 flex-col bg-[var(--color-pib-surface-muted)] p-2">
         {preparedImageUrl || preparedUrl ? (
           <>
-            <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-black/30">
+            <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)]">
               {preparedImageUrl ? (
                 <img src={preparedImageUrl} alt={preparedTitle} referrerPolicy="no-referrer" className="h-full w-full object-contain" />
               ) : preparedUrl ? (
@@ -918,7 +918,7 @@ export function WorkbenchBrowserPanel({
                     <span
                       key={pin.id}
                       aria-hidden="true"
-                      className="absolute grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded border-2 border-white/70 bg-white/20 text-[8px] text-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)]"
+                      className="absolute grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded border-2 border-[var(--color-pib-line-strong)] bg-[color-mix(in_srgb,var(--color-pib-text)_20%,transparent)] text-[8px] text-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)]"
                       style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
                     >
                       {index + 1}
@@ -981,7 +981,7 @@ export function WorkbenchBrowserPanel({
                           disabled={!draftPoint}
                           aria-expanded={driveTypeOpen}
                           data-testid="workbench-design-type-toggle"
-                          className="min-h-7 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                          className="min-h-7 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Type…
                         </button>
@@ -995,7 +995,7 @@ export function WorkbenchBrowserPanel({
                           maxLength={MAX_DRIVE_TYPE_LENGTH}
                           onChange={(event) => setDriveTypeText(event.target.value)}
                           placeholder="Text to type into the focused field…"
-                          className="min-h-7 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                          className="min-h-7 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                         />
                         <button
                           type="submit"
@@ -1023,7 +1023,7 @@ export function WorkbenchBrowserPanel({
                     maxLength={MAX_ANNOTATION_LENGTH}
                     onChange={(event) => setDraftNote(event.target.value)}
                     placeholder={draftPoint ? 'Describe the requested change…' : 'Choose a point on the preview first…'}
-                    className="min-h-16 w-full resize-y rounded-md border border-[var(--color-card-border)] bg-black/20 p-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                    className="min-h-16 w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                   />
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <span className="text-[9px] text-[var(--color-pib-text-muted)]">
@@ -1045,7 +1045,7 @@ export function WorkbenchBrowserPanel({
                 )}
 
                 {pins.length > 0 && (
-                  <div data-testid="workbench-design-pin-list" className="rounded-md border border-[var(--color-card-border)] bg-black/20 p-2">
+                  <div data-testid="workbench-design-pin-list" className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2">
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <p className="text-[10px] font-medium text-[var(--color-pib-text)]">{pins.length} pin{pins.length === 1 ? '' : 's'}</p>
                       <div className="flex items-center gap-1.5">
@@ -1063,7 +1063,7 @@ export function WorkbenchBrowserPanel({
                           type="button"
                           aria-label="Clear pins"
                           onClick={clearPins}
-                          className="min-h-6 rounded-md border border-white/10 px-2 text-[9px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                          className="min-h-6 rounded-md border border-[var(--color-pib-line)] px-2 text-[9px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
                         >
                           Clear pins
                         </button>
@@ -1071,8 +1071,8 @@ export function WorkbenchBrowserPanel({
                     </div>
                     <ul className="space-y-1">
                       {pins.map((pin, index) => (
-                        <li key={pin.id} className="flex items-start gap-2 rounded-md border border-white/5 bg-black/20 px-2 py-1.5">
-                          <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-white/30 text-[8px] text-[var(--color-pib-text-muted)]">
+                        <li key={pin.id} className="flex items-start gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5">
+                          <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-[var(--color-pib-line)] text-[8px] text-[var(--color-pib-text-muted)]">
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
@@ -1097,7 +1097,7 @@ export function WorkbenchBrowserPanel({
                               type="button"
                               aria-label={`Remove pin ${index + 1}`}
                               onClick={() => removePin(pin.id)}
-                              className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                              className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                             >
                               <Icon name="close" className="text-[14px]" />
                             </button>
@@ -1120,7 +1120,7 @@ export function WorkbenchBrowserPanel({
                 { label: 'Start browser', hint: 'Runs headless Chrome on your Mac after you approve it.' },
                 { label: 'Follow frames', hint: 'Starts automatically when the session is running - frames stream here live.' },
               ].map((step, index) => (
-                <li key={step.label} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 py-1.5">
+                <li key={step.label} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5">
                   <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border border-primary/40 text-[8px] text-primary">{index + 1}</span>
                   <span className="min-w-0">
                     <span className="block font-medium text-[var(--color-pib-text)]">{step.label}</span>

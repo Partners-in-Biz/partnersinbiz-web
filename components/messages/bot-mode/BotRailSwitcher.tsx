@@ -34,7 +34,7 @@ export function BotRailSwitcher({
       role="tablist"
       aria-label="Bot mode lists"
       data-testid="bot-rail-switcher"
-      className="grid grid-cols-3 gap-0.5 rounded-md border border-white/[0.08] bg-black/20 p-0.5"
+      className="grid grid-cols-3 gap-0.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-0.5"
     >
       {TABS.map((tab) => {
         const selected = tab.id === value
@@ -48,8 +48,8 @@ export function BotRailSwitcher({
             onClick={() => onChange(tab.id)}
             className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded px-1 text-[10px] font-medium uppercase tracking-[0.08em] ${
               selected
-                ? 'bg-white/[0.1] text-[var(--color-pib-text)]'
-                : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
+                ? 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text)]'
+                : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'
             }`}
           >
             <span className="truncate">{tab.label}</span>

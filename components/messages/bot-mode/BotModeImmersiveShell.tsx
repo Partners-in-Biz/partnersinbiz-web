@@ -12,7 +12,7 @@ export function BotModeImmersiveShell({
   return (
     <div
       data-testid="bot-mode-immersive-shell"
-      className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-black text-[var(--color-pib-text)]"
+      className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]"
     >
       <BotModeChromeToggle revealed={false} onToggle={onShowChrome} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>

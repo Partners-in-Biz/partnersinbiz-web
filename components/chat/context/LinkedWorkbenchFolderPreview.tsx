@@ -47,13 +47,13 @@ export function LinkedWorkbenchFolderPreview({ conversationId, path }: { convers
   useEffect(() => { void loadFolder() }, [loadFolder])
 
   return (
-    <section aria-label="Linked folder contents" className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-white/[0.025]">
+    <section aria-label="Linked folder contents" className="overflow-hidden rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)]">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--color-card-border)] px-3 py-2">
         <div className="min-w-0">
           <h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Linked folder</h3>
           <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-pib-text)]">{path}</p>
         </div>
-        <button type="button" aria-label="Refresh linked folder" onClick={() => { void loadFolder() }} disabled={loading} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] disabled:opacity-50">
+        <button type="button" aria-label="Refresh linked folder" onClick={() => { void loadFolder() }} disabled={loading} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:opacity-50">
           <Icon name="refresh" className={`text-[16px] ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>

@@ -221,7 +221,7 @@ export function EmailContextComposer({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
           <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading email draft…
@@ -255,7 +255,7 @@ export function EmailContextComposer({
   }
 
   return (
-    <div data-testid="context-email-composer" className="space-y-3 rounded-[6px] border border-[var(--color-card-border)] bg-black/15 p-3">
+    <div data-testid="context-email-composer" className="space-y-3 rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Email draft</p>
@@ -311,7 +311,7 @@ export function EmailContextComposer({
           disabled={!isDraft || (connectedAccounts.length === 0 && reconnectableAccounts.length === 0) || busy !== null}
           value={compose.accountId || selectedAccount?.id || primaryReconnectAccount?.id || ''}
           onChange={(event) => setCompose((current) => current ? { ...current, accountId: event.target.value } : current)}
-          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
+          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
         >
           {connectedAccounts.length === 0 && reconnectableAccounts.length === 0 ? (
             <option value="">No connected account</option>
@@ -339,7 +339,7 @@ export function EmailContextComposer({
           disabled={!isDraft || busy !== null}
           value={compose.to}
           onChange={(event) => setCompose((current) => current ? { ...current, to: event.target.value } : current)}
-          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
+          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
           placeholder="recipient@example.com"
         />
       </label>
@@ -352,7 +352,7 @@ export function EmailContextComposer({
             disabled={!isDraft || busy !== null}
             value={compose.cc}
             onChange={(event) => setCompose((current) => current ? { ...current, cc: event.target.value } : current)}
-            className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
+            className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
           />
         </label>
         <label className="block space-y-1">
@@ -362,7 +362,7 @@ export function EmailContextComposer({
             disabled={!isDraft || busy !== null}
             value={compose.bcc}
             onChange={(event) => setCompose((current) => current ? { ...current, bcc: event.target.value } : current)}
-            className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
+            className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
           />
         </label>
       </div>
@@ -374,7 +374,7 @@ export function EmailContextComposer({
           disabled={!isDraft || busy !== null}
           value={compose.subject}
           onChange={(event) => setCompose((current) => current ? { ...current, subject: event.target.value } : current)}
-          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
+          className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
         />
       </label>
 
@@ -386,12 +386,12 @@ export function EmailContextComposer({
           value={compose.bodyText}
           onChange={(event) => setCompose((current) => current ? { ...current, bodyText: event.target.value } : current)}
           rows={12}
-          className="min-h-48 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-3 py-2 text-xs leading-relaxed text-[var(--color-pib-text)]"
+          className="min-h-48 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--color-pib-text)]"
         />
       </label>
 
       {isDraft && selectedAccount?.provider === 'google' ? (
-        <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-card-border)] bg-black/10 px-3 py-2 xl:min-h-0">
+        <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-2 xl:min-h-0">
           <input
             type="checkbox"
             data-testid="include-gmail-signature"

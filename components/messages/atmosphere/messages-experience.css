@@ -1,6 +1,6 @@
 /* ───────────────────────────────────────────────────────────────────────────
    Messages Experience - July 2026 cinematic layer
-   Scoped entirely under [data-messages-experience]. Studio dark surface only.
+   Scoped entirely under [data-messages-experience]. Theme-aware (Paper/Ink tokens).
    Uses: OKLCH accents, scroll-driven timelines, liquid glass, container queries,
    view-timeline message entrance, GPU-composited glows. Reduced-motion safe.
    ─────────────────────────────────────────────────────────────────────────── */
@@ -8,7 +8,7 @@
 [data-messages-experience] {
   --mx-glass: color-mix(in oklab, var(--color-pib-surface) 62%, transparent);
   --mx-glass-strong: color-mix(in oklab, var(--color-pib-surface) 78%, transparent);
-  --mx-line: color-mix(in oklab, white 12%, transparent);
+  --mx-line: var(--color-pib-line);
   --mx-line-hot: color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
   --mx-glow-a: color-mix(in oklab, var(--color-pib-accent) 42%, transparent);
   --mx-glow-v: color-mix(in oklab, var(--sc-ink-soft) 38%, transparent);
@@ -113,7 +113,7 @@
   background: var(--mx-glass);
   backdrop-filter: blur(var(--mx-blur)) saturate(var(--mx-sat));
   -webkit-backdrop-filter: blur(var(--mx-blur)) saturate(var(--mx-sat));
-  box-shadow: 0 1px 0 color-mix(in oklab, white 6%, transparent) inset;
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--color-pib-text) 6%, transparent) inset;
 }
 
 [data-messages-experience] [data-testid='hermes-messages-shell-topbar']::after {
@@ -143,7 +143,7 @@
   width: 4.5rem;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in oklab, white 8%, transparent);
+  background: color-mix(in oklab, var(--color-pib-text) 8%, transparent);
 }
 
 [data-messages-experience] .messages-hud-meter > i {
@@ -211,12 +211,12 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in oklab, white 4.5%, transparent),
+      color-mix(in oklab, var(--color-pib-text) 4.5%, transparent),
       color-mix(in oklab, black 18%, transparent)
     ) !important;
   backdrop-filter: blur(16px) saturate(1.25);
   -webkit-backdrop-filter: blur(16px) saturate(1.25);
-  box-shadow: 0 1px 0 color-mix(in oklab, white 6%, transparent) inset;
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--color-pib-text) 6%, transparent) inset;
 }
 
 [data-messages-experience] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside::before {
@@ -293,13 +293,13 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in oklab, white 5%, transparent),
+      color-mix(in oklab, var(--color-pib-text) 5%, transparent),
       color-mix(in oklab, black 22%, transparent)
     ) !important;
   backdrop-filter: blur(18px) saturate(1.3);
   -webkit-backdrop-filter: blur(18px) saturate(1.3);
   box-shadow:
-    0 1px 0 color-mix(in oklab, white 8%, transparent) inset,
+    0 1px 0 color-mix(in oklab, var(--color-pib-text) 8%, transparent) inset,
     0 -20px 50px -30px var(--mx-glow-v);
   transition: border-color 200ms ease, box-shadow 240ms ease;
 }
@@ -309,7 +309,7 @@
   box-shadow:
     0 0 0 1px color-mix(in oklab, var(--color-pib-accent) 30%, transparent),
     0 0 48px -16px var(--mx-glow-a),
-    0 1px 0 color-mix(in oklab, white 10%, transparent) inset;
+    0 1px 0 color-mix(in oklab, var(--color-pib-text) 10%, transparent) inset;
 }
 
 [data-messages-experience] [data-testid='chat-input-pill'] {
@@ -325,7 +325,7 @@
   background: linear-gradient(
     100deg,
     transparent,
-    color-mix(in oklab, white 12%, transparent),
+    color-mix(in oklab, var(--color-pib-text) 12%, transparent),
     transparent
   );
   transform: translateX(-120%) skewX(-18deg);
@@ -400,12 +400,12 @@
   background:
     linear-gradient(
       145deg,
-      color-mix(in oklab, var(--color-pib-accent) 88%, white 12%),
+      color-mix(in oklab, var(--color-pib-accent) 88%, var(--sc-canvas) 12%),
       color-mix(in oklab, var(--color-pib-accent) 72%, var(--sc-ink-soft) 28%)
     ) !important;
-  color: #121214 !important;
+  color: var(--sc-ink) !important;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, white 18%, transparent) inset,
+    0 0 0 1px color-mix(in oklab, var(--color-pib-text) 18%, transparent) inset,
     0 10px 28px -12px color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
 }
 
@@ -416,7 +416,7 @@
   border-radius: inherit;
   background: linear-gradient(
     125deg,
-    color-mix(in oklab, white 28%, transparent),
+    color-mix(in oklab, var(--color-pib-text) 28%, transparent),
     transparent 42%
   );
   opacity: 0.55;
@@ -432,13 +432,13 @@
     background:
       linear-gradient(
         165deg,
-        color-mix(in oklab, white 7%, transparent),
+        color-mix(in oklab, var(--color-pib-text) 7%, transparent),
         color-mix(in oklab, black 18%, transparent)
       ) !important;
     backdrop-filter: blur(10px) saturate(1.2);
     -webkit-backdrop-filter: blur(10px) saturate(1.2);
     box-shadow:
-      0 1px 0 color-mix(in oklab, white 7%, transparent) inset,
+      0 1px 0 color-mix(in oklab, var(--color-pib-text) 7%, transparent) inset,
       0 8px 24px -16px color-mix(in oklab, black 40%, transparent);
   }
 
@@ -603,7 +603,7 @@
   background: linear-gradient(
     100deg,
     transparent 20%,
-    color-mix(in oklab, white 14%, transparent) 50%,
+    color-mix(in oklab, var(--color-pib-text) 14%, transparent) 50%,
     transparent 80%
   );
   transform: translateX(-100%);
@@ -619,7 +619,7 @@
 [data-messages-experience] .mx-avatar-ring {
   position: relative;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, white 12%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-pib-text) 12%, transparent),
     0 0 18px -4px var(--mx-glow-v);
 }
 
@@ -668,7 +668,7 @@
   padding: 0 0.55rem;
   border-radius: 999px;
   border: 1px solid var(--mx-line);
-  background: color-mix(in oklab, white 4%, transparent);
+  background: color-mix(in oklab, var(--color-pib-text) 4%, transparent);
   color: var(--color-pib-text-muted);
   font-size: 0.65rem;
   letter-spacing: 0.04em;
@@ -693,7 +693,7 @@
     to bottom,
     transparent 0,
     transparent 2px,
-    color-mix(in oklab, white 40%, transparent) 3px
+    color-mix(in oklab, var(--color-pib-text) 40%, transparent) 3px
   );
   mix-blend-mode: soft-light;
 }

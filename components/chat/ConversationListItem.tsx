@@ -173,7 +173,7 @@ export default function ConversationListItem({
     ? c.lastMessagePreview.slice(0, 60) + (c.lastMessagePreview.length > 60 ? '…' : '')
     : null
   const leadAgent = primaryAgent(c)
-  const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
+  const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]') : 'bg-[color-mix(in_srgb,var(--color-pib-text)_30%,transparent)]'
   const workspaceRuntime = runtimeBadge(c)
   const workspaceProject = projectBadge(c)
   const workspaceVisibility = visibilityBadge(c)
@@ -187,7 +187,7 @@ export default function ConversationListItem({
         data-testid={`conversation-row-${c.id}`}
         aria-label={title}
         onClick={onClick}
-        className={`group min-h-11 w-full overflow-hidden rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${ active ? 'bg-white/[0.08] text-[var(--color-pib-text)] ring-1 ring-white/[0.06]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.045] hover:text-[var(--color-pib-text)]' }`}
+        className={`group min-h-11 w-full overflow-hidden rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${ active ? 'bg-[var(--color-row-hover)] text-[var(--color-pib-text)] ring-1 ring-[var(--color-pib-line)]' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]' }`}
       >
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
           <span className={`h-1.5 w-1.5 shrink-0 rounded-[4px] ${leadAgentDot}`} />
@@ -271,7 +271,7 @@ export default function ConversationListItem({
         <div className={compact ? 'mb-1 flex min-w-0 items-center gap-1 overflow-hidden' : 'mb-1.5 flex min-w-0 flex-wrap gap-1 overflow-hidden'}>
           {c.participants.slice(0, 4).map((p) => {
             if (p.kind === 'agent') {
-              const dotColor = AGENT_COLORS[p.agentId] ?? 'bg-white/40'
+              const dotColor = AGENT_COLORS[p.agentId] ?? 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]'
               return (
                 <span
                   key={`agent-${p.agentId}`}
@@ -288,7 +288,7 @@ export default function ConversationListItem({
                 key={`user-${p.uid}`}
                 className="inline-flex min-w-0 items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]"
               >
-                <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-[4px] bg-white/10 font-medium flex items-center justify-center shrink-0`}>
+                <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-[4px] bg-[var(--color-pib-surface-muted)] font-medium flex items-center justify-center shrink-0`}>
                   {initials(name)}
                 </span>
                 <span className="truncate">{name}</span>

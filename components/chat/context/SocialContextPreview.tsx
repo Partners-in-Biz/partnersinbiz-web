@@ -91,7 +91,7 @@ export function SocialContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
           <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading platform preview…

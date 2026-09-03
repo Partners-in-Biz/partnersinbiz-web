@@ -220,7 +220,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={(event) => {
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[color-mix(in_srgb,var(--sc-ink)_70%,transparent)] p-4" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose()
     }}>
       <section
@@ -235,7 +235,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
             <h2 id="conversation-access-title" className="mt-1 text-lg font-medium text-[var(--color-pib-text)]">{workspaceConversation ? 'Manage conversation access' : 'Manage people'}</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{conversation.title}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]">
+          <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]">
             <Icon name="close" className="text-[18px]" />
           </button>
         </header>
@@ -244,7 +244,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
           {workspaceConversation && <fieldset className="space-y-2">
             <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Who can open this conversation?</legend>
             {OPTIONS.map((option) => (
-              <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[6px] border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
+              <label key={option.value} className={`flex cursor-pointer gap-3 rounded-[6px] border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}>
                 <input type="radio" name="share-mode" value={option.value} checked={shareMode === option.value} onChange={() => chooseMode(option.value)} className="sr-only" />
                 <span className="mt-0.5"><Icon name={option.icon} className="text-[18px]" /></span>
                 <span>
@@ -273,12 +273,12 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                     .some((member) => selectedUids.includes(member.uid))
                   const isExpanded = expandedDepartments.has(department)
                   return (
-                    <div key={department} className="space-y-1.5 rounded-[6px] border border-white/[0.08] px-2 py-2">
+                    <div key={department} className="space-y-1.5 rounded-[6px] border border-[var(--color-pib-line)] px-2 py-2">
                       <label
                         onMouseDown={(event) => {
                           if (!isOwnerOnly) event.preventDefault()
                         }}
-                        className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-white/8 border border-white/15' : 'hover:bg-white/5 border border-transparent' }`}
+                        className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${ allSelected || someSelected ? 'bg-[var(--color-pib-surface-muted)] border border-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)] border border-transparent' }`}
                       >
                         <input
                           type="checkbox"
@@ -289,7 +289,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                           }}
                           onChange={() => toggleDepartmentSelection(department, members)}
                           aria-label={`Select department ${department} (${selectedCount}/${totalCount})`}
-                          className="h-4 w-4 rounded border-white/20 bg-transparent text-primary"
+                          className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent text-primary"
                         />
                         <div className="flex flex-col min-w-0 flex-1">
                           <span className="block truncate text-sm text-[var(--color-pib-text)]">{department}</span>
@@ -317,8 +317,8 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                             const checked = selectedUids.includes(person.uid)
                             const owner = person.uid === ownerUid
                             return (
-                              <label key={person.uid} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${checked ? 'border-white/15 bg-white/[0.06]' : 'border-transparent hover:bg-white/[0.03]'} ${owner ? 'cursor-default' : 'cursor-pointer'}`}>
-                                <input type="checkbox" checked={checked} disabled={owner} onChange={() => togglePerson(person.uid)} className="h-4 w-4 rounded border-white/20 bg-transparent text-primary" />
+                              <label key={person.uid} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${checked ? 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]' : 'border-transparent hover:bg-[var(--color-pib-surface-muted)]'} ${owner ? 'cursor-default' : 'cursor-pointer'}`}>
+                                <input type="checkbox" checked={checked} disabled={owner} onChange={() => togglePerson(person.uid)} className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent text-primary" />
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-sm text-[var(--color-pib-text)]">{labelFor(person)}</span>
                                   {person.email && person.email !== labelFor(person) && <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{person.email}</span>}

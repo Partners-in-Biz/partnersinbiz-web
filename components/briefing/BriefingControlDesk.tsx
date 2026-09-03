@@ -139,7 +139,7 @@ function priorityClass(priority: BriefingCard['priority']) {
     case 'progress':
       return 'border-emerald-300/45 bg-emerald-400/15 text-emerald-100'
     default:
-      return 'border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]'
+      return 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
   }
 }
 
@@ -412,7 +412,7 @@ function statusToneClass(status: AgentOutputReviewStatus) {
     case 'blocked':
       return 'border-amber-300/45 bg-[var(--sc-surface)]/10 text-[var(--sc-ink-soft)]'
     default:
-      return 'border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]'
+      return 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
   }
 }
 
@@ -2407,7 +2407,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               <button 
                 type="button" 
                 onClick={() => setShowAgentOps(!showAgentOps)}
-                className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
               >
                 <Icon name="smart_toy" />
                 <span>Agents ({agentOpsItems.length})</span>
@@ -2442,7 +2442,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Mission Control detail counters">
             {SUMMARY_COUNTER_DEFS.map((stat) => (
-              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-pib-line)] bg-black/10 px-2 py-2">
+              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-2">
                 <p className="text-lg text-[var(--color-pib-text)]">{topStats[stat.id]}</p>
                 <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.label}</p>
               </div>
@@ -2472,11 +2472,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               <span className="hidden max-w-44 truncate px-2 text-xs text-[var(--color-pib-text-muted)] sm:inline">{activeWorkspaceName}</span>
             )}
             <div className="ml-auto hidden items-center gap-1 lg:flex">
-              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
+              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
                 <Icon name={autoRefresh ? 'sync' : 'sync_disabled'} />
                 {autoRefresh ? 'Live on' : 'Live off'}
               </button>
-              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]" type="button" onClick={createSnapshot} disabled={snapshotting}>
+              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]" type="button" onClick={createSnapshot} disabled={snapshotting}>
                 <Icon name="bookmark_added" />
                 {snapshotting ? 'Saving' : 'Snapshot'}
               </button>
@@ -2536,7 +2536,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 onClick={() => setMobileLane(lane.id)}
                 className={`flex h-9 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition ${
                   selected
-                    ? 'bg-white/[0.08] text-[var(--color-pib-text)]'
+                    ? 'bg-[var(--color-row-hover)] text-[var(--color-pib-text)]'
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
@@ -2569,7 +2569,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       {lane.icon}
                     </span>
                     <span className="text-sm font-medium text-[var(--color-pib-text)]">{lane.label}</span>
-                    <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{laneItems.length}</span>
+                    <span className="rounded bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{laneItems.length}</span>
                   </div>
                 </div>
 
@@ -2608,7 +2608,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       return (
                         <div
                           key={item.id}
-                          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 transition hover:bg-white/[0.02]"
+                          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 transition hover:bg-[var(--color-pib-surface-muted)]"
                           style={{ borderLeft: `3px solid ${priorityAccentColor(item.priority)}` }}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -2624,7 +2624,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                               {listFacts.length ? (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                   {listFacts.map((fact) => (
-                                    <span key={fact.id} className="max-w-full truncate rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
+                                    <span key={fact.id} className="max-w-full truncate rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
                                       <span className="text-[var(--color-pib-text-muted)]">{fact.label}:</span> {fact.value}
                                     </span>
                                   ))}
@@ -2696,7 +2696,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                             </button>
                             <button
                               type="button"
-                              className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-2 text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                              className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-2 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setSelectedId(item.id)
@@ -2724,7 +2724,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               <div className="flex items-center gap-2">
                 <Icon name="smart_toy" />
                 <span className="text-sm font-medium text-[var(--color-pib-text)]">Agent operations</span>
-                <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{agentOpsItems.length}</span>
+                <span className="rounded bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{agentOpsItems.length}</span>
               </div>
               <button
                 type="button"
@@ -2767,7 +2767,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
         {/* Detail panel modal for selected item */}
         {selected ? (
-          <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 pt-16" onClick={() => setSelectedId(null)}>
+          <div className="fixed inset-0 z-50 flex items-start justify-end bg-[color-mix(in_srgb,var(--sc-ink)_50%,transparent)] pt-16" onClick={() => setSelectedId(null)}>
             <aside 
               className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-card)]" 
               onClick={(e) => e.stopPropagation()}
@@ -2779,7 +2779,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   type="button"
                   onClick={() => setSelectedId(null)}
                   aria-label="Close detail panel"
-                  className="rounded-md p-1 text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                  className="rounded-md p-1 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
                 >
                   <Icon name="close" />
                 </button>
@@ -2926,7 +2926,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   <button
                     type="button"
                     onClick={() => setShowMoreActions(!showMoreActions)}
-                    className="flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                    className="flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
                   >
                     <span>{showMoreActions ? 'Less' : 'More'}</span>
                     <Icon name={showMoreActions ? 'expand_less' : 'expand_more'} />
@@ -2989,7 +2989,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         const checked = selectedDecisionOptionId(selected) === option.id
                         const recommended = option.recommended || selected.recommendedOption?.id === option.id
                         return (
-                          <label key={option.id} className={`block rounded-lg border p-3 text-sm ${checked ? 'border-[var(--color-accent-v2)] bg-black/10' : 'border-white/10 bg-white/[0.03]'} ${option.disabled ? 'opacity-60' : ''}`}>
+                          <label key={option.id} className={`block rounded-lg border p-3 text-sm ${checked ? 'border-[var(--color-accent-v2)] bg-[var(--color-pib-surface-muted)]' : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]'} ${option.disabled ? 'opacity-60' : ''}`}>
                             <span className="flex items-start gap-2">
                               <input
                                 type="radio"
@@ -3023,7 +3023,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                          aria-label="Describe the custom keyword/theme direction..."/>
                       </label>
                     ) : null}
-                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       <p><span className="text-[var(--color-pib-text)]">After submit:</span> {selected.afterSubmit.consequence}</p>
                       {selected.afterSubmit.releasesAgentId ? <p className="mt-1">Handoff: unblocks/continues {selected.afterSubmit.releasesAgentId} with source {selected.agentHandoff?.sourceTaskId ?? selected.inputTarget.resourceId}.</p> : null}
                       <p className="mt-1">No publish, send, spend, deploy, finance, secret/config, or destructive action is performed.</p>
@@ -3035,7 +3035,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   </div>
                 ) : null}
 
-                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-brand">Safe moves</p>
                     <span className="rounded border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">No external side effects</span>
@@ -3046,7 +3046,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     </div>
                   ) : null}
                   {contractNearestValidActions(selected).length ? (
-                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       <p className="text-[var(--color-pib-text)]">Useful next steps</p>
                       <ul className="mt-1 space-y-1">
                         {contractNearestValidActions(selected).map((action) => (
@@ -3122,7 +3122,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </button>
                     ) : null}
                   </div>
-                  <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <details className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <summary className="cursor-pointer text-[10px] font-label uppercase tracking-[0.16em] text-brand">Secondary actions and routing notes</summary>
                     <div className="mt-3 space-y-3">
                       <div>
@@ -3518,7 +3518,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-social-change">
                       Social change request
                     </label>
@@ -3533,7 +3533,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {canMailboxAct(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-mailbox-reply">
                       Mailbox reply draft
                     </label>
@@ -3552,7 +3552,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {canTaskAct(selected) || canDocumentAct(selected) || canConversationAct(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-reply">
                       {canDocumentCommentReplyAct(selected) ? 'Inline document comment reply' : canTaskAct(selected) ? 'Inline task reply' : canDocumentAct(selected) ? 'Inline document reply' : 'Inline conversation reply'}
                     </label>
@@ -3571,7 +3571,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {canActivityFollowUpAct(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-follow-up">
                       Follow-up note
                     </label>
@@ -3622,7 +3622,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {canReportAct(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-report-recipients">
                       Report recipients
                     </label>
@@ -3641,7 +3641,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {canSupportTicketAct(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-support-reply">
                       Support reply
                     </label>
@@ -3660,7 +3660,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {invoicePaymentProofReviewable(selected, mode) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-payment-method">
                       Payment method
                     </label>
@@ -3700,7 +3700,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {expenseReviewable(selected, mode) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-expense-review-note">
                       Expense rejection note
                     </label>
@@ -3715,7 +3715,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {seoContentReviewable(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-seo-change-request">
                       SEO change request
                     </label>
@@ -3730,7 +3730,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {seoTaskSkippable(selected, mode) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-seo-task-skip-reason">
                       SEO task skip reason
                     </label>
@@ -3745,7 +3745,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {adCampaignReviewable(selected) ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                     <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-ad-campaign-change-request">
                       Ad campaign change request
                     </label>
@@ -3771,7 +3771,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </span>
                     </div>
                     {selectedLearningReview.proposedChanges.length ? (
-                      <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                      <div className="mt-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                         <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Proposed learning items</p>
                         <ul className="mt-2 space-y-1 text-sm text-[var(--color-pib-text)]">
                           {selectedLearningReview.proposedChanges.map((change) => <li key={change}>• {change}</li>)}
@@ -3784,7 +3784,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         { label: 'Wiki', links: selectedLearningReview.wikiLinks },
                         { label: 'Tasks', links: selectedLearningReview.taskLinks },
                       ].map((group) => (
-                        <div key={group.label} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+                        <div key={group.label} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                           <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{group.label}</p>
                           <div className="mt-2 space-y-1 text-sm">
                             {group.links.length ? group.links.map((link) => (
@@ -3813,11 +3813,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         <p className="text-xs font-medium text-sky-100">Structured review card</p>
                         <p className="mt-2 text-sm text-[var(--color-pib-text)]">{selectedReviewCard.summary}</p>
                       </div>
-                      <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                      <span className="rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Internal review
                       </span>
                     </div>
-                    <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                    <div className="mt-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                       <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Recommended reviewer next step</p>
                       <p className="mt-1 text-sm text-[var(--color-pib-text)]">{selectedReviewCard.nextAction}</p>
                     </div>
@@ -3884,7 +3884,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 {softwareBuildEvidenceRows(selected).length ? (
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Software build evidence">
+                  <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3" aria-label="Software build evidence">
                     <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Software build evidence</p>
                     <dl className="mt-3 space-y-2 text-sm">
                       {softwareBuildEvidenceRows(selected).map((row) => (

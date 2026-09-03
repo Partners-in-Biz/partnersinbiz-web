@@ -16,7 +16,7 @@ const STATUS_DOT: Record<WorkbenchTerminalStatus, string> = {
   failed: 'bg-red-400',
   running: 'bg-primary animate-pulse',
   done: 'bg-emerald-400',
-  info: 'bg-white/40',
+  info: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
 }
 
 /** Typed Phase 2b commands plus Phase 3 allowlisted shell.exec templates. */
@@ -74,7 +74,7 @@ const SESSION_STATUS_LABEL: Record<WorkbenchSessionViewStatus, string> = {
 }
 
 const SESSION_STATUS_DOT: Record<WorkbenchSessionViewStatus, string> = {
-  idle: 'bg-white/30',
+  idle: 'bg-[color-mix(in_srgb,var(--color-pib-text)_30%,transparent)]',
   starting: 'bg-primary animate-pulse',
   awaiting_approval: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] animate-pulse',
   queued: 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)] animate-pulse',
@@ -82,8 +82,8 @@ const SESSION_STATUS_DOT: Record<WorkbenchSessionViewStatus, string> = {
   running: 'bg-primary animate-pulse',
   exited: 'bg-emerald-400',
   failed: 'bg-red-400',
-  killed: 'bg-white/40',
-  expired: 'bg-white/40',
+  killed: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
+  expired: 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
   error: 'bg-red-400',
 }
 
@@ -183,7 +183,7 @@ function WorkbenchSessionView({
 
   return (
     <div data-testid="workbench-session-view" className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 p-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-pib-line)] p-2">
         <span aria-hidden="true" className={`h-2 w-2 shrink-0 ${SESSION_STATUS_DOT[status]}`} style={{ borderRadius: '50%' }} />
         <span data-testid="workbench-session-status" className="text-[11px] font-medium text-[var(--color-pib-text)]">
           {SESSION_STATUS_LABEL[status]}
@@ -272,19 +272,19 @@ function WorkbenchSessionView({
         </div>
       )}
 
-      <form onSubmit={submitStdin} className="flex shrink-0 gap-1.5 border-t border-white/10 p-2">
+      <form onSubmit={submitStdin} className="flex shrink-0 gap-1.5 border-t border-[var(--color-pib-line)] p-2">
         <input
           value={stdinValue}
           onChange={(event) => setStdinValue(event.target.value)}
           disabled={!inputEnabled}
           placeholder={inputEnabled ? 'Send a line to the session…' : 'Start a session to send input…'}
           aria-label="Session stdin"
-          className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-md border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)] px-2 py-1 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={!inputEnabled || !stdinValue.trim()}
-          className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
         </button>
@@ -327,7 +327,7 @@ export function WorkbenchTerminalPanel({
   }
 
   const modeTabs = (
-    <div role="tablist" aria-label="Terminal mode" className="flex shrink-0 gap-1 border-b border-white/10 p-1.5">
+    <div role="tablist" aria-label="Terminal mode" className="flex shrink-0 gap-1 border-b border-[var(--color-pib-line)] p-1.5">
       {(['jobs', 'session'] as const).map((tabMode) => (
         <button
           key={tabMode}
@@ -340,7 +340,7 @@ export function WorkbenchTerminalPanel({
           className={`flex items-baseline gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
             mode === tabMode
               ? 'bg-primary/15 text-primary'
-              : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'
+              : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'
           }`}
         >
           <span>{tabMode === 'jobs' ? 'Jobs' : 'Session'}</span>
@@ -354,13 +354,13 @@ export function WorkbenchTerminalPanel({
     return (
       <div data-testid="workbench-terminal-panel" className="flex h-full min-h-0 flex-col">
         {modeTabs}
-        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/10 p-1.5" aria-label="Terminal sessions">
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-pib-line)] p-1.5" aria-label="Terminal sessions">
           {terminalSessions.map((item, index) => (
-            <button key={item.sessionId ?? `new-${index}`} type="button" onClick={() => item.sessionId && onSelectSession?.(item.sessionId)} className={`rounded px-2 py-1 text-[10px] ${item.sessionId === session?.sessionId ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]'}`}>
+            <button key={item.sessionId ?? `new-${index}`} type="button" onClick={() => item.sessionId && onSelectSession?.(item.sessionId)} className={`rounded px-2 py-1 text-[10px] ${item.sessionId === session?.sessionId ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]'}`}>
               Terminal {index + 1}
             </button>
           ))}
-          <button type="button" onClick={onStartSession} disabled={!onStartSession} className="ml-auto rounded border border-white/10 px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] disabled:opacity-40">New terminal</button>
+          <button type="button" onClick={onStartSession} disabled={!onStartSession} className="ml-auto rounded border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] disabled:opacity-40">New terminal</button>
         </div>
         <WorkbenchSessionView
           session={session}
@@ -376,7 +376,7 @@ export function WorkbenchTerminalPanel({
   }
 
   const commandBar = onRunCommand && (
-    <div className="shrink-0 space-y-1.5 border-b border-white/10 p-2">
+    <div className="shrink-0 space-y-1.5 border-b border-[var(--color-pib-line)] p-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
           Allowlisted shell
@@ -387,7 +387,7 @@ export function WorkbenchTerminalPanel({
             data-testid="workbench-terminal-clear"
             disabled={running || entries.length === 0}
             onClick={onClear}
-            className="rounded-md border border-white/10 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Clear
           </button>
@@ -401,7 +401,7 @@ export function WorkbenchTerminalPanel({
             data-testid={`workbench-terminal-quick-command-${command.replace(/\s+/g, '-')}`}
             disabled={running}
             onClick={() => onRunCommand(command)}
-            className="rounded-md border border-white/10 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {command}
           </button>
@@ -420,12 +420,12 @@ export function WorkbenchTerminalPanel({
           disabled={running}
           placeholder="Allowlisted command…"
           aria-label="Workbench terminal command"
-          className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-md border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_30%,transparent)] px-2 py-1 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={running || !customCommand.trim()}
-          className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Run
         </button>
@@ -458,8 +458,8 @@ export function WorkbenchTerminalPanel({
       {commandBar}
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed">
         {entries.map((entry) => (
-          <div key={entry.id} className="overflow-hidden rounded-lg border border-white/10 bg-[#050505]/80">
-            <div className="flex items-center gap-2 border-b border-white/5 px-2 py-1 text-[10px]">
+          <div key={entry.id} className="overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[#050505]/80">
+            <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-2 py-1 text-[10px]">
               <span aria-hidden="true" className={`h-2 w-2 shrink-0 ${STATUS_DOT[entry.status] ?? STATUS_DOT.info}`} style={{ borderRadius: '50%' }} />
               <span className="min-w-0 flex-1 truncate text-primary">{entry.label}</span>
               <span className="shrink-0 text-[var(--color-pib-text-muted)]/70">{entry.meta}</span>

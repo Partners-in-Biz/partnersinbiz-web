@@ -62,7 +62,7 @@ export function ProjectPulse({
 }) {
   const focusTask = progress.attention ?? progress.next
   return (
-    <div data-testid="project-pulse" className="shrink-0 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2">
+    <div data-testid="project-pulse" className="shrink-0 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 py-2">
       <div className="flex min-w-0 items-center gap-2.5">
         <Icon name="folder_managed" className="shrink-0 text-[15px] text-primary" />
         {projects.length > 1 ? (
@@ -93,7 +93,7 @@ export function ProjectPulse({
           type="button"
           aria-label="Open project lens"
           onClick={onOpen}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
         >
           <Icon name="dock_to_right" className="text-[16px]" />
         </button>
@@ -111,13 +111,13 @@ function TaskRow({ task, taskHref }: { task: ProjectChatTaskItem; taskHref: (tas
   const [expanded, setExpanded] = useState(false)
   const model = task.agentModel?.trim()
   return (
-    <li className="border-b border-white/[0.06] last:border-b-0">
+    <li className="border-b border-[var(--color-pib-line)] last:border-b-0">
       <button
         type="button"
         aria-label={`${expanded ? 'Hide' : 'Show'} details for ${task.title}`}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full min-w-0 items-center gap-2 px-3 py-2.5 text-left hover:bg-white/[0.035]"
+        className="flex w-full min-w-0 items-center gap-2 px-3 py-2.5 text-left hover:bg-[var(--color-pib-surface-muted)]"
       >
         <Icon name={task.state === 'complete' ? 'check_circle' : task.state === 'running' ? 'progress_activity' : task.state === 'blocked' || task.state === 'needs_input' ? 'error' : 'radio_button_unchecked'} className="text-[15px] text-[var(--color-pib-text-muted)]" />
         <span className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ function TaskRow({ task, taskHref }: { task: ProjectChatTaskItem; taskHref: (tas
         <span className={`shrink-0 text-[10px] ${STATE_TONE[task.state]}`}>{STATE_LABEL[task.state]}</span>
       </button>
       {expanded && (
-        <div className="space-y-1 bg-black/15 px-10 pb-2.5 text-[10px] text-[var(--color-pib-text-muted)]">
+        <div className="space-y-1 bg-[var(--color-pib-surface-muted)] px-10 pb-2.5 text-[10px] text-[var(--color-pib-text-muted)]">
           {model && <p>Model: <span className="text-[var(--color-pib-text)]">{model}</span></p>}
           {task.reviewerAgentId && <p>Reviewer: <span className="text-[var(--color-pib-text)]">{task.reviewerAgentId}</span></p>}
           {task.unresolvedDependencyIds.length > 0 && <p>Waiting on {task.unresolvedDependencyIds.length} task{task.unresolvedDependencyIds.length === 1 ? '' : 's'}</p>}
@@ -147,7 +147,7 @@ function LensGroup({ title, tasks, taskHref }: { title: string; tasks: ProjectCh
       <div className="flex items-center justify-between px-3 py-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
         <h3>{title}</h3><span>{tasks.length}</span>
       </div>
-      <ul className="border-y border-white/[0.06]">{tasks.map((task) => <TaskRow key={task.id} task={task} taskHref={taskHref} />)}</ul>
+      <ul className="border-y border-[var(--color-pib-line)]">{tasks.map((task) => <TaskRow key={task.id} task={task} taskHref={taskHref} />)}</ul>
     </section>
   )
 }
@@ -208,7 +208,7 @@ export function ProjectLens({
             <h2 className="truncate text-sm font-medium text-[var(--color-pib-text)]">{progress.project.name}</h2>
             <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{progress.counts.complete}/{progress.counts.total} verified complete</p>
           </div>
-          <button ref={closeButtonRef} type="button" aria-label="Close project lens" onClick={onClose} className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]">
+          <button ref={closeButtonRef} type="button" aria-label="Close project lens" onClick={onClose} className="grid h-7 w-7 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]">
             <Icon name="close" className="text-[17px]" />
           </button>
         </div>
@@ -256,7 +256,7 @@ export function LivingTaskBundle({
     ?? tasks.find((task) => task.state === 'blocked')
   const attentionIsApproval = attentionTask ? isApprovalTask(attentionTask) : false
   return (
-    <div className="ml-0 mt-2 max-w-full overflow-hidden rounded-lg border border-white/10 bg-black/15 lg:ml-10">
+    <div className="ml-0 mt-2 max-w-full overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] lg:ml-10">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)]">
         <Icon name="account_tree" className="text-[15px] text-primary" />
         <span className="font-medium">{tasks.length} linked tasks</span>
@@ -264,12 +264,12 @@ export function LivingTaskBundle({
         <Icon name={expanded ? 'expand_less' : 'expand_more'} className="text-[15px] text-[var(--color-pib-text-muted)]" />
       </button>
       {expanded && (
-        <ol className="border-t border-white/[0.07]">
+        <ol className="border-t border-[var(--color-pib-line)]">
           {[...tasks].sort((left, right) => (left.chatOrigin?.sequence ?? 999) - (right.chatOrigin?.sequence ?? 999)).map((task, index) => {
             const artifact = artifactFor(task)
             const dependencyLabels = (task.dependsOn ?? []).map((id) => byId.get(id)?.title ?? id)
             return (
-              <li key={task.id} className="grid gap-1 border-b border-white/[0.06] px-3 py-2 last:border-b-0 sm:grid-cols-[1.25rem_minmax(0,1fr)_auto] sm:items-center">
+              <li key={task.id} className="grid gap-1 border-b border-[var(--color-pib-line)] px-3 py-2 last:border-b-0 sm:grid-cols-[1.25rem_minmax(0,1fr)_auto] sm:items-center">
                 <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]">{index + 1}</span>
                 <div className="min-w-0">
                   <a href={taskHref(task.id)} className={`block truncate text-xs font-medium hover:text-primary ${task.state === 'complete' ? 'text-[var(--color-pib-text-muted)] line-through' : 'text-[var(--color-pib-text)]'}`}>{task.title}</a>

@@ -105,7 +105,7 @@ export function CampaignContextPreview({
 
   if (state === 'loading') {
     return (
-      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-black/10 text-xs text-[var(--color-pib-text-muted)]">
+      <div className="grid min-h-48 place-items-center rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] text-xs text-[var(--color-pib-text-muted)]">
         <span className="inline-flex items-center gap-2">
           <Icon name="progress_activity" className="animate-spin text-[18px]" />
           Loading campaign previews…
@@ -147,7 +147,7 @@ export function CampaignContextPreview({
             aria-selected={filter === item.id}
             disabled={item.count === 0 && item.id !== 'all'}
             onClick={() => setFilter(item.id)}
-            className={`min-h-11 rounded-lg border px-2.5 text-[11px] xl:min-h-8 ${ filter === item.id ? 'border-primary/40 bg-primary/15 font-medium text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]' } disabled:opacity-40`}
+            className={`min-h-11 rounded-lg border px-2.5 text-[11px] xl:min-h-8 ${ filter === item.id ? 'border-primary/40 bg-primary/15 font-medium text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]' } disabled:opacity-40`}
           >
             {item.label} ({item.count})
           </button>

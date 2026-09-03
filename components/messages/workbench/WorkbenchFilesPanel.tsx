@@ -33,7 +33,7 @@ function FileNodeRow({
             return next
           })
         }}
-        className={`flex w-full items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[12px] hover:bg-white/[0.05] ${
+        className={`flex w-full items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[12px] hover:bg-[var(--color-pib-surface-muted)] ${
           isSelected ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text)]'
         }`}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
@@ -99,7 +99,7 @@ function FilePreviewPane({
         <Icon name="description" className="text-[13px] text-[var(--color-pib-text-muted)]" />
         <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]">{preview.path}</span>
         {!preview.loading && !preview.error && onSave && !editing && (
-          <button type="button" aria-label="Edit file" onClick={() => setEditing(true)} className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]">Edit</button>
+          <button type="button" aria-label="Edit file" onClick={() => setEditing(true)} className="rounded px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]">Edit</button>
         )}
         {saveState === 'saved' && <span role="status" className="text-[10px] text-emerald-300">Saved</span>}
       </div>
@@ -110,15 +110,15 @@ function FilePreviewPane({
           <p className="text-[11px] text-red-300">{preview.error}</p>
         ) : editing ? (
           <div className="flex h-full min-h-[180px] flex-col gap-2">
-            <textarea aria-label="File contents" value={draft} onChange={(event) => setDraft(event.target.value)} className="min-h-0 flex-1 resize-none rounded-md border border-[var(--color-card-border)] bg-black/20 p-2 font-mono text-[11px] leading-relaxed text-[var(--color-pib-text)] outline-none focus:border-primary/60" />
+            <textarea aria-label="File contents" value={draft} onChange={(event) => setDraft(event.target.value)} className="min-h-0 flex-1 resize-none rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] p-2 font-mono text-[11px] leading-relaxed text-[var(--color-pib-text)] outline-none focus:border-primary/60" />
             {saveError && <p role="alert" className="text-[10px] text-red-300">{saveError}</p>}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => { setEditing(false); setDraft(preview.content ?? ''); setSaveError(null) }} className="rounded-md px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]">Cancel</button>
+              <button type="button" onClick={() => { setEditing(false); setDraft(preview.content ?? ''); setSaveError(null) }} className="rounded-md px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]">Cancel</button>
               <button type="button" onClick={() => { void save() }} disabled={saveState === 'saving' || draft === (preview.content ?? '')} className="rounded-md bg-primary px-2 py-1 text-[10px] text-black disabled:opacity-50">{saveState === 'saving' ? 'Saving…' : 'Approve & save'}</button>
             </div>
           </div>
         ) : (
-          <pre data-testid="workbench-syntax-preview" data-language={languageForPath(preview.path)} className="whitespace-pre-wrap break-words rounded-md bg-black/20 p-2 font-mono text-[11px] leading-relaxed text-sky-100 [overflow-wrap:anywhere]">
+          <pre data-testid="workbench-syntax-preview" data-language={languageForPath(preview.path)} className="whitespace-pre-wrap break-words rounded-md bg-[var(--color-pib-surface-muted)] p-2 font-mono text-[11px] leading-relaxed text-sky-100 [overflow-wrap:anywhere]">
             <code>{preview.content ?? ''}</code>
           </pre>
         )}

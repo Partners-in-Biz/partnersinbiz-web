@@ -255,7 +255,7 @@ export function CommerceDocumentContextPreview({
             type="button"
             onClick={() => void handleDownloadPdf()}
             disabled={downloading}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 text-[11px] font-medium text-[var(--color-pib-text)] hover:bg-white/[0.05] disabled:opacity-50 xl:min-h-8"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 text-[11px] font-medium text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-muted)] disabled:opacity-50 xl:min-h-8"
           >
             <Icon name="picture_as_pdf" className="text-[15px]" />
             {downloading ? 'Downloading…' : 'Download PDF'}

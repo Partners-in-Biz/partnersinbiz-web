@@ -76,7 +76,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
           return (
             <span
               key={`agent-${p.agentId}`}
-              className="relative inline-flex items-center gap-1.5 rounded-[4px] border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
+              className="relative inline-flex items-center gap-1.5 rounded-[4px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2.5 py-0.5 text-xs"
             >
               <span className={`w-1.5 h-1.5 rounded-[4px] shrink-0 ${c.dot}`} />
               <span className={c.label}>{p.name}</span>
@@ -98,7 +98,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
                     aria-label={`Show ${p.name} skills`}
                     title={`Show ${p.name} skills`}
                     onClick={() => setOpenAgentId(isOpen ? null : p.agentId)}
-                    className="-mr-1 grid h-5 w-5 place-items-center rounded-[4px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                    className="-mr-1 grid h-5 w-5 place-items-center rounded-[4px] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                   >
                     <Icon name="psychology" className="text-[13px]" />
                   </button>
@@ -139,7 +139,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
         return (
           <span
             key={`user-${p.uid}`}
-            className="inline-flex items-center gap-1.5 rounded-[4px] border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2.5 py-0.5 text-xs"
           >
             <span className="pib-status-dot pib-status-dot-blue shrink-0" />
             <span className="text-[var(--color-pib-text-muted)]">{name}</span>

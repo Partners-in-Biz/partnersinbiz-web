@@ -40,9 +40,9 @@ export function BotDeskPanel({
     <aside
       data-testid="bot-desk-panel"
       aria-label={`${botName}'s desk`}
-      className="hidden min-h-0 w-[280px] shrink-0 flex-col overflow-hidden border-l border-white/[0.08] bg-black/40 xl:flex"
+      className="hidden min-h-0 w-[280px] shrink-0 flex-col overflow-hidden border-l border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_40%,transparent)] xl:flex"
     >
-      <section className="shrink-0 border-b border-white/[0.08] p-3">
+      <section className="shrink-0 border-b border-[var(--color-pib-line)] p-3">
         <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
           {botName}&apos;s {BOT_MODE_COPY.screenLabel.toLowerCase()}
         </p>
@@ -50,7 +50,7 @@ export function BotDeskPanel({
           type="button"
           data-testid="bot-desk-open-screen"
           onClick={onOpenScreen}
-          className="mt-2 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] text-center hover:border-primary/30 hover:bg-primary/[0.06]"
+          className="mt-2 flex h-36 w-full flex-col items-center justify-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-center hover:border-primary/30 hover:bg-primary/[0.06]"
         >
           <Icon name="screenshot_monitor" className="text-[28px] text-primary" />
           <span className="px-3 text-[11px] text-[var(--color-pib-text)]">{screenLabel}</span>
@@ -148,7 +148,7 @@ function BotRoutinesList({
           Message {botName} or type /goal to save a skill, then schedule it as a routine. Recurring work keeps running on the computer after you close this tab.
         </p>
       ) : routines.map((routine) => (
-        <article key={routine.id} data-testid={`bot-routine-${routine.id}`} className="mb-1.5 rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
+        <article key={routine.id} data-testid={`bot-routine-${routine.id}`} className="mb-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5">
           <p className="truncate text-[12px] font-medium text-[var(--color-pib-text)]">{routine.name}</p>
           <p className="mt-0.5 truncate text-[10px] text-[var(--color-pib-text-muted)]">
             {routine.enabled === false ? 'Paused' : 'Scheduled'}
