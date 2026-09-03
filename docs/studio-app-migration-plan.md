@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/studio-app-migration-plan-2026-09-03.md
