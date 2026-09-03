@@ -1,0 +1,368 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Studio UI: the app-side primitives (brand-system.md section 11). Every rule
+   reads the .sc-stage tokens, so a screen must be mounted inside
+   `.sc-stage.sc-paper` (or `.sc-stage.sc-ink`). Radius is 4px on controls,
+   6px on raised paper, 0 everywhere else. Terracotta is reserved for focus
+   rings, the active rule and the running-text CTA underline; it is never a
+   fill on a button.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Ink surface: the same tokens, inverted. ────────────────────────────── */
+.sc-stage.sc-ink {
+  --sc-canvas: #1a1714;
+  --sc-surface: #241f1b;
+  --sc-ink: #f3efe6;
+  --sc-ink-soft: rgba(243, 239, 230, 0.72);
+  --sc-accent-ink: #1a1714;
+  --sc-line: rgba(243, 239, 230, 0.18);
+  --sc-line-strong: rgba(243, 239, 230, 0.36);
+  --sc-edge-light: rgba(255, 255, 255, 0.06);
+  --sc-shadow: 10px 10px 0 rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+/* ── Semantic state colours (section 3.3). Never terracotta. ────────────── */
+.sc-stage {
+  --st-success: #2f6b3a;
+  --st-warning: #a8611b;
+  --st-danger: #b3401d;
+  --st-info: #3a5a7a;
+  --st-control-h: 2.75rem;
+  --st-radius: 4px;
+  --st-radius-raised: 6px;
+  --st-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sc-stage.sc-ink {
+  --st-success: #7fc48a;
+  --st-warning: #f0a35c;
+  --st-danger: #f07a5c;
+  --st-info: #8fb4d9;
+}
+
+/* ── Panel: raised paper (section 6). ───────────────────────────────────── */
+.st-panel {
+  background: var(--sc-surface);
+  border-radius: var(--st-radius-raised);
+  box-shadow: var(--sc-shadow), inset 0 0 0 1px var(--sc-edge-light);
+  padding: calc(var(--sc-u) * 6);
+  display: grid;
+  gap: calc(var(--sc-u) * 5);
+}
+.st-panel--flat {
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+@media (min-width: 700px) {
+  .st-panel {
+    padding: calc(var(--sc-u) * 8);
+  }
+}
+
+/* ── Buttons. ───────────────────────────────────────────────────────────── */
+.st-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--sc-u) * 2);
+  min-height: var(--st-control-h);
+  padding: 0 calc(var(--sc-u) * 5);
+  border-radius: var(--st-radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.st-btn:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 4px;
+}
+.st-btn:disabled,
+.st-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.st-btn--primary {
+  background: var(--sc-ink);
+  color: var(--sc-canvas);
+  border-color: var(--sc-ink);
+}
+.st-btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-ink) 94%, var(--sc-canvas));
+}
+.st-btn--secondary {
+  background: transparent;
+  color: var(--sc-ink);
+  border-color: var(--sc-line-strong);
+}
+.st-btn--secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sc-ink) 5%, transparent);
+  border-color: var(--sc-ink);
+}
+.st-btn--ghost {
+  background: transparent;
+  color: var(--sc-ink-soft);
+  padding-inline: calc(var(--sc-u) * 2);
+}
+.st-btn--ghost:hover:not(:disabled) {
+  color: var(--sc-ink);
+  background: color-mix(in srgb, var(--sc-ink) 5%, transparent);
+}
+.st-btn--danger {
+  background: transparent;
+  color: var(--st-danger);
+  border-color: transparent;
+}
+.st-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--st-danger) 8%, transparent);
+}
+.st-btn--block {
+  width: 100%;
+}
+.st-btn--sm {
+  min-height: 2.25rem;
+  font-size: 0.875rem;
+  padding-inline: calc(var(--sc-u) * 3);
+}
+
+/* ── Fields (section 11.5). ─────────────────────────────────────────────── */
+.st-field {
+  display: grid;
+  gap: calc(var(--sc-u) * 2);
+}
+.st-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--sc-u) * 3);
+}
+.st-label__hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sc-font);
+  font-size: 0.8125rem;
+  color: var(--sc-ink-soft);
+}
+.st-input,
+.st-textarea,
+.st-select {
+  appearance: none;
+  width: 100%;
+  min-height: var(--st-control-h);
+  padding: 0 calc(var(--sc-u) * 3.5);
+  border-radius: var(--st-radius);
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-canvas);
+  color: var(--sc-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 120ms ease;
+}
+.st-textarea {
+  padding-block: calc(var(--sc-u) * 2.5);
+  min-height: calc(var(--st-control-h) * 2.2);
+  resize: vertical;
+}
+.st-input::placeholder,
+.st-textarea::placeholder {
+  color: color-mix(in srgb, var(--sc-ink-soft) 60%, transparent);
+}
+.st-input:hover,
+.st-textarea:hover,
+.st-select:hover {
+  border-color: var(--sc-ink);
+}
+.st-input:focus-visible,
+.st-textarea:focus-visible,
+.st-select:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 3px;
+  border-color: var(--sc-ink);
+}
+.st-input[aria-invalid='true'],
+.st-textarea[aria-invalid='true'] {
+  border-color: var(--st-danger);
+}
+.st-help {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--sc-ink-soft);
+  margin: 0;
+}
+.st-error {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--st-danger);
+  margin: 0;
+}
+
+/* ── Choice: a selectable option in a grid (dates, slots, plans). ──────── */
+.st-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--st-cols, 2), minmax(0, 1fr));
+  gap: calc(var(--sc-u) * 2);
+}
+@media (max-width: 480px) {
+  .st-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.st-choice {
+  appearance: none;
+  min-height: var(--st-control-h);
+  padding: calc(var(--sc-u) * 2.5) calc(var(--sc-u) * 3);
+  border-radius: var(--st-radius);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-canvas);
+  color: var(--sc-ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.st-choice--center {
+  text-align: center;
+}
+.st-choice--mono {
+  font-family: var(--sc-font-mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.st-choice:hover {
+  border-color: var(--sc-ink);
+}
+.st-choice[aria-pressed='true'] {
+  border-color: var(--sc-ink);
+  box-shadow: inset 3px 0 0 var(--sc-accent);
+}
+.st-choice:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 3px;
+}
+
+/* ── Steps: a tiny mono progress row. ───────────────────────────────────── */
+.st-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--sc-u) * 2) calc(var(--sc-u) * 5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.st-steps__item {
+  color: color-mix(in srgb, var(--sc-ink-soft) 60%, transparent);
+  padding-bottom: calc(var(--sc-u) * 1);
+  border-bottom: 2px solid transparent;
+}
+.st-steps__item[aria-current='step'] {
+  color: var(--sc-ink);
+  border-bottom-color: var(--sc-accent);
+}
+.st-steps__item--done {
+  color: var(--sc-ink-soft);
+}
+
+/* ── Status dot + word (section 11.7). ──────────────────────────────────── */
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sc-u) * 2);
+}
+.st-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-tone, var(--sc-ink-soft));
+}
+.st-status--success {
+  --st-tone: var(--st-success);
+}
+.st-status--warning {
+  --st-tone: var(--st-warning);
+}
+.st-status--danger {
+  --st-tone: var(--st-danger);
+}
+.st-status--info {
+  --st-tone: var(--st-info);
+}
+
+/* ── Notice: an inline message with a hairline, never a coloured fill. ─── */
+.st-notice {
+  display: grid;
+  gap: calc(var(--sc-u) * 1);
+  padding: calc(var(--sc-u) * 3) calc(var(--sc-u) * 4);
+  border-left: 2px solid var(--st-tone, var(--sc-ink));
+  background: color-mix(in srgb, var(--sc-ink) 3%, transparent);
+  color: var(--sc-ink);
+}
+.st-notice--success {
+  --st-tone: var(--st-success);
+}
+.st-notice--warning {
+  --st-tone: var(--st-warning);
+}
+.st-notice--danger {
+  --st-tone: var(--st-danger);
+}
+.st-notice--info {
+  --st-tone: var(--st-info);
+}
+
+/* ── Header row inside a panel or page: title left, actions right. ─────── */
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--sc-u) * 4);
+  flex-wrap: wrap;
+}
+.st-stack {
+  display: grid;
+  gap: calc(var(--sc-u) * 4);
+}
+.st-title {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ── Spinner: one hairline arc, ink. ────────────────────────────────────── */
+.st-spinner {
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: st-spin 700ms linear infinite;
+}
+@keyframes st-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-spinner {
+    animation-duration: 1.6s;
+  }
+  .st-btn,
+  .st-input,
+  .st-textarea,
+  .st-choice {
+    transition: none;
+  }
+}
