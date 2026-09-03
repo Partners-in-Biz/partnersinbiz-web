@@ -164,6 +164,7 @@ export type ChatUiActionType =
   | 'stop'
   | 'open'
   | 'open_context'
+  | 'open_workbench_browser'
   | 'copy'
   | 'download'
   | 'custom'

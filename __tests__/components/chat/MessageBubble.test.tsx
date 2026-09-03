@@ -2,6 +2,18 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MessageBubble from '@/components/chat/MessageBubble'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 
+const mermaidRender = jest.fn(async (_id: string, source: string) => ({
+  svg: `<svg xmlns="http://www.w3.org/2000/svg"><text>${source.includes('Client request') ? 'Client request' : 'diagram'}</text></svg>`,
+}))
+
+jest.mock('mermaid', () => ({
+  __esModule: true,
+  default: {
+    initialize: jest.fn(),
+    render: (id: string, source: string) => mermaidRender(id, source),
+  },
+}))
+
 function closestMessageGroup(element: Element): HTMLElement | null {
   let node: Element | null = element
   while (node) {
@@ -481,7 +493,7 @@ describe('MessageBubble', () => {
     expect(screen.getByText('I checked the completed run and preserved its safe summary.')).toBeInTheDocument()
   })
 
-  it('renders assistant markdown, mermaid-style diagrams, and inline SVG visually instead of as raw prose', () => {
+  it('renders assistant markdown, mermaid-style diagrams, and inline SVG visually instead of as raw prose', async () => {
     render(
       <MessageBubble
         currentUserUid="user-1"
@@ -512,11 +524,46 @@ describe('MessageBubble', () => {
     expect(screen.getByRole('heading', { name: 'Visual options' })).toBeInTheDocument()
     expect(screen.getByText('Plain copy').closest('li')).toBeInTheDocument()
     expect(screen.getByText('Structured')).toHaveClass('font-medium')
-    expect(screen.getByRole('img', { name: 'Mermaid diagram' })).toBeInTheDocument()
-    expect(screen.getByText('Client request')).toBeInTheDocument()
+    expect(await screen.findByTestId('mermaid-part')).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'Mermaid diagram' })).toBeInTheDocument()
+    expect(await screen.findByText('Client request')).toBeInTheDocument()
+    expect(mermaidRender).toHaveBeenCalled()
     expect(screen.queryByText(/flowchart TD/)).not.toBeInTheDocument()
     expect(screen.getByText('SVG card')).toBeInTheDocument()
     expect(screen.queryByText(/<svg width/)).not.toBeInTheDocument()
+  })
+
+  it('renders inline <!--pib-part:N--> placeholders in order', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-inline-parts',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Intro\n<!--pib-part:0-->\nMiddle\n<!--pib-part:1-->\nEnd',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          richParts: [
+            { type: 'html_artifact', title: 'First artifact', html: '<p>Alpha</p>', height: 200 },
+            { type: 'html_artifact', title: 'Second artifact', html: '<p>Beta</p>', height: 200 },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Intro')).toBeInTheDocument()
+    expect(screen.getByText('Middle')).toBeInTheDocument()
+    expect(screen.getByText('End')).toBeInTheDocument()
+    const artifacts = screen.getAllByTestId('html-artifact-part')
+    expect(artifacts).toHaveLength(2)
+    expect(artifacts[0]).toHaveTextContent('First artifact')
+    expect(artifacts[1]).toHaveTextContent('Second artifact')
+    expect(artifacts[0].compareDocumentPosition(artifacts[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText('Intro').compareDocumentPosition(artifacts[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(artifacts[1].compareDocumentPosition(screen.getByText('End')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders GitHub-style Markdown tables as responsive tables, including spaced rows', () => {
@@ -947,6 +994,26 @@ describe('MessageBubble', () => {
     expect(screen.getByText('Approve Isaac follow-up sequence')).toBeInTheDocument()
     expect(screen.getByText('Needs approval before sending')).toBeInTheDocument()
     expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
+  })
+
+  it('renders unsupported content when a canvas part fails validation', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-bad-chart',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Chart follows.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          richParts: [{ type: 'chart', data: [{ y: 1 }], series: [{ key: 'y' }] }],
+        }}
+      />,
+    )
+    expect(screen.getByText('Unsupported content')).toBeInTheDocument()
   })
 
   it('renders a durable linked-computer queue with elapsed state and Stop', () => {

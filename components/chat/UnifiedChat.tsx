@@ -1,5 +1,6 @@
 'use client'
 
+import 'katex/dist/katex.min.css'
 import { Icon } from '@/components/studio'
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
@@ -5723,6 +5724,12 @@ export default function UnifiedChat({
   const handleUiAction = useCallback(
     async (message: ConversationMessage, action: ChatUiAction, options?: { openDock?: boolean }) => {
       const actionType = String(action.type).toLowerCase()
+      if (actionType === 'open_workbench_browser') {
+        // Open the workbench rail browser tab. Session restore-by-id is a later hook;
+        // payload.sessionId is accepted so Take over can pass it without inventing an API.
+        openWorkbenchTab('browser')
+        return
+      }
       if (actionType === 'open_context') {
         // Never pin context for a bubble that belongs to another thread (stale
         // transcript after a tab switch, or a late SSE/finalize paint).
@@ -5901,7 +5908,7 @@ export default function UnifiedChat({
         setError(err instanceof Error ? err.message : 'Action failed')
       }
     },
-    [activeId, initialAgentId, messages, orgId, pollFinalize, refreshProjectChat, startEventStream],
+    [activeId, initialAgentId, messages, openWorkbenchTab, orgId, pollFinalize, refreshProjectChat, startEventStream],
   )
 
   useEffect(() => {
