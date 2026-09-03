@@ -59,6 +59,8 @@ const EXT = new Set(['.ts', '.tsx', '.css', '.js', '.jsx', '.mjs', '.cjs'])
 
 function shouldSkip(rel: string): boolean {
   if (rel.startsWith('components/marketing/')) return true
+  // API routes are not Studio UI surfaces; comment/string false positives dominate.
+  if (rel.startsWith('app/api/')) return true
   if (rel.includes('/node_modules/')) return true
   if (rel.includes('/.next/')) return true
   // Empty retired selectors live here until Phase 5 purge — do not ratchet them.
