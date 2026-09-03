@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-import { Icon } from '@/components/studio'
   appendQueryParams,
   scopedApiPath,
   scopedPortalPath,
   type PortalOrgRouteScope,
 } from '@/lib/portal/scoped-routing'
 import type { Sequence, SequenceStatus, SequenceStep } from '@/lib/sequences/types'
+import { Icon } from '@/components/studio'
 
 type ViewFilter = 'all' | 'active' | 'paused' | 'draft' | 'needs-work'
 type ChannelFilter = 'all' | 'email' | 'sms' | 'mixed'

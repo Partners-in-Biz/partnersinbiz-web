@@ -8,14 +8,13 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import { TwilioSettingsPanel } from '@/components/twilio/TwilioSettingsPanel'
 import type {
-import { Icon } from '@/components/studio'
-
   CommunicationChannel,
   Conversation,
   ConversationMessage,
   HermesCommunicationSuggestion,
   MessageTemplate,
 } from '@/lib/communications/types'
+import { Icon } from '@/components/studio'
 
 interface CommunicationsConsoleProps {
   mode: 'admin' | 'portal'

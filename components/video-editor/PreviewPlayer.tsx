@@ -1,4 +1,3 @@
-import { Icon } from '@/components/studio'
 'use client'
 
 import { useEffect, useRef } from 'react'
@@ -7,6 +6,7 @@ import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
 import { effectsToCssFilter } from '@/lib/video-editor/preview-filters'
 import { sourceOffsetAt, speedAt } from '@/lib/video-editor/speed-ramps'
 import type { EditorClip, EditorTimeline, EditorTrack, VideoEditorMediaPreview, VideoEditorProjectSettings } from '@/lib/video-editor/types'
+import { Icon } from '@/components/studio'
 
 export interface VisibleClip {
   track: EditorTrack

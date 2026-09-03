@@ -5,12 +5,12 @@ import UnifiedChat from '@/components/chat/UnifiedChat'
 import { ChatMessageContent } from '@/components/chat/MessageBubble'
 import type { Conversation } from '@/components/chat/ConversationListItem'
 import {
-import { Icon } from '@/components/studio'
   normalizeWorkspacePanel,
   WORKSPACE_PANEL_EVENT,
   type WorkspacePanelSpec,
 } from '@/lib/hermes/workspace-panels'
 import { ModuleShell } from '@/components/ui/ModuleShell'
+import { Icon } from '@/components/studio'
 import { DeepSeekUsageChip } from '@/components/messages/hermes/DeepSeekUsageChip'
 import { MessagesExperienceSwitch } from '@/components/messages/bot-mode/MessagesExperienceSwitch'
 import '@/components/messages/atmosphere/messages-quiet.css'

@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
-import { Icon } from '@/components/studio'
-
   KnowledgeItem,
   KnowledgeListing,
   KnowledgeNote,
   KnowledgeScope,
   KnowledgeSection,
 } from '@/lib/knowledge/types'
+import { Icon } from '@/components/studio'
 
 type Props = {
   scope: KnowledgeScope

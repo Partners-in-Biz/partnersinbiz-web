@@ -1,4 +1,3 @@
-import { Icon } from '@/components/studio'
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -9,6 +8,7 @@ import type {
   SuggestedAction,
   CleaningHistoryEntry,
 } from '@/lib/email-analytics/list-health'
+import { Icon } from '@/components/studio'
 
 interface ListHealthWorkspaceProps {
   orgId?: string

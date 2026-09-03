@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { AccessibleDialog } from './AccessibleOverlay'
 import {
-import { Icon } from '@/components/studio'
-
   HERMES_MODEL_PROVIDERS,
   HERMES_PROFILE_PRESETS,
   linkedComputerBootstrapCommand,
@@ -13,6 +11,7 @@ import { Icon } from '@/components/studio'
   sanitizeHermesProfiles,
   sanitizeHermesProviders,
 } from '@/lib/linked-computers/bootstrap'
+import { Icon } from '@/components/studio'
 
 type Pairing = {
   challengeId: string

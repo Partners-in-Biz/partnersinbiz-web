@@ -1,7 +1,7 @@
-import { Icon } from '@/components/studio'
 'use client'
 import { driveFileUrl } from './googleDeepLinks'
 import type { DriveFile } from './useRecentDrive'
+import { Icon } from '@/components/studio'
 
 type Props = {
   status: 'connected' | 'not_connected' | 'needs_reconnect'

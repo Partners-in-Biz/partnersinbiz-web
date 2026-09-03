@@ -9,13 +9,12 @@
 import { useMemo, useState } from 'react'
 import type { SequenceStep, SequenceGoal } from '@/lib/sequences/types'
 import {
-import { Icon } from '@/components/studio'
-
   simulateEnrollment,
   emptyScenario,
   type SimulationScenario,
   type SimEvent,
 } from '@/lib/email/sequence-simulation'
+import { Icon } from '@/components/studio'
 
 interface Props {
   steps: SequenceStep[]

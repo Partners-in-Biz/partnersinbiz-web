@@ -9,12 +9,12 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ProfileLinksFields } from '@/components/crm/ProfileLinksFields'
 import {
-import { Icon } from '@/components/studio'
   companySocialFromValues,
   sanitizeOtherLinks,
   type ProfileLink,
   type ProfileLinkFieldValues,
 } from '@/lib/crm/profileLinks'
+import { Icon } from '@/components/studio'
 
 export interface CompanyTeamMember {
   uid: string

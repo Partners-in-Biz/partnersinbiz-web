@@ -1,7 +1,7 @@
-import { Icon } from '@/components/studio'
 'use client'
 import { useEffect, useState } from 'react'
 import type { Meeting } from './useTodayMeetings'
+import { Icon } from '@/components/studio'
 
 type Props = {
   status: 'connected' | 'not_connected' | 'needs_reconnect'
