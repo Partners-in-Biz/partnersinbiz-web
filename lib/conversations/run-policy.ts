@@ -82,6 +82,10 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
   if (!text) {
     return 'The agent run failed. Please send the message again.'
   }
+  if (/\breal_profile_guard\b/.test(text)) {
+    console.error('PIB_REAL_PROFILE_GUARD', text)
+    return "This computer's owner has enabled browsing as themselves; your chat cannot run there."
+  }
   if (isConversationBrowserToolFailure(text) || isConversationInfrastructureInterrupt(text)) {
     // Prefer recovery copy when something still surfaces; auto-requeue is the primary path.
     return CONVERSATION_RUN_RECOVERING_USER_ERROR

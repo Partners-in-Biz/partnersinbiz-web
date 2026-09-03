@@ -40,6 +40,19 @@ describe('linked computer pairing HTTP redaction', () => {
     })
   })
 
+  it('passes orgId and agentIds into challenge creation', async () => {
+    const create = jest.fn(async () => ({
+      challengeId: 'challenge-agents', secret: 'pairing-secret', expiresAt: 'expiry',
+    }))
+    const response = await handlePairingCreate({ uid: 'user-a' }, {
+      deviceKind: 'computer', ownerType: 'user', orgId: 'org-a', agentIds: ['pip', 'maya'],
+    }, create)
+    expect(response.status).toBe(201)
+    expect(create).toHaveBeenCalledWith({
+      actorUserId: 'user-a', deviceKind: 'computer', ownerType: 'user', orgId: 'org-a', agentIds: ['pip', 'maya'],
+    })
+  })
+
   it('passes an explicit legacy location adoption choice into challenge creation', async () => {
     const create = jest.fn(async () => ({
       challengeId: 'challenge-adopt', secret: 'pairing-secret', expiresAt: 'expiry',
@@ -85,11 +98,11 @@ describe('linked computer pairing HTTP redaction', () => {
       method: 'POST', body: JSON.stringify(payload), headers: { 'content-type': 'application/json' },
     })
     const response = await handlePairingExchange(request, async () => ({
-      deviceId: 'device-a', credential: 'device-credential', credentialVersion: 1,
+      deviceId: 'device-a', credential: 'device-credential', credentialVersion: 1, ownerUserId: 'user-a',
     }))
     expect(response.headers.get('cache-control')).toBe('no-store')
     const json = await response.json()
-    expect(Object.keys(json.data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId'])
+    expect(Object.keys(json.data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'ownerUserId'])
     expect(JSON.stringify(logSpies.flatMap((spy) => spy.mock.calls))).not.toMatch(/pairing-secret|machine-proof|device-credential|transport-token/)
   })
 

@@ -23,18 +23,6 @@ if ! command -v hermes >/dev/null 2>&1; then
 fi
 command -v hermes >/dev/null 2>&1 || { echo 'Hermes installed, but its command is not on PATH. Open a new terminal and rerun this command.' >&2; exit 1; }
 
-IFS=',' read -r -a requested_profiles <<< "$PROFILES"
-IFS=',' read -r -a requested_providers <<< "$PROVIDERS"
-for profile in "${requested_profiles[@]}"; do
-  if [[ ! -d "$HOME/.hermes/profiles/$profile" ]]; then
-    hermes profile create "$profile" --description "Partners in Biz $profile agent"
-  fi
-  echo "Configure the model for $profile. Requested providers: ${requested_providers[*]}"
-  hermes -p "$profile" setup model
-  hermes -p "$profile" gateway install || true
-  hermes -p "$profile" gateway start
-done
-
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 arch="$(uname -m)"; [[ "$arch" != x86_64 ]] || arch=x64
 release_base="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
@@ -50,5 +38,5 @@ sudo /usr/sbin/installer -pkg "$stage/runtime.pkg" -target /
 installer="/Library/Application Support/PartnersInBiz/Installer-$arch/install.sh"
 [[ -x "$installer" ]] || { echo 'The signed PiB runtime installer is incomplete.' >&2; exit 1; }
 "$installer" install
-"$installer" pair "$CHALLENGE"
-echo 'Computer linked. Keep Hermes and the PiB runtime running to stay available.'
+"$installer" pair "$CHALLENGE" --agents "$PROFILES"
+echo 'Paired. Your agents are being set up by Partners in Biz; they appear in Linked Computers within a minute.'

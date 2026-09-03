@@ -12,10 +12,11 @@ type Grant = {
   accessMode?: ShareAccessMode
   allowedUserIds?: string[]
   allowedTeamIds?: string[]
+  browserIdentity?: { useRealProfile: boolean; realProfilePin: string | null; headed: boolean; autoclose: boolean }
 }
 type Mapping = { mappingId: string; orgId: string; workspaceId: string; label: string; status: string }
 type DesiredAgentRow = { agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }
-type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | 'hermes_update_failed' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
 
 function agentSyncStatusLabel(status: string): string {
   switch (status) {
@@ -489,6 +490,11 @@ export function LinkedComputersWorkspace() {
                       Start Hermes and at least one local agent profile on this machine.
                     </p>
                   )}
+                  {device.healthReason === 'hermes_update_failed' && (
+                    <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
+                      Hermes could not update on this computer. It keeps working on the previous version.
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-1.5">
                   <button
@@ -589,6 +595,109 @@ export function LinkedComputersWorkspace() {
                   ) : (
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No organisation granted</p>
                   )}
+                  {device.ownerType === 'user' && device.grants?.map((grant) => {
+                    const ownerOnly = !grant.accessMode || grant.accessMode === 'owner'
+                    const enabled = grant.browserIdentity?.useRealProfile === true
+                    const orgLabel = grant.orgLabel
+                      || workspaceOptions.find((option) => option.orgId === grant.orgId)?.orgName
+                      || grant.orgId
+                    const saveBrowserIdentity = (next: {
+                      useRealProfile: boolean
+                      realProfilePin: string | null
+                      headed: boolean
+                      autoclose: boolean
+                    }) => {
+                      void mutate(`/api/v1/linked-computers/${device.deviceId}/grants/${grant.orgId}/browser-identity`, {
+                        method: 'PUT',
+                        body: JSON.stringify(next),
+                      })
+                    }
+                    return (
+                      <div key={`browse-${grant.orgId}`} className="mt-3 rounded-lg border border-[var(--color-pib-line)] p-3">
+                        <label className="flex items-start gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            aria-label={`Let agents on this computer browse as me for ${orgLabel}`}
+                            checked={enabled}
+                            disabled={!ownerOnly}
+                            onChange={(event) => {
+                              saveBrowserIdentity({
+                                useRealProfile: event.target.checked,
+                                realProfilePin: grant.browserIdentity?.realProfilePin ?? null,
+                                headed: grant.browserIdentity?.headed ?? false,
+                                autoclose: grant.browserIdentity?.autoclose ?? false,
+                              })
+                            }}
+                          />
+                          <span>Let agents on this computer browse as me</span>
+                        </label>
+                        {ownerOnly ? (
+                          <>
+                            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+                              A page the agent visits runs with the user&apos;s real sessions, so prompt injection on that page can act as the user.
+                            </p>
+                            {enabled ? (
+                              <div className="mt-3 space-y-2">
+                                <label className="block text-xs">
+                                  Browser profile pin
+                                  <input
+                                    aria-label={`Browser profile pin for ${orgLabel}`}
+                                    defaultValue={grant.browserIdentity?.realProfilePin ?? ''}
+                                    onBlur={(event) => {
+                                      const pin = event.target.value.trim()
+                                      saveBrowserIdentity({
+                                        useRealProfile: true,
+                                        realProfilePin: pin || null,
+                                        headed: grant.browserIdentity?.headed ?? false,
+                                        autoclose: grant.browserIdentity?.autoclose ?? false,
+                                      })
+                                    }}
+                                    className="mt-1 w-full rounded-lg border bg-transparent p-2 text-sm"
+                                  />
+                                </label>
+                                <label className="flex items-center gap-2 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Show the browser window for ${orgLabel}`}
+                                    checked={grant.browserIdentity?.headed === true}
+                                    onChange={(event) => {
+                                      saveBrowserIdentity({
+                                        useRealProfile: true,
+                                        realProfilePin: grant.browserIdentity?.realProfilePin ?? null,
+                                        headed: event.target.checked,
+                                        autoclose: grant.browserIdentity?.autoclose ?? false,
+                                      })
+                                    }}
+                                  />
+                                  Show the browser window
+                                </label>
+                                {device.platform === 'windows' ? (
+                                  <label className="flex items-center gap-2 text-xs">
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Close the browser after each visit for ${orgLabel}`}
+                                      checked={grant.browserIdentity?.autoclose === true}
+                                      onChange={(event) => {
+                                        saveBrowserIdentity({
+                                          useRealProfile: true,
+                                          realProfilePin: grant.browserIdentity?.realProfilePin ?? null,
+                                          headed: grant.browserIdentity?.headed ?? false,
+                                          autoclose: event.target.checked,
+                                        })
+                                      }}
+                                    />
+                                    Close the browser after each visit
+                                  </label>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Available only when this computer is not shared.</p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
                 <div>
                   <p className="text-xs font-medium">Workspace mappings</p>

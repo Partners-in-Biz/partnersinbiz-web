@@ -191,4 +191,94 @@ describe('linked computer LLM credential claims', () => {
     expect(mockApplyJobResult).toHaveBeenCalled()
     expect(mockGetCredentials).not.toHaveBeenCalled()
   })
+
+  it('accepts protocol 3 or 4 and hides managedProfile jobs from v3 runtimes', async () => {
+    const managedJob = {
+      ...claimedJob(),
+      kind: 'install' as const,
+      agentId: 'partners--pip',
+      catalogAgentId: 'pip',
+      managedProfile: {
+        orgId: 'org-1',
+        orgSlug: 'partners',
+        agentId: 'pip',
+        profile: 'partners--pip',
+      },
+      credentialDelivery: undefined,
+    }
+    const claim = jest.fn()
+      .mockResolvedValueOnce(managedJob)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(managedJob)
+
+    const v3 = await handleAgentHostClaim(
+      new NextRequest('http://localhost/api/v1/linked-computers/device-1/agents/claim', {
+        method: 'POST',
+        body: JSON.stringify({ agentHostProtocolVersion: 3 }),
+      }),
+      'device-1',
+      async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+      claim,
+    )
+    expect(v3.status).toBe(204)
+    expect(mockCompleteJob).not.toHaveBeenCalled()
+
+    const v4 = await handleAgentHostClaim(
+      new NextRequest('http://localhost/api/v1/linked-computers/device-1/agents/claim', {
+        method: 'POST',
+        body: JSON.stringify({ agentHostProtocolVersion: 4 }),
+      }),
+      'device-1',
+      async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+      claim,
+    )
+    expect(v4.status).toBe(200)
+    expect(await v4.json()).toEqual({ success: true, data: managedJob })
+
+    const rejected = await handleAgentHostClaim(
+      new NextRequest('http://localhost/api/v1/linked-computers/device-1/agents/claim', {
+        method: 'POST',
+        body: JSON.stringify({ agentHostProtocolVersion: 2 }),
+      }),
+      'device-1',
+      async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+      claim,
+    )
+    expect(rejected.status).toBe(400)
+    expect(await rejected.json()).toMatchObject({
+      error: 'Agent host protocol version 3 or 4 required. Update the linked computer runtime.',
+    })
+  })
+
+  it('cancels credential jobs when an existing org grant is not active', async () => {
+    const pausedGrant = {
+      exists: true,
+      data: () => ({ status: 'paused' }),
+    }
+    const { adminDb } = jest.requireMock('@/lib/firebase/admin') as {
+      adminDb: { collection: (name: string) => { doc: () => { get: () => Promise<unknown> } } }
+    }
+    const original = adminDb.collection
+    adminDb.collection = (name: string) => ({
+      doc: () => ({
+        get: () => name === 'linked_device_grants' ? Promise.resolve(pausedGrant) : mockDeviceGet(),
+      }),
+    })
+    try {
+      const response = await handleAgentHostClaim(
+        request(),
+        'device-1',
+        async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+        async () => ({ ...claimedJob(), orgId: 'org-1' }),
+      )
+      expect(response.status).toBe(204)
+      expect(mockCompleteJob).toHaveBeenCalledWith(expect.objectContaining({
+        ok: false,
+        error: 'device grant not active',
+      }))
+      expect(mockGetCredentials).not.toHaveBeenCalled()
+    } finally {
+      adminDb.collection = original
+    }
+  })
 })

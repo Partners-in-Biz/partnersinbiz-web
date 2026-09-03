@@ -99,12 +99,13 @@ install_runtime() {
 }
 
 pair_runtime() {
-  local challengeId="${1:-}"; [[ "$challengeId" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "Invalid challengeId." >&2; exit 2; }
+  local challengeId="${1:-}"; shift || true
+  [[ "$challengeId" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { echo "Invalid challengeId." >&2; exit 2; }
   [[ -x "$BIN" ]] || { echo "Install the runtime first." >&2; exit 1; }
   # pib-runtime prompts privately for the one-time code, creates its device key,
   # exchanges the challenge, stores all results in Keychain, then sends a signed
   # heartbeat and starts the outbound local Hermes worker.
-  "$BIN" pair --challenge "$challengeId" --platform macos --prompt-code --credential-store keychain
+  "$BIN" pair --challenge "$challengeId" --platform macos --prompt-code --credential-store keychain "$@"
 }
 
 update_runtime() { install_runtime; }
@@ -130,6 +131,6 @@ revoke_runtime() { [[ -x "$BIN" ]]||return 0;if ! "$BIN" revoke;then launchctl k
 uninstall_runtime() { require_root;local force="${1:-}";if ! revoke_runtime;then if [[ "$force" != --force-local ]];then echo 'Remote revoke pending. Runtime and secure identity retained in revoke-only recovery mode.' >&2;return 1;fi;echo 'WARNING: forcing local removal leaves only a nonsecret recovery marker; revoke this computer in the PiB portal.' >&2;delete_credentials;fi;launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true;rm -f "$PLIST";rm -rf "$ROOT"; }
 
 if [[ "${PIB_INSTALLER_LIBRARY:-0}" != 1 ]];then case "${1:-}" in
-  install) install_runtime;; pair) pair_runtime "${2:-}";; update) update_runtime;; rollback) rollback_runtime;;
+  install) install_runtime;; pair) pair_runtime "${2:-}" "${@:3}";; update) update_runtime;; rollback) rollback_runtime;;
   revoke) revoke_runtime;; uninstall) uninstall_runtime "${2:-}";; *) usage; exit 2;;
 esac;fi

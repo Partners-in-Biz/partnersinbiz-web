@@ -21,6 +21,11 @@ describe('humanizeConversationRunError', () => {
       .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
   })
 
+  it('maps real-profile guard failures to the owner-only browsing message', () => {
+    expect(humanizeConversationRunError('real_profile_guard'))
+      .toBe("This computer's owner has enabled browsing as themselves; your chat cannot run there.")
+  })
+
   it('preserves ordinary short errors', () => {
     expect(humanizeConversationRunError('Project is not linked to this computer'))
       .toBe('Project is not linked to this computer')

@@ -25,6 +25,17 @@ describe('internal Windows staff runtime channel', () => {
     expect(bootstrap).toMatch(/Cert:\\LocalMachine\\\$StoreName/)
     expect(bootstrap).toMatch(/Assert-InternalCertificate \$Signature\.SignerCertificate/)
     expect(bootstrap).not.toMatch(/InternalStaff[\s\S]{0,200}AllowUnsignedDev/)
+    expect(bootstrap).toMatch(/-Action Pair -ChallengeId \$ChallengeId -ReleaseChannel \$\(if \(\$InternalStaff\) \{ 'internal' \} else \{ 'stable' \}\)/)
+  })
+
+  it('forwards the staff channel through pairing handoff into pair --channel', () => {
+    const installer = read('runtime-installers/windows/install.ps1')
+    const service = read('runtime-installers/windows/PartnersInBizRuntimeService.cs')
+    expect(installer).toMatch(/\[ValidateSet\('internal','stable'\)\] \[string\]\$ReleaseChannel = 'stable'/)
+    expect(installer).toMatch(/releaseChannel=\$channel/)
+    expect(service).toMatch(/handoff\.releaseChannel=="internal"\?"internal":"stable"/)
+    expect(service).toMatch(/pair --challenge "\+handoff\.challengeId\+" --channel "\+channel/)
+    expect(service).toMatch(/public string releaseChannel\{get;set;\}/)
   })
 
   it('keeps internal releases isolated from the future public channel', () => {

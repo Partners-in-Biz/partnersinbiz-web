@@ -7,6 +7,7 @@ import {
   putDeviceGrant,
   putWorkspaceMapping,
   recordDeviceHeartbeat,
+  setDeviceGrantBrowserIdentity,
   removeOwnedDevice,
   kickDeviceCleanup,
   transitionDeviceStatus,
@@ -99,6 +100,24 @@ describe('linked computers tenant domain', () => {
     await expect(consumePairingChallenge({ challengeId: 'challenge-a', secret: 'human-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:02:00.000Z'),
     })).rejects.toThrow('already consumed')
+  })
+
+  it('persists optional orgId and agentIds on a pairing challenge', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+    })
+    await createPairingChallenge({
+      challengeId: 'challenge-b',
+      actorUserId: 'user-a',
+      deviceId: 'device-a',
+      secret: 'code',
+      orgId: 'org-a',
+      agentIds: ['pip', 'maya'],
+    }, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
+    expect(rows.get('linked_device_pairing_challenges/challenge-b')).toMatchObject({
+      orgId: 'org-a',
+      agentIds: ['pip', 'maya'],
+    })
   })
 
   it('persists failed pairing attempts before denying the exchange', async () => {
@@ -227,6 +246,57 @@ describe('linked computers tenant domain', () => {
     await expect(updateOwnedDevice({ deviceId: 'legacy', actorUserId: 'personal-owner', label: 'Personal Mac' }, { db: db as never, now })).resolves.toBeUndefined()
   })
 
+  it('heartbeat drops profiles for orgs without an active grant', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active' },
+      'linked_device_grants/org-b_device-a': { deviceId: 'device-a', orgId: 'org-b', status: 'paused' },
+    })
+    const result = await recordDeviceHeartbeat({
+      deviceId: 'device-a',
+      runtimeVersion: '2',
+      capabilities: ['workspace.execute'],
+      health: 'ok',
+      availableAgentIds: ['partners--pip', 'other--pip', 'stranger--pip'],
+      availableProfiles: [
+        { profile: 'partners--pip', orgId: 'org-a', agentId: 'pip', healthy: true, skillsDigest: 'aa' },
+        { profile: 'other--pip', orgId: 'org-b', agentId: 'pip', healthy: true, skillsDigest: 'bb' },
+        { profile: 'stranger--pip', orgId: 'org-c', agentId: 'pip', healthy: false, skillsDigest: 'cc' },
+        { profile: 'pip', orgId: null, agentId: 'pip', healthy: true, skillsDigest: null },
+      ],
+    }, { db: db as never, now })
+    expect(result.ignoredProfiles.sort()).toEqual(['other--pip', 'stranger--pip'])
+    expect(rows.get('linked_devices/device-a')).toMatchObject({
+      availableAgentIds: ['partners--pip', 'other--pip', 'stranger--pip'],
+      availableAgents: [{ orgId: 'org-a', agentId: 'pip', profile: 'partners--pip', healthy: true }],
+      profileSkillsDigests: {
+        'partners--pip': 'aa',
+        'other--pip': 'bb',
+        'stranger--pip': 'cc',
+        pip: null,
+      },
+    })
+  })
+
+  it('heartbeat keeps legacy availableAgentIds', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' },
+    })
+    const result = await recordDeviceHeartbeat({
+      deviceId: 'device-a',
+      runtimeVersion: '2',
+      capabilities: ['workspace.execute'],
+      health: 'ok',
+      availableAgentIds: ['pip', 'theo'],
+    }, { db: db as never, now })
+    expect(result.ignoredProfiles).toEqual([])
+    expect(rows.get('linked_devices/device-a')).toMatchObject({
+      availableAgentIds: ['pip', 'theo'],
+    })
+    expect(rows.get('linked_devices/device-a')).not.toHaveProperty('availableAgents')
+    expect(rows.get('linked_devices/device-a')).not.toHaveProperty('profileSkillsDigests')
+  })
+
   it('records server-controlled heartbeat freshness only for active devices', async () => {
     const { db, rows } = fakeDb({ 'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' } })
     await recordDeviceHeartbeat({ deviceId: 'device-a', runtimeVersion: '2', capabilities: ['workspace.execute'], health: 'ok', lastSeenAt: 'attacker-time' } as never, { db: db as never, now })
@@ -244,11 +314,11 @@ describe('linked computers tenant domain', () => {
     await putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'user-a', status: 'active', capabilities: ['workspace.execute'] }, { db: db as never, now })
     expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ orgId: 'org-a', deviceId: 'device-a', status: 'active' })
     rows.delete('orgMembers/org-a_user-a')
-    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'paused', capabilities: [] }, { db: db as never, now })).resolves.toBeUndefined()
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'paused', capabilities: [] }, { db: db as never, now })).resolves.toEqual({ browsingConsentDisabled: false })
     expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'paused' })
     await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'active', capabilities: ['workspace.execute'] }, { db: db as never, now }))
       .rejects.toThrow('device owner')
-    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'revoked', capabilities: [] }, { db: db as never, now })).resolves.toBeUndefined()
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'revoked', capabilities: [] }, { db: db as never, now })).resolves.toEqual({ browsingConsentDisabled: false })
   })
 
   it('requires the personal device owner to activate sharing and permits deliberate active access-mode changes', async () => {
@@ -266,14 +336,49 @@ describe('linked computers tenant domain', () => {
     await expect(putDeviceGrant({
       deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a', status: 'active',
       capabilities: ['workspace.execute'], accessMode: 'owner',
-    }, { db: db as never, now })).resolves.toBeUndefined()
+    }, { db: db as never, now })).resolves.toEqual({ browsingConsentDisabled: false })
     await expect(putDeviceGrant({
       deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a', status: 'active',
       capabilities: ['workspace.execute'], accessMode: 'organization',
-    }, { db: db as never, now })).resolves.toBeUndefined()
+    }, { db: db as never, now })).resolves.toEqual({ browsingConsentDisabled: false })
     expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({
       status: 'active', accessMode: 'organization', allowedUserIds: [],
     })
+  })
+
+  it('rejects real-profile browsing on shared grants and switches it off when a grant is widened', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerType: 'user', ownerUserId: 'owner-a', status: 'active' },
+      'orgMembers/org-a_owner-a': { orgId: 'org-a', uid: 'owner-a', role: 'member', status: 'active' },
+    })
+    await putDeviceGrant({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a', status: 'active',
+      capabilities: ['workspace.execute'], accessMode: 'owner',
+    }, { db: db as never, now })
+    await expect(setDeviceGrantBrowserIdentity({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'intruder',
+      identity: { useRealProfile: true, realProfilePin: 'Profile 2', headed: false, autoclose: true },
+    }, { db: db as never, now })).rejects.toThrow('device owner')
+    await setDeviceGrantBrowserIdentity({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a',
+      identity: { useRealProfile: true, realProfilePin: 'Profile 2', headed: true, autoclose: false },
+    }, { db: db as never, now })
+    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({
+      browserIdentity: { useRealProfile: true, realProfilePin: 'Profile 2', headed: true, autoclose: false, updatedByUserId: 'owner-a' },
+    })
+    const widened = await putDeviceGrant({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a', status: 'active',
+      capabilities: ['workspace.execute'], accessMode: 'organization',
+    }, { db: db as never, now })
+    expect(widened).toEqual({ browsingConsentDisabled: true })
+    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({
+      accessMode: 'organization',
+      browserIdentity: { useRealProfile: false, realProfilePin: 'Profile 2' },
+    })
+    await expect(setDeviceGrantBrowserIdentity({
+      deviceId: 'device-a', orgId: 'org-a', actorUserId: 'owner-a',
+      identity: { useRealProfile: true, realProfilePin: 'Profile 2', headed: true, autoclose: false },
+    }, { db: db as never, now })).rejects.toThrow('owner-only grant')
   })
 
   it('treats canonical legacy orgMembers rows without status as active', async () => {
@@ -283,7 +388,7 @@ describe('linked computers tenant domain', () => {
       'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'admin' },
     })
     await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'user-a', status: 'active', capabilities: ['workspace.execute'], accessMode: 'organization' } as never, { db: db as never, now }))
-      .resolves.toBeUndefined()
+      .resolves.toEqual({ browsingConsentDisabled: false })
   })
 
   it('lets dual-authorized organisation admins share and map an organisation device but denies target-only admins', async () => {
@@ -298,7 +403,7 @@ describe('linked computers tenant domain', () => {
     await expect(putDeviceGrant({ deviceId: 'vps', orgId: 'org-b', actorUserId: 'target-admin', status: 'active', capabilities: ['workspace.execute'], accessMode: 'organization' } as never, { db: db as never, now }))
       .rejects.toThrow('active membership')
     await expect(putDeviceGrant({ deviceId: 'vps', orgId: 'org-b', actorUserId: 'dual-admin', status: 'active', capabilities: ['workspace.execute'], accessMode: 'organization' } as never, { db: db as never, now }))
-      .resolves.toBeUndefined()
+      .resolves.toEqual({ browsingConsentDisabled: false })
     expect(rows.get('linked_device_grants/org-b_vps')).toMatchObject({ accessMode: 'organization', allowedUserIds: [] })
     await expect(putWorkspaceMapping({ mappingId: 'map-b', deviceId: 'vps', orgId: 'org-b', workspaceId: 'ws-b', actorUserId: 'dual-admin', label: 'Client Workspace', status: 'pending' }, { db: db as never, now }))
       .resolves.toBeUndefined()

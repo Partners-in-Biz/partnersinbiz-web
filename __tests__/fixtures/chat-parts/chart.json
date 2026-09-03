@@ -1,0 +1,11 @@
+{
+  "type": "chart",
+  "kind": "bar",
+  "title": "Pipeline",
+  "x": "stage",
+  "series": [{ "key": "count", "label": "Deals" }],
+  "data": [
+    { "stage": "Lead", "count": 12 },
+    { "stage": "Won", "count": 4 }
+  ]
+}

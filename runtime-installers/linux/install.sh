@@ -255,9 +255,10 @@ rollback_runtime() {
 }
 pair_runtime() {
   require_host
-  local challenge="${1:-}";[[ "$challenge" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { fail 'Invalid challengeId.';return 2; }
+  local challenge="${1:-}";shift || true
+  [[ "$challenge" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || { fail 'Invalid challengeId.';return 2; }
   [[ -x "$BIN" ]] || { fail 'Install the runtime first.';return 1; }
-  run_runtime pair --challenge "$challenge" --platform linux
+  run_runtime pair --challenge "$challenge" --platform linux "$@"
   "$SYSTEMCTL" restart "$SERVICE"
 }
 map_runtime() {
@@ -301,7 +302,7 @@ uninstall_runtime() {
 
 if [[ "${PIB_INSTALLER_LIBRARY:-0}" != 1 ]]; then
   case "${1:-}" in
-    install) install_runtime;; update) update_runtime;; rollback) rollback_runtime;; pair) pair_runtime "${2:-}";;
+    install) install_runtime;; update) update_runtime;; rollback) rollback_runtime;; pair) pair_runtime "${2:-}" "${@:3}";;
     map) map_runtime "${2:-}" "${3:-}";; unmap) unmap_runtime "${2:-}";; status) status_runtime;;
     revoke) revoke_runtime;; uninstall) uninstall_runtime "${2:-}";; *) usage;exit 2;;
   esac

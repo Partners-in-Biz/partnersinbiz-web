@@ -13,12 +13,16 @@ import {
 } from './hermes-profile-lifecycle'
 import { applySkillPackArchive, removeAgentSkillTree } from './skill-pack-apply'
 import { applyRuntimeCredential, type RuntimeCredentialDelivery } from './llm-credentials'
+import { readProfileConfig, writeProfileConfigKeys } from './config-yaml'
+import hermesContract from './hermes-contract.json'
 
 export type AgentHostRuntimeJob = {
   jobId: string
   kind: 'install' | 'sync-policy' | 'uninstall' | 'sync-credential' | 'revoke-credential'
   status: string
   agentId: string
+  orgId?: string
+  catalogAgentId?: string
   policyVersion: string | null
   keepInSync: boolean
   runtimeSkills: string[]
@@ -40,6 +44,22 @@ export type AgentHostRuntimeJob = {
   protocolVersion?: number
   leaseToken?: string
   credentialDelivery?: RuntimeCredentialDelivery | null
+  grantStatus?: 'active' | 'paused' | 'revoked'
+  modelDefault?: { provider: string; model: string } | null
+  apiServer?: { enable: true } | null
+  browserPolicy?: {
+    useRealProfile: boolean
+    realProfilePin: string | null
+    headed: boolean
+    autoclose: boolean
+  } | null
+  /** When set on install, write `${profileDir}/pib-managed.json`. Legacy installs omit this. */
+  managedProfile?: {
+    orgId: string
+    orgSlug: string
+    agentId: string
+    profile: string
+  } | null
 }
 
 // These profiles are the PiB-managed agent fleet, not ad-hoc linked-runtime
@@ -115,6 +135,41 @@ function writeDesiredManifest(
   )
 }
 
+function readManagedProfileMarker(
+  agentId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { orgId: string } | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(profileDir(agentId, env), 'pib-managed.json'), 'utf8')) as Record<string, unknown>
+    const orgId = typeof raw.orgId === 'string' ? raw.orgId.trim() : ''
+    return orgId ? { orgId } : null
+  } catch {
+    return null
+  }
+}
+
+function writeManagedProfileMarker(
+  agentId: string,
+  managed: NonNullable<AgentHostRuntimeJob['managedProfile']>,
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const orgId = managed.orgId.trim()
+  const orgSlug = managed.orgSlug.trim()
+  const catalogAgentId = managed.agentId.trim()
+  const profile = managed.profile.trim()
+  if (!orgId || !orgSlug || !catalogAgentId || !profile) return
+  writeFileSecure(
+    path.join(profileDir(agentId, env), 'pib-managed.json'),
+    `${JSON.stringify({
+      orgId,
+      orgSlug,
+      agentId: catalogAgentId,
+      profile,
+      createdAt: new Date().toISOString(),
+    }, null, 2)}\n`,
+  )
+}
+
 function writeProfileConfig(agentId: string, job: AgentHostRuntimeJob, env: NodeJS.ProcessEnv = process.env) {
   if (!job.profileConfig) return
   const config = job.profileConfig
@@ -138,6 +193,42 @@ function writeProfileConfig(agentId: string, job: AgentHostRuntimeJob, env: Node
   )
 }
 
+function otherManagedProfileUsesRealProfile(agentId: string, env: NodeJS.ProcessEnv): boolean {
+  const profilesRoot = path.join(hermesHome(env), 'profiles')
+  let entries: fs.Dirent[] = []
+  try {
+    entries = fs.readdirSync(profilesRoot, { withFileTypes: true })
+  } catch {
+    return false
+  }
+  return entries.some((entry) => {
+    if (!entry.isDirectory() || entry.name === agentId) return false
+    const config = readProfileConfig(entry.name, env)
+    const browser = config.browser
+    return Boolean(browser && typeof browser === 'object' && !Array.isArray(browser)
+      && (browser as Record<string, unknown>).use_real_profile === true)
+  })
+}
+
+function applyBrowserPolicy(
+  agentId: string,
+  policy: NonNullable<AgentHostRuntimeJob['browserPolicy']>,
+  env: NodeJS.ProcessEnv,
+) {
+  writeProfileConfigKeys(agentId, {
+    browser: {
+      use_real_profile: policy.useRealProfile,
+      real_profile_pin: policy.realProfilePin,
+      headed: policy.headed,
+      real_profile_autoclose: policy.autoclose,
+    },
+  }, env)
+  if (policy.useRealProfile) return
+  if (otherManagedProfileUsesRealProfile(agentId, env)) return
+  const snapshotRoot = path.join(hermesHome(env), 'browser-profile')
+  fs.rmSync(snapshotRoot, { recursive: true, force: true })
+}
+
 export async function executeAgentHostJob(
   job: AgentHostRuntimeJob,
   options: {
@@ -151,6 +242,7 @@ export async function executeAgentHostJob(
       modelIds: string[]
       error?: string
     }>
+    spawnSync?: typeof import('node:child_process').spawnSync
   } = {},
 ): Promise<{ ok: true; result: Record<string, unknown> } | { ok: false; error: string }> {
   const env = options.env ?? process.env
@@ -162,8 +254,22 @@ export async function executeAgentHostJob(
       return { ok: false, error: 'invalid agent id' }
     }
 
+    const managedMarker = readManagedProfileMarker(job.agentId, env)
+    if (managedMarker && managedMarker.orgId !== (job.orgId || '')) {
+      return { ok: false, error: 'org_mismatch' }
+    }
+    if (
+      (job.kind === 'sync-credential' || job.kind === 'revoke-credential')
+      && job.grantStatus
+      && job.grantStatus !== 'active'
+    ) {
+      return { ok: false, error: 'grant_not_active' }
+    }
+
     if (job.kind === 'sync-credential' || job.kind === 'revoke-credential') {
-      if (job.protocolVersion !== 3) return { ok: false, error: 'credential jobs require agent-host protocol 3' }
+      if (job.protocolVersion !== 3 && job.protocolVersion !== 4) {
+        return { ok: false, error: 'credential jobs require agent-host protocol 3 or 4' }
+      }
       if (!job.credentialDelivery) return { ok: false, error: 'credential delivery is missing' }
       ensureHermesProfile({
         agentId: job.agentId,
@@ -280,13 +386,36 @@ export async function executeAgentHostJob(
       }
     }
 
+    const noSkillsFlag = typeof hermesContract.profileCreateNoSkillsFlag === 'string'
+      ? hermesContract.profileCreateNoSkillsFlag
+      : '--no-skills'
     const profile = ensureHermesProfile({
       agentId: job.agentId,
       preferredPort: job.preferredPort,
       env,
+      createArgs: [noSkillsFlag],
+      spawnSync: options.spawnSync,
     })
+    if (job.kind === 'install' && job.managedProfile) {
+      writeManagedProfileMarker(job.agentId, job.managedProfile, env)
+    }
     writeDesiredManifest(job.agentId, job, env)
     writeProfileConfig(job.agentId, job, env)
+    const configPatch: Record<string, unknown> = {}
+    if (job.modelDefault) {
+      configPatch.model = { default: job.modelDefault.model, provider: job.modelDefault.provider }
+    }
+    if (job.apiServer?.enable) {
+      configPatch.platforms = { api_server: { enable: true } }
+    }
+    if (Object.keys(configPatch).length > 0) {
+      writeProfileConfigKeys(job.agentId, configPatch, env)
+    }
+    let browserPolicyApplied = false
+    if (job.browserPolicy) {
+      applyBrowserPolicy(job.agentId, job.browserPolicy, env)
+      browserPolicyApplied = true
+    }
 
     let skillsApplied = false
     let skillsDigest: string | null = null
@@ -392,6 +521,7 @@ export async function executeAgentHostJob(
         externalDir,
         gatewayStarted,
         gatewayPid,
+        browserPolicyApplied,
         healthy,
         hermesVersion: (await probe(env).catch(() => ({ hermesVersion: null }))).hermesVersion ?? null,
         note: healthy
@@ -431,5 +561,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.30', agentHostProtocolVersion: 3 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.30', agentHostProtocolVersion: 4 as const }
 }

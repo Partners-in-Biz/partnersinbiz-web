@@ -1,0 +1,5 @@
+{
+  "type": "mermaid",
+  "title": "Flow",
+  "source": "flowchart LR\n  A[Client] --> B[Pip]"
+}

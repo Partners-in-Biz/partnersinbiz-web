@@ -2,6 +2,7 @@ import {
   bindingsNeedingInstall,
   bindingsNeedingPolicySync,
   bindingPolicySyncBusyBackedOff,
+  bindingSkillsDigestDrifted,
   HEARTBEAT_BUSY_DEFER_BACKOFF_MS,
   mergeDesiredAgentBindings,
   parseDesiredAgentBindings,
@@ -52,6 +53,20 @@ describe('desired agent bindings', () => {
     ])
     expect(bindingsNeedingInstall({ bindings, availableAgentIds: ['theo'] }).map((row) => row.agentId).sort()).toEqual(['maya', 'pip'])
     expect(bindingsNeedingPolicySync({ bindings, availableAgentIds: ['theo', 'maya'] }).map((row) => row.agentId)).toEqual(['theo'])
+  })
+
+  it('marks keep-in-sync bindings as skill-digest drifted only when both digests exist and differ', () => {
+    const binding = parseDesiredAgentBindings([{
+      agentId: 'pip',
+      keepInSync: true,
+      status: 'in_sync',
+      appliedSkillsDigest: 'aaa',
+      updatedAtMs: 1,
+    }])[0]
+    expect(bindingSkillsDigestDrifted(binding, 'bbb')).toBe(true)
+    expect(bindingSkillsDigestDrifted(binding, 'aaa')).toBe(false)
+    expect(bindingSkillsDigestDrifted({ ...binding, keepInSync: false }, 'bbb')).toBe(false)
+    expect(bindingSkillsDigestDrifted({ ...binding, appliedSkillsDigest: null }, 'bbb')).toBe(false)
   })
 
   it('backs off a keep-in-sync binding whose last sync failed because the profile was busy', () => {
@@ -224,6 +239,101 @@ describe('agent host jobs', () => {
       role: 'Research',
       persona: 'Research carefully.',
       defaultModel: 'auto',
+    })
+  })
+
+  it('rejects a managedProfile.profile that does not match managedProfileName', () => {
+    expect(() => parseAgentHostJobPayload({
+      agentId: 'partners--pip',
+      catalogAgentId: 'pip',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8755,
+      managedProfile: {
+        orgId: 'org-1',
+        orgSlug: 'partners',
+        agentId: 'pip',
+        profile: 'wrong--pip',
+      },
+    })).toThrow('managedProfile.profile mismatch')
+  })
+
+  it('parses managed profile fields and exposes orgId on the public job', () => {
+    const payload = parseAgentHostJobPayload({
+      agentId: 'partners--pip',
+      catalogAgentId: 'pip',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8755,
+      managedProfile: {
+        orgId: 'org-1',
+        orgSlug: 'partners',
+        agentId: 'pip',
+        profile: 'partners--pip',
+      },
+      modelDefault: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+      apiServer: { enable: true },
+      browserPolicy: { useRealProfile: true, realProfilePin: 'Profile 2', headed: true, autoclose: false },
+    })
+    expect(payload.managedProfile?.profile).toBe('partners--pip')
+    expect(payload.catalogAgentId).toBe('pip')
+    expect(payload.modelDefault).toEqual({ provider: 'anthropic', model: 'claude-sonnet-4-6' })
+    expect(payload.apiServer).toEqual({ enable: true })
+    expect(payload.browserPolicy).toEqual({ useRealProfile: true, realProfilePin: 'Profile 2', headed: true, autoclose: false })
+
+    const withManaged = agentHostRequestFingerprint({
+      deviceId: 'd1',
+      kind: 'install',
+      agentId: 'partners--pip',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8755,
+      managedProfile: payload.managedProfile,
+    })
+    const withoutManaged = agentHostRequestFingerprint({
+      deviceId: 'd1',
+      kind: 'install',
+      agentId: 'partners--pip',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8755,
+    })
+    expect(withManaged).not.toBe(withoutManaged)
+
+    expect(toPublicAgentHostJob({
+      jobId: 'j1',
+      idempotencyKey: 'k',
+      requestFingerprint: 'fp',
+      deviceId: 'd1',
+      orgId: 'org-1',
+      actorUserId: 'u1',
+      credentialVersion: 1,
+      kind: 'install',
+      status: 'queued',
+      attempt: 0,
+      payload,
+      createdAtMs: 1,
+      updatedAtMs: 2,
+      expiresAtMs: 3,
+    })).toMatchObject({
+      orgId: 'org-1',
+      catalogAgentId: 'pip',
+      managedProfile: payload.managedProfile,
+      modelDefault: payload.modelDefault,
+      apiServer: { enable: true },
+      browserPolicy: payload.browserPolicy,
     })
   })
 })

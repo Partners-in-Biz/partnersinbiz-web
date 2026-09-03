@@ -202,7 +202,7 @@ describe('LinkedComputersWorkspace', () => {
     expect(screen.getByText(/stays a legacy project location until this runtime proves ownership/i)).toBeInTheDocument()
     const call = fetchMock.mock.calls.find(([url]) => url === '/api/v1/linked-computers/pairing')
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', adoptLocationId: 'partners-vps',
+      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', orgId: 'org-a', agentIds: ['pip'], adoptLocationId: 'partners-vps',
     })
   })
 
@@ -464,7 +464,7 @@ describe('LinkedComputersWorkspace', () => {
     expect(await screen.findByText('VPS-PAIR')).toBeInTheDocument()
     const pairingCall = fetchMock.mock.calls.find(([url]) => url === '/api/v1/linked-computers/pairing')
     expect(JSON.parse(String(pairingCall?.[1]?.body))).toEqual({
-      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', orgId: 'org-a', agentIds: ['pip'],
     })
     expect(screen.getByLabelText('One-command computer setup')).toHaveValue(
       "curl -fsSL https://partnersinbiz.online/runtime/bootstrap/linux.sh | bash -s -- --challenge 'challenge-vps' --profiles 'pip' --providers 'nous'",

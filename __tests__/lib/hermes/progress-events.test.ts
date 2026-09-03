@@ -209,4 +209,15 @@ describe('normalizeHermesEvent', () => {
       timestamp: 125,
     })).toEqual([])
   })
+
+  it('emits browser.real_profile_used when a completed tool used the real browser profile', () => {
+    const events = normalizeHermesEvent({
+      event: 'tool.completed',
+      tool: 'browser',
+      used_real_profile: true,
+      timestamp: 123,
+    })
+    expect(events.map((event) => event.event)).toEqual(['tool.completed', 'browser.real_profile_used'])
+    expect(events[1]).toMatchObject({ event: 'browser.real_profile_used', tool: 'browser' })
+  })
 })

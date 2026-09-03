@@ -331,6 +331,28 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
     .trim()
 }
 
+export function browsingAsYouPartFromEvents(
+  events: ChatEvent[],
+  agentName = 'The agent',
+): RichMessagePart | null {
+  if (!events.some((event) => event.event === 'browser.real_profile_used')) return null
+  return {
+    type: 'status',
+    title: 'Browsing as you',
+    content: `${agentName} used your browser logins for part of this reply.`,
+  }
+}
+
+function agentNameFromRun(data: unknown): string {
+  const row = asObject(data)
+  if (!row) return 'The agent'
+  return cleanString(row.agentName)
+    || cleanString(row.agentId)
+    || cleanString(asObject(row.metadata)?.agentName)
+    || cleanString(asObject(row.metadata)?.agentId)
+    || 'The agent'
+}
+
 function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output?: string): {
   richParts?: RichMessagePart[]
   uiActions?: ChatUiAction[]
@@ -339,7 +361,9 @@ function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output
 } {
   const mixed = typeof output === 'string' ? extractMixedRichContent(output) : null
   const fences = typeof output === 'string' ? extractPibFences(mixed?.prose ?? output) : { markdown: '', parts: [] }
+  const browsingNotice = browsingAsYouPartFromEvents(events, agentNameFromRun(data))
   const richParts = dedupeStructured([
+    ...(browsingNotice ? [browsingNotice] : []),
     ...richPartsFromPayload(data),
     ...richPartsFromPayload(output),
     ...(mixed?.richParts ?? []),

@@ -110,10 +110,18 @@ export function applySkillPackArchive(input: {
       const bytes = fs.readFileSync(path.join(managedPartners, rel))
       digest.update(`${rel}:${crypto.createHash('sha256').update(bytes).digest('hex')}\n`)
     }
+    const skillsDigest = digest.digest('hex')
+    const digestFile = path.join(hermesHome(env), 'profiles', input.agentId, 'pib-skills-digest.txt')
+    const alreadyPersisted = fs.existsSync(digestFile)
+      && fs.readFileSync(digestFile, 'utf8').trim() === skillsDigest
+    if (!alreadyPersisted) {
+      ensureDir(path.dirname(digestFile))
+      fs.writeFileSync(digestFile, `${skillsDigest}\n`, { encoding: 'utf8', mode: 0o600 })
+    }
 
     return {
       skillsApplied: true,
-      skillsDigest: digest.digest('hex'),
+      skillsDigest,
       externalDir,
       skillCount: skillDirs.length,
     }

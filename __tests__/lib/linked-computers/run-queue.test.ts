@@ -50,6 +50,8 @@ describe('linked run queue security transitions', () => {
     expect(publicClaimedLinkedRun(job, { prompt: 'Run on Theo' })).toEqual(expect.objectContaining({
       agentId: 'theo',
       prompt: 'Run on Theo',
+      actorUserId: 'user-a',
+      orgId: 'org-a',
     }))
   })
 

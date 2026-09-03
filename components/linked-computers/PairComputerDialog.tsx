@@ -106,6 +106,8 @@ export function PairComputerDialog({
           deviceKind,
           ownerType,
           ...(ownerType === 'organization' ? { ownerOrgId } : {}),
+          orgId: ownerType === 'organization' ? ownerOrgId : (organizations[0]?.id || ''),
+          agentIds: sanitizeHermesProfiles([...profiles, customProfile]).slice(0, 6),
           ...(adoptLocationId ? { adoptLocationId } : {}),
         }),
       })

@@ -21,6 +21,7 @@ export interface DesiredAgentBinding {
   keepInSync: boolean
   desiredPolicyVersion: string | null
   appliedPolicyVersion: string | null
+  appliedSkillsDigest?: string | null
   status: DesiredAgentSyncStatus
   lastError: string | null
   updatedAtMs: number
@@ -46,6 +47,7 @@ export function parseDesiredAgentBindings(value: unknown, nowMs = Date.now()): D
       keepInSync: record.keepInSync === true,
       desiredPolicyVersion: typeof record.desiredPolicyVersion === 'string' ? record.desiredPolicyVersion : null,
       appliedPolicyVersion: typeof record.appliedPolicyVersion === 'string' ? record.appliedPolicyVersion : null,
+      appliedSkillsDigest: typeof record.appliedSkillsDigest === 'string' ? record.appliedSkillsDigest : null,
       status: isDesiredAgentSyncStatus(status) ? status : 'desired',
       lastError: typeof record.lastError === 'string' ? record.lastError : null,
       updatedAtMs: Number.isFinite(Number(record.updatedAtMs)) ? Number(record.updatedAtMs) : nowMs,
@@ -101,6 +103,7 @@ export function mergeDesiredAgentBindings(input: {
         keepInSync,
         desiredPolicyVersion,
         appliedPolicyVersion: null,
+        appliedSkillsDigest: null,
         status: 'desired' as const,
         lastError: null,
         updatedAtMs: nowMs,
@@ -133,6 +136,18 @@ export function bindingsNeedingInstall(input: {
 }): DesiredAgentBinding[] {
   const available = new Set(input.availableAgentIds)
   return input.bindings.filter((binding) => !available.has(binding.agentId))
+}
+
+export function bindingSkillsDigestDrifted(
+  binding: DesiredAgentBinding,
+  hostDigest: string | null,
+): boolean {
+  return Boolean(
+    binding.keepInSync
+    && binding.appliedSkillsDigest
+    && hostDigest
+    && hostDigest !== binding.appliedSkillsDigest,
+  )
 }
 
 export function bindingsNeedingPolicySync(input: {
@@ -182,6 +197,7 @@ export function applyBindingJobProgress(
     status: DesiredAgentSyncStatus
     appliedPolicyVersion?: string | null
     desiredPolicyVersion?: string | null
+    appliedSkillsDigest?: string | null
     lastError?: string | null
     nowMs?: number
   },
@@ -195,6 +211,9 @@ export function applyBindingJobProgress(
     desiredPolicyVersion: update.desiredPolicyVersion === undefined
       ? binding.desiredPolicyVersion
       : update.desiredPolicyVersion,
+    appliedSkillsDigest: update.appliedSkillsDigest === undefined
+      ? binding.appliedSkillsDigest
+      : update.appliedSkillsDigest,
     lastError: update.lastError === undefined ? binding.lastError : update.lastError,
     updatedAtMs: update.nowMs ?? Date.now(),
   }

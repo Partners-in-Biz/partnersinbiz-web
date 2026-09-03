@@ -85,15 +85,6 @@ if (-not (Get-Command hermes -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command hermes -ErrorAction SilentlyContinue)) { throw 'Hermes installed, but its command is not on PATH. Open a new PowerShell and rerun this command.' }
 
 $RequestedProfiles = $Profiles.Split(',')
-$RequestedProviders = $Providers.Split(',')
-foreach ($Profile in $RequestedProfiles) {
-  $ProfileHome = Join-Path $env:USERPROFILE ".hermes\profiles\$Profile"
-  if (-not (Test-Path $ProfileHome)) { & hermes profile create $Profile --description "Partners in Biz $Profile agent" }
-  Write-Host "Configure the model for $Profile. Requested providers: $($RequestedProviders -join ', ')"
-  & hermes -p $Profile setup model
-  & hermes -p $Profile gateway install
-  & hermes -p $Profile gateway start
-}
 
 $Stage = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $Stage | Out-Null
@@ -117,6 +108,6 @@ try {
   if (-not (Test-Path -LiteralPath $Installer -PathType Leaf)) { throw 'The signed PiB runtime bundle is incomplete.' }
   [void][scriptblock]::Create((Get-Content -LiteralPath $Installer -Raw))
   & $Installer -Action Install
-  & $Installer -Action Pair -ChallengeId $ChallengeId
-  Write-Host 'Computer linked. Keep Hermes and the PiB runtime running to stay available.'
+  & $Installer -Action Pair -ChallengeId $ChallengeId -ReleaseChannel $(if ($InternalStaff) { 'internal' } else { 'stable' })
+  Write-Host 'Paired. Your agents are being set up by Partners in Biz; they appear in Linked Computers within a minute.'
 } finally { Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue }

@@ -1523,6 +1523,7 @@ export default function UnifiedChat({
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
+  const [richArtifactRequest, setRichArtifactRequest] = useState<{ part: RichMessagePart; nonce: number }>()
   const [contextFocusRequest, setContextFocusRequest] = useState<{ kind: ContextReference['type']; id: string; projectId?: string; nonce: number }>()
   // Fingerprint recent messages so Context Dock previews soft-reload when agents update records.
   const contextPreviewRefreshSignal = useMemo(() => {
@@ -5725,9 +5726,28 @@ export default function UnifiedChat({
     async (message: ConversationMessage, action: ChatUiAction, options?: { openDock?: boolean }) => {
       const actionType = String(action.type).toLowerCase()
       if (actionType === 'open_workbench_browser') {
-        // Open the workbench rail browser tab. Session restore-by-id is a later hook;
-        // payload.sessionId is accepted so Take over can pass it without inventing an API.
         openWorkbenchTab('browser')
+        const sessionId = action.payload && typeof action.payload === 'object' && typeof (action.payload as { sessionId?: unknown }).sessionId === 'string'
+          ? (action.payload as { sessionId: string }).sessionId.trim()
+          : ''
+        if (sessionId && activeId) {
+          void getWorkbenchBrowserSession(activeId, sessionId)
+            .then((remote) => {
+              applyWorkbenchBrowserSessionUpdate(remote)
+              if (remote.status === 'queued' || remote.status === 'claimed' || remote.status === 'running') {
+                const controller = new AbortController()
+                workbenchBrowserSessionAbortRef.current?.abort()
+                workbenchBrowserSessionAbortRef.current = controller
+                return pollWorkbenchBrowserSession(activeId, sessionId, {
+                  signal: controller.signal,
+                  onProgress: applyWorkbenchBrowserSessionUpdate,
+                  settledStatuses: new Set(['running', 'exited', 'killed', 'expired', 'failed']),
+                })
+              }
+              return remote
+            })
+            .catch(() => undefined)
+        }
         return
       }
       if (actionType === 'open_context') {
@@ -8921,7 +8941,7 @@ export default function UnifiedChat({
             } : undefined}
           />
         )}
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} richArtifactRequest={richArtifactRequest} onArtifactTakeOver={(sessionId) => { void handleUiAction({} as ConversationMessage, { id: 'open-workbench-browser', type: 'open_workbench_browser', label: 'Take over', payload: { sessionId } }) }} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -9049,6 +9069,7 @@ export default function UnifiedChat({
                     }
                     onQuoteSelection={addSelectionToComposer}
                     onUiAction={handleUiAction}
+                    onOpenArtifact={(part) => setRichArtifactRequest({ part, nonce: Date.now() })}
                   />
                   {m.acceptedDevice && (
                     <div className="ml-10 mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]" aria-label="Linked computer execution receipt">

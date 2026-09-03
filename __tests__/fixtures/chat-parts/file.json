@@ -1,0 +1,7 @@
+{
+  "type": "file",
+  "url": "https://cdn.example.com/report.csv",
+  "name": "report.csv",
+  "contentType": "text/csv",
+  "size": 128
+}

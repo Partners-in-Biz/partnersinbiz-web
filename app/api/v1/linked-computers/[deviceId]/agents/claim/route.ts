@@ -28,12 +28,12 @@ function deviceError(error: unknown): Response {
   const status = /not found/.test(message) ? 404
     : /authentication|signature|credential|replay|timestamp|tenant|authorization|revoked|device mismatch|active device/.test(message) ? 403
       : /lease|already final/.test(message) ? 409
-        : /protocol/.test(message) ? 400
+        : /protocol/i.test(message) ? 400
           : 400
   const publicMessage = status === 404 ? 'Agent host job not found'
     : status === 403 ? 'Linked computer access denied'
       : status === 409 ? 'Agent host job lease is no longer current'
-        : /protocol/.test(message) ? 'Agent host protocol version 3 required. Update the linked computer runtime.'
+        : /protocol/i.test(message) ? 'Agent host protocol version 3 or 4 required. Update the linked computer runtime.'
           : 'Linked computer agent request invalid'
   return NextResponse.json({ success: false, error: publicMessage }, { status, headers: noStoreHeaders })
 }
@@ -49,17 +49,45 @@ export async function handleAgentHostClaim(
     const identity = await authenticate(request, deviceId, rawBody)
     if (identity.deviceId !== deviceId) throw new Error('agent-host: tenant device mismatch')
     const body = JSON.parse(rawBody || '{}') as Record<string, unknown>
-    if (body.agentHostProtocolVersion !== 3) {
-      throw new Error('agent-host: agentHostProtocolVersion 3 required')
+    const protocol = Number(body.agentHostProtocolVersion)
+    if (protocol !== 3 && protocol !== 4) {
+      throw new Error('agent-host: agentHostProtocolVersion 3 or 4 required')
     }
     for (let skipped = 0; skipped <= MAX_SUPERSEDED_JOBS_PER_CLAIM; skipped += 1) {
       const claimed = await claim({
         deviceId,
         ownerUserId: identity.ownerUserId,
         credentialVersion: identity.credentialVersion,
-      })
+      }, protocol === 3
+        ? { skip: (job) => Boolean(job.payload.managedProfile) }
+        : undefined)
       if (!claimed) return new Response(null, { status: 204, headers: noStoreHeaders })
+      if (protocol === 3 && claimed.managedProfile) {
+        continue
+      }
       let responseJob = claimed
+      if ((claimed.kind === 'sync-credential' || claimed.kind === 'revoke-credential') && claimed.orgId) {
+        const grantSnap = await adminDb.collection('linked_device_grants').doc(`${claimed.orgId}_${deviceId}`).get()
+        if (grantSnap.exists) {
+          const status = grantSnap.data()?.status
+          const grantStatus = status === 'active' ? 'active' as const
+            : status === 'paused' ? 'paused' as const
+              : 'revoked' as const
+          if (grantStatus !== 'active') {
+            const completed = await completeAgentHostJob({
+              deviceId,
+              jobId: claimed.jobId,
+              leaseToken: claimed.leaseToken || '',
+              credentialVersion: identity.credentialVersion,
+              ok: false,
+              error: 'device grant not active',
+            })
+            await applyAgentHostJobResult(completed)
+            continue
+          }
+          responseJob = { ...claimed, grantStatus }
+        }
+      }
       if (claimed.kind !== 'sync-credential') {
         return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })
       }

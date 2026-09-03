@@ -229,6 +229,33 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     expect(record).toHaveBeenLastCalledWith(expect.objectContaining({ capabilities: [], syncProtocolVersion: null }))
   })
 
+  it('returns ignoredProfiles from heartbeat inventory filtering', async () => {
+    const record = jest.fn(async () => ({ ignoredProfiles: ['other--pip'] }))
+    const auth = async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 1 })
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', {
+      method: 'POST',
+      body: JSON.stringify({
+        runtimeVersion: '1.2.0',
+        health: 'ok',
+        availableAgentIds: ['partners--pip', 'other--pip'],
+        availableProfiles: [
+          { profile: 'partners--pip', orgId: 'org-a', agentId: 'pip', healthy: true, skillsDigest: 'aa' },
+          { profile: 'other--pip', orgId: 'org-b', agentId: 'pip', healthy: true, skillsDigest: 'bb' },
+        ],
+      }),
+    })
+    const response = await handleDeviceHeartbeat(req, 'device-a', auth, record)
+    expect(response.status).toBe(200)
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      availableAgentIds: ['partners--pip', 'other--pip'],
+      availableProfiles: [
+        { profile: 'partners--pip', orgId: 'org-a', agentId: 'pip', healthy: true, skillsDigest: 'aa' },
+        { profile: 'other--pip', orgId: 'org-b', agentId: 'pip', healthy: true, skillsDigest: 'bb' },
+      ],
+    }))
+    expect((await response.json()).data.ignoredProfiles).toEqual(['other--pip'])
+  })
+
   it('redelivers a pending rotation without a transport token to a signed previous-version heartbeat', async () => {
     const claim = jest.fn(async () => ({ rotationDeliveryId: 'delivery-1', credential: 'new-credential', credentialVersion: 2 }))
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","claimRotation":true}' })

@@ -1,8 +1,4 @@
 import { NextRequest } from 'next/server'
-import { FieldValue } from 'firebase-admin/firestore'
-import { getStorage } from 'firebase-admin/storage'
-import crypto from 'crypto'
-import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
@@ -10,36 +6,15 @@ import { getConversation } from '@/lib/conversations/conversations'
 import type { ApiUser } from '@/lib/api/types'
 import { authorizeConversationProject, canReplyConversation } from '@/lib/conversations/access'
 import { evaluateCrossOrgConversationAccess } from '@/lib/conversations/cross-org'
+import {
+  CONVERSATION_ATTACHMENT_ALLOWED_MIME,
+  CONVERSATION_ATTACHMENT_MAX_BYTES,
+  storeConversationAttachment,
+} from '@/lib/conversations/attachments-store'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
-
-const MAX_BYTES = 10 * 1024 * 1024
-const ALLOWED_MIME = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'text/plain',
-  'text/markdown',
-  'text/csv',
-  'application/json',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-])
-
-function extensionFor(file: File): string {
-  const ext = file.name.split('.').pop()?.trim().toLowerCase()
-  if (ext && /^[a-z0-9]{1,12}$/.test(ext)) return ext
-  if (file.type === 'image/jpeg') return 'jpg'
-  if (file.type === 'image/png') return 'png'
-  if (file.type === 'image/gif') return 'gif'
-  if (file.type === 'image/webp') return 'webp'
-  if (file.type === 'application/pdf') return 'pdf'
-  return 'bin'
-}
 
 export const POST = withAuth(
   'client',
@@ -64,7 +39,7 @@ export const POST = withAuth(
     const contentLengthHeader = req.headers.get('content-length')
     if (contentLengthHeader) {
       const contentLength = Number(contentLengthHeader)
-      if (Number.isFinite(contentLength) && contentLength > MAX_BYTES + 64 * 1024) {
+      if (Number.isFinite(contentLength) && contentLength > CONVERSATION_ATTACHMENT_MAX_BYTES + 64 * 1024) {
         return apiError('File too large (max 10MB)', 413)
       }
     }
@@ -74,36 +49,24 @@ export const POST = withAuth(
 
     const file = formData.get('file') as File | null
     if (!file) return apiError('No file provided', 400)
-    if (file.size > MAX_BYTES) return apiError('File too large (max 10MB)', 413)
+    if (file.size > CONVERSATION_ATTACHMENT_MAX_BYTES) return apiError('File too large (max 10MB)', 413)
 
     const contentType = (file.type || 'application/octet-stream').toLowerCase()
-    if (!ALLOWED_MIME.has(contentType)) {
+    if (!CONVERSATION_ATTACHMENT_ALLOWED_MIME.has(contentType)) {
       return apiError('Unsupported file type', 400)
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    if (buffer.byteLength > MAX_BYTES) return apiError('File too large (max 10MB)', 413)
+    if (buffer.byteLength > CONVERSATION_ATTACHMENT_MAX_BYTES) return apiError('File too large (max 10MB)', 413)
 
     try {
-      const bucket = getStorage(getAdminApp()).bucket()
-      const id = crypto.randomBytes(12).toString('hex')
-      const storagePath = `conversation-attachments/${conversation.orgId}/${convId}/${id}.${extensionFor(file)}`
-      const storageFile = bucket.file(storagePath)
-
-      await storageFile.save(buffer, {
-        metadata: {
-          contentType,
-        },
-      })
-
-      const url = `/api/v1/conversations/${convId}/attachments/${id}`
-      const docRef = await adminDb.collection('conversation_attachments').add({
-        conversationId: convId,
+      const stored = await storeConversationAttachment({
         orgId: conversation.orgId,
-        name: file.name,
-        storagePath,
+        conversationId: convId,
+        filename: file.name,
         contentType,
-        sizeBytes: buffer.byteLength,
+        bytes: buffer,
+        actor: actorFrom(user),
         ...(conversation.crossOrg ? {
           visibility: {
             principalIds: conversation.crossOrg.participants
@@ -111,20 +74,19 @@ export const POST = withAuth(
               .map((participant) => participant.principalId),
           },
         } : {}),
-        deleted: false,
-        ...actorFrom(user),
-        createdAt: FieldValue.serverTimestamp(),
       })
 
       return apiSuccess({
-        id: docRef.id,
-        name: file.name,
-        url,
-        contentType,
-        sizeBytes: buffer.byteLength,
+        id: stored.id,
+        name: stored.name,
+        url: stored.url,
+        contentType: stored.contentType,
+        sizeBytes: stored.sizeBytes,
       }, 201)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
+      if (message === 'Unsupported file type') return apiError(message, 400)
+      if (message === 'File too large (max 10MB)') return apiError(message, 413)
       console.error('[conversation-attachments] Firebase Storage error:', message)
       return apiError(`Storage error: ${message}`, 500)
     }

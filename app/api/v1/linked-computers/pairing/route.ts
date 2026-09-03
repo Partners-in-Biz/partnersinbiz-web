@@ -9,6 +9,8 @@ type PairingCreateInput = {
   deviceKind?: 'computer' | 'vps'
   ownerType?: 'user' | 'organization'
   ownerOrgId?: string
+  orgId?: string
+  agentIds?: string[]
   adoptLocationId?: string
 }
 
@@ -35,11 +37,17 @@ export async function handlePairingCreate(
     if (adoptLocationId && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(adoptLocationId)) {
       return NextResponse.json({ success: false, error: 'Invalid project location' }, { status: 400 })
     }
+    const orgId = typeof input.orgId === 'string' ? input.orgId.trim() : ''
+    const agentIds = Array.isArray(input.agentIds)
+      ? input.agentIds.filter((item): item is string => typeof item === 'string')
+      : undefined
     const pairing = await createFn({
       actorUserId: user.uid,
       deviceKind,
       ownerType,
       ...(ownerOrgId ? { ownerOrgId } : {}),
+      ...(orgId ? { orgId } : {}),
+      ...(agentIds ? { agentIds } : {}),
       ...(adoptLocationId ? { adoptLocationId } : {}),
     })
     return NextResponse.json({ success: true, data: pairing }, {

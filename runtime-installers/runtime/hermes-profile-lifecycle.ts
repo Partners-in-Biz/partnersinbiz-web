@@ -65,15 +65,18 @@ export function ensureHermesProfile(input: {
   agentId: string
   preferredPort: number | null
   env?: HermesLifecycleEnv
+  createArgs?: string[]
+  spawnSync?: typeof spawnSync
 }): { created: boolean; port: number | null; apiKeyPresent: boolean; hermesBin: string | null } {
   const env = input.env ?? process.env
   const hermesBin = resolveHermesBinary(env)
   const dir = profileDirectory(input.agentId, env)
   const envFile = path.join(dir, '.env')
   let created = false
+  const run = input.spawnSync ?? spawnSync
 
   if (!fs.existsSync(dir) && hermesBin) {
-    const result = spawnSync(hermesBin, ['profile', 'create', input.agentId], {
+    const result = run(hermesBin, ['profile', 'create', input.agentId, ...(input.createArgs ?? [])], {
       encoding: 'utf8',
       env: { ...env, HERMES_HOME: hermesHome(env) },
     })
@@ -83,7 +86,7 @@ export function ensureHermesProfile(input: {
   ensureDir(dir)
   if (!fs.existsSync(envFile)) {
     const sharedKey = readEnvValue(path.join(hermesHome(env), '.env'), 'API_SERVER_KEY')
-      || crypto.randomBytes(24).toString('hex')
+      || crypto.randomBytes(32).toString('hex')
     const port = input.preferredPort && input.preferredPort > 0 ? input.preferredPort : null
     writeSecure(envFile, [
       'API_SERVER_ENABLED=true',
@@ -94,16 +97,23 @@ export function ensureHermesProfile(input: {
       '',
     ].join('\n'))
     created = true
-  } else if (input.preferredPort && input.preferredPort > 0) {
-    const currentPort = Number(readEnvValue(envFile, 'API_SERVER_PORT'))
-    if (!Number.isInteger(currentPort) || currentPort <= 0) {
+  } else {
+    if (!readEnvValue(envFile, 'API_SERVER_KEY')) {
+      const key = crypto.randomBytes(32).toString('hex')
       const raw = fs.readFileSync(envFile, 'utf8')
-      const withoutPort = raw
-        .split(/\r?\n/)
-        .filter((line) => !line.startsWith('API_SERVER_PORT='))
-        .join('\n')
-        .replace(/\n*$/, '\n')
-      writeSecure(envFile, `${withoutPort}API_SERVER_PORT=${input.preferredPort}\n`)
+      writeSecure(envFile, `${raw.replace(/\n*$/, '\n')}API_SERVER_KEY=${key}\n`)
+    }
+    if (input.preferredPort && input.preferredPort > 0) {
+      const currentPort = Number(readEnvValue(envFile, 'API_SERVER_PORT'))
+      if (!Number.isInteger(currentPort) || currentPort <= 0) {
+        const raw = fs.readFileSync(envFile, 'utf8')
+        const withoutPort = raw
+          .split(/\r?\n/)
+          .filter((line) => !line.startsWith('API_SERVER_PORT='))
+          .join('\n')
+          .replace(/\n*$/, '\n')
+        writeSecure(envFile, `${withoutPort}API_SERVER_PORT=${input.preferredPort}\n`)
+      }
     }
   }
 
