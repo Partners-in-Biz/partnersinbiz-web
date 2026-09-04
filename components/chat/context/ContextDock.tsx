@@ -26,9 +26,11 @@ import { InvoiceContextPreview, QuoteContextPreview } from './CommerceDocumentCo
 import { LinkedWorkbenchFolderPreview } from './LinkedWorkbenchFolderPreview'
 import type { ChatContextOption } from './ContextSelector'
 import { ContextActionReceiptCard } from './ContextActionReceiptCard'
+import { ArtifactCanvas } from './ArtifactCanvas'
+import type { RichMessagePart } from '@/lib/hermes/types'
 
 const RICH_GENERIC_KINDS = new Set(['company', 'contact', 'task'])
-const DOCK_PREVIEW_KINDS = new Set(['document', 'email', 'campaign', 'social', 'invoice', 'quote', 'design'])
+const DOCK_PREVIEW_KINDS = new Set(['document', 'email', 'campaign', 'social', 'invoice', 'quote', 'design', 'artifact'])
 export const CONTEXT_CANVAS_MIN_WIDTH = 420
 export const CONTEXT_CANVAS_MAX_WIDTH = 960
 
@@ -273,7 +275,7 @@ function ContextGroupItemCard({
   )
 }
 
-export function ContextDock({ model, open, onClose, compact = false, activeArtifactId, onArtifactActivate, onAction, actionError, actionReceipt, pendingActionId, execution, mode = 'single', onModeChange, canvasWidth = 520, onCanvasWidthChange, secondaryContext, secondaryOptions = [], onSecondaryChange, secondaryRefreshRevision = 0, previewRefreshRevision = 0, workbenchFolder }: { model: ChatContextReadModel; open: boolean; onClose: () => void; compact?: boolean; activeArtifactId?: string; onArtifactActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction, context?: ChatContextOption) => void; actionError?: string | null; actionReceipt?: ChatContextActionReceipt | null; pendingActionId?: string; execution?: RuntimeExecution; mode?: 'single' | 'dual'; onModeChange?: (mode: 'single' | 'dual') => void; canvasWidth?: number; onCanvasWidthChange?: (width: number) => void; secondaryContext?: ChatContextOption; secondaryOptions?: ChatContextOption[]; onSecondaryChange?: (context: ChatContextOption) => void; secondaryRefreshRevision?: number; previewRefreshRevision?: number; workbenchFolder?: { conversationId: string; path: string } }) {
+export function ContextDock({ model, open, onClose, compact = false, activeArtifactId, onArtifactActivate, onAction, actionError, actionReceipt, pendingActionId, execution, mode = 'single', onModeChange, canvasWidth = 520, onCanvasWidthChange, secondaryContext, secondaryOptions = [], onSecondaryChange, secondaryRefreshRevision = 0, previewRefreshRevision = 0, workbenchFolder, artifactPart, onArtifactTakeOver }: { model: ChatContextReadModel; open: boolean; onClose: () => void; compact?: boolean; activeArtifactId?: string; onArtifactActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction, context?: ChatContextOption) => void; actionError?: string | null; actionReceipt?: ChatContextActionReceipt | null; pendingActionId?: string; execution?: RuntimeExecution; mode?: 'single' | 'dual'; onModeChange?: (mode: 'single' | 'dual') => void; canvasWidth?: number; onCanvasWidthChange?: (width: number) => void; secondaryContext?: ChatContextOption; secondaryOptions?: ChatContextOption[]; onSecondaryChange?: (context: ChatContextOption) => void; secondaryRefreshRevision?: number; previewRefreshRevision?: number; workbenchFolder?: { conversationId: string; path: string }; artifactPart?: RichMessagePart | null; onArtifactTakeOver?: (sessionId?: string) => void }) {
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches)
   const [wideDesktop, setWideDesktop] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches)
   const [secondaryModel, setSecondaryModel] = useState<ChatContextReadModel | null>(null)
@@ -369,6 +371,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
       {actionError && <div role="alert" className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{actionError}</div>}
       {execution?.activeMessage?.runId && <RuntimeExecutionSection {...execution} />}
       {!tabletSecondaryActive && workbenchFolder && <LinkedWorkbenchFolderPreview {...workbenchFolder} />}
+      {artifactPart ? <ArtifactCanvas part={artifactPart} onTakeOver={onArtifactTakeOver} /> : null}
       {visibleModel?.context.kind === 'document' && <DocumentContextPreview documentId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />}
       {visibleModel?.context.kind === 'design' && (visibleModel.context.id.startsWith('di_')
         ? <DesignIterationContextPreview iterationId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />

@@ -1,14 +1,16 @@
 # Linked Computers Operations Runbook
 
-Date: 2026-07-13
+Date: 2026-09-03 (runtime v2 leftover close on `development` `3445d16d9`)
 
 ## Hermes prerequisite and agent placement
 
-The native PiB runtime is a secure outbound worker, not the agent itself. Hermes Agent must be installed and at least one configured local Hermes profile must pass `/v1/health` before pairing. Pairing fails before consuming the one-time code when this prerequisite is missing.
+The native PiB runtime is a secure outbound worker, not the agent itself. Hermes Agent must be on PATH before pairing. Pairing still fails before consuming the one-time code when the Hermes **binary** is missing. From runtime protocol 4, PiB — not the bootstrap script — creates the organisation-managed profiles after pair.
 
-Every heartbeat probes Hermes again and records `availableAgentIds`, `hermesVersion`, and a safe health reason. `workspace.execute` is advertised only while at least one local agent is healthy. Runtime selection is agent-aware: a computer is unavailable for Theo when it only has Pip, even if the computer and sync worker are online.
+Every heartbeat probes Hermes again and records `availableAgents` (grant-filtered, each with `orgId`), `ignoredProfiles`, `hermesVersion`, and a safe health reason. Legacy `availableAgentIds` is inventory only and is never used to deliver organisation keys. `workspace.execute` is advertised only while at least one local agent is healthy. Runtime selection is agent-aware: a computer is unavailable for Theo when it only has Pip, even if the computer and sync worker are online.
 
-Agents are portable. A profile may exist only on the linked computer and does not also need a VPS copy. Configure `PIB_LOCAL_HERMES_ROUTES` with one loopback route per local agent and the PiB runtime will advertise and dispatch to those profiles. The VPS remains an optional always-on target, not the ownership source for local agents.
+Agents are portable. A managed profile may exist only on the linked computer and does not also need a VPS copy. Configure `PIB_LOCAL_HERMES_ROUTES` with one loopback route per local agent only as an advanced override. The VPS remains an optional always-on target, not the ownership source for local agents.
+
+Org keys are delivered only to `availableAgents` whose `orgId` matches the credential's organisation. Do not turn `orgTeamsEnabled` on in production until managed profiles are stamped in the field.
 
 ## Architecture and trust boundary
 
@@ -24,6 +26,60 @@ Every device request signs the method, exact path, timestamp, fresh request ID a
 2. Transfer only the opaque challenge ID and enter the short-lived secret privately at the installer/runtime prompt. Do not put the secret in command history, URLs, logs or analytics.
 3. The device creates its Ed25519 key locally, proves possession, and exchanges the challenge once. Challenges expire after ten minutes, allow at most five attempts, and cannot be replayed.
 4. Confirm the browser response is `Cache-Control: no-store`, the device appears for its owner only, and no credential, public key, endpoint or physical path appears in the DTO.
+5. The pairing UI and CLI pass `orgId` plus the selected `--agents`. Exchange stamps `ownerUserId` and `setDeviceDesiredAgents`. Non-members receive `provisioningSkippedReason: 'not_an_active_org_member'` and no managed profiles.
+
+## Bootstrap (runtime v2)
+
+Public paste commands live in `public/runtime/bootstrap/{macos.sh,linux.sh,windows.ps1}`. They:
+
+1. Install official Hermes only when the executable is missing (they do not pin or upgrade an existing checkout; the runtime heartbeat does that).
+2. Install and pair the signed PiB runtime with `--agents <catalog ids>`.
+3. Do **not** run `hermes profile create`, local model setup, or start gateways. The final line is: *Paired. Your agents are being set up by Partners in Biz…*
+
+Windows InternalStaff pairing still uses `-ReleaseChannel` / `--channel internal`. Do not break that line.
+
+After pair, desired-state jobs create `{orgSlug}--{agentId}` profiles (`--no-skills`), write `pib-managed.json`, and apply skill / credential / browser policy. Heartbeat inventory is grant-filtered.
+
+## Runtime config and Hermes channels
+
+`GET /api/v1/linked-computers/[deviceId]/runtime-config` (signed) returns the device's release channel from `platform_config/linked_runtime_channels`: runtime `minVersion` / `targetVersion`, and Hermes `minVersion` / `targetVersion` / `targetTag`.
+
+Admin UI: `/admin/linked-runtime`. Do not bump the **stable** channel until Internal has run a week with no `hermes_update_failed`. Do not promote signed runtime binaries from `development`; release workflows build only from `main`.
+
+Pinned Hermes tag is `v2026.8.31` (0.21.0). Updates use the official installer `bash -s -- --branch {tag} --non-interactive`, not `hermes update --yes`. POSIX update does **not** pause gateways — the runtime stops them first. If the probed Hermes version is below `channel.minVersion`, the claim loop advertises concurrency `0` (heartbeat still runs). Unparseable versions fail open.
+
+## Managed profiles and org guard
+
+- Name: `managedProfileName(orgSlug, catalogAgentId)`, ≤ 40 chars.
+- Marker: `{HERMES_HOME}/profiles/{name}/pib-managed.json`. If `marker.orgId !== job.orgId` the runtime returns `org_mismatch` and does not apply skill, credential, or browser policy.
+- Skill-digest drift on heartbeat enqueues `sync-policy` (there is no `sync-skills` job).
+- Credential apply: if a grant document exists and is not `active`, the job completes `ok: false` (`device grant not active` / runtime `grant_not_active`). Missing grant docs are user-owned devices — do not cancel those jobs.
+- Agent-host protocol: `4`. Claim accepts 3 or 4; v3 skips `managedProfile` jobs and leaves them queued.
+
+## Real-profile browsing
+
+Owner-only, per device and org grant. Settings switch: **Let agents on this computer browse as me**. Risk sentence in the UI is spec §H.5 verbatim. Non-owners see the control disabled.
+
+- Snapshot directory is **shared**: `{HERMES_HOME}/browser-profile/{browser}`. Delete it only when no other managed profile still has `use_real_profile: true`.
+- Run claim includes `actorUserId` + `orgId`. Runtime fail-closes `real_profile_guard` before Hermes if the profile is real-profile and the actor is not the device owner (missing ids fail closed). Prefix logs `PIB_REAL_PROFILE_GUARD`.
+- Grant `paused|revoked` or browsing consent off enqueues `useRealProfile: false`.
+- Transcript: `used_real_profile` → status “Browsing as you”.
+
+## Windows workspace.sync
+
+`nativeWorkspaceSyncSupported` is true for win32. Linux remains native protocol `1`. Do not lease native sync to a runtime that reports another version.
+
+## Operator error codes
+
+| Code | Where | What to do |
+|---|---|---|
+| `hermes_update_required` / `linked_device_hermes_update_required` | server 2.3 / dispatch | Device is non-selectable. Wait for idle update, or check the channel pin. Chat: *Hermes on this computer is too old. It will update automatically when idle.* |
+| `hermes_update_failed` | runtime 2.4 / heartbeat `healthReason` | Hermes keeps serving the previous checkout. Inspect `~/.partnersinbiz/hermes-update-state.json`. Retry is gated to once per 6 hours. |
+| `org_mismatch` | runtime 2.6 | Profile marker org ≠ job org. Re-pair; do not copy profiles between orgs. |
+| `grant_not_active` / `device grant not active` | runtime 2.7 / claim | Pause or revoke is in effect. Resume the grant or stop expecting org work on that machine. |
+| `real_profile_guard` | runtime 2.9 | A non-owner chat hit a browse-as-me profile. Should not happen for owner-only grants — treat as an alert. |
+
+Do not enable production `orgTeamsEnabled` or bump runtime `1.1.30` → `1.2.0` / promote to `main` without Peet.
 
 ## Device, grant and mapping lifecycle
 

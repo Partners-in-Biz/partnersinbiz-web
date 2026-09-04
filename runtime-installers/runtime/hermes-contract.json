@@ -1,0 +1,335 @@
+{
+  "pinnedTag": "v2026.8.31",
+  "verifiedAt": "2026-09-03",
+  "repo": "https://github.com/NousResearch/hermes-agent",
+  "cloneHead": "29112bef099274229cadff79cdff7bf7b99c4b77",
+  "releaseVersion": "0.21.0",
+  "sourcePaths": {
+    "versionCommand": "hermes_cli/_parser.py:150",
+    "versionOutput": "hermes_cli/_startup_fast.py:204",
+    "versionRemovedSubcommand": "hermes_cli/main.py:14618",
+    "updateParser": "hermes_cli/subcommands/update.py:12",
+    "updateBranchResolve": "hermes_cli/main.py:10766",
+    "updateFetch": "hermes_cli/update_cmd.py:8253",
+    "updateCheckoutOriginBranch": "hermes_cli/update_cmd.py:8389",
+    "installerBranchFlag": "scripts/install.sh:118",
+    "installerCommitFlag": "scripts/install.sh:122",
+    "installerCloneBranch": "scripts/install.sh:1554",
+    "updatePausesGateways": "hermes_cli/update_cmd.py:6173",
+    "pauseGatewayForUpdate": "gateway/control_socket.py:548",
+    "profileCreateNoSkillsFlag": "hermes_cli/subcommands/profile.py:53",
+    "profileConfigKeys.model": "hermes_cli/config.py:5873",
+    "profileConfigKeys.provider": "hermes_cli/config.py:3235",
+    "profileConfigKeys.apiServer": "hermes_cli/config_defaults.py:3338",
+    "apiServerEnv": "hermes_cli/config_defaults.py:5048",
+    "apiServerForceEnable": "gateway/config.py:2298",
+    "browser.use_real_profile": "hermes_cli/config_defaults.py:621",
+    "browser.real_profile_pin": "hermes_cli/config_defaults.py:639",
+    "browser.headed": "hermes_cli/config_defaults.py:589",
+    "browser.real_profile_autoclose": "hermes_cli/config_defaults.py:631",
+    "browser.snapshotDir": "hermes_cli/browser_connect.py:568",
+    "browser.usedRealProfileField": "tools/browser_tool.py:4345",
+    "botMode.protocolFlag": "hermes_cli/config_defaults.py:214",
+    "botMode.uiMeta": "tui_gateway/methods_profiles.py:780",
+    "botMode.uiMetaPath": "hermes_cli/profiles.py:920",
+    "botMode.relayHost": "tui_gateway/methods_bot_relay.py:5",
+    "botMode.relayProcess": "hermes_cli/web_server.py:17618",
+    "botMode.serveArgv": "hermes_cli/subcommands/dashboard.py:136",
+    "botMode.relayRpcs": "tui_gateway/methods_bot_relay.py:33",
+    "botMode.envelope": "tools/bot_relay.py:334",
+    "botMode.failureReasons": "tools/bot_failure_reasons.py:28",
+    "botMode.roomPersist": "apps/desktop/src/plugins/hermes-bots/group-chat.ts:47",
+    "botMode.hostedRoomRpcs": "tui_gateway/methods_groups.py:264",
+    "botMode.messageAgentTool": "tools/bot_mode_dm.py:241",
+    "botMode.peer": "hermes_cli/subcommands/peer.py:443",
+    "botMode.rounds": "apps/desktop/src/plugins/hermes-bots/group-chat.ts:1208",
+    "botMode.wsAuth": "hermes_cli/web_server.py:16396",
+    "controlSocket.path": "gateway/control_socket.py:65",
+    "controlSocket.identify": "gateway/control_socket.py:178",
+    "controlSocket.status": "gateway/control_socket.py:210",
+    "controlSocket.wire": "gateway/control_socket.py:453",
+    "secretsKeychain.desktop": "apps/desktop/electron/secret-storage-policy.ts:40",
+    "skillsApi": "gateway/platforms/api_server.py:2235"
+  },
+  "versionCommand": {
+    "argv": ["hermes", "--version"],
+    "versionRegex": "Hermes Agent v(\\d+\\.\\d+\\.\\d+)"
+  },
+  "updateCommand": {
+    "argv": [
+      "bash",
+      "-s",
+      "--",
+      "--branch",
+      "{tag}",
+      "--non-interactive"
+    ],
+    "installerUrl": "https://hermes-agent.nousresearch.com/install.sh",
+    "cliLatestArgv": ["hermes", "update", "--yes"],
+    "updateStrategy": "installer",
+    "installerEnvVar": null
+  },
+  "updatePausesGateways": false,
+  "profileCreateNoSkillsFlag": "--no-skills",
+  "profileConfigKeys": {
+    "model": "model.default",
+    "provider": "model.provider",
+    "apiServer": {
+      "portEnv": "API_SERVER_PORT",
+      "keyEnv": "API_SERVER_KEY",
+      "configKey": "platforms.api_server"
+    }
+  },
+  "browser": {
+    "useRealProfile": {
+      "use_real_profile": "browser.use_real_profile",
+      "real_profile_pin": "browser.real_profile_pin",
+      "headed": "browser.headed",
+      "real_profile_autoclose": "browser.real_profile_autoclose"
+    },
+    "snapshotDirPattern": "{HERMES_HOME}/browser-profile/{browser}",
+    "usedRealProfileField": "used_real_profile"
+  },
+  "botMode": {
+    "protocolFlag": "agent.bot_mode_protocol",
+    "uiMeta": {
+      "path": "{profileDir}/profile.yaml#ui_meta",
+      "dashboardRoute": "WS profiles.configure",
+      "fields": {
+        "title": "ui_meta['hermes-bots'].title",
+        "description": "ui_meta['hermes-bots'].description (also top-level configure description → profile.yaml)",
+        "groups": "ui_meta['hermes-bots'].groups string[]",
+        "avatar": "NOT ui_meta — profiles.set_asset {name, asset:'avatar'}",
+        "section": "UNVERIFIED as persistable metadata; roster sections are UI grouping"
+      }
+    },
+    "relayHost": "desktop",
+    "relayProcess": "hermes serve / hermes dashboard tui_gateway /api/ws (not api_server)",
+    "headlessServeCommand": ["hermes", "serve", "--host", "127.0.0.1", "--port", "N"],
+    "headlessServeNotes": "No --no-browser/--headless flag. serve is always headless (no_open=True). Default port 9119. One instance per HERMES_HOME unless --isolated.",
+    "wsAuth": {
+      "loopback": "?token=HERMES_DASHBOARD_SESSION_TOKEN or process token_urlsafe(32)",
+      "gated": "?ticket= from POST /api/auth/ws-ticket (legacy ?token= rejected)",
+      "apiServerKeyAuthenticates": "api_server HTTP / hermes peer only, not /api/ws"
+    },
+    "envelope": {
+      "fields": ["id", "created_at", "from_profile", "from_handle", "target_connection", "target_profile", "target_handle", "message"],
+      "ttlSecondsDefault": 900,
+      "expiredReason": "queued_expired"
+    },
+    "failureReasons": [
+      "runtime_offline",
+      "queued_expired",
+      "delivery_timeout",
+      "agent_blocked",
+      "cancelled",
+      "provider_auth_or_access",
+      "provider_quota_limit",
+      "provider_rate_limit",
+      "provider_server_error",
+      "context_overflow",
+      "missing_config",
+      "model_unavailable",
+      "unknown"
+    ],
+    "failureReasonsUsedButNotInEnum": ["target_busy"],
+    "desktopCourierIntervals": { "rosterSeconds": 60, "drainBackstopSeconds": 30, "outboxPushDebounceMs": 250 },
+    "messageAgentTool": {
+      "sessionTitleGate": "Bot Chat",
+      "peerPath": "hermes peer dm (api_server + API_SERVER_KEY, no outbox)",
+      "localTeammate": "hermes -p <name> chat --in ~ -c 'Bot Chat' --create-if-missing -Q",
+      "crossConnection": "{HERMES_HOME}/bot_relay/outbox/{id}.json → drain → deliver → reply wakes waiter on replies/{id}.json"
+    },
+    "peer": {
+      "addArgv": ["hermes", "peer", "add", "<name>", "--url", "http(s)://host:port", "--key", "<API_SERVER_KEY>"],
+      "dmArgv": ["hermes", "peer", "dm", "<peer>[/<agent>]", "[message]"],
+      "runArgv": ["hermes", "peer", "run", "<peer>[/<agent>]", "[message]"],
+      "keyEnv": "HERMES_PEER_<NAME>_KEY"
+    },
+    "rounds": {
+      "maxRounds": 3,
+      "maxMessages": 10,
+      "maxMembers": 6,
+      "userEscalation": "NOT a WS event. /@user\\b/i sets Desktop $groupNeedsYou[group]=true"
+    },
+    "liveWsFixture": "UNVERIFIED — source spike only; no roster.sync→deliver round-trip run",
+    "relayRpcs": {
+      "roster.sync": {
+        "rpc": "bot_relay.roster.sync",
+        "params": {
+          "agents": [
+            {
+              "profile": "string",
+              "handle": "string",
+              "connection_id": "string",
+              "connection_label": "string?",
+              "title": "string?",
+              "description": "string?"
+            }
+          ]
+        },
+        "result": { "count": "int" }
+      },
+      "outbox.drain": {
+        "rpc": "bot_relay.outbox.drain",
+        "params": {},
+        "result": { "envelopes": "Envelope[]" }
+      },
+      "deliver": {
+        "rpc": "bot_relay.deliver",
+        "params": { "profile": "string", "message": "string" },
+        "result": { "reply": "string" },
+        "errors": {
+          "4090": "profile and message required",
+          "4091": "message too long",
+          "4092": "no profile on this gateway",
+          "5092": "delivery turn failed",
+          "5093": "delivery turn timed out",
+          "5096": "target_busy"
+        }
+      },
+      "reply": {
+        "rpc": "bot_relay.reply",
+        "params": {
+          "id": "string",
+          "reply": "string?",
+          "error": "string?",
+          "reason": "string?"
+        },
+        "result": { "ok": true }
+      }
+    },
+    "roomRpcs": {
+      "hermesBotsPersist": {
+        "rpc": "profiles.configure",
+        "uiMetaKey": "hermes-bots-groups",
+        "listVia": "profiles.list → row.ui_meta['hermes-bots-groups']",
+        "note": "Desktop hermes-bots does not call groups.*; rooms live in plugin storage plus default-profile ui_meta"
+      },
+      "hostedRoomProtocol": {
+        "groups.capabilities": {},
+        "groups.list": {
+          "params": {
+            "limit": "int?",
+            "offset": "int?",
+            "include_disbanded": "bool?"
+          },
+          "result": { "rooms": "Room[]", "next_offset": "int|null" }
+        },
+        "groups.create": {
+          "params": {
+            "room_id": "string",
+            "name": "string",
+            "members": "Member[]"
+          },
+          "result": { "room": "Room" }
+        },
+        "groups.state": {
+          "params": { "room_id": "string", "include_disbanded": "bool?" },
+          "result": { "room": "Room", "driver_status": "object?" }
+        },
+        "groups.send": {
+          "params": {
+            "room_id": "string",
+            "event_id": "string",
+            "payload": "object"
+          },
+          "result": {
+            "event": "Event",
+            "client_event_id": "string",
+            "accepted": true,
+            "driver_started": true
+          }
+        },
+        "groups.rename": {
+          "params": {
+            "room_id": "string",
+            "event_id": "string",
+            "name": "string"
+          },
+          "result": { "room": "Room" }
+        },
+        "groups.disband": { "params": { "room_id": "string" } },
+        "groups.stop": {},
+        "groups.approve": {},
+        "groups.retry": {},
+        "groups.log": {},
+        "groups.replicate": {},
+        "groups.replica_state": {},
+        "groups.promote": {},
+        "groups.demote": {},
+        "groups.peer.invite": {},
+        "groups.peer.revoke": {},
+        "groups.peer.register": {}
+      }
+    }
+  },
+  "controlSocket": {
+    "pathPattern": "{HERMES_HOME}/gateway.sock",
+    "windowsPipePattern": "\\\\.\\pipe\\hermes-gateway-{sha256(home)[:16]}",
+    "pointerFile": "{HERMES_HOME}/gateway.sock.path",
+    "identify": {
+      "request": { "verb": "identify", "id": 1, "protocol": 1 },
+      "result": {
+        "protocol": 1,
+        "kind": "string",
+        "pid": "int",
+        "start_time": "float",
+        "hermes_home": "string",
+        "profile": "string",
+        "supervisor": "systemd|launchd|desktop|external|manual",
+        "code_sha": "string?",
+        "code_version": "string?",
+        "served_profiles": "string[]?"
+      }
+    },
+    "status": {
+      "request": { "verb": "status", "id": 1, "protocol": 1 },
+      "result": {
+        "protocol": 1,
+        "answered_at": "float",
+        "answering_pid": "int",
+        "runtimeStatus": "gateway.status.read_runtime_status() plus protocol/answered_at/answering_pid"
+      }
+    }
+  },
+  "secretsKeychain": {
+    "configKey": "UNVERIFIED"
+  },
+  "skillsApi": {
+    "listRoute": "GET /v1/skills"
+  },
+  "cron": {
+    "cliArgv": ["hermes", "cron", "create"],
+    "createWithProfile": ["hermes", "-p", "{profile}", "cron", "create"],
+    "jobsFile": "{profileDir}/cron/jobs.json",
+    "continuity": "CLI --continuity stores context_from token self; POST /api/jobs omits it",
+    "monitor": {
+      "notBoolean": true,
+      "fields": ["monitor_script", "monitor_url"]
+    },
+    "apiServer": "GET/POST /api/jobs — create whitelist name,schedule,prompt,deliver,skills,repeat",
+    "dashboard": "GET/POST /api/cron/jobs",
+    "wsRpc": "cron.manage",
+    "pibSyncPolicyRecommendation": "Prefer hermes -p {profile} cron create over POST /api/jobs until API accepts extended fields"
+  },
+  "delegation": {
+    "toolName": "delegate_task",
+    "sseForwarded": ["subagent.start", "subagent.complete"],
+    "childStop": { "rpc": "subagent.interrupt", "params": ["subagent_id"] },
+    "childSteer": { "rpc": "subagent.steer", "params": ["subagent_id", "text", "session_id"] },
+    "parentStop": "POST /v1/runs/{run_id}/stop",
+    "parentSteer": "POST /v1/runs/{run_id}/steer",
+    "liveWsFixture": "UNVERIFIED"
+  },
+  "observability": {
+    "usageCommand": { "argv": ["hermes", "insights", "--days", "{days}"] },
+    "usageApi": { "route": "GET /api/analytics/usage", "auth": "UNVERIFIED for runtime" },
+    "apiServerUsageRoute": "UNVERIFIED"
+  },
+  "sandbox": {
+    "policyKey": "terminal.backend",
+    "pibMapping": { "none": "local", "docker": "docker" },
+    "detectAtRuntime": "_effective_terminal_backend"
+  }
+}

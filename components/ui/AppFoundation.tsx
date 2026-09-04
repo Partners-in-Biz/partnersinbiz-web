@@ -106,7 +106,7 @@ type PageTabsProps = {
 export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant: _variant, className }: PageTabsProps) {
   void _variant
   return (
-    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', className)}>
+    <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto overflow-y-hidden', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === value
         return (
@@ -150,7 +150,7 @@ type PageLinkTabsProps = {
 export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant: _variant, className }: PageLinkTabsProps) {
   void _variant
   return (
-    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto', className)}>
+    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs min-w-0 max-w-full overflow-x-auto overflow-y-hidden', className)}>
       {tabs.map((tab) => {
         const selected = tab.value === activeValue
         return (
@@ -184,7 +184,7 @@ export function ResponsiveHeaderTabs({ title, tabs, actions, className }: Respon
   return (
     <div data-slot="responsive-header-tabs" className={cn('pib-responsive-header-tabs', className)}>
       {title ? <div className="min-w-0 sc-body">{title}</div> : null}
-      <div className="min-w-0 flex-1 overflow-x-auto">{tabs}</div>
+      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">{tabs}</div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   )

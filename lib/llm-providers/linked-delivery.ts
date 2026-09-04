@@ -3,14 +3,15 @@ import { enqueueAgentHostJob } from '@/lib/linked-computers/agent-job-store'
 import { preferredPortForAgent } from '@/lib/linked-computers/agent-jobs'
 import { linkedDeviceActorUserId, linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
+import { writeLlmCredentialAudit } from './audit'
 import {
   connectionCredentialVersion,
   listConnectionLlmCredentialBindings,
   updateLlmCredentialBinding,
 } from './bindings'
 import { getLlmProvider } from './providers'
-import type { LlmProviderConnection } from './types'
-import type { LlmSyncTarget } from './sync-targets'
+import type { LlmCredentialBinding, LlmProviderConnection } from './types'
+import { orgShareAllowsDevice, type LlmSyncTarget } from './sync-targets'
 
 function canaryModelFor(connection: LlmProviderConnection): string | null {
   const discovered = Array.isArray(connection.meta?.discoveredModels)
@@ -33,7 +34,13 @@ export async function enqueueCredentialDelivery(input: {
   const ownerType = linkedDeviceOwnerType(device)
   const authorizedOwner = connection.scope === 'user'
     ? ownerType === 'user' && Boolean(connection.ownerUid) && device.ownerUserId === connection.ownerUid
-    : ownerType === 'organization' && device.ownerOrgId === connection.orgId
+    : ownerType === 'organization'
+      ? device.ownerOrgId === connection.orgId
+      : target.kind === 'member_linked_computer' && await orgShareAllowsDevice({
+        connection,
+        device,
+        profile: target.agentId,
+      })
   if (device.status !== 'active' || !authorizedOwner) {
     throw new Error('Linked computer is not active or is owned by another account')
   }
@@ -63,7 +70,9 @@ export async function enqueueCredentialDelivery(input: {
     orgId: connection.orgId,
     actorUserId: connection.scope === 'user'
       ? connection.ownerUid!
-      : linkedDeviceActorUserId(device) || connection.createdBy,
+      : target.kind === 'member_linked_computer'
+        ? connection.createdBy
+        : linkedDeviceActorUserId(device) || connection.createdBy,
     credentialVersion: deviceCredentialVersion,
     kind: 'sync-credential',
     payload: {
@@ -100,6 +109,38 @@ export const enqueuePersonalCredentialDelivery = enqueueCredentialDelivery
 
 export async function enqueueCredentialRevocations(
   connection: LlmProviderConnection,
+  reason = 'connection_revoked',
+): Promise<string[]> {
+  const bindings = await listConnectionLlmCredentialBindings(connection.id)
+  return enqueueCredentialRevocationsForBindings(connection, bindings, reason)
+}
+
+function revokeDeviceOwnerType(device: LinkedDevice | undefined): 'user' | 'organization' | null {
+  if (!device) return null
+  try {
+    return linkedDeviceOwnerType(device)
+  } catch {
+    return null
+  }
+}
+
+function canEnqueueRevokeOnDevice(
+  connection: LlmProviderConnection,
+  device: LinkedDevice | undefined,
+): boolean {
+  if (!device || device.status !== 'active') return false
+  const ownerType = revokeDeviceOwnerType(device)
+  if (connection.scope === 'user') {
+    return ownerType === 'user' && Boolean(connection.ownerUid) && device.ownerUserId === connection.ownerUid
+  }
+  if (ownerType === 'organization') return device.ownerOrgId === connection.orgId
+  return ownerType === 'user'
+}
+
+export async function enqueueCredentialRevocationsForBindings(
+  connection: LlmProviderConnection,
+  bindings: LlmCredentialBinding[],
+  reason: string,
 ): Promise<string[]> {
   const definition = getLlmProvider(connection.provider)
   const canaryModel = canaryModelFor(connection)
@@ -108,28 +149,46 @@ export async function enqueueCredentialRevocations(
   const anthropicOauthEnv = connection.provider === 'anthropic' && connection.authKind === 'oauth_token'
   const envVar = anthropicOauthEnv ? 'CLAUDE_CODE_OAUTH_TOKEN' : (definition.envVar ?? null)
   const applyMode: 'env' | 'restart' = (oauthConnection && !anthropicOauthEnv) || !envVar ? 'restart' : 'env'
-  const bindings = await listConnectionLlmCredentialBindings(connection.id)
   const jobIds: string[] = []
   for (const binding of bindings) {
     if (!binding.deviceId || binding.status === 'revoked') continue
     const deviceSnap = await adminDb.collection('linked_devices').doc(binding.deviceId).get()
-    const device = deviceSnap.data() as LinkedDevice | undefined
+    const device = deviceSnap.exists
+      ? { deviceId: binding.deviceId, ...deviceSnap.data() } as LinkedDevice
+      : undefined
     const deviceCredentialVersion = Number(device?.credentialVersion)
-    const ownerType = device ? linkedDeviceOwnerType(device) : null
-    const authorizedOwner = connection.scope === 'user'
-      ? ownerType === 'user' && Boolean(connection.ownerUid) && device?.ownerUserId === connection.ownerUid
-      : ownerType === 'organization' && device?.ownerOrgId === connection.orgId
+    const ownerType = revokeDeviceOwnerType(device)
+    const authorizedOwner = canEnqueueRevokeOnDevice(connection, device)
     if (!deviceSnap.exists || device?.status !== 'active'
       || !authorizedOwner
       || !Number.isInteger(deviceCredentialVersion)
-      || deviceCredentialVersion < 1) continue
+      || deviceCredentialVersion < 1) {
+      await updateLlmCredentialBinding(binding.id, {
+        status: 'revoke_pending',
+        liveAuthVerified: false,
+        lastError: reason,
+      })
+      await writeLlmCredentialAudit({
+        action: 'binding.revoke_pending',
+        connectionId: connection.id,
+        bindingId: binding.id,
+        orgId: connection.orgId,
+        actorUserId: connection.createdBy || 'system',
+        deviceId: binding.deviceId,
+        agentId: binding.agentId,
+        reason,
+      })
+      continue
+    }
     const job = await enqueueAgentHostJob({
       idempotencyKey: `revoke-credential:${binding.id}:v${binding.credentialVersion}`,
       deviceId: binding.deviceId,
       orgId: connection.orgId,
       actorUserId: connection.scope === 'user'
         ? connection.ownerUid!
-        : linkedDeviceActorUserId(device) || connection.createdBy,
+        : ownerType === 'user'
+          ? connection.createdBy
+          : linkedDeviceActorUserId(device) || connection.createdBy,
       credentialVersion: deviceCredentialVersion,
       kind: 'revoke-credential',
       payload: {
@@ -154,6 +213,16 @@ export async function enqueueCredentialRevocations(
       },
     })
     jobIds.push(job.jobId)
+    await writeLlmCredentialAudit({
+      action: 'binding.revoke_enqueued',
+      connectionId: connection.id,
+      bindingId: binding.id,
+      orgId: connection.orgId,
+      actorUserId: connection.createdBy || 'system',
+      deviceId: binding.deviceId,
+      agentId: binding.agentId,
+      reason,
+    })
   }
   return jobIds
 }

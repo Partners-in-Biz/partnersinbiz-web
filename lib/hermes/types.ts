@@ -83,6 +83,16 @@ export type RichMessagePartType =
   | 'project_command_event'
   | 'design_audit'
   | 'design_iteration'
+  | 'chart'
+  | 'mermaid'
+  | 'math'
+  | 'html_artifact'
+  | 'browser_frame'
+  | 'chart'
+  | 'mermaid'
+  | 'math'
+  | 'html_artifact'
+  | 'browser_frame'
 
 export type RichMessageChoice = string | {
   id?: string
@@ -154,6 +164,7 @@ export type ChatUiActionType =
   | 'stop'
   | 'open'
   | 'open_context'
+  | 'open_workbench_browser'
   | 'copy'
   | 'download'
   | 'custom'

@@ -1,12 +1,13 @@
 import { createPrivateKey, randomUUID, sign } from 'node:crypto'
 
-export type DeviceIdentity = { deviceId:string; credential:string; credentialVersion:number; privateKey:string }
+export type DeviceIdentity = { deviceId:string; credential:string; credentialVersion:number; privateKey:string; ownerUserId?:string }
 export const LINKED_RUNTIME_REQUEST_TIMEOUT_MS=15_000
 
 export class DeviceApiClient {
   constructor(private baseUrl:string,private identity:DeviceIdentity,private fetcher:typeof fetch=fetch,private now=Date.now,private nonce=randomUUID,private requestTimeoutMs=LINKED_RUNTIME_REQUEST_TIMEOUT_MS) {
     const url=new URL(baseUrl);if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))throw new Error('runtime API must use HTTPS')
   }
+  get deviceId(){return this.identity.deviceId}
   private signedHeaders(method:string, path:string, body:string){
     const timestamp=String(this.now()),requestId=this.nonce()
     const payload=`${method.toUpperCase()}\n${path}\n${timestamp}\n${requestId}\n${body}`

@@ -4,20 +4,25 @@ import { adminDb } from '@/lib/firebase/admin'
 import { assertDeviceManager, assertDeviceOrgAccess, assertGrantAdministrator, effectiveGrantAccessMode, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type {
   ActiveOrgMembership,
+  DeviceBrowserIdentity,
   DeviceGrantAccessMode,
   DeviceGrantStatus,
   LinkedDevice,
   LinkedDeviceArchitecture,
   LinkedDeviceCapability,
   LinkedDeviceGrant,
+  LinkedDeviceHealthReason,
   LinkedDeviceKind,
   LinkedDeviceOwnerType,
   LinkedDevicePlatform,
+  LinkedComputerAuditEvent,
   LinkedDeviceStatus,
+  LinkedAvailableProfile,
   WorkspaceMappingStatus,
 } from './types'
 import { decryptLinkedSecret, encryptLinkedSecret } from './secret-envelope'
 import { cancelLinkedRun } from './run-queue-store'
+import { AGENT_ID_RE } from '@/lib/agents/types'
 
 const DEVICES = 'linked_devices'
 const CHALLENGES = 'linked_device_pairing_challenges'
@@ -30,6 +35,18 @@ const PAIRING_TTL_MS = 10 * 60 * 1000
 const PAIRING_MAX_ATTEMPTS = 5
 const CREDENTIAL_ROTATION_OVERLAP_MS = 5 * 60 * 1000
 const ROTATION_DELIVERIES = 'linked_device_rotation_deliveries'
+const LINKED_DEVICE_HEALTH_REASONS = new Set<LinkedDeviceHealthReason>([
+  'hermes_unavailable',
+  'hermes_binary_missing',
+  'no_agents_available',
+  'hermes_update_failed',
+])
+
+function asLinkedDeviceHealthReason(value: unknown): LinkedDeviceHealthReason | null {
+  return typeof value === 'string' && LINKED_DEVICE_HEALTH_REASONS.has(value as LinkedDeviceHealthReason)
+    ? value as LinkedDeviceHealthReason
+    : null
+}
 
 interface RefLike { id: string; path?: string }
 interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | undefined }
@@ -66,7 +83,7 @@ export interface SafeLinkedDeviceDto {
   deviceId: string; label: string; platform: LinkedDevicePlatform; architecture: LinkedDeviceArchitecture
   deviceKind: LinkedDeviceKind; ownerType: LinkedDeviceOwnerType
   runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
-  availableAgentIds: string[]; hermesVersion: string | null; healthReason: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null
+  availableAgentIds: string[]; hermesVersion: string | null; healthReason: LinkedDeviceHealthReason | null
   desiredAgents: Array<{
     agentId: string
     keepInSync: boolean
@@ -77,7 +94,12 @@ export interface SafeLinkedDeviceDto {
   }>
   credentialVersion: number; createdAt: unknown; updatedAt: unknown; lastSeenAt: unknown | null
   health: 'ok' | 'degraded' | null
-  grants: Array<{ orgId: string; status: DeviceGrantStatus; accessMode: DeviceGrantAccessMode }>
+  grants: Array<{
+    orgId: string
+    status: DeviceGrantStatus
+    accessMode: DeviceGrantAccessMode
+    browserIdentity?: { useRealProfile: boolean; realProfilePin: string | null; headed: boolean; autoclose: boolean }
+  }>
   mappings: Array<{ mappingId: string; orgId: string; workspaceId: string; label: string; status: WorkspaceMappingStatus }>
 }
 
@@ -87,11 +109,7 @@ export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
   const availableAgentIds = Array.isArray(row.availableAgentIds)
     ? row.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
     : []
-  const healthReason = row.healthReason === 'hermes_unavailable'
-    || row.healthReason === 'hermes_binary_missing'
-    || row.healthReason === 'no_agents_available'
-    ? row.healthReason
-    : null
+  const healthReason = asLinkedDeviceHealthReason(row.healthReason)
   const desiredAgents = Array.isArray((row as LinkedDevice & { desiredAgents?: unknown }).desiredAgents)
     ? ((row as LinkedDevice & { desiredAgents: unknown[] }).desiredAgents).flatMap((entry) => {
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
@@ -134,6 +152,9 @@ export async function listOwnedDevices(actorUserId: string, options: StoreOption
     ])
     dto.grants = grants.docs.map((grant) => {
       const row = grant.data()
+      const identity = row.browserIdentity && typeof row.browserIdentity === 'object' && !Array.isArray(row.browserIdentity)
+        ? row.browserIdentity as Record<string, unknown>
+        : null
       return {
         orgId: String(row.orgId),
         status: row.status as DeviceGrantStatus,
@@ -141,6 +162,14 @@ export async function listOwnedDevices(actorUserId: string, options: StoreOption
           accessMode: typeof row.accessMode === 'string' ? row.accessMode as DeviceGrantAccessMode : undefined,
           allowedUserIds: Array.isArray(row.allowedUserIds) ? row.allowedUserIds : [],
         }),
+        ...(identity ? {
+          browserIdentity: {
+            useRealProfile: identity.useRealProfile === true,
+            realProfilePin: typeof identity.realProfilePin === 'string' ? identity.realProfilePin : null,
+            headed: identity.headed === true,
+            autoclose: identity.autoclose === true,
+          },
+        } : {}),
       }
     })
     dto.mappings = mappings.docs.map((mapping) => { const row = mapping.data(); return { mappingId: String(row.mappingId), orgId: String(row.orgId), workspaceId: String(row.workspaceId), label: String(row.label), status: row.status as WorkspaceMappingStatus } })
@@ -161,15 +190,19 @@ export async function updateOwnedDevice(input: { deviceId: string; actorUserId: 
   })
 }
 
-export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null; availableAgentIds?: string[]; hermesVersion?: string | null; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null }, options: StoreOptions = {}): Promise<void> {
+export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null; availableAgentIds?: string[]; availableProfiles?: LinkedAvailableProfile[]; hermesVersion?: string | null; healthReason?: LinkedDeviceHealthReason | null }, options: StoreOptions = {}): Promise<{ ignoredProfiles: string[] }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
-  await db.runTransaction(async (tx) => {
+  return db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
     const snap = await tx.get(ref)
     if (!snap.exists) throw new Error('linked computers: device not found')
     const device = snap.data() as unknown as LinkedDevice
     if (device.status !== 'active') throw new Error('linked computers: active device required')
     const at = timestamp(options)
+    const ignoredProfiles: string[] = []
+    const inventory = input.availableProfiles
+      ? await filterAvailableProfilesByActiveGrants(tx, db, input.deviceId, input.availableProfiles, ignoredProfiles)
+      : null
     tx.update(ref, {
       runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
       availableAgentIds: input.availableAgentIds ?? [],
@@ -180,8 +213,54 @@ export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVe
       health: input.health,
       lastSeenAt: at,
       updatedAt: at,
+      ...(inventory ? {
+        availableAgents: inventory.availableAgents,
+        profileSkillsDigests: inventory.profileSkillsDigests,
+      } : {}),
     })
+    return { ignoredProfiles }
   })
+}
+
+async function filterAvailableProfilesByActiveGrants(
+  tx: TransactionLike,
+  db: DbLike,
+  deviceId: string,
+  profiles: LinkedAvailableProfile[],
+  ignoredProfiles: string[],
+): Promise<{
+  availableAgents: Array<{ orgId: string; agentId: string; profile: string; healthy: boolean }>
+  profileSkillsDigests: Record<string, string | null>
+}> {
+  const orgIds = [...new Set(profiles
+    .map((entry) => entry.orgId)
+    .filter((orgId): orgId is string => typeof orgId === 'string' && orgId.length > 0))]
+  const activeOrgIds = new Set<string>()
+  await Promise.all(orgIds.map(async (orgId) => {
+    const grantSnap = await tx.get(db.collection(GRANTS).doc(`${orgId}_${deviceId}`))
+    const grant = grantSnap.exists ? grantSnap.data() as LinkedDeviceGrant | undefined : undefined
+    if (grant?.status === 'active') activeOrgIds.add(orgId)
+  }))
+  const availableAgents: Array<{ orgId: string; agentId: string; profile: string; healthy: boolean }> = []
+  const profileSkillsDigests: Record<string, string | null> = {}
+  const seenProfiles = new Set<string>()
+  for (const entry of profiles) {
+    profileSkillsDigests[entry.profile] = entry.skillsDigest
+    if (seenProfiles.has(entry.profile)) continue
+    seenProfiles.add(entry.profile)
+    if (!entry.orgId) continue
+    if (!activeOrgIds.has(entry.orgId)) {
+      ignoredProfiles.push(entry.profile)
+      continue
+    }
+    availableAgents.push({
+      orgId: entry.orgId,
+      agentId: entry.agentId,
+      profile: entry.profile,
+      healthy: entry.healthy,
+    })
+  }
+  return { availableAgents, profileSkillsDigests }
 }
 
 function timestamp(options: StoreOptions): unknown {
@@ -204,7 +283,7 @@ function secretsMatch(actualSecret: string, expectedHash: string): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-function auditRef(db: DbLike): RefLike {
+function auditRef(db: { collection(name: string): { doc(id: string): RefLike } }): RefLike {
   return db.collection(AUDIT).doc(randomUUID())
 }
 
@@ -214,7 +293,28 @@ function membershipFrom(row: Record<string, unknown> | undefined, orgId: string,
     userId,
     active: isActiveOrgMembershipRow(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId),
     role: typeof row?.role === 'string' ? row.role : undefined,
+    teamIds: Array.isArray(row?.teamIds) ? row.teamIds.filter((value): value is string => typeof value === 'string') : [],
   }
+}
+
+export function writeLinkedComputerAudit(
+  tx: { create(ref: { id: string; path?: string }, value: Record<string, unknown>): void },
+  db: { collection(name: string): { doc(id: string): { id: string; path?: string } } },
+  event: Omit<LinkedComputerAuditEvent, 'eventId' | 'createdAt'>,
+  at: unknown,
+): void {
+  tx.create(auditRef(db), {
+    eventId: randomUUID(),
+    action: event.action,
+    actorUserId: event.actorUserId,
+    deviceId: event.deviceId,
+    orgId: event.orgId,
+    mappingId: event.mappingId,
+    challengeId: event.challengeId,
+    fromStatus: event.fromStatus ?? null,
+    toStatus: event.toStatus,
+    createdAt: at,
+  })
 }
 
 async function assertStoreDeviceManager(tx: TransactionLike, db: DbLike, device: LinkedDevice, actorUserId: string): Promise<void> {
@@ -256,6 +356,7 @@ export async function createDevice(input: {
       platform: input.platform,
       architecture: input.architecture,
       runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+      releaseChannel: 'stable',
       capabilities: input.capabilities,
       status: 'active', credentialVersion: 1,
       createdAt: at, updatedAt: at, lastSeenAt: null,
@@ -266,16 +367,35 @@ export async function createDevice(input: {
   })
 }
 
+function parsePairingAgentIds(value: unknown): string[] {
+  if (value == null) return []
+  if (!Array.isArray(value)) throw new Error('linked computers: invalid agentIds')
+  if (value.length > 6) throw new Error('linked computers: too many agentIds')
+  const ids: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || !AGENT_ID_RE.test(item.trim())) {
+      throw new Error('linked computers: invalid agentIds')
+    }
+    const id = item.trim()
+    if (!ids.includes(id)) ids.push(id)
+  }
+  return ids
+}
+
 export async function createPairingChallenge(input: {
   challengeId: string
   actorUserId: string
   deviceId: string
   secret: string
+  orgId?: string
+  agentIds?: string[]
 }, options: StoreOptions = {}): Promise<{ challengeId: string; expiresAt: string }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   required(input.secret, 'pairing secret')
   const actorUserId = required(input.actorUserId, 'actorUserId')
   const deviceId = required(input.deviceId, 'deviceId')
+  const orgId = typeof input.orgId === 'string' ? input.orgId.trim() : ''
+  const agentIds = parsePairingAgentIds(input.agentIds)
   const expiresAt = new Date((options.nowMs?.() ?? Date.now()) + PAIRING_TTL_MS).toISOString()
   const at = timestamp(options)
   await db.runTransaction(async (tx) => {
@@ -288,6 +408,8 @@ export async function createPairingChallenge(input: {
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
       challengeId: input.challengeId, deviceId, ownerUserId: deviceActorUserId,
+      ...(orgId ? { orgId } : {}),
+      ...(agentIds.length ? { agentIds } : {}),
       secretHash: hashSecret(input.secret), expiresAt, cleanupAt: Timestamp.fromMillis(Date.parse(expiresAt)), attempts: 0,
       maxAttempts: PAIRING_MAX_ATTEMPTS, createdAt: at,
     })
@@ -596,10 +718,11 @@ export async function putDeviceGrant(input: {
   status: DeviceGrantStatus
   capabilities: LinkedDeviceCapability[]
   allowedUserIds?: string[]
+  allowedTeamIds?: string[]
   accessMode?: DeviceGrantAccessMode
-}, options: StoreOptions = {}): Promise<void> {
+}, options: StoreOptions = {}): Promise<{ browsingConsentDisabled: boolean }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
-  await db.runTransaction(async (tx) => {
+  return db.runTransaction(async (tx) => {
     const deviceSnap = await tx.get(db.collection(DEVICES).doc(input.deviceId))
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
@@ -633,19 +756,97 @@ export async function putDeviceGrant(input: {
     const existingGrant = existing.data() as Partial<LinkedDeviceGrant> | undefined
     const accessMode = input.accessMode
       ?? (input.allowedUserIds !== undefined ? 'selected_users' : existingGrant ? effectiveGrantAccessMode({ accessMode: existingGrant.accessMode, allowedUserIds: existingGrant.allowedUserIds ?? [] }) : 'owner')
-    if (!['owner', 'organization', 'selected_users'].includes(accessMode)) throw new Error('linked computers: invalid grant access mode')
+    if (!['owner', 'organization', 'selected_users', 'teams'].includes(accessMode)) throw new Error('linked computers: invalid grant access mode')
     const selectedUserIds = [...new Set((input.allowedUserIds ?? existingGrant?.allowedUserIds ?? []).filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))]
-    const allowedUserIds = accessMode === 'selected_users' ? selectedUserIds : []
+    const selectedTeamIds = [...new Set((input.allowedTeamIds ?? existingGrant?.allowedTeamIds ?? []).filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))]
+    const allowedUserIds = accessMode === 'selected_users' || accessMode === 'teams' ? selectedUserIds : []
+    const allowedTeamIds = accessMode === 'teams' ? selectedTeamIds : []
+    if (accessMode === 'teams') {
+      if (allowedTeamIds.length === 0 && allowedUserIds.length === 0) {
+        throw new Error('linked computers: teams mode needs allowedTeamIds or allowedUserIds')
+      }
+      for (const teamId of allowedTeamIds) {
+        const teamSnap = await tx.get(db.collection('org_teams').doc(teamId))
+        const team = teamSnap.data()
+        if (!teamSnap.exists || team?.orgId !== input.orgId || team?.status !== 'active') {
+          throw new Error('linked computers: unknown or archived team')
+        }
+      }
+    }
     const statusAt = input.status === 'paused' ? { pausedAt: at } : input.status === 'revoked' ? { revokedAt: at } : {}
+    const browsingConsentDisabled = accessMode !== 'owner' && existingGrant?.browserIdentity?.useRealProfile === true
+    const nextBrowserIdentity = browsingConsentDisabled && existingGrant?.browserIdentity
+      ? { ...existingGrant.browserIdentity, useRealProfile: false, updatedByUserId: input.actorUserId, updatedAt: at }
+      : undefined
     tx.set(ref, {
       deviceId: input.deviceId, orgId: input.orgId, grantedByUserId: input.actorUserId,
-      accessMode, allowedUserIds, capabilities: input.capabilities, status: input.status,
+      accessMode, allowedUserIds, allowedTeamIds, capabilities: input.capabilities, status: input.status,
       ...(!existing.exists ? { createdAt: at } : {}), updatedAt: at, ...statusAt,
+      ...(nextBrowserIdentity ? { browserIdentity: nextBrowserIdentity } : {}),
     }, { merge: true })
-    tx.create(auditRef(db), {
-      eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId,
-      deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? null, toStatus: input.status, createdAt: at,
-    })
+    writeLinkedComputerAudit(tx, db, {
+      action: 'grant.changed', actorUserId: input.actorUserId,
+      deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? undefined, toStatus: input.status,
+    }, at)
+    if (ownerType === 'user' && input.actorUserId === device.ownerUserId && input.status === 'active') {
+      writeLinkedComputerAudit(tx, db, {
+        action: 'grant.owner_shared', actorUserId: input.actorUserId,
+        deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? undefined, toStatus: input.status,
+      }, at)
+    }
+    if (browsingConsentDisabled) {
+      writeLinkedComputerAudit(tx, db, {
+        action: 'browser.real_profile.disabled', actorUserId: input.actorUserId,
+        deviceId: input.deviceId, orgId: input.orgId,
+      }, at)
+    }
+    return { browsingConsentDisabled }
+  })
+}
+
+export async function setDeviceGrantBrowserIdentity(input: {
+  deviceId: string
+  orgId: string
+  actorUserId: string
+  identity: Omit<DeviceBrowserIdentity, 'updatedByUserId' | 'updatedAt'>
+}, options: StoreOptions = {}): Promise<DeviceBrowserIdentity> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  const pin = input.identity.realProfilePin
+  if (pin != null) {
+    const clean = pin.trim()
+    if (clean.length > 64 || /[\\/]/.test(clean)) throw new Error('linked computers: invalid browser profile pin')
+  }
+  return db.runTransaction(async (tx) => {
+    const deviceSnap = await tx.get(db.collection(DEVICES).doc(input.deviceId))
+    if (!deviceSnap.exists) throw new Error('linked computers: device not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    if (linkedDeviceOwnerType(device) !== 'user' || device.ownerUserId !== input.actorUserId) {
+      throw new Error('linked computers: device owner required')
+    }
+    const grantRef = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
+    const grantSnap = await tx.get(grantRef)
+    if (!grantSnap.exists) throw new Error('linked computers: browsing as you requires an owner-only grant')
+    const grant = grantSnap.data() as unknown as LinkedDeviceGrant
+    if (grant.status !== 'active' || effectiveGrantAccessMode(grant) !== 'owner') {
+      throw new Error('linked computers: browsing as you requires an owner-only grant')
+    }
+    const at = timestamp(options)
+    const browserIdentity: DeviceBrowserIdentity = {
+      useRealProfile: input.identity.useRealProfile,
+      realProfilePin: input.identity.realProfilePin?.trim() || null,
+      headed: input.identity.headed,
+      autoclose: input.identity.autoclose,
+      updatedByUserId: input.actorUserId,
+      updatedAt: at,
+    }
+    tx.set(grantRef, { browserIdentity, updatedAt: at }, { merge: true })
+    writeLinkedComputerAudit(tx, db, {
+      action: input.identity.useRealProfile ? 'browser.real_profile.enabled' : 'browser.real_profile.disabled',
+      actorUserId: input.actorUserId,
+      deviceId: input.deviceId,
+      orgId: input.orgId,
+    }, at)
+    return browserIdentity
   })
 }
 

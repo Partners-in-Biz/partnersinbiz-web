@@ -22,7 +22,14 @@ export type CockpitShellProps = {
   loading?: boolean
   onRefresh: () => void
   selectedContextSeed?: ContextReferenceSeed | null
+  /** Full-width strip under the header (Today rail). */
+  rail?: ReactNode
   workFeedContent?: ReactNode
+  /** Controlled Ask Pip dock state; falls back to internal state when omitted. */
+  chatOpen?: boolean
+  onChatOpenChange?: (open: boolean) => void
+  /** Forwarded to the docked chat so the desk can harvest Pip's latest reply as a draft. */
+  onChatConversationLifecycle?: (event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) => void
 }
 
 export function CockpitShell({
@@ -36,9 +43,19 @@ export function CockpitShell({
   loading = false,
   onRefresh,
   selectedContextSeed,
+  rail,
   workFeedContent,
+  chatOpen,
+  onChatOpenChange,
+  onChatConversationLifecycle,
 }: CockpitShellProps) {
-  const [showChat, setShowChat] = useState(false)
+  const [internalShowChat, setInternalShowChat] = useState(false)
+  const showChat = chatOpen ?? internalShowChat
+  const setShowChat = (next: boolean | ((value: boolean) => boolean)) => {
+    const resolved = typeof next === 'function' ? next(showChat) : next
+    setInternalShowChat(resolved)
+    onChatOpenChange?.(resolved)
+  }
   const resolvedChatOrgId = orgId || (mode === 'portal' ? portalScope?.orgId ?? '' : '')
   const updatedLabel = generatedAt
     ? new Date(generatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
@@ -82,6 +99,8 @@ export function CockpitShell({
         </div>
       </header>
 
+      {rail ? <div className="shrink-0 px-2 pt-2">{rail}</div> : null}
+
       <div className="flex min-h-0 min-w-0 flex-1">
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-2">
           {workFeedContent ?? <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading briefings…</div>}
@@ -99,6 +118,7 @@ export function CockpitShell({
                 label: 'Current Briefings queue',
               }}
               onContextActionResolved={onRefresh}
+              onConversationLifecycle={onChatConversationLifecycle}
               onClose={() => setShowChat(false)}
             />
           </aside>

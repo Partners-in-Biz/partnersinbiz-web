@@ -2,6 +2,7 @@
 param(
   [ValidateSet('Install','Pair','Update','Rollback','Revoke','Uninstall')] [string]$Action = 'Install',
   [ValidatePattern('^[A-Za-z0-9_-]{1,128}$')] [string]$ChallengeId,
+  [ValidateSet('internal','stable')] [string]$ReleaseChannel = 'stable',
   [switch]$AllowUnsignedDev,
   [switch]$ForceLocal
 )
@@ -75,7 +76,7 @@ function Install-Runtime {
 function Pair-Runtime {
   if (-not $ChallengeId) { throw 'Pair requires ChallengeId.' }
   $code=Read-Host 'One-time pairing code' -AsSecureString; $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($code)
-  try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr);$json=@{challengeId=$ChallengeId;code=$plain}|ConvertTo-Json -Compress;$bytes=[Text.Encoding]::UTF8.GetBytes($json);$encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine);[Array]::Clear($bytes,0,$bytes.Length);$dir=Join-Path $env:ProgramData 'PartnersInBiz';New-Item -ItemType Directory -Force $dir|Out-Null;& icacls.exe $dir /inheritance:r /grant:r 'SYSTEM:(OI)(CI)F' 'Administrators:(OI)(CI)F'|Out-Null;$tmp=Join-Path $dir 'pairing.tmp';[IO.File]::WriteAllBytes($tmp,$encrypted);Move-Item -Force $tmp (Join-Path $dir 'pairing.ready')}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
+  try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr);$channel=if($ReleaseChannel -eq 'internal'){'internal'}else{'stable'};$json=@{challengeId=$ChallengeId;code=$plain;releaseChannel=$channel}|ConvertTo-Json -Compress;$bytes=[Text.Encoding]::UTF8.GetBytes($json);$encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine);[Array]::Clear($bytes,0,$bytes.Length);$dir=Join-Path $env:ProgramData 'PartnersInBiz';New-Item -ItemType Directory -Force $dir|Out-Null;& icacls.exe $dir /inheritance:r /grant:r 'SYSTEM:(OI)(CI)F' 'Administrators:(OI)(CI)F'|Out-Null;$tmp=Join-Path $dir 'pairing.tmp';[IO.File]::WriteAllBytes($tmp,$encrypted);Move-Item -Force $tmp (Join-Path $dir 'pairing.ready')}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
 }
 function Update-Runtime { Install-Runtime }
 function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'};$previous=Split-Path $Previous;Test-ReleaseSignature (Join-Path $previous 'metadata.json') $Previous -AllowDowngrade;& sc.exe stop PartnersInBizRuntime|Out-Null;Wait-ServiceStopped;$current=Split-Path $Binary;$swap=Join-Path $Root 'swap';Move-Item $current $swap;Move-Item $previous $current;Move-Item $swap $previous;& sc.exe start PartnersInBizRuntime;if($LASTEXITCODE -ne 0){throw 'Runtime service failed to restart after rollback.'} }

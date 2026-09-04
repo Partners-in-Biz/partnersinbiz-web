@@ -278,6 +278,9 @@ export const POST = withCrmAuth<RouteCtx>(
     batch.set(activityRef, activityData)
     batch.update(contactRef, {
       lastContactedAt: FieldValue.serverTimestamp(),
+      // The call/meeting is now booked — clear the explicit CRM next action so
+      // the briefing desk stops nudging for it.
+      nextAction: null,
       updatedAt: FieldValue.serverTimestamp(),
     })
 

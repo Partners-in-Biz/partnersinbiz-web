@@ -11,10 +11,19 @@ export type LocalHermesRoute = {
   apiKey?: string
 }
 
+export type LocalHermesAvailableProfile = {
+  profile: string
+  orgId: string | null
+  agentId: string
+  healthy: boolean
+  skillsDigest: string | null
+}
+
 export type LocalHermesProbe = {
   availableAgentIds: string[]
+  availableProfiles?: LocalHermesAvailableProfile[]
   hermesVersion?: string
-  healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
+  healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | 'hermes_update_failed'
 }
 
 const AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
@@ -141,6 +150,45 @@ function authHeaders(route: LocalHermesRoute): Record<string, string> {
   return route.apiKey ? { authorization: `Bearer ${route.apiKey}` } : {}
 }
 
+function readManagedProfileMarker(profileDirectory: string): { orgId: string | null; agentId: string | null; profile: string | null } {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(profileDirectory, 'pib-managed.json'), 'utf8')) as Record<string, unknown>
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { orgId: null, agentId: null, profile: null }
+    }
+    const orgId = typeof raw.orgId === 'string' && raw.orgId.trim() ? raw.orgId.trim() : null
+    const agentId = typeof raw.agentId === 'string' && raw.agentId.trim() ? raw.agentId.trim() : null
+    const profile = typeof raw.profile === 'string' && raw.profile.trim() ? raw.profile.trim() : null
+    return { orgId, agentId, profile }
+  } catch {
+    return { orgId: null, agentId: null, profile: null }
+  }
+}
+
+function readSkillsDigest(profileDirectory: string): string | null {
+  try {
+    const raw = fs.readFileSync(path.join(profileDirectory, 'pib-skills-digest.txt'), 'utf8').trim()
+    return /^[a-f0-9]{1,128}$/i.test(raw) ? raw.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+function inventoryForRoutes(env: RuntimeEnv, routes: LocalHermesRoute[], healthy: Set<string>): LocalHermesAvailableProfile[] {
+  const home = hermesHome(env)
+  return routes.map((route) => {
+    const dir = path.join(home, 'profiles', route.agentId)
+    const marker = readManagedProfileMarker(dir)
+    return {
+      profile: marker.profile ?? route.agentId,
+      orgId: marker.orgId,
+      agentId: marker.agentId ?? route.agentId,
+      healthy: healthy.has(route.agentId),
+      skillsDigest: readSkillsDigest(dir),
+    }
+  })
+}
+
 export async function probeLocalHermes(
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
@@ -158,10 +206,11 @@ export async function probeLocalHermes(
   if (routes.length === 0) {
     return {
       availableAgentIds: [],
+      availableProfiles: [],
       healthReason: hermesBin ? 'no_agents_available' : 'hermes_binary_missing',
     }
   }
-  const healthy: string[] = []
+  const healthy = new Set<string>()
   let hermesVersion: string | undefined
   await Promise.all(routes.map(async (route) => {
     try {
@@ -170,17 +219,19 @@ export async function probeLocalHermes(
         signal: AbortSignal.timeout(5_000),
       })
       if (!response.ok) return
-      healthy.push(route.agentId)
+      healthy.add(route.agentId)
       const body = await response.json().catch(() => null) as Record<string, unknown> | null
       const version = typeof body?.version === 'string' ? body.version.trim() : ''
       if (!hermesVersion && version && version.length <= 64) hermesVersion = version
     } catch { /* An unavailable profile is omitted from the advertised inventory. */ }
   }))
-  healthy.sort()
-  return healthy.length > 0
-    ? { availableAgentIds: healthy, ...(hermesVersion ? { hermesVersion } : {}) }
+  const availableAgentIds = [...healthy].sort()
+  const availableProfiles = inventoryForRoutes(env, routes, healthy)
+  return availableAgentIds.length > 0
+    ? { availableAgentIds, availableProfiles, ...(hermesVersion ? { hermesVersion } : {}) }
     : {
         availableAgentIds: [],
+        availableProfiles,
         healthReason: hermesBin ? 'hermes_unavailable' : 'hermes_binary_missing',
       }
 }

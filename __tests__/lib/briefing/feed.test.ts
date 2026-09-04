@@ -41,6 +41,14 @@ const collections: Record<string, ReturnType<typeof makeDoc>[]> = {}
 const collectionGroups: Record<string, ReturnType<typeof makeDoc>[]> = {}
 const nestedProjectTasks: Record<string, ReturnType<typeof makeDoc>> = {}
 
+// Briefings is a personal action queue: operator-addressed cards (actionable
+// orders, shipments, stock, SEO review, broadcasts, campaigns, ...) only reach
+// a portal user when they hold the owner/admin role in `orgMembers` for that
+// org. The feed resolves that from the `${orgId}_${uid}` member doc id.
+function makeOrgOwner(orgId: string, uid: string) {
+  collections.orgMembers = [...(collections.orgMembers ?? []), makeDoc(`${orgId}_${uid}`, { orgId, uid, role: 'owner' })]
+}
+
 // Fixtures use fixed ISO dates (late May / mid June 2026) and the feed
 // derives staleness from Date.now(), so pin the clock to keep the suite
 // deterministic as real time advances.
@@ -255,12 +263,16 @@ describe('briefing feed', () => {
       }, 'comments/comment-1'),
     ]
 
+    // Comments are per-user scoped: the viewer must be the author or linked to
+    // the parent task/project/document. Viewing as the author keeps the test
+    // focused on the label fallbacks (nested task doc + Firebase Auth lookup).
     const { buildBriefingFeed } = await import('@/lib/briefing/feed')
     const feed = await buildBriefingFeed(
-      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { uid: 'user-1', role: 'admin', allowedOrgIds: ['org-1'] },
       { limit: 10, sourceType: 'comment' },
     )
 
+    expect(feed.items).toHaveLength(1)
     expect(feed.items[0]).toMatchObject({
       title: 'Comment on Human readable task',
       actor: { name: 'Peet Stander' },
@@ -280,6 +292,9 @@ describe('briefing feed', () => {
         labels: ['software-build'],
         sourceDocumentId: 'doc-123',
         agentStatus: 'done',
+        // Agent work sitting in the review lane is operator-addressed, which is
+        // what makes it visible to the admin viewer under per-user scope.
+        reviewStatus: 'pending',
         agentOutput: {
           artifacts: [
             { type: 'commit', ref: 'abc1234', label: 'Development commit' },
@@ -428,19 +443,25 @@ describe('briefing feed', () => {
       priority: 'needs-peet',
       source: { type: 'social-post', id: 'post-1' },
       title: 'Social post awaiting client approval',
+      workKind: 'approval',
       metadata: expect.objectContaining({ actionStage: 'client', platforms: ['linkedin', 'facebook'] }),
     })
+    expect(qaItem?.workKind).toBe('approval')
     expect(JSON.stringify(feed.items)).not.toContain('sk-test-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
 
   it('surfaces received quotes that need a client decision as action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    // The quote belongs to the platform org, so the client sees it through the
+    // CRM company it was raised for (a company they own).
+    collections.companies = [makeDoc('company-1', { orgId: 'pib-platform-owner', name: 'Client One', assignedTo: 'client-1' })]
     collections.quotes = [
       makeDoc('quote-1', {
         orgId: 'pib-platform-owner',
         sourceOrgId: 'pib-platform-owner',
         recipientOrgId: 'org-1',
+        companyId: 'company-1',
         quoteNumber: 'QUO-1001',
         status: 'sent',
         total: 18500,
@@ -482,8 +503,82 @@ describe('briefing feed', () => {
     })
   })
 
+  it('shows a received quote to the recipient org owner even without a CRM link', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    // No companies map, no assignment: the owner of the receiving org still has
+    // to decide on the quote, so the operator check must look at recipientOrgId.
+    makeOrgOwner('org-1', 'owner-1')
+    collections.quotes = [
+      makeDoc('quote-2', {
+        orgId: 'pib-platform-owner',
+        sourceOrgId: 'pib-platform-owner',
+        recipientOrgId: 'org-1',
+        quoteNumber: 'QUO-1002',
+        status: 'sent',
+        total: 9200,
+        currency: 'ZAR',
+        recipientName: 'Owner One',
+        updatedAt: '2026-05-31T09:45:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'owner-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'quote' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({ source: { type: 'quote', id: 'quote-2' }, title: 'Quote awaiting decision: QUO-1002' })
+
+    // A plain member of the recipient org is not the operator and still sees nothing.
+    const memberFeed = await buildBriefingFeed(
+      { uid: 'member-9', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'quote' },
+    )
+    expect(memberFeed.items).toHaveLength(0)
+  })
+
+  it('keeps comments on the viewer\'s own task visible when only comments are requested', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Readable Project', slug: 'readable-project' })]
+    collectionGroups.tasks = [
+      makeDoc('task-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        title: 'My assigned task',
+        assigneeId: 'user-1',
+        columnId: 'in_progress',
+        updatedAt: '2026-06-17T09:00:00.000Z',
+      }, 'projects/project-1/tasks/task-1'),
+    ]
+    collectionGroups.comments = [
+      makeDoc('comment-2', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        taskId: 'task-1',
+        text: 'Left a note for the assignee.',
+        userId: 'someone-else',
+        userRole: 'admin',
+        createdAt: '2026-06-17T09:30:00.000Z',
+      }, 'comments/comment-2'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    // sourceType: 'comment' used to skip the task loop, leaving the linked-task
+    // set empty so only self-authored comments survived.
+    const feed = await buildBriefingFeed(
+      { uid: 'user-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'comment' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({ source: { type: 'comment', id: 'comment-2' } })
+  })
+
   it('surfaces active shipments as delivery control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    makeOrgOwner('org-1', 'client-1')
     collections.shipments = [
       makeDoc('shipment-1', {
         orgId: 'org-1',
@@ -534,6 +629,7 @@ describe('briefing feed', () => {
 
   it('surfaces active orders as fulfillment control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    makeOrgOwner('org-1', 'client-1')
     collections.orders = [
       makeDoc('order-1', {
         orgId: 'org-1',
@@ -587,6 +683,7 @@ describe('briefing feed', () => {
 
   it('surfaces low-stock inventory as operational risk cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    makeOrgOwner('org-1', 'client-1')
     collections.inventoryItems = [
       makeDoc('stock-1', {
         orgId: 'org-1',
@@ -1141,6 +1238,9 @@ describe('briefing feed', () => {
         title: 'May performance report',
         status: 'rendered',
         publicToken: 'public-report-token',
+        // Rendered reports are not operator-addressed; the card reaches the
+        // admin because they requested the report the analyst agent generated.
+        createdBy: 'admin-1',
         generatedBy: 'agent:analyst',
         exec_summary: 'Revenue grew after the launch sprint. api_key: should-not-leak',
         highlights: ['Revenue up', 'Follow-up needed'],
@@ -1431,6 +1531,7 @@ describe('briefing feed', () => {
 
   it('surfaces SEO content awaiting review as approval control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    makeOrgOwner('org-1', 'client-1')
     collections.seo_content = [
       makeDoc('seo-content-1', {
         orgId: 'org-1',
@@ -1540,7 +1641,9 @@ describe('briefing feed', () => {
     expect(adminFeed.items).toHaveLength(1)
     expect(clientFeed.items).toHaveLength(0)
     expect(adminFeed.items[0]).toMatchObject({
-      priority: 'critical',
+      // Blocked SEO tasks are agent-ops review work, not human-critical
+      // (human-first briefings reclassification).
+      priority: 'review',
       requiresAction: true,
       source: { type: 'seo-task', id: 'seo-task-1', url: 'https://partnersinbiz.online/admin/seo/sprints/sprint-1/tasks?task=seo-task-1' },
       title: 'Blocked SEO task: Fix sitemap canonical drift',
@@ -1568,9 +1671,12 @@ describe('briefing feed', () => {
 
   it('surfaces ad campaigns awaiting client approval as control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    // The client sees the campaign through the CRM company it is scoped to.
+    collections.companies = [makeDoc('company-1', { orgId: 'org-1', name: 'Client One', assignedTo: 'client-1' })]
     collections.ad_campaigns = [
       makeDoc('ad-campaign-1', {
         orgId: 'org-1',
+        companyId: 'company-1',
         platform: 'meta',
         adAccountId: 'act_123',
         name: 'June lead generation push',
@@ -1641,6 +1747,9 @@ describe('briefing feed', () => {
     collections.broadcasts = [
       makeDoc('broadcast-1', {
         orgId: 'org-1',
+        // The client drafted this broadcast, which is what links the card to them.
+        createdBy: 'client-1',
+        createdByType: 'user',
         name: 'June newsletter',
         description: 'June newsletter launch. api_key: broadcast-secret-123',
         status: 'draft',
@@ -1701,6 +1810,7 @@ describe('briefing feed', () => {
 
   it('surfaces top-level campaigns as launch control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    makeOrgOwner('org-1', 'client-1')
     collections.campaigns = [
       makeDoc('campaign-1', {
         orgId: 'org-1',
@@ -2014,7 +2124,10 @@ describe('briefing feed', () => {
         prompt: 'Finished content polish',
         status: 'completed',
         output: 'Updated draft and evidence.',
-        createdAt: '2026-05-31T09:20:00.000Z',
+        // Completed runs are FYI only for their first day, so keep this one
+        // within 24h of the pinned clock (2026-06-17T12:00Z).
+        createdAt: '2026-06-17T09:20:00.000Z',
+        completedAt: '2026-06-17T09:25:00.000Z',
       }),
       makeDoc('run-doc-3', {
         orgId: 'org-2',

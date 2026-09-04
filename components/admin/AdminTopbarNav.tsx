@@ -142,7 +142,7 @@ export function AdminTopbarNav({
   return (
     <>
       <header
-        className="sticky top-0 z-30 shrink-0 border-b border-[var(--sc-line)] bg-[var(--sc-canvas)]"
+        className="st-topbar sticky top-0 z-30 shrink-0 bg-[var(--sc-canvas)]"
         style={{ height: 'calc(var(--sc-u) * 14)' }}
       >
         <div className="flex h-full w-full items-center gap-2 px-3">

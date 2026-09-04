@@ -174,6 +174,11 @@ export async function enqueueAgentHostJob(
     packSha256: input.payload.skillPack?.packSha256 ?? null,
     profileConfig: input.payload.profileConfig ?? null,
     credentialDelivery: input.payload.credentialDelivery ?? null,
+    catalogAgentId: input.payload.catalogAgentId ?? null,
+    managedProfile: input.payload.managedProfile ?? null,
+    modelDefault: input.payload.modelDefault ?? null,
+    apiServer: input.payload.apiServer ?? null,
+    botProjection: input.payload.botProjection ?? null,
   })
   const job: AgentHostJob = {
     jobId: id,
@@ -254,7 +259,11 @@ export async function enqueueAgentHostJob(
  */
 export async function claimOldestAgentHostJob(
   input: { deviceId: string; ownerUserId: string; credentialVersion: number },
-  options: { nowMs?: number; leaseMs?: number } = {},
+  options: {
+    nowMs?: number
+    leaseMs?: number
+    skip?: (job: AgentHostJob) => boolean
+  } = {},
 ): Promise<PublicAgentHostJob | null> {
   const nowMs = options.nowMs ?? Date.now()
   const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS
@@ -353,6 +362,10 @@ export async function claimOldestAgentHostJob(
         continue
       }
       if (!selected && isClaimable(job, nowMs)) {
+        if (options.skip?.(job)) {
+          survivors.push(jobId)
+          continue
+        }
         if (requiresQuietProfile(job) && (!AGENT_HOST_MAINTENANCE_AGENT_ID.test(job.payload.agentId)
           || busyQuietProfiles.has(job.payload.agentId))) {
           survivors.push(jobId)

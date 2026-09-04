@@ -11,13 +11,14 @@ import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextRef
 import type { ChatContextOption } from './ContextSelector'
 import { useOpenDockPolling } from './usePreviewLiveReload'
 import { MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS } from '@/lib/messages/mobile-conversation-chrome'
+import type { RichMessagePart } from '@/lib/hermes/types'
 
 const executionOnlyModel: ChatContextReadModel = {
   context: { kind: 'studio', id: 'execution', orgId: '', label: 'Conversation', icon: 'developer_board' },
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, previewRefreshSignal = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange, preferCanvas = false, hideFirstPaintChrome = false }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; /** Bumps when parent messages/runs change so dock previews soft-reload. */ previewRefreshSignal?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void; preferCanvas?: boolean; hideFirstPaintChrome?: boolean }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, richArtifactRequest, onArtifactTakeOver, focusRequest, execution, executionRequest, closeRequest = 0, previewRefreshSignal = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange, preferCanvas = false, hideFirstPaintChrome = false }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; richArtifactRequest?: { part: RichMessagePart; nonce: number }; onArtifactTakeOver?: (sessionId?: string) => void; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; /** Bumps when parent messages/runs change so dock previews soft-reload. */ previewRefreshSignal?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void; preferCanvas?: boolean; hideFirstPaintChrome?: boolean }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -32,6 +33,8 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const lastExecutionStatusRef = useRef<string | undefined>(undefined)
   const lastFocusRequestNonceRef = useRef<number | undefined>(undefined)
   const lastArtifactRequestNonceRef = useRef<number | undefined>(undefined)
+  const lastRichArtifactRequestNonceRef = useRef<number | undefined>(undefined)
+  const [richArtifactPart, setRichArtifactPart] = useState<RichMessagePart | null>(null)
   const lastExecutionRequestRef = useRef<number | undefined>(undefined)
   const setActiveContextRef = useRef(context.setActiveContext)
   setActiveContextRef.current = context.setActiveContext
@@ -69,7 +72,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   actionOperationIdentityRef.current = actionOperationIdentity
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
   useEffect(() => { onPresentationChange?.({ open, mode: canvasMode, width: canvasWidth }) }, [canvasMode, canvasWidth, onPresentationChange, open])
-  useEffect(() => { if (closeRequest > 0) setOpen(false) }, [closeRequest])
+  useEffect(() => { if (closeRequest > 0) { setOpen(false); setRichArtifactPart(null) } }, [closeRequest])
   useEffect(() => {
     pendingRef.current = undefined
     setPendingActionId(undefined)
@@ -147,6 +150,13 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     setActiveArtifactId(artifactRequest.id)
     setOpen(true)
   }, [artifactRequest])
+  useEffect(() => {
+    if (!richArtifactRequest) return
+    if (lastRichArtifactRequestNonceRef.current === richArtifactRequest.nonce) return
+    lastRichArtifactRequestNonceRef.current = richArtifactRequest.nonce
+    setRichArtifactPart(richArtifactRequest.part)
+    setOpen(true)
+  }, [richArtifactRequest])
   useEffect(() => {
     if (!focusRequest) return
     // Gate on nonce only. focusRequest stays mounted after open_context handoff; setActiveContext identity
@@ -303,6 +313,6 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} className={firstPaintChromeClass} />
       : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} className={firstPaintChromeClass} /> : null}
     {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className={`mx-3 mt-2 h-11 items-center gap-2 self-start rounded-[4px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 ${executionTriggerClass}`}><Icon name="developer_board" className="text-[15px]" />Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
-    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} actionReceipt={actionReceipt} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
+    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} actionReceipt={actionReceipt} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} artifactPart={richArtifactPart} onArtifactTakeOver={onArtifactTakeOver} onClose={() => { setOpen(false); setRichArtifactPart(null) }} />
   </>
 }

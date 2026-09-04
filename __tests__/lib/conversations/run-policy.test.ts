@@ -21,6 +21,24 @@ describe('humanizeConversationRunError', () => {
       .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
   })
 
+  it('maps real-profile guard failures to the owner-only browsing message', () => {
+    expect(humanizeConversationRunError('real_profile_guard'))
+      .toBe("This computer's owner has enabled browsing as themselves; your chat cannot run there.")
+  })
+
+  it('maps remaining Appendix C runtime errors to operator-safe chat copy', () => {
+    expect(humanizeConversationRunError('org_mismatch'))
+      .toBe('This agent profile belongs to a different organisation on that computer. Re-pair the computer.')
+    expect(humanizeConversationRunError('grant_not_active'))
+      .toBe("The organisation's access to this computer is paused.")
+    expect(humanizeConversationRunError('device grant not active'))
+      .toBe("The organisation's access to this computer is paused.")
+    expect(humanizeConversationRunError('linked_device_hermes_update_required'))
+      .toBe('Hermes on this computer is too old. It will update automatically when idle.')
+    expect(humanizeConversationRunError('hermes_update_failed'))
+      .toBe('Hermes could not update on this computer. It keeps working on the previous version; see the runbook.')
+  })
+
   it('preserves ordinary short errors', () => {
     expect(humanizeConversationRunError('Project is not linked to this computer'))
       .toBe('Project is not linked to this computer')

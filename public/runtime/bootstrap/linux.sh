@@ -22,16 +22,6 @@ if ! command -v hermes >/dev/null 2>&1; then
 fi
 command -v hermes >/dev/null 2>&1 || { echo 'Hermes installed, but its command is not on PATH. Open a new terminal and rerun this command.' >&2; exit 1; }
 hermes_home="$HOME/.hermes"
-IFS=',' read -r -a requested_profiles <<< "$PROFILES"
-IFS=',' read -r -a requested_providers <<< "$PROVIDERS"
-for profile in "${requested_profiles[@]}"; do
-  if [[ ! -d "$HOME/.hermes/profiles/$profile" ]]; then hermes profile create "$profile" --description "Partners in Biz $profile agent"; fi
-  echo "Configure the model for $profile. Requested providers: ${requested_providers[*]}"
-  hermes -p "$profile" setup model
-  hermes -p "$profile" gateway install || true
-  hermes -p "$profile" gateway start
-done
-
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 arch="$(uname -m)"; case "$arch" in x86_64|amd64) arch=x64;; aarch64|arm64) arch=arm64;; *) echo "Unsupported Linux architecture: $arch" >&2; exit 1;; esac
 release_base="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
@@ -42,5 +32,5 @@ installer="$(find "$stage" -maxdepth 3 -type f -name install.sh -print -quit)"
 [[ -n "$installer" ]] || { echo 'The signed PiB runtime bundle is incomplete.' >&2; exit 1; }
 chmod 0755 "$installer"
 sudo env PIB_HERMES_HOME="$hermes_home" "$installer" install
-sudo env PIB_HERMES_HOME="$hermes_home" "$installer" pair "$CHALLENGE"
-echo 'Computer linked. Keep Hermes and the PiB runtime running to stay available.'
+sudo env PIB_HERMES_HOME="$hermes_home" "$installer" pair "$CHALLENGE" --agents "$PROFILES"
+echo 'Paired. Your agents are being set up by Partners in Biz; they appear in Linked Computers within a minute.'

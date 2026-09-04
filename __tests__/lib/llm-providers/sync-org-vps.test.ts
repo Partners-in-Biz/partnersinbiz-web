@@ -42,9 +42,12 @@ jest.mock('@/lib/llm-providers/store', () => ({
   listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
 
+const mockResolveShareTargets = jest.fn()
+
 jest.mock('@/lib/llm-providers/sync-targets', () => ({
   resolveOrgLlmSyncTargets: (...args: unknown[]) => mockResolveOrgTargets(...args),
   resolveUserLlmSyncTargets: (...args: unknown[]) => mockResolveUserTargets(...args),
+  resolveOrgShareLinkedComputerTargets: (...args: unknown[]) => mockResolveShareTargets(...args),
 }))
 
 jest.mock('@/lib/hermes/server', () => ({
@@ -154,6 +157,7 @@ describe('org VPS vs personal credential sync', () => {
     mockEnqueueDelivery.mockResolvedValue({ jobId: 'job-1' })
     mockMarkQueued.mockResolvedValue(undefined)
     mockXaiCredentialsNeedRefresh.mockReturnValue(false)
+    mockResolveShareTargets.mockResolvedValue({ targets: [], memberCount: 0 })
     mockAgentPathWithEnvVerify()
   })
 

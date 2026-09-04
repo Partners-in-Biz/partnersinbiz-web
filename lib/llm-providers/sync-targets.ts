@@ -1,6 +1,6 @@
 /**
  * Resolve where LLM credentials may be written.
- * - Org connections → organisation VPS / Hermes profile link only
+ * - Org connections → organisation VPS / Hermes profile link, plus member machines when shareTargets allow
  * - Personal connections → the owner's linked computers only
  */
 import { adminDb } from '@/lib/firebase/admin'
@@ -8,11 +8,13 @@ import { getHermesProfileLink } from '@/lib/hermes/server'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { AgentId } from '@/lib/agents/types'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
-import { linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
-import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import { isActiveOrgMembershipRow, linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
+import { memberCanUseAgentOnRuntime, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
+import { normalizeLlmShareTargets, type LlmProviderConnection, type LlmShareTargets } from './types'
 
-export type LlmSyncTargetKind = 'org_hermes_link' | 'org_linked_vps' | 'user_linked_computer'
+export type LlmSyncTargetKind = 'org_hermes_link' | 'org_linked_vps' | 'user_linked_computer' | 'member_linked_computer'
 
 export interface LlmSyncTarget {
   kind: LlmSyncTargetKind
@@ -21,6 +23,8 @@ export interface LlmSyncTarget {
   runtimeTargetId?: string
   deviceId?: string
   label: string
+  /** User who owns the member machine. Set only for member_linked_computer. */
+  memberUserId?: string
   /** When set, push via callHermesJson against this org profile link. */
   hermesLink?: HermesProfileLink
 }
@@ -298,4 +302,175 @@ export async function runtimeBelongsToUserComputer(
     if (device.runtimeTargetId === runtimeTarget || device.deviceId === runtimeTarget) return true
   }
   return false
+}
+
+function membershipUserId(row: Record<string, unknown> | undefined, fallbackId?: string): string | null {
+  if (typeof row?.uid === 'string' && row.uid.trim()) return row.uid.trim()
+  if (typeof row?.userId === 'string' && row.userId.trim()) return row.userId.trim()
+  return fallbackId?.trim() || null
+}
+
+function orgManagedAgents(device: LinkedDevice, orgId: string): Array<{ orgId: string; agentId: string; profile: string; healthy: boolean }> {
+  if (!Array.isArray(device.availableAgents)) return []
+  return device.availableAgents.filter((entry): entry is { orgId: string; agentId: string; profile: string; healthy: boolean } => (
+    Boolean(entry)
+    && typeof entry.orgId === 'string'
+    && typeof entry.agentId === 'string'
+    && typeof entry.profile === 'string'
+    && entry.healthy === true
+    && entry.orgId === orgId
+  ))
+}
+
+async function listActiveShareMemberIds(orgId: string, share: LlmShareTargets): Promise<string[]> {
+  const candidates = new Set<string>()
+
+  if (share.mode === 'organization') {
+    const snap = await adminDb.collection('orgMembers').where('orgId', '==', orgId).get()
+    for (const doc of snap.docs) {
+      const row = doc.data() as Record<string, unknown>
+      if (!isActiveOrgMembershipRow(row)) continue
+      const uid = membershipUserId(row, doc.id.startsWith(`${orgId}_`) ? doc.id.slice(orgId.length + 1) : undefined)
+      if (uid) candidates.add(uid)
+    }
+  } else if (share.mode === 'teams') {
+    for (const teamId of share.teamIds) {
+      const snap = await adminDb.collection('org_teams').doc(teamId).get()
+      if (!snap.exists) continue
+      const team = snap.data() as Record<string, unknown> | undefined
+      if (!team || team.orgId !== orgId || team.status !== 'active') continue
+      const memberUserIds = Array.isArray(team.memberUserIds) ? team.memberUserIds : []
+      for (const uid of memberUserIds) {
+        if (typeof uid === 'string' && uid.trim()) candidates.add(uid.trim())
+      }
+    }
+    for (const uid of share.userIds) candidates.add(uid)
+  } else if (share.mode === 'selected_users') {
+    for (const uid of share.userIds) candidates.add(uid)
+  }
+
+  const active: string[] = []
+  for (const uid of candidates) {
+    const snap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
+    if (!snap.exists) continue
+    const row = snap.data() as Record<string, unknown>
+    if (!isActiveOrgMembershipRow(row)) continue
+    if (typeof row.orgId === 'string' && row.orgId && row.orgId !== orgId) continue
+    active.push(uid)
+  }
+  return active
+}
+
+async function memberMayUseSharedAgent(
+  orgId: string,
+  uid: string,
+  runtimeTargetId: string | undefined,
+  agentId: string,
+): Promise<boolean> {
+  const policy = await loadOrgMemberAccessPolicy(orgId, uid)
+  if (!policy) return false
+  return memberCanUseAgentOnRuntime(policy, runtimeTargetId, agentId as AgentId)
+}
+
+/**
+ * Safety property: org keys are derived only from `availableAgents` whose orgId
+ * matches; never from legacy `availableAgentIds`.
+ */
+export async function resolveOrgShareLinkedComputerTargets(input: {
+  connection: Pick<LlmProviderConnection, 'orgId' | 'shareTargets'>
+  preferredAgentIds?: string[]
+}): Promise<{ targets: LlmSyncTarget[]; memberCount: number; reasonIfEmpty?: string }> {
+  const share = normalizeLlmShareTargets(input.connection.shareTargets)
+  if (share.mode === 'admins') return { targets: [], memberCount: 0 }
+
+  const orgId = input.connection.orgId
+  const preferred = new Set((input.preferredAgentIds ?? []).filter(Boolean))
+  const memberIds = await listActiveShareMemberIds(orgId, share)
+  const targets: LlmSyncTarget[] = []
+  const seen = new Set<string>()
+
+  for (const uid of memberIds) {
+    const deviceSnap = await adminDb.collection('linked_devices').where('ownerUserId', '==', uid).get()
+    for (const doc of deviceSnap.docs) {
+      const device = asLinkedDevice(doc.id, doc.data() as Record<string, unknown>)
+      if (!device || device.status !== 'active') continue
+      try {
+        if (linkedDeviceOwnerType(device) !== 'user') continue
+      } catch {
+        continue
+      }
+
+      const grantSnap = await adminDb.collection('linked_device_grants').doc(`${orgId}_${device.deviceId}`).get()
+      if (!grantSnap.exists || grantSnap.data()?.status !== 'active') continue
+
+      const runtimeTargetId = typeof device.runtimeTargetId === 'string' && device.runtimeTargetId
+        ? device.runtimeTargetId
+        : `linked-device:${device.deviceId}`
+
+      for (const entry of orgManagedAgents(device, orgId)) {
+        if (share.agentIds.length && !share.agentIds.includes(entry.agentId)) continue
+        if (preferred.size && !preferred.has(entry.agentId)) continue
+        if (!await memberMayUseSharedAgent(orgId, uid, runtimeTargetId, entry.agentId)) continue
+
+        const key = `${device.deviceId}:${entry.profile}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        targets.push({
+          kind: 'member_linked_computer',
+          agentId: entry.profile as AgentId,
+          runtimeTargetId,
+          deviceId: device.deviceId,
+          label: `${device.label || 'Linked computer'} · ${entry.profile}`,
+          memberUserId: uid,
+        })
+      }
+    }
+  }
+
+  if (!targets.length) {
+    return {
+      targets: [],
+      memberCount: memberIds.length,
+      reasonIfEmpty: memberIds.length === 0
+        ? 'No eligible members for this organisation key share.'
+        : 'No member machines with an active grant and a matching organisation profile are available yet.',
+    }
+  }
+
+  return { targets, memberCount: memberIds.length }
+}
+
+export async function orgShareAllowsDevice(input: {
+  connection: Pick<LlmProviderConnection, 'orgId' | 'shareTargets'>
+  device: LinkedDevice
+  profile: string
+}): Promise<boolean> {
+  const share = normalizeLlmShareTargets(input.connection.shareTargets)
+  if (share.mode === 'admins') return false
+
+  const orgId = input.connection.orgId
+  const device = input.device
+  if (device.status !== 'active') return false
+  try {
+    if (linkedDeviceOwnerType(device) !== 'user') return false
+  } catch {
+    return false
+  }
+  const uid = typeof device.ownerUserId === 'string' ? device.ownerUserId : ''
+  if (!uid) return false
+
+  const members = await listActiveShareMemberIds(orgId, share)
+  if (!members.includes(uid)) return false
+
+  const grantSnap = await adminDb.collection('linked_device_grants').doc(`${orgId}_${device.deviceId}`).get()
+  if (!grantSnap.exists || grantSnap.data()?.status !== 'active') return false
+
+  const entry = orgManagedAgents(device, orgId).find((item) => item.profile === input.profile)
+  if (!entry) return false
+  if (share.agentIds.length && !share.agentIds.includes(entry.agentId)) return false
+
+  const runtimeTargetId = typeof device.runtimeTargetId === 'string' && device.runtimeTargetId
+    ? device.runtimeTargetId
+    : `linked-device:${device.deviceId}`
+  return memberMayUseSharedAgent(orgId, uid, runtimeTargetId, entry.agentId)
 }

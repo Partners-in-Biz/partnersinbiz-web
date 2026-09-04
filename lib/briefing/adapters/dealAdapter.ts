@@ -1,5 +1,6 @@
 import type { BriefingPriority, BriefingSourceAdapter } from '../types'
 import { extractMultiFieldExcerpt, extractOrgId, hashSourceDocument, normalizeTimestamp } from '../utils'
+import { isCrmNextAction, type CrmNextAction } from '@/lib/crm/types'
 
 interface DealDocument extends Record<string, unknown> {
   orgId?: string | null
@@ -26,6 +27,8 @@ interface DealDocument extends Record<string, unknown> {
   createdAt?: unknown
   notes?: string | null
   deleted?: boolean | null
+  /** Explicit next step recorded on the deal ('call' | 'email' | 'meet'). */
+  nextAction?: CrmNextAction | string | null
 }
 
 type DealSignal = 'proposal-follow-up' | 'stale-deal' | 'hot-deal' | 'no-touch-warning' | 'next-action'
@@ -128,7 +131,7 @@ export const dealAdapter: BriefingSourceAdapter<DealDocument> = {
   collectionPath: 'deals',
 
   hashSource(doc: DealDocument, docId: string): string {
-    return hashSourceDocument(doc, docId, ['title', 'value', 'currency', 'pipelineId', 'stageId', 'stageLabel', 'stageKind', 'probability', 'expectedCloseDate', 'lastActivityAt', 'lastContactedAt', 'updatedAt'])
+    return hashSourceDocument(doc, docId, ['title', 'value', 'currency', 'pipelineId', 'stageId', 'stageLabel', 'stageKind', 'probability', 'expectedCloseDate', 'lastActivityAt', 'lastContactedAt', 'updatedAt', 'nextAction'])
   },
 
   shouldGenerate(doc: DealDocument): boolean {
@@ -206,6 +209,8 @@ export const dealAdapter: BriefingSourceAdapter<DealDocument> = {
     return {
       revenueSignal: signal,
       nextAction: nextAction(signal),
+      // Explicit CRM next action (enum) — honoured by workKind; metadata only, never context.
+      nextActionKind: isCrmNextAction(doc.nextAction) ? doc.nextAction : null,
       value: valueAmount(doc),
       currency: clean(doc.currency),
       pipelineId: clean(doc.pipelineId),

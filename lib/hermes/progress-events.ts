@@ -58,6 +58,17 @@ function numericTimestamp(value: unknown): number {
   return Date.now() / 1000
 }
 
+function usedRealProfileField(raw: Record<string, unknown>): boolean {
+  if (raw.used_real_profile === true) return true
+  for (const nested of [raw.result, raw.payload, raw.data, raw.output]) {
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)
+      && (nested as Record<string, unknown>).used_real_profile === true) {
+      return true
+    }
+  }
+  return false
+}
+
 export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): ChatEvent[] {
   const raw = asRecord(input)
   const rawEvent = cleanString(raw.event) ?? cleanString(raw.type) ?? 'event'
@@ -258,7 +269,7 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
   }
 
   if (rawEvent === 'tool.completed') {
-    return [{
+    const completed = {
       ...base,
       event: 'tool.completed',
       duration: typeof raw.duration === 'number' ? raw.duration : undefined,
@@ -269,7 +280,17 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
           : undefined,
       error: typeof raw.error === 'boolean' ? raw.error : raw.error ? String(raw.error) : undefined,
       activity: activityForTool(tool, preview),
-    }]
+    }
+    if (!usedRealProfileField(raw)) return [completed]
+    return [
+      completed,
+      {
+        ...base,
+        event: 'browser.real_profile_used',
+        tool,
+        raw: rawPayload,
+      },
+    ]
   }
 
   return [base]

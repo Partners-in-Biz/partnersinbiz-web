@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import type { AgentId } from '@/lib/agents/types'
 import { isValidAgentId } from '@/lib/agents/types'
+import { managedProfileName } from './managed-profile'
 
 export type AgentHostJobKind = 'install' | 'sync-policy' | 'uninstall' | 'sync-credential' | 'revoke-credential'
 export type AgentHostJobStatus = 'queued' | 'claimed' | 'completed' | 'failed' | 'cancelled' | 'expired'
@@ -26,6 +27,23 @@ export interface AgentHostJobPayload {
     artifactPath: string
   } | null
   protocolVersion?: number
+  /** Catalog id ('pip'). payload.agentId is the Hermes profile name on managed jobs. */
+  catalogAgentId?: AgentId
+  /** Optional managed-profile stamp. Runtime writes pib-managed.json on install when present. */
+  managedProfile?: {
+    orgId: string
+    orgSlug: string
+    agentId?: string
+    profile: string
+  } | null
+  modelDefault?: { provider: string; model: string } | null
+  apiServer?: { enable: true } | null
+  browserPolicy?: {
+    useRealProfile: boolean
+    realProfilePin: string | null
+    headed: boolean
+    autoclose: boolean
+  } | null
   credentialDelivery?: {
     bindingId: string
     connectionId: string
@@ -43,6 +61,27 @@ export interface AgentHostJobPayload {
      *   must be idle so its gateway can reload the refreshed token.
      */
     applyMode?: 'env' | 'restart'
+  } | null
+  /**
+   * Optional Bot Mode projection for protocol 4. Old runtimes ignore unknown
+   * keys; extra fields are tolerated and do not require a protocol bump.
+   */
+  botProjection?: {
+    profileMeta: {
+      title: string
+      description: string
+      avatar: string | null
+      section: string
+      groups: string[]
+    }
+    rooms: Array<{
+      roomId: string
+      name: string
+      pictureUrl: string | null
+      memberHandles: string[]
+    }>
+    peers: Array<{ handle: string; url: string; keyBindingId: string }>
+    projectionVersion: number
   } | null
 }
 
@@ -87,6 +126,8 @@ export interface PublicAgentHostJob {
   kind: AgentHostJobKind
   status: AgentHostJobStatus
   agentId: AgentId
+  orgId?: string
+  catalogAgentId?: AgentId
   policyVersion: string | null
   keepInSync: boolean
   runtimeSkills: string[]
@@ -96,13 +137,26 @@ export interface PublicAgentHostJob {
   profileConfig?: AgentHostJobPayload['profileConfig']
   skillPack?: AgentHostJobPayload['skillPack']
   protocolVersion?: number
+  managedProfile?: AgentHostJobPayload['managedProfile']
+  modelDefault?: AgentHostJobPayload['modelDefault']
+  apiServer?: AgentHostJobPayload['apiServer']
+  browserPolicy?: AgentHostJobPayload['browserPolicy']
+  grantStatus?: 'active' | 'paused' | 'revoked'
   credentialDelivery?: AgentHostJobPayload['credentialDelivery'] & {
     /** Claim-only secret material. Never persisted in the job document. */
     credentials?: Record<string, string>
   }
+  botProjection?: AgentHostJobPayload['botProjection']
   leaseToken?: string
   createdAt: string
   updatedAt: string
+}
+
+export function catalogAgentIdFromPayload(payload: Pick<AgentHostJobPayload, 'agentId' | 'catalogAgentId' | 'managedProfile'>): AgentId {
+  if (payload.catalogAgentId && isValidAgentId(payload.catalogAgentId)) return payload.catalogAgentId
+  const fromManaged = payload.managedProfile?.agentId
+  if (fromManaged && isValidAgentId(fromManaged)) return fromManaged
+  return payload.agentId
 }
 
 /** Managed PiB specialist ports — mirrors scripts/start-local-runtime-fleet.sh */
@@ -158,6 +212,12 @@ export function agentHostRequestFingerprint(input: {
   packSha256?: string | null
   profileConfig?: AgentHostJobPayload['profileConfig']
   credentialDelivery?: AgentHostJobPayload['credentialDelivery']
+  catalogAgentId?: AgentId | null
+  managedProfile?: AgentHostJobPayload['managedProfile']
+  modelDefault?: AgentHostJobPayload['modelDefault']
+  apiServer?: AgentHostJobPayload['apiServer']
+  browserPolicy?: AgentHostJobPayload['browserPolicy']
+  botProjection?: AgentHostJobPayload['botProjection']
 }): string {
   return crypto.createHash('sha256')
     .update(JSON.stringify({
@@ -173,6 +233,12 @@ export function agentHostRequestFingerprint(input: {
       packSha256: input.packSha256 ?? null,
       profileConfig: input.profileConfig ?? null,
       credentialDelivery: input.credentialDelivery ?? null,
+      catalogAgentId: input.catalogAgentId ?? null,
+      managedProfile: input.managedProfile ?? null,
+      modelDefault: input.modelDefault ?? null,
+      apiServer: input.apiServer ?? null,
+      browserPolicy: input.browserPolicy ?? null,
+      botProjection: input.botProjection ?? null,
     }))
     .digest('hex')
 }
@@ -229,6 +295,12 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
         return { bindingId, connectionId, credentialVersion, provider, hermesProvider, envVar, canaryModel, ...(applyMode ? { applyMode } : {}) }
       })()
     : null
+  const catalogAgentId = isValidAgentId(row.catalogAgentId) ? row.catalogAgentId : undefined
+  const managedProfile = parseManagedProfileField(row.managedProfile, catalogAgentId)
+  const modelDefault = parseModelDefaultField(row.modelDefault)
+  const apiServer = parseApiServerField(row.apiServer)
+  const browserPolicy = parseBrowserPolicyField(row.browserPolicy)
+  const botProjection = parseBotProjectionField(row.botProjection)
   return {
     agentId: row.agentId,
     policyVersion: typeof row.policyVersion === 'string' ? row.policyVersion : null,
@@ -240,7 +312,133 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     ...(profileConfig ? { profileConfig } : {}),
     ...(skillPack ? { skillPack } : {}),
     ...(typeof row.protocolVersion === 'number' ? { protocolVersion: row.protocolVersion } : {}),
+    ...(catalogAgentId ? { catalogAgentId } : {}),
+    ...(managedProfile ? { managedProfile } : {}),
+    ...(modelDefault ? { modelDefault } : {}),
+    ...(apiServer ? { apiServer } : {}),
+    ...(browserPolicy ? { browserPolicy } : {}),
     ...(credentialDelivery ? { credentialDelivery } : {}),
+    ...(botProjection ? { botProjection } : {}),
+  }
+}
+
+function parseManagedProfileField(
+  value: unknown,
+  catalogAgentId?: AgentId,
+): NonNullable<AgentHostJobPayload['managedProfile']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid managedProfile')
+  const row = value as Record<string, unknown>
+  const orgId = typeof row.orgId === 'string' ? row.orgId.trim() : ''
+  const orgSlug = typeof row.orgSlug === 'string' ? row.orgSlug.trim() : ''
+  const profile = typeof row.profile === 'string' ? row.profile.trim() : ''
+  const managedAgentId = typeof row.agentId === 'string' ? row.agentId.trim() : ''
+  const nameAgentId = catalogAgentId || managedAgentId
+  if (!orgId || !orgSlug || !profile || !nameAgentId) throw new Error('agent-host: invalid managedProfile')
+  let expected: string
+  try {
+    expected = managedProfileName(orgSlug, nameAgentId)
+  } catch {
+    throw new Error('agent-host: invalid managedProfile')
+  }
+  if (profile !== expected) throw new Error('agent-host: managedProfile.profile mismatch')
+  return {
+    orgId,
+    orgSlug,
+    profile,
+    ...(managedAgentId ? { agentId: managedAgentId } : {}),
+  }
+}
+
+function parseModelDefaultField(value: unknown): NonNullable<AgentHostJobPayload['modelDefault']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid modelDefault')
+  const row = value as Record<string, unknown>
+  const provider = typeof row.provider === 'string' ? row.provider.trim() : ''
+  const model = typeof row.model === 'string' ? row.model.trim() : ''
+  if (!provider || !model) throw new Error('agent-host: invalid modelDefault')
+  return { provider: provider.slice(0, 80), model: model.slice(0, 200) }
+}
+
+function parseApiServerField(value: unknown): NonNullable<AgentHostJobPayload['apiServer']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid apiServer')
+  const row = value as Record<string, unknown>
+  if (row.enable !== true) throw new Error('agent-host: invalid apiServer')
+  return { enable: true }
+}
+
+function parseBotProjectionField(value: unknown): NonNullable<AgentHostJobPayload['botProjection']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid botProjection')
+  const row = value as Record<string, unknown>
+  const meta = row.profileMeta && typeof row.profileMeta === 'object' && !Array.isArray(row.profileMeta)
+    ? row.profileMeta as Record<string, unknown>
+    : null
+  if (!meta) throw new Error('agent-host: invalid botProjection')
+  const title = typeof meta.title === 'string' ? meta.title.trim().slice(0, 120) : ''
+  const description = typeof meta.description === 'string' ? meta.description.trim().slice(0, 400) : ''
+  const section = typeof meta.section === 'string' ? meta.section.trim().slice(0, 120) : ''
+  const avatar = meta.avatar == null || meta.avatar === ''
+    ? null
+    : typeof meta.avatar === 'string' ? meta.avatar.trim().slice(0, 500) : null
+  const groups = Array.isArray(meta.groups)
+    ? meta.groups.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).map((item) => item.trim())
+    : []
+  const rooms = Array.isArray(row.rooms)
+    ? row.rooms.flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const room = item as Record<string, unknown>
+        const roomId = typeof room.roomId === 'string' ? room.roomId.trim() : ''
+        const name = typeof room.name === 'string' ? room.name.trim().slice(0, 80) : ''
+        if (!roomId || !name) return []
+        const pictureUrl = room.pictureUrl == null || room.pictureUrl === ''
+          ? null
+          : typeof room.pictureUrl === 'string' ? room.pictureUrl.trim().slice(0, 500) : null
+        const memberHandles = Array.isArray(room.memberHandles)
+          ? room.memberHandles.filter((handle): handle is string => typeof handle === 'string')
+          : []
+        return [{ roomId, name, pictureUrl, memberHandles }]
+      })
+    : []
+  const peers = Array.isArray(row.peers)
+    ? row.peers.flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const peer = item as Record<string, unknown>
+        const handle = typeof peer.handle === 'string' ? peer.handle.trim() : ''
+        const url = typeof peer.url === 'string' ? peer.url.trim() : ''
+        const keyBindingId = typeof peer.keyBindingId === 'string' ? peer.keyBindingId.trim() : ''
+        if (!handle || !url || !keyBindingId) return []
+        return [{ handle, url, keyBindingId }]
+      })
+    : []
+  const projectionVersion = Number(row.projectionVersion)
+  if (!Number.isInteger(projectionVersion) || projectionVersion < 1) throw new Error('agent-host: invalid botProjection')
+  return {
+    profileMeta: { title, description, avatar, section, groups },
+    rooms,
+    peers,
+    projectionVersion,
+  }
+}
+
+function parseBrowserPolicyField(value: unknown): NonNullable<AgentHostJobPayload['browserPolicy']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid browserPolicy')
+  const row = value as Record<string, unknown>
+  if (typeof row.useRealProfile !== 'boolean' || typeof row.headed !== 'boolean' || typeof row.autoclose !== 'boolean') {
+    throw new Error('agent-host: invalid browserPolicy')
+  }
+  const pin = row.realProfilePin == null ? null : typeof row.realProfilePin === 'string' ? row.realProfilePin.trim() : ''
+  if (pin === '') {
+    if (row.realProfilePin != null && row.realProfilePin !== null) throw new Error('agent-host: invalid browserPolicy')
+  }
+  if (pin && (pin.length > 64 || /[\\/]/.test(pin))) throw new Error('agent-host: invalid browserPolicy')
+  return {
+    useRealProfile: row.useRealProfile,
+    realProfilePin: pin || null,
+    headed: row.headed,
+    autoclose: row.autoclose,
   }
 }
 
@@ -250,6 +448,8 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     kind: job.kind,
     status: job.status,
     agentId: job.payload.agentId,
+    ...(job.orgId ? { orgId: job.orgId } : {}),
+    ...(job.payload.catalogAgentId ? { catalogAgentId: job.payload.catalogAgentId } : {}),
     policyVersion: job.payload.policyVersion,
     keepInSync: job.payload.keepInSync,
     runtimeSkills: job.payload.runtimeSkills,
@@ -259,7 +459,12 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     ...(job.payload.profileConfig ? { profileConfig: job.payload.profileConfig } : {}),
     ...(job.payload.skillPack ? { skillPack: job.payload.skillPack } : {}),
     ...(job.payload.protocolVersion ? { protocolVersion: job.payload.protocolVersion } : {}),
+    ...(job.payload.managedProfile ? { managedProfile: job.payload.managedProfile } : {}),
+    ...(job.payload.modelDefault ? { modelDefault: job.payload.modelDefault } : {}),
+    ...(job.payload.apiServer ? { apiServer: job.payload.apiServer } : {}),
+    ...(job.payload.browserPolicy ? { browserPolicy: job.payload.browserPolicy } : {}),
     ...(job.payload.credentialDelivery ? { credentialDelivery: job.payload.credentialDelivery } : {}),
+    ...(job.payload.botProjection ? { botProjection: job.payload.botProjection } : {}),
     ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

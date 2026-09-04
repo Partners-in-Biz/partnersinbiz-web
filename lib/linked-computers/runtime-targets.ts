@@ -11,6 +11,7 @@ import type {
   LinkedDevicePlatform,
   LinkedDeviceWorkspaceMapping,
 } from './types'
+import { DEFAULT_RUNTIME_CHANNELS, getRuntimeChannelConfig, type RuntimeReleaseChannel } from './runtime-config'
 
 const DEVICE_STALE_AFTER_MS = 5 * 60 * 1000
 const SAFE_RUNTIME_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
@@ -86,7 +87,7 @@ export interface AuthorizedProjectRuntimeTarget {
   lastSeenAt: string | null
 }
 
-export type LinkedRuntimeUnavailableReason = 'offline' | 'stale' | 'update_required' | 'agent_unavailable'
+export type LinkedRuntimeUnavailableReason = 'offline' | 'stale' | 'update_required' | 'hermes_update_required' | 'agent_unavailable'
 
 export interface AuthorizedLinkedComputerDispatch {
   kind: 'linked-computer'
@@ -121,6 +122,26 @@ export function linkedRuntimeUpdateRequired(version: string, minimum = process.e
   if (!current) return true
   for (let i = 0; i < 3; i++) { if (current[i] !== required[i]) return current[i] < required[i] }
   return false
+}
+
+function compareLinkedRuntimeVersion(currentValue: string | undefined, minimum: string): boolean {
+  if (!currentValue) return true
+  const current = parseLinkedRuntimeVersion(currentValue)
+  const required = parseLinkedRuntimeVersion(minimum)
+  if (!current || !required) return true
+  for (let i = 0; i < 3; i++) { if (current[i] !== required[i]) return current[i] < required[i] }
+  return false
+}
+
+export function deviceReleaseChannel(device: Pick<LinkedDevice, 'releaseChannel'>): RuntimeReleaseChannel {
+  return device.releaseChannel === 'internal' ? 'internal' : 'stable'
+}
+
+export function hermesUpdateRequired(
+  device: Pick<LinkedDevice, 'hermesVersion' | 'releaseChannel'>,
+  minVersion: string,
+): boolean {
+  return compareLinkedRuntimeVersion(device.hermesVersion, minVersion)
 }
 
 export interface LinkedComputerExecutionReceipt {
@@ -160,6 +181,7 @@ interface ResolveOptions {
   nowMs?: () => number
   staleAfterMs?: number
   compatibilityTargets?: CompatibilityRuntimeTarget[]
+  getRuntimeChannelConfig?: typeof getRuntimeChannelConfig
 }
 
 function membershipFrom(row: Record<string, unknown> | undefined, orgId: string, userId: string): ActiveOrgMembership {
@@ -249,6 +271,11 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     .map((snapshot) => ({ ...(snapshot.data() ?? {}), ...(snapshot.id ? { __id: snapshot.id } : {}) }))
   const credentialById = new Map(credentials.map((row) => [String(row.__id ?? row.deviceId ?? ''), row]))
   const now = options.nowMs?.() ?? Date.now()
+  const loadChannel = options.getRuntimeChannelConfig ?? getRuntimeChannelConfig
+  const [internalChannel, stableChannel] = await Promise.all([
+    loadChannel('internal').catch(() => undefined),
+    loadChannel('stable').catch(() => undefined),
+  ])
   const candidates: ResolvedAuthorizedRuntimeTarget[] = []
   const preferredMappingId = typeof input.mappingId === 'string' && SAFE_MAPPING_ID.test(input.mappingId.trim())
     ? input.mappingId.trim()
@@ -280,6 +307,12 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     const canExecute = Array.isArray(device.capabilities) && device.capabilities.includes('workspace.execute')
     const isHealthy = device.health === 'ok' && canExecute
     const updateRequired = linkedRuntimeUpdateRequired(device.runtimeVersion)
+    const channelName = deviceReleaseChannel(device)
+    const channelConfig = channelName === 'internal' ? internalChannel : stableChannel
+    const hermesRequired = hermesUpdateRequired(
+      device,
+      (channelConfig ?? DEFAULT_RUNTIME_CHANNELS[channelName]).hermes.minVersion,
+    )
     const availableAgentIds = Array.isArray(device.availableAgentIds)
       ? device.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
       : []
@@ -289,7 +322,8 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
       : now - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)
         ? 'stale'
         : updateRequired ? 'update_required'
-          : requestedAgentUnavailable ? 'agent_unavailable' : undefined
+          : hermesRequired ? 'hermes_update_required'
+            : requestedAgentUnavailable ? 'agent_unavailable' : undefined
     const legacyRuntimeTargetIds = adoptedLegacyRuntimeTargetIds(device, executionLocations)
     for (const mapping of deviceMappings) {
       if (preferredMappingId && mapping.mappingId !== preferredMappingId) continue
@@ -475,6 +509,12 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
   if (device.health !== 'ok' || seen == null) throw new LinkedComputerDispatchError('linked_device_offline')
   if ((options.nowMs?.() ?? Date.now()) - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)) throw new LinkedComputerDispatchError('linked_device_stale')
   if (linkedRuntimeUpdateRequired(device.runtimeVersion)) throw new LinkedComputerDispatchError('linked_device_update_required')
+  const channel = deviceReleaseChannel(device)
+  const loadChannel = options.getRuntimeChannelConfig ?? getRuntimeChannelConfig
+  const hermesMin = await loadChannel(channel)
+    .then((config) => config.hermes.minVersion)
+    .catch(() => DEFAULT_RUNTIME_CHANNELS[channel].hermes.minVersion)
+  if (hermesUpdateRequired(device, hermesMin)) throw new LinkedComputerDispatchError('linked_device_hermes_update_required')
   const availableAgentIds = Array.isArray(device.availableAgentIds) ? device.availableAgentIds : []
   if (input.agentId && availableAgentIds.length > 0 && !availableAgentIds.includes(input.agentId)) {
     throw new LinkedComputerDispatchError('linked_device_agent_unavailable')

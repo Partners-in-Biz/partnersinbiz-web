@@ -124,13 +124,77 @@ describe('linked computer one-time pairing', () => {
       architecture: 'arm64' as const, runtimeVersion: '1.0.0' }
     const result = await exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })
     expect(result).toMatchObject({ deviceId: 'device-a', credentialVersion: 1 })
-    expect(Object.keys(result).sort()).toEqual(['credential', 'credentialVersion', 'deviceId'])
+    expect(Object.keys(result).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'ownerUserId'])
+    expect(result.ownerUserId).toBe('user-a')
     expect(result.credential).toBeTruthy()
     expect(rows.get('linked_devices/device-a')).toMatchObject({ ownerUserId: 'user-a', status: 'active', credentialVersion: 1 })
     expect(rows.get('linked_device_credentials/device-a')).not.toHaveProperty('credential')
     expect(rows.has('linked_device_runtime_transports/device-a')).toBe(false)
     expect(JSON.stringify([...rows.values()])).not.toContain(result.credential)
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
+  })
+
+  it('enqueues install jobs for pip when the pairing challenge carries org and agents', async () => {
+    const { db, rows } = fakeDb({
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'owner' },
+    })
+    const pairing = await createPairing({
+      actorUserId: 'user-a',
+      orgId: 'org-a',
+      agentIds: ['pip'],
+    }, { db, now, nowMs: () => nowMs })
+    expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)).toMatchObject({
+      orgId: 'org-a',
+      agentIds: ['pip'],
+    })
+    const m = machine()
+    const provisionDesiredAgents = jest.fn().mockResolvedValue({ enqueuedJobIds: ['job-pip'] })
+    const result = await exchangePairing({
+      challengeId: pairing.challengeId,
+      secret: pairing.secret,
+      deviceId: 'device-a',
+      publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey),
+      label: 'Mac',
+      platform: 'macos',
+      architecture: 'arm64',
+      runtimeVersion: '1.0.0',
+    }, { db, now, nowMs: () => nowMs + 1, provisionDesiredAgents })
+    expect(result.deviceId).toBe('device-a')
+    expect(provisionDesiredAgents).toHaveBeenCalledWith({
+      deviceId: 'device-a',
+      actorUserId: 'user-a',
+      orgId: 'org-a',
+      desired: [{ agentId: 'pip', keepInSync: true }],
+      enqueueJobs: true,
+    })
+    expect(rows.get('linked_devices/device-a')).not.toHaveProperty('provisioningSkippedReason')
+  })
+
+  it('skips provisioning when the pairing user is not an active org member', async () => {
+    const { db, rows } = fakeDb()
+    const pairing = await createPairing({
+      actorUserId: 'user-a',
+      orgId: 'org-a',
+      agentIds: ['pip'],
+    }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    const provisionDesiredAgents = jest.fn()
+    await exchangePairing({
+      challengeId: pairing.challengeId,
+      secret: pairing.secret,
+      deviceId: 'device-a',
+      publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey),
+      label: 'Mac',
+      platform: 'macos',
+      architecture: 'arm64',
+      runtimeVersion: '1.0.0',
+    }, { db, now, nowMs: () => nowMs + 1, provisionDesiredAgents })
+    expect(provisionDesiredAgents).not.toHaveBeenCalled()
+    expect(rows.get('linked_devices/device-a')).toMatchObject({
+      provisioningSkippedReason: 'not_an_active_org_member',
+    })
   })
 
   it('accepts the original runtime proof that included the PEM trailing newline', async () => {

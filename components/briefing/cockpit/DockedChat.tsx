@@ -11,10 +11,12 @@ export type DockedChatProps = {
   orgName?: string
   contextSeed?: ContextReferenceSeed | null
   onContextActionResolved?: () => void
+  /** Fires when Pip starts/finishes a run so the desk can pick up her latest draft. */
+  onConversationLifecycle?: (event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) => void
   onClose?: () => void
 }
 
-export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onContextActionResolved, onClose }: DockedChatProps) {
+export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onContextActionResolved, onConversationLifecycle, onClose }: DockedChatProps) {
   if (!orgId || !currentUserUid) {
     return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Sign in to chat with Pip.</div>
   }
@@ -44,6 +46,7 @@ export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgN
           preferCurrentPageContext
           currentPageContext={contextSeed ?? undefined}
           onContextActionResolved={onContextActionResolved}
+          onConversationLifecycle={onConversationLifecycle}
         />
       </div>
     </div>

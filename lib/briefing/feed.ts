@@ -12,9 +12,10 @@ import {
 import { withBriefingCardContract } from './cardContract'
 import { applyCrmDisplayRecords, crmIdsFromItem, type CrmDisplayRecord } from './cardFacts'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { recordLinkedToUser, recordLinkedViaCrm, recordOperatorAddressed } from './personal-scope'
+import { recordAddressedOrgIds, recordLinkedToUser, recordLinkedViaCrm, recordOperatorAddressed } from './personal-scope'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
+import { workKindForItem } from './workKind'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
 const DEFAULT_LIMIT = 40
@@ -496,8 +497,10 @@ function briefingRecordVisibleToUser(
   if (!user.uid) return false
   if (recordLinkedToUser(data, user.uid)) return true
   if (maps && recordLinkedViaCrm(data, user.uid, maps)) return true
-  const orgId = typeof data.orgId === 'string' && data.orgId ? data.orgId : ''
-  const isOperator = operatorOrgs === null || (orgId ? operatorOrgs.has(orgId) : false)
+  // Operator of any org the record is addressed to (owner org, or the
+  // recipient/target org for cross-org quotes, invoices and orders).
+  const addressedOrgIds = recordAddressedOrgIds(data)
+  const isOperator = operatorOrgs === null || addressedOrgIds.some((id) => operatorOrgs.has(id))
   if (isOperator && recordOperatorAddressed(sourceType, data)) return true
   return false
 }
@@ -797,7 +800,9 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   const linkedProjectIds = new Set<string>()
   const linkedDocumentIds = new Set<string>()
 
-  if (include('task') || include('agent-output') || include('agent-learning-review') || include('business-insight-review')) {
+  // The task/project/client-document loops also run for `comment`-only requests
+  // so the linked parent sets are populated; item emission stays gated below.
+  if (include('task') || include('agent-output') || include('agent-learning-review') || include('business-insight-review') || include('comment')) {
     const docs = await fetchTaskDocs(scopedOrgIds)
     const taskMaps = await loadBriefingMapsForDocs(docs)
     for (const doc of docs) {
@@ -827,7 +832,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     }
   }
 
-  if (include('project')) {
+  if (include('project') || include('comment')) {
     try {
       const docs = await fetchCollectionDocs('projects', scopedOrgIds)
       const projectMaps = await loadBriefingMapsForDocs(docs)
@@ -835,13 +840,14 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
         const data = normalizeDoc(doc)
         if (!briefingRecordVisibleToUser('project', data, user, operatorOrgs, projectMaps)) continue
         if (doc.id) linkedProjectIds.add(doc.id)
+        if (!include('project')) continue
         const item = toItemSafe(projectAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
   }
 
-  if (include('client-document') || include('approval')) {
+  if (include('client-document') || include('approval') || include('comment')) {
     try {
       const docs = await fetchCollectionDocs('client_documents', scopedOrgIds)
       const docMaps = await loadBriefingMapsForDocs(docs)
@@ -1273,7 +1279,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     ignoreOptionalFeedSource()
   }
   const labelledItems = applyUserState(
-    withCrmFacts,
+    withCrmFacts.map((item) => ({ ...item, workKind: workKindForItem(item) })),
     await loadBriefingUserStates(user.uid, scopedOrgIds),
   )
 

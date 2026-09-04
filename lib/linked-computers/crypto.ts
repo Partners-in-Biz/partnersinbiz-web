@@ -10,6 +10,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { projectLinkedOrgIds, scopedProjectReplicaId } from '@/lib/project-locations/model'
 import { projectOrganizationDocId } from '@/lib/projects/collaboration'
 import { isActiveOrgMembershipRow } from './policy'
+import { AGENT_ID_RE } from '@/lib/agents/types'
 import type {
   LinkedDeviceArchitecture,
   LinkedDeviceKind,
@@ -60,6 +61,13 @@ interface Options {
   nowMs?: () => number
   randomId?: () => string
   randomSecret?: () => string
+  provisionDesiredAgents?: (input: {
+    deviceId: string
+    actorUserId: string
+    orgId: string
+    desired: Array<{ agentId: string; keepInSync: boolean }>
+    enqueueJobs: boolean
+  }) => Promise<unknown>
 }
 
 function required(value: unknown, field: string): string {
@@ -280,12 +288,29 @@ function auditRef(db: LinkedComputerPairingDb): RefLike {
   return db.collection(AUDIT).doc(randomUUID())
 }
 
+function parsePairingAgentIds(value: unknown): string[] {
+  if (value == null) return []
+  if (!Array.isArray(value)) throw new Error('linked computers: invalid agentIds')
+  if (value.length > 6) throw new Error('linked computers: too many agentIds')
+  const ids: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || !AGENT_ID_RE.test(item.trim())) {
+      throw new Error('linked computers: invalid agentIds')
+    }
+    const id = item.trim()
+    if (!ids.includes(id)) ids.push(id)
+  }
+  return ids
+}
+
 export async function createPairing(
   input: {
     actorUserId: string
     deviceKind?: LinkedDeviceKind
     ownerType?: LinkedDeviceOwnerType
     ownerOrgId?: string
+    orgId?: string
+    agentIds?: string[]
     adoptLocationId?: string
   },
   options: Options = {},
@@ -302,6 +327,10 @@ export async function createPairing(
   if (!['computer', 'vps'].includes(deviceKind)) throw new Error('linked computers: invalid device kind')
   if (!['user', 'organization'].includes(ownerType)) throw new Error('linked computers: invalid owner type')
   const ownerOrgId = ownerType === 'organization' ? required(input.ownerOrgId, 'ownerOrgId') : null
+  const provisionOrgId = typeof input.orgId === 'string' && input.orgId.trim()
+    ? input.orgId.trim()
+    : (ownerOrgId ?? '')
+  const agentIds = parsePairingAgentIds(input.agentIds)
   const adoptLocationId = input.adoptLocationId == null || input.adoptLocationId === ''
     ? null
     : safeIdentifier(input.adoptLocationId, 'adoptLocationId')
@@ -355,6 +384,8 @@ export async function createPairing(
     }
     tx.create(ref, {
       challengeId, ownerUserId, ownerType, ...(ownerOrgId ? { ownerOrgId } : {}), deviceKind,
+      ...(provisionOrgId ? { orgId: provisionOrgId } : {}),
+      ...(agentIds.length ? { agentIds } : {}),
       ...(descriptor ? {
         adoptLocationId: descriptor.locationId,
         adoptLocationBinding: adoptionBinding(descriptor),
@@ -388,6 +419,12 @@ export interface PairingExchangeInput {
   platform: LinkedDevicePlatform
   architecture: LinkedDeviceArchitecture
   runtimeVersion: string
+  releaseChannel?: 'internal' | 'stable'
+  agentIds?: string[]
+}
+
+function resolvedReleaseChannel(input: PairingExchangeInput): 'internal' | 'stable' {
+  return input.releaseChannel === 'internal' ? 'internal' : 'stable'
 }
 
 function validExchangeProof(input: PairingExchangeInput, challenge: Record<string, unknown>): {
@@ -456,7 +493,7 @@ function validExchangeProof(input: PairingExchangeInput, challenge: Record<strin
 export async function exchangePairing(
   input: PairingExchangeInput,
   options: Options = {},
-): Promise<{ deviceId: string; credential: string; credentialVersion: number }> {
+): Promise<{ deviceId: string; credential: string; credentialVersion: number; ownerUserId: string }> {
   const submitted = input as PairingExchangeInput & Record<string, unknown>
   if (submitted.runtimeEndpoint !== undefined || submitted.bootstrapTransport !== undefined || submitted.transportToken !== undefined) {
     throw new Error('linked computers: legacy transport fields are not accepted')
@@ -468,8 +505,9 @@ export async function exchangePairing(
   // identical post-commit network retry can be answered without storing them.
   const regularCredential = options.randomSecret?.() ?? randomBytes(32).toString('base64url')
 
+  type PairingProvision = { orgId: string; agentIds: string[]; actorUserId: string }
   const result = await db.runTransaction(async (tx): Promise<
-    | { ok: true; deviceId: string; credential: string; credentialVersion: number }
+    | { ok: true; deviceId: string; credential: string; credentialVersion: number; ownerUserId: string; provision?: PairingProvision }
     | { ok: false }
   > => {
     const challengeRef = db.collection(CHALLENGES).doc(challengeId)
@@ -525,7 +563,7 @@ export async function exchangePairing(
         && Number(credentialSnap.data()?.credentialVersion) === credentialVersion
         && !credentialSnap.data()?.revokedAt)
       if (retryValid) {
-        return { ok: true, deviceId: exchange.deviceId, credential: adoptionCredential!, credentialVersion }
+        return { ok: true, deviceId: exchange.deviceId, credential: adoptionCredential!, credentialVersion, ownerUserId: exchange.ownerUserId }
       }
       throw new Error('linked computers: pairing challenge already consumed')
     }
@@ -687,6 +725,7 @@ export async function exchangePairing(
         platform: input.platform,
         architecture: input.architecture,
         runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+        releaseChannel: resolvedReleaseChannel(input),
         capabilities: ['workspace.execute', 'workspace.sync'],
         status: 'active',
         credentialVersion,
@@ -830,13 +869,39 @@ export async function exchangePairing(
         adoptedFromLocationId: adoptLocationId,
         createdAt: at,
       })
-      return { ok: true, deviceId: exchange.deviceId, credential: adoptionCredential!, credentialVersion }
+      return { ok: true, deviceId: exchange.deviceId, credential: adoptionCredential!, credentialVersion, ownerUserId: exchange.ownerUserId }
     }
 
     const grantRef = exchange.ownerOrgId
       ? db.collection(GRANTS).doc(`${exchange.ownerOrgId}_${persistedDeviceId}`)
       : null
-    const grantSnap = grantRef ? await tx.get(grantRef) : null
+    const challengeOrgId = typeof challenge.orgId === 'string' ? challenge.orgId.trim() : ''
+    const provisionOrgId = challengeOrgId || exchange.ownerOrgId || ''
+    let provisionAgentIds: string[] = []
+    try {
+      provisionAgentIds = parsePairingAgentIds(
+        Array.isArray(challenge.agentIds) ? challenge.agentIds : input.agentIds,
+      )
+    } catch {
+      provisionAgentIds = []
+    }
+    const provisionMemberRef = provisionOrgId
+      ? db.collection(MEMBERS).doc(`${provisionOrgId}_${exchange.ownerUserId}`)
+      : null
+    const [grantSnap, provisionMemberSnap] = await Promise.all([
+      grantRef ? tx.get(grantRef) : Promise.resolve(null),
+      provisionMemberRef ? tx.get(provisionMemberRef) : Promise.resolve(null),
+    ])
+    const canProvision = Boolean(
+      provisionOrgId
+      && provisionAgentIds.length
+      && membershipMatches(
+        provisionMemberSnap?.data(),
+        provisionOrgId,
+        exchange.ownerUserId,
+        false,
+      ),
+    )
     const existingOwnerType = existing.ownerType ?? (existing.ownerUserId ? 'user' : undefined)
     const existingDeviceValid = !deviceSnap.exists
       || (existingOwnerType === exchange.ownerType
@@ -856,8 +921,12 @@ export async function exchangePairing(
       createdByUserId: exchange.ownerUserId, runtimeTargetId: `linked-device:${exchange.deviceId}`,
       publicKey: exchange.publicKey, publicKeyFingerprint: fingerprint,
       label: required(input.label, 'label'), platform: input.platform, architecture: input.architecture,
-      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), capabilities: ['workspace.execute', 'workspace.sync'],
+      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), releaseChannel: resolvedReleaseChannel(input),
+      capabilities: ['workspace.execute', 'workspace.sync'],
       status: 'active', credentialVersion,
+      ...(provisionOrgId && provisionAgentIds.length && !canProvision
+        ? { provisioningSkippedReason: 'not_an_active_org_member' }
+        : {}),
       ...(deviceSnap.exists ? { updatedAt: at } : { createdAt: at, updatedAt: at, lastSeenAt: null }),
     }
     if (deviceSnap.exists) tx.update(deviceRef, device)
@@ -886,10 +955,42 @@ export async function exchangePairing(
       eventId: randomUUID(), action: 'device.paired', actorUserId: exchange.ownerUserId,
       deviceId: exchange.deviceId, ...(exchange.ownerOrgId ? { orgId: exchange.ownerOrgId } : {}), createdAt: at,
     })
-    return { ok: true, deviceId: exchange.deviceId, credential: regularCredential, credentialVersion }
+    return {
+      ok: true,
+      deviceId: exchange.deviceId,
+      credential: regularCredential,
+      credentialVersion,
+      ownerUserId: exchange.ownerUserId,
+      ...(canProvision
+        ? {
+            provision: {
+              orgId: provisionOrgId,
+              agentIds: provisionAgentIds,
+              actorUserId: exchange.ownerUserId,
+            },
+          }
+        : {}),
+    }
   })
   if (!result.ok) throw new Error('linked computers: pairing exchange denied')
-  return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion }
+  if (result.provision) {
+    const provision = options.provisionDesiredAgents ?? (async (input) => {
+      const { setDeviceDesiredAgents } = await import('./agent-host-service')
+      return setDeviceDesiredAgents(input)
+    })
+    try {
+      await provision({
+        deviceId: result.deviceId,
+        actorUserId: result.provision.actorUserId,
+        orgId: result.provision.orgId,
+        desired: result.provision.agentIds.map((agentId) => ({ agentId, keepInSync: true })),
+        enqueueJobs: true,
+      })
+    } catch {
+      // Pairing already committed; do not fail the exchange after the device exists.
+    }
+  }
+  return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion, ownerUserId: result.ownerUserId }
 }
 
 /**

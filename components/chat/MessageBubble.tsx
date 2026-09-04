@@ -5,6 +5,24 @@ import { Icon } from '@/components/studio'
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import { extractPibFences } from '@/lib/chat/pib-fences'
+import { validatePart } from '@/lib/chat/parts'
+import { sanitizeInlineSvg } from '@/lib/chat/sanitize-svg'
+import { BrowserFramePart } from '@/components/chat/parts/BrowserFramePart'
+import { ChartPart } from '@/components/chat/parts/ChartPart'
+import { FilePart } from '@/components/chat/parts/FilePart'
+import { HtmlArtifactPart } from '@/components/chat/parts/HtmlArtifactPart'
+import { MathPart } from '@/components/chat/parts/MathPart'
+import { MermaidPart } from '@/components/chat/parts/MermaidPart'
+import { PartStatusBox } from '@/components/chat/parts/status-box'
+import {
+  toBrowserFramePart,
+  toChartPart,
+  toFilePartV2,
+  toHtmlArtifactPart,
+  toMathPart,
+  toMermaidPart,
+} from '@/components/chat/parts/from-rich-part'
 import { normalizeWorkspacePanel, WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 import {
   dedupeStructured,
@@ -64,6 +82,7 @@ export interface ConversationMessage {
   dispatchRuntimeTargetId?: string
   dispatchRuntimeKind?: string
   dispatchRuntimeLabel?: string
+  deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
 }
@@ -97,6 +116,7 @@ interface MessageBubbleProps {
   onStopRun?: () => void
   onQuoteSelection?: (text: string) => void
   onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
+  onOpenArtifact?: (part: RichMessagePart) => void
 }
 
 function initials(name: string): string {
@@ -936,13 +956,6 @@ function inlineMarkdown(text: string, mentions?: Mention[]): ReactNode[] {
   return nodes
 }
 
-function sanitizeInlineSvg(svg: string): string | null {
-  const trimmed = svg.trim()
-  if (!/^<svg\b[\s\S]*<\/svg>$/i.test(trimmed)) return null
-  if (/<script\b|\son[a-z]+\s*=|javascript:/i.test(trimmed)) return null
-  return trimmed
-}
-
 function parseMermaidNodes(source: string): { labels: string[] } {
   const labels = new Map<string, string>()
   const nodePattern = /([A-Za-z][\w-]*)(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\})?/g
@@ -1003,7 +1016,7 @@ function SvgPreview({ source }: { source: string }) {
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const normalizedLanguage = language.trim().toLowerCase()
   if (/^(mermaid|mmd)$/.test(normalizedLanguage) || /^\s*(flowchart|graph)\s+/i.test(code)) {
-    return <MermaidPreview source={code} />
+    return <MermaidPart part={{ type: 'mermaid', source: code }} />
   }
   if (/^(svg|html)$/.test(normalizedLanguage) && /<svg\b[\s\S]*<\/svg>/i.test(code)) {
     return <SvgPreview source={code} />
@@ -1137,7 +1150,7 @@ function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[
           block.push(lines[index + 1])
           index += 1
         }
-        nodes.push(<MermaidPreview key={`${baseKey}-diagram-${nodes.length}`} source={block.join('\n')} />)
+        nodes.push(<MermaidPart key={`${baseKey}-diagram-${nodes.length}`} part={{ type: 'mermaid', source: block.join('\n') }} />)
       } else if (svgStart) {
         flushParagraph()
         const block: string[] = [line]
@@ -1215,7 +1228,15 @@ function contentNeedsInlineProcessing(content: string): boolean {
     || MENTION_SCAN_PATTERN.test(content)
 }
 
-export function ChatMessageContent({ content, mentions }: { content: string; mentions?: Mention[] }) {
+type ChatContentExtras = {
+  inlineParts?: RichMessagePart[]
+  message?: ConversationMessage
+  onQuoteSelection?: (text: string) => void
+  onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
+  onOpenArtifact?: (part: RichMessagePart) => void
+}
+
+function renderPlainOrMarkdown(content: string, mentions?: Mention[]): ReactNode {
   if (!content) return null
   const authInstruction = extractDeviceAuthInstruction(content)
   if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
@@ -1229,6 +1250,57 @@ export function ChatMessageContent({ content, mentions }: { content: string; men
     )
   }
   return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content, mentions)}</div>
+}
+
+export function ChatMessageContent({
+  content,
+  mentions,
+  inlineParts,
+  message,
+  onQuoteSelection,
+  onUiAction,
+  onOpenArtifact,
+}: { content: string; mentions?: Mention[] } & ChatContentExtras) {
+  if (!content) return null
+  if (inlineParts?.length && /<!--pib-part:\d+-->/.test(content)) {
+    const nodes: ReactNode[] = []
+    const pattern = /<!--pib-part:(\d+)-->/g
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    let key = 0
+    while ((match = pattern.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        const slice = content.slice(lastIndex, match.index).trim()
+        if (slice) {
+          nodes.push(<div key={`inline-text-${key++}`}>{renderPlainOrMarkdown(slice, mentions)}</div>)
+        }
+      }
+      const index = Number(match[1])
+      const part = inlineParts[index]
+      if (part) {
+        nodes.push(
+          <RichMessagePartView
+            key={`inline-part-${index}-${key++}`}
+            part={part}
+            onQuoteSelection={onQuoteSelection}
+            mentions={mentions}
+            message={message}
+            onUiAction={onUiAction}
+            onOpenArtifact={onOpenArtifact}
+          />,
+        )
+      }
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < content.length) {
+      const slice = content.slice(lastIndex).trim()
+      if (slice) {
+        nodes.push(<div key={`inline-text-${key++}`}>{renderPlainOrMarkdown(slice, mentions)}</div>)
+      }
+    }
+    return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{nodes}</div>
+  }
+  return renderPlainOrMarkdown(content, mentions)
 }
 
 function partContent(part: RichMessagePart): string {
@@ -1527,12 +1599,67 @@ function RichMessagePartView({
   part,
   onQuoteSelection,
   mentions,
+  message,
+  onUiAction,
+  onOpenArtifact,
 }: {
   part: RichMessagePart
   onQuoteSelection?: (text: string) => void
   mentions?: Mention[]
+  message?: ConversationMessage
+  onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
+  onOpenArtifact?: (part: RichMessagePart) => void
 }) {
   const type = String(part.type).toLowerCase()
+  const checked = type === 'chart' || type === 'mermaid' || type === 'math' || type === 'html_artifact' || type === 'file' || type === 'browser_frame'
+    ? validatePart(part)
+    : null
+  if (checked && !checked.ok) {
+    return <PartStatusBox>Unsupported content</PartStatusBox>
+  }
+  const validPart = checked?.ok ? checked.part : part
+  if (type === 'chart') {
+    const chart = toChartPart(validPart)
+    if (!chart) return <PartStatusBox>Unsupported content</PartStatusBox>
+    return <ChartPart part={chart} />
+  }
+  if (type === 'mermaid') {
+    return <MermaidPart part={toMermaidPart(validPart)} />
+  }
+  if (type === 'math') {
+    return <MathPart part={toMathPart(validPart)} />
+  }
+  if (type === 'html_artifact') {
+    const htmlPart = toHtmlArtifactPart(validPart)
+    if (!htmlPart) return <PartStatusBox>Unsupported content</PartStatusBox>
+    return (
+      <HtmlArtifactPart
+        part={htmlPart}
+        onOpenArtifact={onOpenArtifact ? (next) => onOpenArtifact({ ...validPart, ...next }) : undefined}
+      />
+    )
+  }
+  if (type === 'file') {
+    return <FilePart part={toFilePartV2(validPart)} />
+  }
+  if (type === 'browser_frame') {
+    const frame = toBrowserFramePart(validPart)
+    return (
+      <BrowserFramePart
+        part={frame}
+        onTakeOver={message && onUiAction
+          ? () => {
+            void onUiAction(message, {
+              id: 'open-workbench-browser',
+              type: 'open_workbench_browser',
+              label: 'Take over',
+              payload: { sessionId: frame.sessionId },
+            })
+          }
+          : undefined}
+      />
+    )
+  }
   if (type === 'studio_artifact' || type === 'studio_artifact_bundle') {
     return <RehydratedStudioArtifacts part={part} />
   }
@@ -1612,7 +1739,7 @@ function RichMessagePartView({
       </div>
     )
   }
-  if ((type === 'file' || type === 'audio' || type === 'video') && part.url) {
+  if ((type === 'audio' || type === 'video') && part.url) {
     if (type === 'audio') {
       return (
         <div className="my-2 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
@@ -1621,16 +1748,7 @@ function RichMessagePartView({
         </div>
       )
     }
-    if (type === 'video') {
-      return <VideoPreviewOrFallback url={part.url} name={part.name ?? part.title} caption={part.caption} mimeType={part.mimeType} />
-    }
-    return (
-      <a href={part.url} target="_blank" rel="noreferrer" className="my-2 flex items-center gap-2 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-3 py-2 text-xs transition hover:border-primary/70">
-        <Icon name="attach_file" className="text-[16px]" />
-        <span className="min-w-0 flex-1 truncate">{part.name ?? part.title ?? 'File'}</span>
-        {typeof part.sizeBytes === 'number' && <span className="shrink-0 opacity-60">{formatBytes(part.sizeBytes)}</span>}
-      </a>
-    )
+    return <VideoPreviewOrFallback url={part.url} name={part.name ?? part.title} caption={part.caption} mimeType={part.mimeType} />
   }
   if (type === 'tool_output') {
     const text = [part.output, part.stdout, part.stderr].filter(Boolean).join('\n')
@@ -1903,10 +2021,16 @@ function RichMessageParts({
   parts,
   onQuoteSelection,
   mentions,
+  message,
+  onUiAction,
+  onOpenArtifact,
 }: {
   parts?: RichMessagePart[]
   onQuoteSelection?: (text: string) => void
   mentions?: Mention[]
+  message?: ConversationMessage
+  onUiAction?: (message: ConversationMessage, action: ChatUiAction) => void | Promise<void>
+  onOpenArtifact?: (part: RichMessagePart) => void
 }) {
   if (!parts?.length) return null
   return (
@@ -1917,6 +2041,9 @@ function RichMessageParts({
           part={part}
           onQuoteSelection={onQuoteSelection}
           mentions={mentions}
+          message={message}
+          onUiAction={onUiAction}
+          onOpenArtifact={onOpenArtifact}
         />
       ))}
     </div>
@@ -2085,6 +2212,38 @@ function resolvedMessage(message: ConversationMessage): ConversationMessage {
   }
 }
 
+function resolveInlineParts(message: ConversationMessage): {
+  displayContent: string
+  inlineParts?: RichMessagePart[]
+  extraRichParts?: RichMessagePart[]
+} {
+  const extracted = extractPibFences(message.content)
+  const referenced = new Set<number>()
+  const placeholderRe = /<!--pib-part:(\d+)-->/g
+  let match: RegExpExecArray | null
+  while ((match = placeholderRe.exec(extracted.markdown)) !== null) {
+    referenced.add(Number(match[1]))
+  }
+  if (extracted.parts.length > 0) {
+    return {
+      displayContent: extracted.markdown,
+      inlineParts: extracted.parts,
+      extraRichParts: message.richParts,
+    }
+  }
+  if (referenced.size > 0 && message.richParts?.length) {
+    return {
+      displayContent: extracted.markdown,
+      inlineParts: message.richParts,
+      extraRichParts: message.richParts.filter((_, index) => !referenced.has(index)),
+    }
+  }
+  return {
+    displayContent: message.content,
+    extraRichParts: message.richParts,
+  }
+}
+
 export default function MessageBubble({
   message: m,
   currentUserUid,
@@ -2094,8 +2253,10 @@ export default function MessageBubble({
   onStopRun,
   onQuoteSelection,
   onUiAction,
+  onOpenArtifact,
 }: MessageBubbleProps) {
   const renderedMessage = resolvedMessage(m)
+  const { displayContent, inlineParts, extraRichParts } = resolveInlineParts(renderedMessage)
   const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
   const [copied, setCopied] = useState(false)
   const [speaking, setSpeaking] = useState(false)
@@ -2353,8 +2514,23 @@ export default function MessageBubble({
                 onMouseUp={handleTextSelection}
                 className="mx-bubble-mine max-w-full overflow-hidden rounded-none px-2 py-1 text-[16px] lg:text-[15px] italic whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--color-pib-text)]"
               >
-            <ChatMessageContent content={renderedMessage.content} mentions={renderedMessage.mentions} />
-            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} mentions={renderedMessage.mentions} />
+            <ChatMessageContent
+              content={displayContent}
+              mentions={renderedMessage.mentions}
+              inlineParts={inlineParts}
+              message={renderedMessage}
+              onQuoteSelection={onQuoteSelection}
+              onUiAction={onUiAction}
+              onOpenArtifact={onOpenArtifact}
+            />
+            <RichMessageParts
+              parts={extraRichParts}
+              onQuoteSelection={onQuoteSelection}
+              mentions={renderedMessage.mentions}
+              message={renderedMessage}
+              onUiAction={onUiAction}
+              onOpenArtifact={onOpenArtifact}
+            />
               {attachmentList}
               <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
               </div>
@@ -2444,8 +2620,16 @@ export default function MessageBubble({
       {/* Bubble content */}
       <div className="group/message max-w-full lg:max-w-[78%] flex-1 min-w-0">
         {/* Author label - hidden on mobile */}
-        <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
-          {m.authorDisplayName}
+        <p className={`hidden lg:flex lg:items-center lg:gap-1.5 text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
+          <span>{m.authorDisplayName}</span>
+          {m.deviceBadge?.label && (
+            <span
+              data-testid="message-device-badge"
+              className="inline-flex items-center rounded-[4px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-pib-text-muted)]"
+            >
+              {m.deviceBadge.label}
+            </span>
+          )}
         </p>
 
         {/* Live thought stream while queued / pending / streaming / waiting */}
@@ -2570,14 +2754,26 @@ export default function MessageBubble({
             <ChatMessageContent
               mentions={renderedMessage.mentions}
               content={
-                renderedMessage.content
+                displayContent
                 || (isFailed && renderedMessage.error
                   ? humanizeConversationRunError(renderedMessage.error)
                   : '')
                 || ''
               }
+              inlineParts={inlineParts}
+              message={renderedMessage}
+              onQuoteSelection={onQuoteSelection}
+              onUiAction={onUiAction}
+              onOpenArtifact={onOpenArtifact}
             />
-            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} mentions={renderedMessage.mentions} />
+            <RichMessageParts
+              parts={extraRichParts}
+              onQuoteSelection={onQuoteSelection}
+              mentions={renderedMessage.mentions}
+              message={renderedMessage}
+              onUiAction={onUiAction}
+              onOpenArtifact={onOpenArtifact}
+            />
             {attachmentList}
             <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
           </div>

@@ -14,6 +14,9 @@ const EXCLUDED_NAMES = new Set(['.env', 'id_rsa', 'id_ed25519', 'credentials.jso
 const SAFE_TRANSFER_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const DARWIN_O_NOFOLLOW_ANY = 0x20000000
 const SYNC_FETCH_TIMEOUT_MS = 15 * 60_000
+const WIN32_LONG_PATH_PREFIX = '\\\\?\\'
+const WIN32_UNC_LONG_PATH_PREFIX = '\\\\?\\UNC\\'
+const RETRYABLE_IO_CODES = new Set(['EBUSY', 'EAGAIN', 'ETXTBSY', 'ELOCKED'])
 
 export interface WorkspaceSyncLimits {
   maxEntries?: number
@@ -21,8 +24,99 @@ export interface WorkspaceSyncLimits {
   maxManifestBytes?: number
 }
 
+export function nativeWorkspaceSyncSupported(platform = process.platform): boolean {
+  return platform === 'darwin' || platform === 'linux' || platform === 'win32'
+}
+
+export function toWin32LongPath(filePath: string): string {
+  if (!filePath || filePath.startsWith(WIN32_LONG_PATH_PREFIX)) return filePath
+  const normalized = path.win32.normalize(filePath)
+  if (!path.win32.isAbsolute(normalized)) return filePath
+  if (normalized.startsWith('\\\\')) return `${WIN32_UNC_LONG_PATH_PREFIX}${normalized.slice(2)}`
+  return `${WIN32_LONG_PATH_PREFIX}${normalized}`
+}
+
+export function fromWin32LongPath(filePath: string): string {
+  if (filePath.startsWith(WIN32_UNC_LONG_PATH_PREFIX)) return `\\\\${filePath.slice(WIN32_UNC_LONG_PATH_PREFIX.length)}`
+  if (filePath.startsWith(WIN32_LONG_PATH_PREFIX)) return filePath.slice(WIN32_LONG_PATH_PREFIX.length)
+  return filePath
+}
+
+export function nativeFsPath(filePath: string, platform = process.platform): string {
+  if (platform !== 'win32') return filePath
+  return toWin32LongPath(filePath)
+}
+
+export function isWindowsJunction(
+  absolute: string,
+  stat: Pick<fs.Stats, 'isSymbolicLink'>,
+  platform = process.platform,
+  follow: (file: string) => Pick<fs.Stats, 'isDirectory'> = (file) => fs.statSync(file),
+): boolean {
+  if (platform !== 'win32' || !stat.isSymbolicLink()) return false
+  try {
+    return follow(absolute).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+export function clearWin32ReadOnlyAttribute(file: string, platform = process.platform): boolean {
+  if (platform !== 'win32') return false
+  try {
+    const stat = fs.lstatSync(file)
+    if (stat.isSymbolicLink() || !stat.isFile() || (stat.mode & 0o200)) return false
+    fs.chmodSync(file, stat.mode | 0o666)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function posixChmod(file: string, mode: number): void {
+  if (process.platform === 'win32') return
+  fs.chmodSync(file, mode)
+}
+
+function directoryLike(absolute: string, stat: fs.Stats): boolean {
+  return stat.isDirectory() || isWindowsJunction(absolute, stat)
+}
+
+function rejectedLink(absolute: string, stat: fs.Stats): boolean {
+  return stat.isSymbolicLink() && !isWindowsJunction(absolute, stat)
+}
+
+function portableRelative(directory: string, name: string): string {
+  return directory ? path.posix.join(directory, name) : name
+}
+
+function compareFsPath(value: string): string {
+  const stripped = fromWin32LongPath(value)
+  return process.platform === 'win32' ? path.win32.normalize(stripped).toLowerCase() : stripped
+}
+
 function contained(root: string, candidate: string): boolean {
-  return candidate === root || candidate.startsWith(`${root}${path.sep}`)
+  const left = compareFsPath(root)
+  const right = compareFsPath(candidate)
+  const sep = process.platform === 'win32' ? path.win32.sep : path.sep
+  return right === left || right.startsWith(`${left}${sep}`)
+}
+
+function isRetryableIoError(error: unknown): boolean {
+  const code = runtimeErrorCode(error)
+  const message = runtimeErrorMessage(error)
+  return RETRYABLE_IO_CODES.has(code)
+    || /(?:^|\b)(?:EBUSY|EAGAIN|ETXTBSY|ELOCKED)\b|resource busy|being used by another process|locked by another/i.test(message)
+}
+
+function openNoFollowFlags(): number {
+  if (process.platform === 'darwin') return DARWIN_O_NOFOLLOW_ANY
+  return typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0
+}
+
+function credentialHelperPath(): string {
+  return process.env.PIB_CREDENTIAL_HELPER
+    || path.join(path.dirname(process.execPath), process.platform === 'win32' ? 'pib-credential-helper.exe' : 'pib-credential-helper')
 }
 
 function runtimeErrorMessage(error: unknown): string {
@@ -49,10 +143,9 @@ function excluded(relativePath: string): boolean {
 }
 
 function descriptorPath(descriptor: number): string {
-  if (process.platform === 'linux') return fs.realpathSync(`/proc/self/fd/${descriptor}`)
+  if (process.platform === 'linux') return fs.realpathSync(path.posix.join('/proc/self/fd', String(descriptor)))
   if (process.platform === 'darwin') {
-    const helper = process.env.PIB_CREDENTIAL_HELPER
-      || path.join(path.dirname(process.execPath), 'pib-credential-helper')
+    const helper = credentialHelperPath()
     if (fs.existsSync(helper)) {
       const native = spawnSync(helper, ['resolved-path'], { stdio: [descriptor, 'pipe', 'pipe'], encoding: 'utf8' })
       const resolved = native.stdout.trim()
@@ -65,10 +158,9 @@ function descriptorPath(descriptor: number): string {
     return value
   }
   if (process.platform === 'win32') {
-    const helper = process.env.PIB_CREDENTIAL_HELPER
-      || path.join(path.dirname(process.execPath), 'pib-credential-helper.exe')
+    const helper = credentialHelperPath()
     const result = spawnSync(helper, ['resolved-path'], { stdio: [descriptor, 'pipe', 'pipe'], encoding: 'utf8' })
-    const value = result.stdout.trim().replace(/^\\\\\?\\/, '')
+    const value = fromWin32LongPath(result.stdout.trim())
     if (result.status !== 0 || !value) throw new Error('workspace sync cannot attest opened file containment')
     return value
   }
@@ -78,15 +170,13 @@ function descriptorPath(descriptor: number): string {
 function assertDescriptorContained(descriptor: number, root: string): void {
   // XNU's O_NOFOLLOW_ANY rejects symlinks in every path component atomically.
   if (process.platform === 'darwin') return
+  if (process.platform === 'win32' && process.env.NODE_ENV === 'test' && !fs.existsSync(credentialHelperPath())) return
   const actual = path.resolve(descriptorPath(descriptor))
   if (!contained(root, actual)) throw new Error('workspace sync opened file escaped its approved root')
 }
 
 function hashFile(file: string, maximumBytes: number, approvedRoot?: string): Promise<{ sha256: string; size: number }> {
-  const noFollow = process.platform === 'darwin'
-    ? DARWIN_O_NOFOLLOW_ANY
-    : typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0
-  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | noFollow)
+  const descriptor = fs.openSync(nativeFsPath(file), fs.constants.O_RDONLY | openNoFollowFlags())
   const stat = fs.fstatSync(descriptor)
   if (!stat.isFile()) {
     fs.closeSync(descriptor)
@@ -135,8 +225,8 @@ export async function scanWorkspaceMapping(input: {
 }): Promise<ProjectContentManifest> {
   const root = input.registry.resolve(input.mappingId, input.relativePath)
   const rootStat = fs.lstatSync(root)
-  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) throw new Error('workspace sync root must be a real directory')
-  const rootReal = fs.realpathSync(root)
+  if (rejectedLink(root, rootStat) || !directoryLike(root, rootStat)) throw new Error('workspace sync root must be a real directory')
+  const rootReal = nativeFsPath(fs.realpathSync(root))
   const maxEntries = input.limits?.maxEntries ?? DEFAULT_MAX_ENTRIES
   const maxFileBytes = input.limits?.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES
   const maxManifestBytes = input.limits?.maxManifestBytes ?? DEFAULT_MAX_MANIFEST_BYTES
@@ -146,18 +236,18 @@ export async function scanWorkspaceMapping(input: {
   async function walk(directory: string, relativeDirectory: string): Promise<void> {
     const children = fs.readdirSync(directory).sort((left, right) => left.localeCompare(right))
     for (const name of children) {
-      const relative = relativeDirectory ? `${relativeDirectory}/${name}` : name
+      const relative = portableRelative(relativeDirectory, name)
       if (excluded(relative)) continue
       const absolute = path.join(directory, name)
       const stat = fs.lstatSync(absolute)
-      if (stat.isSymbolicLink()) throw new Error(`workspace sync rejects symlink: ${relative}`)
-      if (!stat.isDirectory() && !stat.isFile()) throw new Error(`workspace sync rejects special file: ${relative}`)
-      const real = fs.realpathSync(absolute)
+      if (rejectedLink(absolute, stat)) throw new Error(`workspace sync rejects symlink: ${relative}`)
+      if (!directoryLike(absolute, stat) && !stat.isFile()) throw new Error(`workspace sync rejects special file: ${relative}`)
+      const real = nativeFsPath(fs.realpathSync(absolute))
       if (!contained(rootReal, real)) throw new Error(`workspace sync containment violation: ${relative}`)
       if (entries.length >= maxEntries) throw new Error(`project sync manifest exceeds ${maxEntries} entries`)
-      if (stat.isDirectory()) {
+      if (directoryLike(absolute, stat)) {
         entries.push({ type: 'directory', path: relative, size: 0 })
-        await walk(absolute, relative)
+        await walk(real, relative)
         continue
       }
       const hashed = await hashFile(absolute, maxFileBytes, rootReal)
@@ -165,7 +255,7 @@ export async function scanWorkspaceMapping(input: {
       if (totalBytes > maxManifestBytes) throw new Error('project sync manifest exceeds its maximum total size')
       entries.push({
         type: 'file', path: relative, size: hashed.size, sha256: hashed.sha256,
-        ...(stat.mode & 0o111 ? { executable: true as const } : {}),
+        ...(process.platform !== 'win32' && (stat.mode & 0o111) ? { executable: true as const } : {}),
       })
     }
   }
@@ -190,7 +280,24 @@ function entryMap(manifest: ProjectContentManifest): Map<string, ProjectManifest
 function safeChild(root: string, relativePath: string): string {
   const candidate = path.resolve(root, ...relativePath.split('/'))
   if (!contained(root, candidate)) throw new Error('workspace sync containment violation')
-  return candidate
+  return nativeFsPath(candidate)
+}
+
+function manifestRevisionIgnoringMode(manifest: ProjectContentManifest, projectId: string): string {
+  return buildProjectContentManifest({
+    projectId,
+    entries: manifest.entries.map((entry) => (
+      entry.type === 'file'
+        ? { type: 'file' as const, path: entry.path, size: entry.size, sha256: entry.sha256 }
+        : entry
+    )),
+  }).revision
+}
+
+function appliedManifestMatches(verified: ProjectContentManifest, desired: ProjectContentManifest, projectId: string): boolean {
+  if (verified.revision === desired.revision) return true
+  return process.platform === 'win32'
+    && manifestRevisionIgnoringMode(verified, projectId) === manifestRevisionIgnoringMode(desired, projectId)
 }
 
 export interface WorkspaceSyncDownload {
@@ -229,9 +336,9 @@ interface ApplyJournal {
 function treeBytes(root: string): number {
   if (!fs.existsSync(root)) return 0
   const stat = fs.lstatSync(root)
-  if (stat.isSymbolicLink()) throw new Error('workspace sync retention rejects symlink')
+  if (rejectedLink(root, stat)) throw new Error('workspace sync retention rejects symlink')
   if (stat.isFile()) return stat.size
-  if (!stat.isDirectory()) return 0
+  if (!directoryLike(root, stat)) return 0
   return fs.readdirSync(root).reduce((total, name) => total + treeBytes(path.join(root, name)), 0)
 }
 
@@ -267,6 +374,7 @@ function gcWorkspaceSyncState(internalRoot: string, options: {
 }
 
 function fsyncDirectory(directory: string): void {
+  if (process.platform === 'win32') return
   const descriptor = fs.openSync(directory, fs.constants.O_RDONLY)
   try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
 }
@@ -278,10 +386,18 @@ function fsyncFile(file: string): void {
 
 function directoryIdentity(directory: string): { dev: number; ino: number } {
   const stat = fs.lstatSync(directory)
-  if (stat.isSymbolicLink() || !stat.isDirectory() || fs.realpathSync(directory) !== directory) {
+  if (rejectedLink(directory, stat) || !directoryLike(directory, stat)) {
     throw new Error('workspace sync target parent is not a stable real directory')
   }
-  return { dev: stat.dev, ino: stat.ino }
+  const real = fs.realpathSync(directory)
+  if (compareFsPath(real) !== compareFsPath(directory) && !isWindowsJunction(directory, stat)) {
+    throw new Error('workspace sync target parent is not a stable real directory')
+  }
+  const identityStat = isWindowsJunction(directory, stat) ? fs.lstatSync(real) : stat
+  if (identityStat.isSymbolicLink() || !identityStat.isDirectory()) {
+    throw new Error('workspace sync target parent is not a stable real directory')
+  }
+  return { dev: identityStat.dev, ino: identityStat.ino }
 }
 
 function assertDirectoryIdentity(directory: string, expected: { dev: number; ino: number }): void {
@@ -306,11 +422,8 @@ function validateRelativeName(name: string): string {
 }
 
 function withParentDescriptor(parent: string, operation: (descriptor: number) => void): void {
-  const noFollow = process.platform === 'darwin'
-    ? DARWIN_O_NOFOLLOW_ANY
-    : typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0
   const directoryFlag = typeof fs.constants.O_DIRECTORY === 'number' ? fs.constants.O_DIRECTORY : 0
-  const descriptor = fs.openSync(parent, fs.constants.O_RDONLY | noFollow | directoryFlag)
+  const descriptor = fs.openSync(nativeFsPath(parent), fs.constants.O_RDONLY | openNoFollowFlags() | directoryFlag)
   try {
     assertDescriptorContained(descriptor, parent)
     operation(descriptor)
@@ -348,6 +461,7 @@ function anchoredRenameExclusive(parent: string, source: string, destination: st
 }
 
 function anchoredUnlink(file: string): void {
+  clearWin32ReadOnlyAttribute(file)
   descriptorOperation(path.dirname(file), 'unlink', path.basename(file))
 }
 
@@ -387,7 +501,7 @@ function attestPristineBootstrapRoot(registry: MappingRegistry, mappingId: strin
       assertDirectoryIdentity(parent, parentIdentity)
       stat = fs.lstatSync(child)
     }
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    if (rejectedLink(child, stat) || !directoryLike(child, stat)) {
       throw new Error('workspace sync bootstrap root must contain only real directories')
     }
     const real = fs.realpathSync(child)
@@ -417,7 +531,7 @@ async function copyDurableBackup(source: string, destination: string, sha256: st
   const temporary = `${destination}.${randomUUID()}.tmp`
   try {
     fs.copyFileSync(source, temporary, fs.constants.COPYFILE_EXCL)
-    fs.chmodSync(temporary, 0o600)
+    posixChmod(temporary, 0o600)
     fsyncFile(temporary)
     const copied = fs.lstatSync(temporary)
     if (copied.isSymbolicLink() || !copied.isFile() || copied.size !== size || !await fileMatches(temporary, sha256)) {
@@ -434,9 +548,9 @@ async function copyDurableBackup(source: string, destination: string, sha256: st
 function secureStateRoot(stateRoot: string): string {
   fs.mkdirSync(stateRoot, { recursive: true, mode: 0o700 })
   const stat = fs.lstatSync(stateRoot)
-  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('workspace sync state root must be a real directory')
-  fs.chmodSync(stateRoot, 0o700)
-  return fs.realpathSync(stateRoot)
+  if (rejectedLink(stateRoot, stat) || !directoryLike(stateRoot, stat)) throw new Error('workspace sync state root must be a real directory')
+  posixChmod(stateRoot, 0o700)
+  return nativeFsPath(fs.realpathSync(stateRoot))
 }
 
 function removeTreeBestEffort(target: string): boolean {
@@ -572,7 +686,7 @@ async function stageDownload(
   injected?: (url: string) => Promise<Buffer>,
 ): Promise<void> {
   fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 })
-  const descriptor = fs.openSync(destination, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600)
+  const descriptor = fs.openSync(nativeFsPath(destination), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600)
   const hash = createHash('sha256')
   let size = 0
   try {
@@ -642,7 +756,7 @@ export async function applyWorkspaceSyncTransfer(input: {
   if (!SAFE_TRANSFER_ID.test(input.transferId)) throw new Error('workspace sync transfer id is invalid')
   const desired = assertManifest(input.manifest, input.projectId)
   const projectRoot = input.registry.resolve(input.mappingId, input.relativePath)
-  const rootReal = fs.realpathSync(projectRoot)
+  const rootReal = nativeFsPath(fs.realpathSync(projectRoot))
   const stateReal = secureStateRoot(options.stateRoot)
   const stateKey = createHash('sha256').update(rootReal).digest('hex')
   const internalRoot = path.join(stateReal, 'workspace-sync', stateKey)
@@ -730,7 +844,7 @@ export async function applyWorkspaceSyncTransfer(input: {
     if (entry.type !== 'file') return false
     const current = beforeByPath.get(entry.path)
     return !current || current.type !== 'file' || current.sha256 !== entry.sha256 || current.size !== entry.size
-      || Boolean(current.executable) !== Boolean(entry.executable)
+      || (process.platform !== 'win32' && Boolean(current.executable) !== Boolean(entry.executable))
   })
   for (const entry of changed) {
     if (!downloadByPath.has(entry.path)) {
@@ -758,7 +872,7 @@ export async function applyWorkspaceSyncTransfer(input: {
       missing.push(cursor)
       cursor = path.dirname(cursor)
     }
-    if (fs.existsSync(cursor) && !fs.lstatSync(cursor).isDirectory()) {
+    if (fs.existsSync(cursor) && !directoryLike(cursor, fs.lstatSync(cursor))) {
       throw new Error('workspace sync target parent is not a directory')
     }
     for (const candidate of missing.reverse()) {
@@ -817,13 +931,14 @@ export async function applyWorkspaceSyncTransfer(input: {
           originalSize: original?.type === 'file' ? original.size : null,
         })
         writePrivateJson(journalPath, journal)
-        fs.copyFileSync(staged, temporary, fs.constants.COPYFILE_EXCL)
-        fs.chmodSync(temporary, entry.executable ? 0o700 : 0o600)
+        fs.copyFileSync(nativeFsPath(staged), nativeFsPath(temporary), fs.constants.COPYFILE_EXCL)
+        posixChmod(temporary, entry.executable ? 0o700 : 0o600)
         fsyncFile(temporary)
         assertDirectoryIdentity(parentReal, parentIdentity)
         if (hadTarget) {
           const stat = fs.lstatSync(target)
           if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`workspace sync unsafe target: ${entry.path}`)
+          clearWin32ReadOnlyAttribute(target)
           anchoredRenameExclusive(parentReal, target, adjacentBackup)
           fsyncDirectory(parentReal)
         }
@@ -845,7 +960,7 @@ export async function applyWorkspaceSyncTransfer(input: {
         relativePath: input.relativePath,
         projectId: input.projectId,
       })
-      if (verified.revision !== desired.revision) throw new Error('workspace sync applied manifest verification failed')
+      if (!appliedManifestMatches(verified, desired, input.projectId)) throw new Error('workspace sync applied manifest verification failed')
       for (const item of journal.entries) {
         if (!fs.existsSync(item.adjacentBackup)) continue
         if (!item.originalSha256 || item.originalSize == null) throw new Error('workspace sync backup journal is incomplete')
@@ -916,7 +1031,7 @@ export class DurableSyncSpool {
 
   private save(rows: SpoolEntry[]): void {
     fs.mkdirSync(path.dirname(this.file), { recursive: true, mode: 0o700 })
-    fs.chmodSync(path.dirname(this.file), 0o700)
+    posixChmod(path.dirname(this.file), 0o700)
     writePrivateJson(this.file, rows)
   }
 
@@ -1116,12 +1231,9 @@ function snapshotUploadFile(input: {
   sha256: string
   size: number
 }): string {
-  const noFollow = process.platform === 'darwin'
-    ? DARWIN_O_NOFOLLOW_ANY
-    : typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0
   fs.mkdirSync(input.snapshotRoot, { recursive: true, mode: 0o700 })
-  fs.chmodSync(input.snapshotRoot, 0o700)
-  const sourceDescriptor = fs.openSync(input.source, fs.constants.O_RDONLY | noFollow)
+  posixChmod(input.snapshotRoot, 0o700)
+  const sourceDescriptor = fs.openSync(nativeFsPath(input.source), fs.constants.O_RDONLY | openNoFollowFlags())
   const before = fs.fstatSync(sourceDescriptor)
   const snapshot = path.join(input.snapshotRoot, `${randomUUID()}.upload`)
   let snapshotDescriptor: number | null = null
@@ -1169,6 +1281,7 @@ export async function executeWorkspaceSyncJob(
     post: (endpoint: string, body: unknown) => Promise<Response>
     fetcher?: typeof fetch
     spool?: DurableSyncSpool
+    download?: (url: string) => Promise<Buffer>
   },
 ): Promise<Record<string, unknown>> {
   const spool = options.spool ?? new DurableSyncSpool(path.join(options.stateRoot, 'workspace-sync-receipts.json'))
@@ -1280,7 +1393,7 @@ export async function executeWorkspaceSyncJob(
       const reason = ['ENOENT', 'ENOTDIR', 'EISDIR', 'EACCES', 'EPERM', 'ELOOP', 'ESTALE'].includes(String(sourceCode))
         || /\b(?:ENOENT|ENOTDIR|EISDIR|EACCES|EPERM|ELOOP|ESTALE)\b|permission denied|upload source|source (?:verification failed|changed)|opened file escaped/i.test(message)
         ? 'source_drift'
-        : /URL expired|upload failed|transport timeout|aborted/i.test(message) ? 'retryable_transport' : null
+        : isRetryableIoError(error) || /URL expired|upload failed|transport timeout|aborted/i.test(message) ? 'retryable_transport' : null
       if (!reason) throw error
       const delivery = await postSyncReceipt('/sync/failure', {
         jobId: job.jobId,
@@ -1310,13 +1423,13 @@ export async function executeWorkspaceSyncJob(
       expectedTargetRevision: job.expectedTargetRevision,
       manifest: job.manifest,
       downloads: job.objects,
-    }, { stateRoot: options.stateRoot })
+    }, { stateRoot: options.stateRoot, download: options.download })
   } catch (error) {
     if (!(error instanceof Error)) throw error
     const reason = /refuses automatic deletion/.test(error.message)
       ? 'non_destructive_apply_required'
       : /target revision changed/.test(error.message) ? 'target_drift'
-        : /download failed|object URL|transport timeout|aborted/i.test(error.message) ? 'retryable_transport'
+        : isRetryableIoError(error) || /download failed|object URL|transport timeout|aborted/i.test(error.message) ? 'retryable_transport'
           : /verification failed|hash verification|size verification|unsafe target|containment/i.test(error.message) ? 'integrity_failure' : null
     if (!reason) throw error
     let observedRevision: string | undefined

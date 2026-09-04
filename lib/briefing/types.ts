@@ -386,6 +386,12 @@ export interface BriefingCard extends BriefingSourceItem {
   relevanceScore?: number
 
   /**
+   * Work lane this card belongs to (meeting, reply, approval, agent, blocked).
+   * Stamped by the feed so the desk, Pip and Hermes share one taxonomy.
+   */
+  workKind?: 'meeting' | 'reply' | 'approval' | 'agent' | 'blocked'
+
+  /**
    * Per-user control state from the briefing desk.
    */
   userState?: BriefingCardUserState | null

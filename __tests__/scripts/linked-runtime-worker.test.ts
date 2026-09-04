@@ -1,4 +1,4 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{execFileSync}from'node:child_process';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{execFileSync}from'node:child_process';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever,realProfileGuardBlocksRun}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRunMaxTotalConcurrency,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
 import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesAgentHasActiveWork, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
@@ -73,13 +73,15 @@ it('fails closed when the busy probe cannot be completed (no restart for unverif
 it.each([['darwin','macos'],['win32','windows'],['linux','linux']] as const)('reports Node platform %s as linked runtime platform %s',(nodePlatform,expected)=>{expect(linkedRuntimePlatform(nodePlatform)).toBe(expected)})
 it('uses a safe 64-chat host ceiling even when the environment is malformed or too high',()=>{expect(linkedRunMaxTotalConcurrency('not-a-number')).toBe(64);expect(linkedRunMaxTotalConcurrency('120')).toBe(64);expect(linkedRunMaxTotalConcurrency('0')).toBe(64);expect(linkedRunMaxTotalConcurrency('9999')).toBe(64)})
 it('attests sync protocol v1 and runs native sync polling beside normal execution polling',async()=>{expect(linkedRuntimeHeartbeatBody()).toEqual(expect.objectContaining({capabilities:['workspace.execute','workspace.sync'],syncProtocolVersion:1}));expect(linkedRuntimeSyncClaimBody()).toEqual(expect.objectContaining({syncProtocolVersion:1}));const calls:string[]=[];await runRuntimeServicePollers(async()=>{calls.push('runs')},async()=>{calls.push('sync')});expect(calls.sort()).toEqual(['runs','sync'])})
-it('withholds workspace.sync attestation on platforms without race-free apply support',()=>{expect(nativeWorkspaceSyncSupported('darwin')).toBe(true);expect(nativeWorkspaceSyncSupported('linux')).toBe(true);expect(nativeWorkspaceSyncSupported('win32')).toBe(false);expect(linkedRuntimeHeartbeatBody('win32')).toEqual(expect.objectContaining({capabilities:['workspace.execute']}));expect(linkedRuntimeHeartbeatBody('win32')).not.toHaveProperty('syncProtocolVersion')})
+it('attests workspace.sync on Windows as well as POSIX',()=>{expect(nativeWorkspaceSyncSupported('darwin')).toBe(true);expect(nativeWorkspaceSyncSupported('linux')).toBe(true);expect(nativeWorkspaceSyncSupported('win32')).toBe(true);expect(linkedRuntimeHeartbeatBody('win32')).toEqual(expect.objectContaining({capabilities:['workspace.execute','workspace.sync'],syncProtocolVersion:1}))})
 it('withholds execution and reports degraded health when Hermes has no healthy local agent',()=>{expect(linkedRuntimeHeartbeatBody('darwin',{availableAgentIds:[],healthReason:'hermes_unavailable'})).toEqual(expect.objectContaining({health:'degraded',capabilities:['workspace.sync'],availableAgentIds:[],healthReason:'hermes_unavailable'}))})
 it('reports hermes_binary_missing when the Hermes CLI is not installed',()=>{expect(linkedRuntimeHeartbeatBody('darwin',{availableAgentIds:[],healthReason:'hermes_binary_missing'})).toEqual(expect.objectContaining({health:'degraded',healthReason:'hermes_binary_missing',availableAgentIds:[]}))})
+it('heartbeat body includes availableProfiles from markers',()=>{expect(linkedRuntimeHeartbeatBody('darwin',{availableAgentIds:['partners--pip','pip'],availableProfiles:[{profile:'partners--pip',orgId:'org-1',agentId:'pip',healthy:true,skillsDigest:'deadbeef'},{profile:'pip',orgId:null,agentId:'pip',healthy:true,skillsDigest:null}]})).toEqual(expect.objectContaining({availableAgentIds:['partners--pip','pip'],availableProfiles:[{profile:'partners--pip',orgId:'org-1',agentId:'pip',healthy:true,skillsDigest:'deadbeef'},{profile:'pip',orgId:null,agentId:'pip',healthy:true,skillsDigest:null}]}))})
 it('discovers the standard Hermes API credential without copying it into PiB state',()=>{const hermesHome=fs.mkdtempSync(path.join(os.tmpdir(),'hermes-home-'));fs.writeFileSync(path.join(hermesHome,'.env'),'API_SERVER_KEY="discovered-key"\n');expect(localHermesRoutes({HERMES_HOME:hermesHome})).toEqual([{agentId:'pip',baseUrl:'http://127.0.0.1:8755',apiKey:'discovered-key'}])})
 it('discovers independently configured named Hermes profiles on their loopback ports',()=>{const hermesHome=fs.mkdtempSync(path.join(os.tmpdir(),'hermes-profiles-'));fs.mkdirSync(path.join(hermesHome,'profiles','sales'),{recursive:true});fs.mkdirSync(path.join(hermesHome,'profiles','unsafe profile'),{recursive:true});fs.writeFileSync(path.join(hermesHome,'.env'),'API_SERVER_PORT=8755\nAPI_SERVER_KEY=default-key\n');fs.writeFileSync(path.join(hermesHome,'profiles','sales','.env'),'API_SERVER_PORT=8761\nAPI_SERVER_KEY="sales-key"\n');fs.writeFileSync(path.join(hermesHome,'profiles','unsafe profile','.env'),'API_SERVER_PORT=8762\n');expect(localHermesRoutes({PIB_HERMES_HOME:hermesHome})).toEqual([{agentId:'pip',baseUrl:'http://127.0.0.1:8755',apiKey:'default-key'},{agentId:'sales',baseUrl:'http://127.0.0.1:8761',apiKey:'sales-key'}])})
 it('prefers an explicitly named Pip profile over a same-named global gateway',()=>{const hermesHome=fs.mkdtempSync(path.join(os.tmpdir(),'hermes-pip-profile-'));fs.mkdirSync(path.join(hermesHome,'profiles','pip'),{recursive:true});fs.writeFileSync(path.join(hermesHome,'.env'),'API_SERVER_PORT=8642\nAPI_SERVER_KEY=global-key\n');fs.writeFileSync(path.join(hermesHome,'profiles','pip','.env'),'API_SERVER_PORT=8755\nAPI_SERVER_KEY=managed-key\n');expect(localHermesRoutes({PIB_HERMES_HOME:hermesHome})).toEqual([{agentId:'pip',baseUrl:'http://127.0.0.1:8755',apiKey:'managed-key'}])})
-it('probes and completes runs only on authenticated loopback Hermes agent routes',async()=>{const env={PIB_LOCAL_HERMES_ROUTES:JSON.stringify({pip:{baseUrl:'http://127.0.0.1:8755',apiKey:'local-key'},theo:'http://localhost:8756'}),PIB_LOCAL_HERMES_API_KEY:'fallback-key'},fetcher=jest.fn(async(url:any,init:any)=>{const target=String(url);return new Response(target.endsWith('/v1/health')?JSON.stringify({version:'0.18.2'}):target.endsWith('/v1/runs')?JSON.stringify({run_id:'run-local-1'}):JSON.stringify({status:'completed',output:'done'}),{status:200,headers:{'content-type':'application/json'}})}) as any;expect(localHermesRoutes(env)).toEqual([{agentId:'pip',baseUrl:'http://127.0.0.1:8755',apiKey:'local-key'},{agentId:'theo',baseUrl:'http://localhost:8756',apiKey:'fallback-key'}]);await expect(probeLocalHermes(env,fetcher)).resolves.toEqual({availableAgentIds:['pip','theo'],hermesVersion:'0.18.2'});await expect(callLocalHermes('pip',{prompt:'p',working_directory:'/tmp'},env,fetcher)).resolves.toBe('done');const startRequest=fetcher.mock.calls.find(([url]:[unknown])=>String(url).endsWith('/v1/runs'))?.[1];expect(startRequest?.headers.authorization).toBe('Bearer local-key');expect(startRequest?.signal).toBeInstanceOf(AbortSignal);expect(JSON.parse(String(startRequest?.body))).toEqual({input:'p',working_directory:'/tmp'});const pollRequest=fetcher.mock.calls.at(-1)?.[1];expect(pollRequest?.headers.authorization).toBe('Bearer local-key');expect(fetcher.mock.calls.at(-1)?.[0]).toBe('http://127.0.0.1:8755/v1/runs/run-local-1');expect(()=>localHermesRoutes({PIB_LOCAL_HERMES:'https://remote.example'})).toThrow('loopback')})
+it('probes availableProfiles from pib-managed markers and skills digest',async()=>{const hermesHome=fs.mkdtempSync(path.join(os.tmpdir(),'hermes-managed-probe-'));fs.mkdirSync(path.join(hermesHome,'profiles','partners--pip'),{recursive:true});fs.writeFileSync(path.join(hermesHome,'.env'),'API_SERVER_PORT=8755\nAPI_SERVER_KEY=default-key\n');fs.writeFileSync(path.join(hermesHome,'profiles','partners--pip','.env'),'API_SERVER_PORT=8760\nAPI_SERVER_KEY=managed-key\n');fs.writeFileSync(path.join(hermesHome,'profiles','partners--pip','pib-managed.json'),JSON.stringify({orgId:'org-1',orgSlug:'partners',agentId:'pip',profile:'partners--pip',createdAt:'2026-09-03T00:00:00.000Z'}));fs.writeFileSync(path.join(hermesHome,'profiles','partners--pip','pib-skills-digest.txt'),'deadbeef\n');const fetcher=jest.fn(async()=>new Response(JSON.stringify({version:'0.21.0'}),{status:200,headers:{'content-type':'application/json'}})) as any;await expect(probeLocalHermes({PIB_HERMES_HOME:hermesHome},fetcher)).resolves.toEqual({availableAgentIds:['partners--pip','pip'],hermesVersion:'0.21.0',availableProfiles:[{profile:'partners--pip',orgId:'org-1',agentId:'pip',healthy:true,skillsDigest:'deadbeef'},{profile:'pip',orgId:null,agentId:'pip',healthy:true,skillsDigest:null}]});fs.rmSync(hermesHome,{recursive:true,force:true})})
+it('probes and completes runs only on authenticated loopback Hermes agent routes',async()=>{const env={PIB_LOCAL_HERMES_ROUTES:JSON.stringify({pip:{baseUrl:'http://127.0.0.1:8755',apiKey:'local-key'},theo:'http://localhost:8756'}),PIB_LOCAL_HERMES_API_KEY:'fallback-key'},fetcher=jest.fn(async(url:any,init:any)=>{const target=String(url);return new Response(target.endsWith('/v1/health')?JSON.stringify({version:'0.18.2'}):target.endsWith('/v1/runs')?JSON.stringify({run_id:'run-local-1'}):JSON.stringify({status:'completed',output:'done'}),{status:200,headers:{'content-type':'application/json'}})}) as any;expect(localHermesRoutes(env)).toEqual([{agentId:'pip',baseUrl:'http://127.0.0.1:8755',apiKey:'local-key'},{agentId:'theo',baseUrl:'http://localhost:8756',apiKey:'fallback-key'}]);await expect(probeLocalHermes(env,fetcher)).resolves.toEqual({availableAgentIds:['pip','theo'],availableProfiles:[{profile:'pip',orgId:null,agentId:'pip',healthy:true,skillsDigest:null},{profile:'theo',orgId:null,agentId:'theo',healthy:true,skillsDigest:null}],hermesVersion:'0.18.2'});await expect(callLocalHermes('pip',{prompt:'p',working_directory:'/tmp'},env,fetcher)).resolves.toBe('done');const startRequest=fetcher.mock.calls.find(([url]:[unknown])=>String(url).endsWith('/v1/runs'))?.[1];expect(startRequest?.headers.authorization).toBe('Bearer local-key');expect(startRequest?.signal).toBeInstanceOf(AbortSignal);expect(JSON.parse(String(startRequest?.body))).toEqual({input:'p',working_directory:'/tmp'});const pollRequest=fetcher.mock.calls.at(-1)?.[1];expect(pollRequest?.headers.authorization).toBe('Bearer local-key');expect(fetcher.mock.calls.at(-1)?.[0]).toBe('http://127.0.0.1:8755/v1/runs/run-local-1');expect(()=>localHermesRoutes({PIB_LOCAL_HERMES:'https://remote.example'})).toThrow('loopback')})
 it('does not apply a wall-clock timeout when local Hermes run timeout is zero',async()=>{let now=0,polls=0;const clock=jest.spyOn(Date,'now').mockImplementation(()=>now);const fetcher=jest.fn(async(url:any,init:any)=>{const target=String(url);if(target.endsWith('/v1/runs')&&init?.method==='POST')return new Response(JSON.stringify({run_id:'run-unlimited'}),{status:200});polls+=1;if(polls<3){now+=2_000_000;return new Response(JSON.stringify({status:'running'}),{status:200})}return new Response(JSON.stringify({status:'completed',output:'eventually done'}),{status:200})}) as any;try{await expect(callLocalHermes('pip',{prompt:'long work',working_directory:'/tmp'},{PIB_LOCAL_HERMES:'http://127.0.0.1:8755',PIB_LOCAL_HERMES_RUN_TIMEOUT_MS:'0'},fetcher,async()=>undefined)).resolves.toBe('eventually done');expect(polls).toBe(3)}finally{clock.mockRestore()}})
 it('forwards linked-chat images to Hermes as native multimodal input',async()=>{const fetcher=jest.fn(async(url:any)=>new Response(String(url).endsWith('/v1/runs')?JSON.stringify({run_id:'run-image'}):JSON.stringify({status:'completed',output:'seen'}),{status:200,headers:{'content-type':'application/json'}})) as any;await expect(callLocalHermes('pip',{prompt:'describe',images:[{url:'https://storage.example/signed-image',contentType:'image/png'}],working_directory:'/tmp'},{PIB_LOCAL_HERMES:'http://127.0.0.1:8755'},fetcher)).resolves.toBe('seen');expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({input:[{role:'user',content:[{type:'text',text:'describe'},{type:'image_url',image_url:{url:'https://storage.example/signed-image'}}]}],working_directory:'/tmp'})})
 it('forwards local Hermes SSE tool events while polling run status', async () => {
@@ -199,6 +201,21 @@ it('wakes after first heartbeat discovery so idle Hermes profiles are not strand
   expect(started.filter(jobId=>jobId.startsWith('theo-'))).toHaveLength(10)
   stopped=true
   for(const release of releases.values())release()
+  await polling
+})
+it('returns claim capacity 0 when Hermes is below the channel minimum',async()=>{
+  const capacity=new LinkedRunProfileCapacity()
+  capacity.setHealthyAgentIds(['pip'])
+  capacity.setAcceptingClaims(false)
+  expect(capacity.totalConcurrencyLimit()).toBe(0)
+  let stopped=false
+  const claim=jest.fn(async()=>({jobId:'should-not-claim',agentId:'pip'}))
+  const run=jest.fn()
+  const polling=pollForever(claim as never,run,()=>stopped,{capacity})
+  await new Promise(resolve=>setTimeout(resolve,20))
+  expect(claim).not.toHaveBeenCalled()
+  stopped=true
+  capacity.setAcceptingClaims(true)
   await polling
 })
 it('keeps the runtime alive when an older server returns a locally saturated profile',async()=>{
@@ -587,6 +604,51 @@ it('renews the signed lease while Hermes is still running and stops after comple
 
 it('awaits an in-flight lease renewal before terminal completion',async()=>{jest.useFakeTimers();const d=fs.mkdtempSync(path.join(os.tmpdir(),'renew-race-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),order:string[]=[];let releaseRenew!:(r:Response)=>void,finishHermes!:(v:string)=>void;const post=jest.fn(async(p:string,b:any)=>{if(b.receipt.event==='progress'){order.push('renew-start');return new Promise<Response>(r=>{releaseRenew=r})}if(p.endsWith('/complete'))order.push('complete');return new Response('',{status:200})});const hermes=async(_b:any,helpers:any)=>{await helpers.onStarted('local-run-race');return new Promise<string>(r=>{finishHermes=r})};const promise=executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes,{progressIntervalMs:1000});await Promise.resolve();await jest.advanceTimersByTimeAsync(1000);expect(order).toEqual(['renew-start']);finishHermes('done');await Promise.resolve();expect(order).toEqual(['renew-start']);releaseRenew(new Response('',{status:200}));await promise;expect(order).toEqual(['renew-start','complete']);jest.useRealTimers()})
 
+it('persists the device owner from heartbeat data without a rotation',()=>{
+  const current={deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private'}
+  expect(applyHeartbeatData(current,{ownerUserId:'owner-a'})).toEqual({
+    deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private',ownerUserId:'owner-a',
+  })
+})
+it('blocks a real-profile run when the actor is not the device owner',async()=>{
+  expect(realProfileGuardBlocksRun({useRealProfile:true,actorUserId:'member-a',ownerUserId:'owner-a'})).toBe(true)
+  expect(realProfileGuardBlocksRun({useRealProfile:true,actorUserId:'owner-a',ownerUserId:'owner-a'})).toBe(false)
+  expect(realProfileGuardBlocksRun({useRealProfile:false,actorUserId:'member-a',ownerUserId:'owner-a'})).toBe(false)
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'pib-real-profile-guard-'))
+  const previousHome=process.env.HERMES_HOME
+  const previousPibHome=process.env.PIB_HERMES_HOME
+  process.env.HERMES_HOME=home
+  process.env.PIB_HERMES_HOME=home
+  fs.mkdirSync(path.join(home,'profiles','pip'),{recursive:true})
+  fs.writeFileSync(path.join(home,'profiles','pip','config.yaml'),'browser:\n  use_real_profile: true\n')
+  const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-guard-'))
+  const root=path.join(d,'root')
+  fs.mkdirSync(root)
+  const maps=new MappingRegistry(path.join(d,'maps'))
+  maps.map('m',root)
+  const k=generateKeyPairSync('ed25519')
+  const hermes=jest.fn(async()=>({ok:true}))
+  const post=jest.fn(async()=>new Response('',{status:200}))
+  try{
+    const result=await executeJob(
+      {jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease',actorUserId:'member-a',orgId:'org-a'},
+      {deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString(),ownerUserId:'owner-a'},
+      maps,
+      post,
+      hermes,
+    )
+    expect(hermes).not.toHaveBeenCalled()
+    expect(result.status).toBe('failed')
+    expect(result.error).toBe('real_profile_guard')
+  }finally{
+    if(previousHome===undefined)delete process.env.HERMES_HOME
+    else process.env.HERMES_HOME=previousHome
+    if(previousPibHome===undefined)delete process.env.PIB_HERMES_HOME
+    else process.env.PIB_HERMES_HOME=previousPibHome
+    fs.rmSync(home,{recursive:true,force:true})
+    fs.rmSync(d,{recursive:true,force:true})
+  }
+})
 it('applies a route-shaped one-time rotation without retaining transport tokens',async()=>{const current={deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private',transportToken:'legacy'},next=applyHeartbeatData(current,{rotation:{credential:'new',credentialVersion:2,rotationDeliveryId:'delivery-1',transportToken:'discard'}});expect(next).toEqual({deviceId:'d',credential:'new',credentialVersion:2,privateKey:'private',pendingRotationDeliveryId:'delivery-1'});const fetcher=jest.fn(async()=>new Response('',{status:200})),keys=generateKeyPairSync('ed25519'),client=new DeviceApiClient('https://partnersinbiz.online',{...next,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'}).toString()},fetcher as any);await client.post('/api/v1/linked-computers/d/runs/claim',{});expect((fetcher.mock.calls[0][1] as any).headers['x-device-credential-version']).toBe('2')})
 
 it('persists and reads back rotation before acknowledging with the new credential',async()=>{const old={deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private',transportToken:'legacy'},writes:any[]=[],acks:any[]=[];let stored:any=old;const persist=async(v:any)=>{stored=structuredClone(v);writes.push(stored)},read=async()=>stored,ack=async(v:any,id:string)=>{acks.push([v.credentialVersion,id])};const next=await handleRotation(old,{rotation:{credential:'new',credentialVersion:2,rotationDeliveryId:'delivery-1',transportToken:'discard'}},persist,read,ack);expect(writes[0]).toEqual(expect.objectContaining({credential:'new',credentialVersion:2,pendingRotationDeliveryId:'delivery-1'}));expect(writes[0]).not.toHaveProperty('transportToken');expect(acks).toEqual([[2,'delivery-1']]);expect(next).not.toHaveProperty('pendingRotationDeliveryId')})

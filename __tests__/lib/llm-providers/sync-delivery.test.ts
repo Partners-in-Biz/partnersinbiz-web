@@ -27,6 +27,7 @@ jest.mock('@/lib/llm-providers/linked-delivery', () => ({ enqueueCredentialDeliv
 jest.mock('@/lib/llm-providers/sync-targets', () => ({
   resolveOrgLlmSyncTargets: jest.fn(),
   resolveUserLlmSyncTargets: jest.fn(),
+  resolveOrgShareLinkedComputerTargets: jest.fn(async () => ({ targets: [], memberCount: 0 })),
 }))
 jest.mock('@/lib/llm-providers/refresh', () => ({
   ensureFreshLlmProviderConnection: async (connection: unknown) => connection,

@@ -118,6 +118,22 @@ export async function revokeLlmConnection(orgId: string, id: string): Promise<vo
   await unwrap(res)
 }
 
+export async function updateLlmShareTargets(
+  orgId: string,
+  id: string,
+  shareTargets: import('./types').LlmShareTargets,
+): Promise<{ connection: LlmProviderConnectionMasked }> {
+  const res = await fetch(
+    `/api/v1/llm-providers/connections/${encodeURIComponent(id)}?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shareTargets }),
+    },
+  )
+  return unwrap(res)
+}
+
 export async function resyncLlmConnection(orgId: string, id: string): Promise<unknown> {
   const res = await fetch(
     `/api/v1/llm-providers/connections/${encodeURIComponent(id)}?orgId=${encodeURIComponent(orgId)}`,

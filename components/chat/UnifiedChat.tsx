@@ -1,5 +1,6 @@
 'use client'
 
+import 'katex/dist/katex.min.css'
 import { Icon } from '@/components/studio'
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
@@ -105,6 +106,7 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { RoomList } from '@/components/messages/agent-rooms/RoomList'
 import { ConversationOverflowSheet } from '@/components/messages/ConversationOverflowSheet'
 import { useMobileConversationViewport } from '@/components/messages/useMobileConversationViewport'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
@@ -299,6 +301,8 @@ export interface UnifiedChatProps {
   experienceMode?: MessagesExperienceMode
   onExperienceModeChange?: (mode: MessagesExperienceMode) => void
   computersHref?: string
+  /** Portal Messages only: show the agent-rooms rail when the org flag is on. */
+  agentRoomsEnabled?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -1375,6 +1379,7 @@ export default function UnifiedChat({
   experienceMode = 'messages',
   onExperienceModeChange,
   computersHref = '/portal/settings/linked-computers',
+  agentRoomsEnabled = false,
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
   const mobileConversationViewport = useMobileConversationViewport()
@@ -1522,6 +1527,7 @@ export default function UnifiedChat({
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
+  const [richArtifactRequest, setRichArtifactRequest] = useState<{ part: RichMessagePart; nonce: number }>()
   const [contextFocusRequest, setContextFocusRequest] = useState<{ kind: ContextReference['type']; id: string; projectId?: string; nonce: number }>()
   // Fingerprint recent messages so Context Dock previews soft-reload when agents update records.
   const contextPreviewRefreshSignal = useMemo(() => {
@@ -5723,6 +5729,31 @@ export default function UnifiedChat({
   const handleUiAction = useCallback(
     async (message: ConversationMessage, action: ChatUiAction, options?: { openDock?: boolean }) => {
       const actionType = String(action.type).toLowerCase()
+      if (actionType === 'open_workbench_browser') {
+        openWorkbenchTab('browser')
+        const sessionId = action.payload && typeof action.payload === 'object' && typeof (action.payload as { sessionId?: unknown }).sessionId === 'string'
+          ? (action.payload as { sessionId: string }).sessionId.trim()
+          : ''
+        if (sessionId && activeId) {
+          void getWorkbenchBrowserSession(activeId, sessionId)
+            .then((remote) => {
+              applyWorkbenchBrowserSessionUpdate(remote)
+              if (remote.status === 'queued' || remote.status === 'claimed' || remote.status === 'running') {
+                const controller = new AbortController()
+                workbenchBrowserSessionAbortRef.current?.abort()
+                workbenchBrowserSessionAbortRef.current = controller
+                return pollWorkbenchBrowserSession(activeId, sessionId, {
+                  signal: controller.signal,
+                  onProgress: applyWorkbenchBrowserSessionUpdate,
+                  settledStatuses: new Set(['running', 'exited', 'killed', 'expired', 'failed']),
+                })
+              }
+              return remote
+            })
+            .catch(() => undefined)
+        }
+        return
+      }
       if (actionType === 'open_context') {
         // Never pin context for a bubble that belongs to another thread (stale
         // transcript after a tab switch, or a late SSE/finalize paint).
@@ -5901,7 +5932,7 @@ export default function UnifiedChat({
         setError(err instanceof Error ? err.message : 'Action failed')
       }
     },
-    [activeId, initialAgentId, messages, orgId, pollFinalize, refreshProjectChat, startEventStream],
+    [activeId, initialAgentId, messages, openWorkbenchTab, orgId, pollFinalize, refreshProjectChat, startEventStream],
   )
 
   useEffect(() => {
@@ -7558,6 +7589,17 @@ export default function UnifiedChat({
           />
         </label>
 
+        {agentRoomsEnabled && !botMode && !railCollapsed && (
+          <RoomList
+            orgId={orgId}
+            activeConversationId={activeId}
+            onOpenConversation={(conversationId) => {
+              setActiveId(conversationId)
+              closeSessions()
+            }}
+          />
+        )}
+
         {hermesLayout && hiddenFolderPreferencesLoaded && hiddenFolderOptions.length > 0 && (
           <div className="relative">
             <button
@@ -8914,7 +8956,7 @@ export default function UnifiedChat({
             } : undefined}
           />
         )}
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} richArtifactRequest={richArtifactRequest} onArtifactTakeOver={(sessionId) => { void handleUiAction({} as ConversationMessage, { id: 'open-workbench-browser', type: 'open_workbench_browser', label: 'Take over', payload: { sessionId } }) }} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -9042,6 +9084,7 @@ export default function UnifiedChat({
                     }
                     onQuoteSelection={addSelectionToComposer}
                     onUiAction={handleUiAction}
+                    onOpenArtifact={(part) => setRichArtifactRequest({ part, nonce: Date.now() })}
                   />
                   {m.acceptedDevice && (
                     <div className="ml-10 mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]" aria-label="Linked computer execution receipt">

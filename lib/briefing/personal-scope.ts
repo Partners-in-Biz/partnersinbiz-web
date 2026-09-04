@@ -107,6 +107,22 @@ export function recordLinkedViaCrm(
 }
 
 /**
+ * Every org a record is addressed to. Quotes/invoices/orders raised by one org
+ * for another carry `recipientOrgId` / `targetOrgId`, and the receiving org's
+ * operator is the one who has to decide or pay — so operator checks must look
+ * at all of them, not only `orgId`.
+ */
+export function recordAddressedOrgIds(doc: Record<string, unknown> | null | undefined): string[] {
+  if (!doc) return []
+  const ids = new Set<string>()
+  for (const value of [doc.orgId, doc.sourceOrgId, doc.recipientOrgId, doc.targetOrgId]) {
+    const id = clean(value)
+    if (id) ids.add(id)
+  }
+  return [...ids]
+}
+
+/**
  * Sources that are addressed to the org operator rather than owned by one
  * person. These are the action-queue cards (approval gates, needs-peet task
  * states, documents awaiting sign-off, social posts in review lanes). They
@@ -156,6 +172,9 @@ export function recordOperatorAddressed(sourceType: BriefingSourceType, doc: Rec
 
   if (sourceType === 'ad-campaign') {
     const status = clean(doc.status).toLowerCase()
+    // The adapter only emits `PENDING_REVIEW` + `reviewState: 'awaiting'`; keep
+    // the legacy spellings so older documents stay addressed too.
+    if (status === 'pending_review') return clean(doc.reviewState).toLowerCase() !== 'resolved'
     return status === 'pending' || status === 'pending_approval' || status === 'needs_review' || status === 'rejected'
   }
 
@@ -166,7 +185,8 @@ export function recordOperatorAddressed(sourceType: BriefingSourceType, doc: Rec
 
   if (sourceType === 'broadcast') {
     const status = clean(doc.status).toLowerCase()
-    return status === 'pending' || status === 'pending_approval' || status === 'paused' || status === 'failed' || status === 'sending' || status === 'scheduled'
+    // `draft` is the adapter's "ready to send" needs-peet card, so it is operator work too.
+    return status === 'draft' || status === 'pending' || status === 'pending_approval' || status === 'paused' || status === 'failed' || status === 'sending' || status === 'scheduled'
   }
 
   if (sourceType === 'report') {

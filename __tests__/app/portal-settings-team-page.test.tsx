@@ -74,7 +74,7 @@ describe('TeamPage', () => {
 
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/portal/settings/team?orgId=org-1') {
+      if (url.startsWith('/api/v1/portal/settings/team?orgId=org-1') && !url.includes('/sales-rep') && !url.includes('/invite')) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -112,25 +112,28 @@ describe('TeamPage', () => {
             }),
         })
       }
-      if (url === '/api/v1/portal/settings/profile?orgId=org-1') {
+      if (url.startsWith('/api/v1/portal/settings/profile?orgId=org-1')) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ profile: { role: 'owner' } }),
         })
       }
-      if (url === '/api/v1/portal/org') {
+      if (url === '/api/v1/portal/org' || url.startsWith('/api/v1/portal/org?')) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ user: { uid: 'current-admin' } }),
         })
       }
-      if (url === '/api/v1/portal/settings/team/sales-rep/role?orgId=org-1' && init?.method === 'PATCH') {
+      if (url === '/api/v1/orgs/org-1/teams') {
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ error: 'feature_disabled' }) })
+      }
+      if (url.startsWith('/api/v1/portal/settings/team/sales-rep/role') && init?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ role: 'viewer' }) })
       }
-      if (url === '/api/v1/portal/settings/team/invite?orgId=org-1' && init?.method === 'POST') {
+      if (url.startsWith('/api/v1/portal/settings/team/invite') && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ uid: 'new-user' }) })
       }
-      if (url === '/api/v1/portal/settings/team/sales-rep?orgId=org-1' && init?.method === 'DELETE') {
+      if (url.startsWith('/api/v1/portal/settings/team/sales-rep?') && init?.method === 'DELETE') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ removed: 'sales-rep' }) })
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
@@ -140,15 +143,15 @@ describe('TeamPage', () => {
 
     expect(await screen.findByText('Sam Sales')).toBeInTheDocument()
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/profile?orgId=org-1')
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/portal\/settings\/team\?orgId=org-1/))
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/portal\/settings\/profile\?orgId=org-1/))
     })
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Change role for Sam Sales' }), {
       target: { value: 'viewer' },
     })
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep/role?orgId=org-1', expect.objectContaining({ method: 'PATCH' }))
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/portal\/settings\/team\/sales-rep\/role\?orgId=org-1/), expect.objectContaining({ method: 'PATCH' }))
     })
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), {
@@ -156,13 +159,13 @@ describe('TeamPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Send invite' }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/invite?orgId=org-1', expect.objectContaining({ method: 'POST' }))
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/portal\/settings\/team\/invite\?orgId=org-1/), expect.objectContaining({ method: 'POST' }))
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Sam Sales' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm remove Sam Sales from workspace' }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep?orgId=org-1', { method: 'DELETE' })
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/portal\/settings\/team\/sales-rep\?orgId=org-1/), { method: 'DELETE' })
     })
   })
 
@@ -171,7 +174,7 @@ describe('TeamPage', () => {
 
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/portal/settings/team?orgId=org-1') {
+      if (url.startsWith('/api/v1/portal/settings/team?orgId=org-1') && !url.includes('/sales-rep') && !url.includes('/invite')) {
         return Promise.resolve({
           ok: true,
           json: () =>
@@ -214,6 +217,9 @@ describe('TeamPage', () => {
       }
       if (url === '/api/v1/portal/org') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: { uid: 'current-admin' } }) })
+      }
+      if (url === '/api/v1/orgs/org-1/teams') {
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ error: 'feature_disabled' }) })
       }
       if (url === '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1' && !init) {
         return Promise.resolve({

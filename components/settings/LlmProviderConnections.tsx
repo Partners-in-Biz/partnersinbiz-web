@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { LlmProviderConnectionMasked, LlmOauthSessionPublic } from '@/lib/llm-providers/types'
+import type { LlmProviderConnectionMasked, LlmOauthSessionPublic, LlmShareMode, LlmShareTargets } from '@/lib/llm-providers/types'
+import { DEFAULT_LLM_SHARE_TARGETS } from '@/lib/llm-providers/types'
 import type { LlmProviderDefinition } from '@/lib/llm-providers/providers'
 import {
   listLlmProviderCatalog,
@@ -11,6 +12,7 @@ import {
   exchangeLlmOauth,
   revokeLlmConnection,
   resyncLlmConnection,
+  updateLlmShareTargets,
   type LlmProviderCatalogResponse,
 } from '@/lib/llm-providers/client'
 
@@ -327,6 +329,8 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                     connection={conn}
                     bindings={bindings.filter((binding) => binding.connectionId === conn.id)}
                     canManageOrgConnections={canManageOrgConnections}
+                    orgId={orgId}
+                    onShareSaved={refresh}
                     onResync={async () => {
                       type SyncPayload = {
                         failed?: Array<{ agentId: string; error: string }>
@@ -407,20 +411,99 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   )
 }
 
+function shareModeLabel(mode: LlmShareMode): string {
+  if (mode === 'organization') return 'everyone in the organisation'
+  if (mode === 'teams') return 'selected teams'
+  if (mode === 'selected_users') return 'selected people'
+  return 'organisation admins and the organisation VPS'
+}
+
+function ShareTargetsEditor({
+  orgId,
+  connection,
+  canManage,
+  onSaved,
+}: {
+  orgId: string
+  connection: LlmProviderConnectionMasked
+  canManage: boolean
+  onSaved: () => Promise<void>
+}) {
+  const share = connection.shareTargets ?? DEFAULT_LLM_SHARE_TARGETS
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<LlmShareMode>(share.mode)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async (next: LlmShareTargets) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await updateLlmShareTargets(orgId, connection.id, next)
+      await onSaved()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update sharing')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+        Delivered to: {shareModeLabel(share.mode)}
+        {connection.meta?.rotateRecommended ? ' · Rotate this key — a revoke is still pending on an offline computer.' : ''}
+      </p>
+      {canManage ? (
+        <details open={open} onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}>
+          <summary className="cursor-pointer text-[11px] font-medium text-[var(--color-pib-text)]">Sharing</summary>
+          <div className="mt-2 space-y-1 text-[11px] text-[var(--color-pib-text-muted)]">
+            {([
+              ['admins', 'Admins and organisation VPS only'],
+              ['organization', 'Everyone in the organisation'],
+              ['teams', 'Selected teams'],
+              ['selected_users', 'Selected people'],
+            ] as Array<[LlmShareMode, string]>).map(([value, label]) => (
+              <label key={value} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name={`share-${connection.id}`}
+                  checked={mode === value}
+                  disabled={saving}
+                  onChange={() => {
+                    setMode(value)
+                    void save({ ...share, mode: value })
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+            {error ? <p role="alert" className="text-red-200">{error}</p> : null}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  )
+}
+
 function ConnectedRow({
   connection,
   bindings,
   canManageOrgConnections,
+  orgId,
   onResync,
   onReconnect,
   onDisconnect,
+  onShareSaved,
 }: {
   connection: LlmProviderConnectionMasked
   bindings: LlmProviderCatalogResponse['bindings']
   canManageOrgConnections: boolean
+  orgId: string
   onResync: () => Promise<void>
   onReconnect: () => Promise<void>
   onDisconnect: () => Promise<void>
+  onShareSaved: () => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -454,7 +537,7 @@ function ConnectedRow({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-[var(--color-pib-text)]">{connection.label}</span>
           <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
-            {isPersonal ? 'Personal · linked computer' : 'Organisation · VPS'}
+            {isPersonal ? 'Personal · linked computer' : canManage ? 'Organisation · VPS' : 'Shared by organisation'}
           </span>
           <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${statusTone(connection.status)}`}>
             {connection.status}
@@ -484,12 +567,21 @@ function ConnectedRow({
           <span className="text-[11px] text-[var(--color-pib-text-muted)]">Managed by an organisation admin</span>
         )}
       </div>
-      <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
+      {canManage ? (
+        <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
+      ) : null}
       {isPersonal ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           Syncs only to computers owned by your account. The shared organisation VPS never receives this credential.
         </p>
-      ) : null}
+      ) : (
+        <ShareTargetsEditor
+          orgId={orgId}
+          connection={connection}
+          canManage={canManageOrgConnections}
+          onSaved={onShareSaved}
+        />
+      )}
       {visibleBindings.length > 0 ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           Live verified on {isPersonal ? 'your linked computers' : 'the organisation VPS'}:{' '}

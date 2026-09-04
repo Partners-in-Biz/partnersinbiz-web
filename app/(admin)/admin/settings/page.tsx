@@ -76,6 +76,7 @@ const PLATFORM_ITEMS = [
   { label: 'Platform Members', desc: 'Audit portal access records and linked organisation accounts', href: '/admin/platform-members', superAdminOnly: true },
   { label: 'Communications', desc: 'Inspect operator support queues, routing, and customer messaging operations', href: '/admin/support' },
   { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
+  { label: 'Linked runtime channels', desc: 'Hermes and runtime pins for internal and stable release channels', href: '/admin/linked-runtime' },
 ]
 
 export default function SettingsPage() {

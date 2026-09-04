@@ -9,4 +9,20 @@ describe('organisation feature flags', () => {
     expect(resolveFeatureFlags({ emailMarketingStudioV2: true }).emailMarketingStudioV2).toBe(true)
     expect(resolveFeatureFlags({ emailMarketingStudioV2: 'true' }).emailMarketingStudioV2).toBe(true)
   })
+
+  it('keeps organisation teams off until an organisation opts in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.orgTeamsEnabled).toBe(false)
+    expect(resolveFeatureFlags(undefined).orgTeamsEnabled).toBe(false)
+    expect(resolveFeatureFlags({}).orgTeamsEnabled).toBe(false)
+    expect(resolveFeatureFlags({ orgTeamsEnabled: true }).orgTeamsEnabled).toBe(true)
+    expect(resolveFeatureFlags({ orgTeamsEnabled: 'true' }).orgTeamsEnabled).toBe(true)
+  })
+
+  it('keeps agent rooms off until an organisation opts in', async () => {
+    expect(DEFAULT_FEATURE_FLAGS.agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags(undefined).agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({}).agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({ agentRoomsEnabled: true }).agentRoomsEnabled).toBe(true)
+    expect(resolveFeatureFlags({ agentRoomsEnabled: 'true' }).agentRoomsEnabled).toBe(true)
+  })
 })

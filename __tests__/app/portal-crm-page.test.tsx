@@ -135,6 +135,8 @@ describe('Portal CRM hub', () => {
     expect(screen.getByLabelText('Search contacts, companies, and deals')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', `/portal/contacts?${scope}`)
     expect(screen.getByRole('link', { name: 'Pipeline' })).toHaveAttribute('href', `/portal/deals?${scope}`)
+    expect(screen.getByRole('link', { name: /Open pipeline R/ })).toHaveAttribute('href', `/portal/deals?${scope}`)
+    expect(screen.getByRole('link', { name: /Weighted forecast/ })).toHaveAttribute('href', `/portal/deals?view=forecast&${scope}`)
     expect(screen.getByRole('link', { name: 'Open pipeline board' })).toHaveAttribute('href', `/portal/deals?${scope}`)
     expect(screen.getByRole('link', { name: 'Open CRM reports' })).toHaveAttribute('href', `/portal/reports/crm?${scope}`)
     expect(screen.getByRole('link', { name: 'Open CRM setup' })).toHaveAttribute('href', `/portal/settings/crm-setup?${scope}`)

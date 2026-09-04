@@ -4,6 +4,7 @@
 
 import type { BriefingPriority, BriefingSourceAdapter } from '../types'
 import { extractMultiFieldExcerpt, hashSourceDocument, normalizeTimestamp } from '../utils'
+import { isCrmNextAction, type CrmNextAction } from '@/lib/crm/types'
 
 interface ContactDocument extends Record<string, unknown> {
   orgId?: string | null
@@ -28,6 +29,8 @@ interface ContactDocument extends Record<string, unknown> {
   lastRepliedAt?: unknown
   updatedAt?: unknown
   createdAt?: unknown
+  /** Explicit next step recorded on the contact ('call' | 'email' | 'meet'). */
+  nextAction?: CrmNextAction | string | null
 }
 
 function clean(value: unknown): string | null {
@@ -97,7 +100,7 @@ export const contactAdapter: BriefingSourceAdapter<ContactDocument> = {
   collectionPath: 'contacts',
 
   hashSource(doc: ContactDocument, docId: string): string {
-    return hashSourceDocument(doc, docId, ['name', 'email', 'stage', 'type', 'source', 'leadScore', 'icpScore', 'aiLeadScore', 'lastContactedAt', 'lastRepliedAt', 'updatedAt'])
+    return hashSourceDocument(doc, docId, ['name', 'email', 'stage', 'type', 'source', 'leadScore', 'icpScore', 'aiLeadScore', 'lastContactedAt', 'lastRepliedAt', 'updatedAt', 'nextAction'])
   },
 
   shouldGenerate(doc: ContactDocument): boolean {
@@ -186,6 +189,8 @@ export const contactAdapter: BriefingSourceAdapter<ContactDocument> = {
     return {
       revenueSignal: revenueSignal(doc),
       nextAction: nextAction(revenueSignal(doc)),
+      // Explicit CRM next action (enum) — honoured by workKind; metadata only, never context.
+      nextActionKind: isCrmNextAction(doc.nextAction) ? doc.nextAction : null,
       contactStage: clean(doc.stage),
       contactType: clean(doc.type),
       source: clean(doc.source),

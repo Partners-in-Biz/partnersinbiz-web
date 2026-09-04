@@ -1,0 +1,6 @@
+{
+  "type": "browser_frame",
+  "screenshotUrl": "https://cdn.example.com/frame.png",
+  "url": "https://example.com/app",
+  "sessionId": "sess-golden-1"
+}

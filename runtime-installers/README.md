@@ -2,7 +2,38 @@
 
 This directory includes the TypeScript `pib-runtime` source, cryptographic core, native credential helpers, a per-user macOS LaunchAgent, a Windows SCM service wrapper, and a headless Linux systemd package for VPS hosts. The service is outbound-only: it heartbeats and polls fixed PiB HTTPS queue endpoints, signs every claim/progress/completion request, and calls loopback Hermes without opening an inbound listener. Pairing commands contain only `challengeId` and `platform`; the runtime privately prompts without terminal echo for the one-time code. It creates the Ed25519 device signing key locally and stores the private key and device credential in macOS Keychain, Windows Credential Manager, or a Linux host-key-encrypted `systemd-creds` file.
 
-Hermes Agent is a hard prerequisite. The public bootstrap commands under `public/runtime/bootstrap/` install the official Hermes distribution on macOS, Windows, or Linux when it is missing, create the user-selected profiles, run Hermes' local model setup for each profile, install/start their gateways, then install and pair the signed PiB runtime. Provider API keys are entered only in Hermes' local setup; the browser handoff carries only the opaque challenge ID plus nonsecret profile/provider names.
+Hermes Agent is a hard prerequisite. The public bootstrap commands under `public/runtime/bootstrap/` install the official Hermes distribution on macOS, Windows, or Linux when the binary is missing, then install and pair the signed PiB runtime with `--agents`. They do **not** create Hermes profiles, run local model setup, or start gateways. Partners in Biz provisions `{orgSlug}--{agentId}` managed profiles after pair. The browser handoff carries only the opaque challenge ID plus nonsecret agent / channel names.
+
+## Managed profiles
+
+PiB is the authority for organisation agents on a paired machine.
+
+- Pairing sends `orgId` and the selected catalog agent ids. The runtime CLI is `pib-runtime pair --challenge <id> --platform <os> --agents pip,maya`.
+- Desired-state jobs create the profile with `hermes profile create --no-skills`, write `pib-managed.json`, generate `API_SERVER_KEY` if missing, and apply skill packs / org credentials / browser policy.
+- Heartbeat `availableProfiles` is grant-filtered into `availableAgents` (each row has `orgId`) plus `ignoredProfiles`. Unmanaged profiles with `orgId: null` are omitted from both. Organisation keys are delivered only to matching `orgId` rows.
+- `executeAgentHostJob` refuses `org_mismatch` before any skill, credential, or browser work when the marker org disagrees with the job.
+- Protocol version is `4`. Claim accepts 3 or 4; v3 runtimes skip `managedProfile` jobs and leave them queued.
+
+## Hermes channel pin
+
+`platform_config/linked_runtime_channels` plus signed `GET .../[deviceId]/runtime-config` tell each device the Hermes `minVersion` / `targetVersion` / `targetTag`. The first pin is `v2026.8.31` (Hermes 0.21.0). Facts live in `runtime-installers/runtime/hermes-contract.json`.
+
+- Update strategy is the official installer: `curl …/install.sh | bash -s -- --branch {tag} --non-interactive`. The CLI cannot pin a tag. Do not run `hermes update --yes` as the pin path.
+- `updatePausesGateways` is false on POSIX. The runtime stops Mac/Linux gateways before update.
+- A failed update reports heartbeat `healthReason: hermes_update_failed` and keeps serving the previous checkout. Retry at most once per 6 hours.
+- If the probed Hermes version is below `minVersion`, the claim loop advertises concurrency `0`. Heartbeat still runs. Unparseable versions fail open.
+
+## Real-profile browsing
+
+Owner-only. Settings: **Let agents on this computer browse as me** (pin / headed / Windows autoclose). The UI prints the spec §H.5 risk sentence.
+
+- Contract keys: `browser.use_real_profile`, `real_profile_pin`, `headed`, `real_profile_autoclose`. Snapshot `{HERMES_HOME}/browser-profile/{browser}` is **shared** — delete it only when no remaining managed profile still has `use_real_profile: true`.
+- Runtime fail-closes `real_profile_guard` when a non-owner (or missing actor/owner ids) would run against a real-profile-enabled profile. Chat copy: *This computer's owner has enabled browsing as themselves; your chat cannot run there.*
+- Grant pause/revoke or consent off enqueues `useRealProfile: false`. OS keychain encryption of profile secrets is `UNVERIFIED` in the contract — skip enabling it.
+
+## Windows workspace.sync
+
+Windows runtimes advertise `nativeWorkspaceSyncSupported`. `workspace.sync` jobs apply on win32 the same way Linux applies native protocol `1`. Internal staff Windows pairing uses `--channel internal` / `-ReleaseChannel`; do not treat that channel as the public customer download.
 
 ## Hermes prerequisite release disposition
 
@@ -10,7 +41,7 @@ The bootstrap scripts currently install Hermes only when its executable is missi
 
 Runtime protocol `1.1.23` distinguishes a normal accepted hand-off from a real capacity queue, so a newly accepted linked run is shown as starting rather than falsely claiming that capacity is exhausted. It reserves up to ten linked chats per healthy Hermes profile, with a safe host ceiling of 64. A saturated profile is skipped fairly so work for another healthy profile can continue. Credential, install, and policy refreshes now reload only the affected Hermes profile: Linux, Windows, and ordinary macOS runtimes use their own profile lifecycle, while a PiB-managed macOS fleet sends an acknowledged target-only restart request to its supervisor. If an older supervisor is still loaded, it safely falls back to that supervisor's existing single-child recovery path; it never boots out or force-restarts the whole fleet for one agent. Runtime protocol `1.1.22` makes a temporary PiB control-plane failure self-healing on every supported runtime package: signed heartbeats retry at 1s, 2s, 4s and then bounded exponential backoff (maximum 30s), returning to the normal cadence after the first success. The web keeps a run bound to the exact device while its local Hermes process is recovering; a true credential, grant, mapping, delegation, or membership revocation remains terminal. Runtime protocol `1.1.21` never hard-fails a chat on gateway/runtime upgrade blips or browser-tool CDP deaths: mid-poll reattachment, one automatic browser-tool retry, lease abandon for reclaim, and web auto-requeue for up to two recoverable failures. It also removes the same-agent execution lock. Every linked chat now has an independent Hermes run, approval namespace, tool context, and working directory. Capacity (`429`) and gateway drain (`503`) produce signed queued lease receipts and honor `Retry-After`; the runtime records the local Hermes run ID so a reclaimed lease can reattach after restart and creates a replacement only after an authenticated `404`. The web remains compatible with `1.1.19` and earlier acceptance receipts. Runtime protocol `1.1.13` adds owner-authenticated, machine/profile-bound LLM credential delivery and live provider canaries before chat readiness. Runtime protocol `1.1.12` auto-creates missing project relative folders (`projects/<projectId>`) under a linked mapping root on first resolve so link-only project locations accept chat runs without waiting for VPS provision/sync. Runtime protocol `1.1.11` adds signed custom-agent profile delivery (`SOUL.md` plus tenant-owned profile metadata) for organisation/member-created agents. Runtime `1.1.10` added authorised company-root Workbench file/folder search for safe chat mentions. It introduced the then-current 8-chat device limit. Protocol `1.1.4` probes the configured loopback Hermes routes before a pairing code is consumed and refuses to pair when no agent is healthy. Each heartbeat repeats that probe, advertises only the healthy agent IDs, and removes `workspace.execute` while Hermes is unavailable. PiB therefore never labels a computer chat-ready merely because the lightweight runtime process is alive.
 
-The runtime automatically discovers the default Hermes gateway plus named profiles under `~/.hermes/profiles`, reading each local `API_SERVER_PORT` and `API_SERVER_KEY` at call time without copying keys into PiB state. A same-named explicit profile wins over the global gateway, preventing PiB from silently inheriting a personal gateway's approval policy. The public bootstrap always creates a dedicated named Pip profile for the same reason. Windows may set `PIB_HERMES_HOME` so the LocalSystem runtime can locate the linked user's Hermes home. A computer can host agents that do not exist on the VPS. `PIB_LOCAL_HERMES_ROUTES` remains an explicit advanced override:
+The runtime automatically discovers the default Hermes gateway plus named profiles under `~/.hermes/profiles`, reading each local `API_SERVER_PORT` and `API_SERVER_KEY` at call time without copying keys into PiB state. A same-named explicit profile wins over the global gateway, preventing PiB from silently inheriting a personal gateway's approval policy. Managed org profiles are named `{orgSlug}--{agentId}` and created by PiB after pair, not by bootstrap. Windows may set `PIB_HERMES_HOME` so the LocalSystem runtime can locate the linked user's Hermes home. A computer can host agents that do not exist on the VPS. `PIB_LOCAL_HERMES_ROUTES` remains an explicit advanced override:
 
 ```text
 PIB_LOCAL_HERMES_ROUTES={"pip":{"baseUrl":"http://127.0.0.1:8755","apiKey":"..."},"theo":{"baseUrl":"http://127.0.0.1:8756","apiKey":"..."}}

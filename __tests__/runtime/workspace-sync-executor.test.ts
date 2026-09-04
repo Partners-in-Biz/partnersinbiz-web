@@ -7,12 +7,19 @@ import {
   DurableSyncSpool,
   WorkspaceSyncMonitor,
   applyWorkspaceSyncTransfer,
+  clearWin32ReadOnlyAttribute,
   executeWorkspaceSyncJob,
+  fromWin32LongPath,
+  isWindowsJunction,
+  nativeFsPath,
+  nativeWorkspaceSyncSupported,
   scanWorkspaceMapping,
+  toWin32LongPath,
 } from '@/runtime-installers/runtime/workspace-sync'
 import { buildProjectContentManifest } from '@/lib/project-sync/model'
 
 const sha = (value: string | Buffer) => createHash('sha256').update(value).digest('hex')
+const posixOnly = process.platform !== 'win32'
 
 function workspace() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-workspace-sync-'))
@@ -106,7 +113,11 @@ describe('native workspace.sync scanner', () => {
     fs.writeFileSync(path.join(projectRoot, 'run.sh'), '#!/bin/sh\n')
     fs.chmodSync(path.join(projectRoot, 'run.sh'), 0o755)
     const manifest = await scanWorkspaceMapping({ registry, mappingId: 'mapping-a', relativePath: 'projects/project-a', projectId: 'project-a' })
-    expect(manifest.entries).toContainEqual(expect.objectContaining({ path: 'run.sh', executable: true }))
+    if (posixOnly) {
+      expect(manifest.entries).toContainEqual(expect.objectContaining({ path: 'run.sh', executable: true }))
+    } else {
+      expect(manifest.entries).toContainEqual(expect.objectContaining({ path: 'run.sh', type: 'file' }))
+    }
     expect(() => buildProjectContentManifest({ projectId: 'project-a', entries: [
       { type: 'file', path: 'Readme', size: 1, sha256: sha('a') },
       { type: 'file', path: 'README', size: 1, sha256: sha('b') },
@@ -243,7 +254,7 @@ describe('native workspace.sync staged target apply', () => {
     const backupSets = fs.readdirSync(path.join(internalRoot, 'backups')).filter((name) => fs.existsSync(path.join(internalRoot, 'backups', name, 'run.sh')))
     expect(backupSets.length).toBeLessThanOrEqual(2)
     expect(fs.readdirSync(path.join(internalRoot, 'journals')).filter((name) => name.endsWith('.json')).length).toBeLessThanOrEqual(3)
-    expect(fs.statSync(path.join(projectRoot, 'run.sh')).mode & 0o111).not.toBe(0)
+    if (posixOnly) expect(fs.statSync(path.join(projectRoot, 'run.sh')).mode & 0o111).not.toBe(0)
   })
 
   it('round-trips an executable-only change through the same journaled apply path', async () => {
@@ -264,7 +275,7 @@ describe('native workspace.sync staged target apply', () => {
 
     expect(result.appliedRevision).toBe(desired.revision)
     expect(fs.readFileSync(path.join(projectRoot, 'run.sh'), 'utf8')).toBe(script)
-    expect(fs.statSync(path.join(projectRoot, 'run.sh')).mode & 0o111).not.toBe(0)
+    if (posixOnly) expect(fs.statSync(path.join(projectRoot, 'run.sh')).mode & 0o111).not.toBe(0)
   })
 })
 
@@ -274,7 +285,7 @@ describe('native workspace.sync durability', () => {
     const file = path.join(temp, 'state', 'sync-spool.json')
     const spool = new DurableSyncSpool(file)
     spool.enqueue('/sync/receipt', { requestId: 'request-a' })
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600)
+    if (posixOnly) expect(fs.statSync(file).mode & 0o777).toBe(0o600)
 
     await new DurableSyncSpool(file).flush(async () => new Response('', { status: 503 }))
     expect(new DurableSyncSpool(file).size()).toBe(1)
@@ -546,5 +557,109 @@ describe('native workspace.sync job execution', () => {
       jobId: 'job-scale', kind: 'failure', binding, relativePath: 'projects/project-a', transferId: 'transfer-scale', reason: 'unsupported_scale',
     }, { registry, stateRoot: runtimeState, post })
     expect(post).toHaveBeenCalledWith('/sync/failure', expect.objectContaining({ jobId: 'job-scale', reason: 'unsupported_scale' }))
+  })
+})
+
+describe('native workspace.sync Windows portability', () => {
+  it('attests workspace.sync on win32 and prefixes long paths with \\\\?\\', () => {
+    expect(nativeWorkspaceSyncSupported('darwin')).toBe(true)
+    expect(nativeWorkspaceSyncSupported('linux')).toBe(true)
+    expect(nativeWorkspaceSyncSupported('win32')).toBe(true)
+    expect(toWin32LongPath('C:\\Users\\peet\\project')).toBe('\\\\?\\C:\\Users\\peet\\project')
+    expect(toWin32LongPath('C:/Users/peet/project')).toBe('\\\\?\\C:\\Users\\peet\\project')
+    expect(toWin32LongPath('\\\\server\\share\\dir')).toBe('\\\\?\\UNC\\server\\share\\dir')
+    expect(toWin32LongPath('\\\\?\\C:\\already\\prefixed')).toBe('\\\\?\\C:\\already\\prefixed')
+    expect(toWin32LongPath('relative\\folder')).toBe('relative\\folder')
+    const longLeaf = `deep\\${'n'.repeat(240)}.txt`
+    expect(toWin32LongPath(`C:\\workspace\\${longLeaf}`)).toBe(`\\\\?\\C:\\workspace\\${longLeaf}`)
+    expect(fromWin32LongPath('\\\\?\\C:\\Users\\peet\\project')).toBe('C:\\Users\\peet\\project')
+    expect(fromWin32LongPath('\\\\?\\UNC\\server\\share\\dir')).toBe('\\\\server\\share\\dir')
+    expect(nativeFsPath('C:\\Users\\peet\\project', 'win32')).toBe('\\\\?\\C:\\Users\\peet\\project')
+    expect(nativeFsPath('/tmp/project', 'darwin')).toBe('/tmp/project')
+  })
+
+  it('treats Windows junctions as directories and still rejects file symlinks', () => {
+    const reparse = { isSymbolicLink: () => true }
+    expect(isWindowsJunction('C:\\junction', reparse, 'win32', () => ({ isDirectory: () => true }))).toBe(true)
+    expect(isWindowsJunction('C:\\file-link', reparse, 'win32', () => ({ isDirectory: () => false }))).toBe(false)
+    expect(isWindowsJunction('/tmp/link', reparse, 'darwin', () => ({ isDirectory: () => true }))).toBe(false)
+    expect(isWindowsJunction('C:\\plain', { isSymbolicLink: () => false }, 'win32', () => ({ isDirectory: () => true }))).toBe(false)
+  })
+
+  it('hashes exact bytes so CRLF is not normalised, and scans a read-only file', async () => {
+    const { projectRoot, registry } = workspace()
+    const file = path.join(projectRoot, 'readonly.txt')
+    fs.writeFileSync(file, 'hello\r\n')
+    fs.chmodSync(file, 0o444)
+    const crlf = await scanWorkspaceMapping({
+      registry, mappingId: 'mapping-a', relativePath: 'projects/project-a', projectId: 'project-a',
+    })
+    expect(crlf.entries).toEqual([
+      expect.objectContaining({ path: 'readonly.txt', size: 7, sha256: sha(Buffer.from('hello\r\n')) }),
+    ])
+    expect(crlf.entries[0]).toEqual(expect.objectContaining({ sha256: sha(Buffer.from('hello\r\n')) }))
+    expect(sha(Buffer.from('hello\r\n'))).not.toBe(sha(Buffer.from('hello\n')))
+    expect(clearWin32ReadOnlyAttribute(file, 'darwin')).toBe(false)
+    if (posixOnly) expect(fs.statSync(file).mode & 0o222).toBe(0)
+    expect(clearWin32ReadOnlyAttribute(file, 'win32')).toBe(true)
+    if (posixOnly) expect(fs.statSync(file).mode & 0o200).not.toBe(0)
+  })
+
+  it('replaces a read-only target file during journaled apply', async () => {
+    const { projectRoot, runtimeState, registry } = workspace()
+    const file = path.join(projectRoot, 'readonly.txt')
+    fs.writeFileSync(file, 'old')
+    fs.chmodSync(file, 0o444)
+    const before = await scanWorkspaceMapping({
+      registry, mappingId: 'mapping-a', relativePath: 'projects/project-a', projectId: 'project-a',
+    })
+    const desired = buildProjectContentManifest({ projectId: 'project-a', entries: [
+      { type: 'file', path: 'readonly.txt', size: 3, sha256: sha('new') },
+    ] })
+    await applyWorkspaceSyncTransfer({
+      registry, mappingId: 'mapping-a', relativePath: 'projects/project-a', projectId: 'project-a',
+      transferId: 'transfer-readonly', expectedTargetRevision: before.revision, manifest: desired,
+      downloads: [{ path: 'readonly.txt', size: 3, sha256: sha('new'), url: 'https://objects/readonly' }],
+    }, { stateRoot: runtimeState, download: async () => Buffer.from('new') })
+    expect(fs.readFileSync(file, 'utf8')).toBe('new')
+  })
+
+  it('classifies a locked target file as a retryable apply failure instead of crashing', async () => {
+    const { projectRoot, registry, runtimeState } = workspace()
+    fs.writeFileSync(path.join(projectRoot, 'locked.txt'), 'before')
+    const before = await scanWorkspaceMapping({
+      registry, mappingId: 'mapping-a', relativePath: 'projects/project-a', projectId: 'project-a',
+    })
+    const desired = buildProjectContentManifest({ projectId: 'project-a', entries: [
+      { type: 'file', path: 'locked.txt', size: 5, sha256: sha('after') },
+    ] })
+    const rename = fs.renameSync.bind(fs)
+    const renameSpy = jest.spyOn(fs, 'renameSync').mockImplementation((source, target) => {
+      if (path.basename(String(source)).startsWith('.pib-sync-stage-') && path.basename(String(target)) === 'locked.txt') {
+        throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' })
+      }
+      return rename(source, target)
+    })
+    const post = jest.fn(async () => new Response('', { status: 200 }))
+    const binding = {
+      capability: 'workspace.sync' as const,
+      requestId: 'request-a', orgId: 'org-a', projectId: 'project-a',
+      replicaId: 'replica-a', locationId: 'linked-device:device-a', mappingId: 'mapping-a',
+    }
+    try {
+      await expect(executeWorkspaceSyncJob({
+        jobId: 'job-locked', kind: 'apply', binding, relativePath: 'projects/project-a',
+        transferId: 'transfer-locked', expectedTargetRevision: before.revision, manifest: desired,
+        objects: [{ path: 'locked.txt', size: 5, sha256: sha('after'), url: 'https://storage.googleapis.com/pib-sync-test/locked', expiresAt: '2999-01-01T00:00:00.000Z' }],
+      }, { registry, stateRoot: runtimeState, post, download: async () => Buffer.from('after') })).resolves.toEqual(expect.objectContaining({
+        kind: 'apply', status: 'retrying', reason: 'retryable_transport',
+      }))
+    } finally {
+      renameSpy.mockRestore()
+    }
+    expect(post).toHaveBeenCalledWith('/sync/failure', expect.objectContaining({
+      jobId: 'job-locked', reason: 'retryable_transport',
+    }))
+    expect(fs.readFileSync(path.join(projectRoot, 'locked.txt'), 'utf8')).toBe('before')
   })
 })

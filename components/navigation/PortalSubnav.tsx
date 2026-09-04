@@ -128,7 +128,7 @@ export function PortalSubnav({ ariaLabel, items, pathname, className }: PortalSu
     >
       <nav
         aria-label={ariaLabel}
-        className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:overflow-visible sm:px-4 md:px-5"
+        className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-2 py-1 scrollbar-none sm:overflow-visible sm:px-4 md:px-5"
       >
         {items.map((item) =>
           item.children?.length

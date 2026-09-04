@@ -4,6 +4,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { listLlmProviders, getLlmProvider, UNSUPPORTED_CURSOR_NOTE } from '@/lib/llm-providers/providers'
 import { listLlmProviderConnections, upsertLlmProviderConnection } from '@/lib/llm-providers/store'
+import { normalizeLlmShareTargets } from '@/lib/llm-providers/types'
 import { validateLlmCredentials } from '@/lib/llm-providers/validate'
 import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
@@ -72,13 +73,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const body = await req.json().catch(() => null)
   if (!body) return apiError('Malformed JSON body', 400)
 
-  const { provider, scope, label, credentials, sync = true, agentIds } = body as {
+  const { provider, scope, label, credentials, sync = true, agentIds, shareTargets } = body as {
     provider?: string
     scope?: string
     label?: string
     credentials?: Record<string, string>
     sync?: boolean
     agentIds?: string[]
+    shareTargets?: unknown
   }
 
   const providerDef = provider ? getLlmProvider(provider) : null
@@ -118,6 +120,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     label: typeof label === 'string' && label.trim() ? label : providerDef.label,
     credentials: cleaned,
     meta: validation.models ? { discoveredModels: validation.models } : {},
+    ...(scope === 'org' ? { shareTargets: normalizeLlmShareTargets(shareTargets) } : {}),
   }, {
     uid: user.role === 'ai' && user.agentId ? `agent:${user.agentId}` : user.uid,
     type: user.role === 'ai' ? 'agent' : 'user',

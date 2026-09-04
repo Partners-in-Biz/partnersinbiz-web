@@ -91,7 +91,7 @@ describe('briefing v2 card contract', () => {
       summary: 'Review output that accidentally includes apiKey: should-redact-me',
       excerpt: null,
       actor: { id: 'agent:theo', role: 'ai', type: 'agent' },
-      context: {},
+      context: { orgId: 'org-safe' },
       occurredAt: new Date('2026-06-07T08:00:00.000Z'),
       sourceHash: 'hash-safe',
       metadata: null,

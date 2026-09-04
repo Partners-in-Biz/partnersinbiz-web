@@ -10,6 +10,8 @@ import {
   isLocalHermesNonTerminalExecutionError,
   isLocalHermesTransientInfrastructureError,
 } from './hermes'
+import { collectRunMediaPaths, rewriteRunMediaReferences, uploadRunMedia } from './media-upload'
+import { readProfileConfig } from './config-yaml'
 
 export type Job = {
   jobId: string
@@ -24,6 +26,8 @@ export type Job = {
   attempt: number
   leaseToken: string
   agentId?: string
+  actorUserId?: string
+  orgId?: string
   model?: string
   provider?: string
   yolo?: boolean
@@ -33,7 +37,28 @@ export type Job = {
   localHermesRunId?: string
 }
 
-type Device = { deviceId: string; credentialVersion: number; privateKey: string }
+type Device = { deviceId: string; credentialVersion: number; privateKey: string; ownerUserId?: string }
+
+export function profileUsesRealBrowser(agentId: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const browser = readProfileConfig(agentId, env).browser
+  return Boolean(
+    browser
+    && typeof browser === 'object'
+    && !Array.isArray(browser)
+    && (browser as Record<string, unknown>).use_real_profile === true,
+  )
+}
+
+export function realProfileGuardBlocksRun(input: {
+  useRealProfile: boolean
+  actorUserId?: string
+  ownerUserId?: string
+}): boolean {
+  if (!input.useRealProfile) return false
+  const actor = input.actorUserId?.trim() || ''
+  const owner = input.ownerUserId?.trim() || ''
+  return !actor || !owner || actor !== owner
+}
 type HermesInput = {
   prompt: string
   images?: Array<{ url: string; contentType: string }>
@@ -156,6 +181,7 @@ export async function executeJob(
   let error = ''
   let status: 'completed' | 'failed' = 'completed'
   let abandonForReclaim: Error | undefined
+  const toolResults: unknown[] = []
   const runHermes = async (resumeRunId?: string) => hermes(
     {
       prompt: job.prompt,
@@ -189,6 +215,7 @@ export async function executeJob(
       },
       onEvents: (events) => {
         if (!Array.isArray(events) || events.length === 0) return
+        toolResults.push(...events)
         eventFlush = eventFlush.then(async () => {
           const response = await post(`/runs/${job.jobId}/progress`, {
             receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId }),
@@ -204,6 +231,15 @@ export async function executeJob(
   try {
     let result: unknown
     if (preflightError) throw new Error(preflightError)
+    const agentId = job.agentId || 'pip'
+    if (realProfileGuardBlocksRun({
+      useRealProfile: profileUsesRealBrowser(agentId),
+      actorUserId: job.actorUserId,
+      ownerUserId: device.ownerUserId,
+    })) {
+      console.error(`PIB_REAL_PROFILE_GUARD actor=${job.actorUserId || ''} owner=${device.ownerUserId || ''} agent=${agentId}`)
+      throw new Error('real_profile_guard')
+    }
     try {
       result = await runHermes(job.localHermesRunId)
     } catch (firstErr) {
@@ -249,6 +285,24 @@ export async function executeJob(
   if (abandonForReclaim) throw abandonForReclaim
   if (leaseError) throw leaseError
 
+  if (status === 'completed' && output) {
+    try {
+      const mediaPaths = collectRunMediaPaths({
+        workingDirectory: working_directory,
+        finalText: output,
+        toolResults,
+      })
+      if (mediaPaths.length > 0) {
+        const uploaded = await uploadRunMedia((suffix, body) => post(suffix, body), job.jobId, mediaPaths)
+        if (uploaded.size > 0) {
+          output = rewriteRunMediaReferences(output, uploaded).finalText
+        }
+      }
+    } catch {
+      // Media upload is additive and must never block completion.
+    }
+  }
+
   const terminal = receipt(job, device, status, status, acceptedAt, toolStartedAt, output, error, { localHermesRunId })
   let response: Response | undefined
   for (let n = 0; n < 3; n++) {
@@ -291,6 +345,7 @@ function linkedRunAgentId(job: Pick<Job, 'agentId'> | { agentId?: string }): str
 export class LinkedRunProfileCapacity {
   private readonly active = new Map<string, number>()
   private healthyAgentIds = new Set<string>(['pip'])
+  private acceptingClaims = true
   private readonly changeListeners = new Set<() => void>()
 
   constructor(
@@ -306,10 +361,18 @@ export class LinkedRunProfileCapacity {
     const changed = next.size !== this.healthyAgentIds.size
       || Array.from(next).some((agentId) => !this.healthyAgentIds.has(agentId))
     this.healthyAgentIds = next
-    if (changed) {
-      for (const listener of this.changeListeners) listener()
-      this.changeListeners.clear()
-    }
+    if (changed) this.emitChange()
+  }
+
+  setAcceptingClaims(accepting: boolean): void {
+    if (this.acceptingClaims === accepting) return
+    this.acceptingClaims = accepting
+    this.emitChange()
+  }
+
+  private emitChange(): void {
+    for (const listener of this.changeListeners) listener()
+    this.changeListeners.clear()
   }
 
   /**
@@ -337,7 +400,15 @@ export class LinkedRunProfileCapacity {
     return this.active.get(linkedRunAgentId({ agentId })) ?? 0
   }
 
+  hasActiveReservations(): boolean {
+    for (const count of this.active.values()) {
+      if (count > 0) return true
+    }
+    return false
+  }
+
   totalConcurrencyLimit(): number {
+    if (!this.acceptingClaims) return 0
     return Math.max(1, Math.min(this.maxTotal, this.healthyAgentIds.size * this.maxPerAgent))
   }
 
@@ -384,7 +455,15 @@ export async function pollForever(
     const capacityChange = capacity.watchForChange()
     const maxConcurrency = options.maxConcurrency === undefined
       ? capacity.totalConcurrencyLimit()
-      : Math.max(1, Number.isFinite(options.maxConcurrency) ? Math.floor(options.maxConcurrency) : 1)
+      : Math.max(0, Number.isFinite(options.maxConcurrency) ? Math.floor(options.maxConcurrency) : 1)
+    if (maxConcurrency <= 0) {
+      await Promise.race([
+        capacityChange.promise,
+        new Promise((resolve) => setTimeout(resolve, linkedRunPollDelay(delay))),
+      ])
+      capacityChange.cancel()
+      continue
+    }
     if (inFlight.size >= maxConcurrency) {
       await Promise.race([Promise.race(inFlight), capacityChange.promise])
       capacityChange.cancel()

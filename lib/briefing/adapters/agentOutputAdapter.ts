@@ -32,6 +32,22 @@ interface AgentOutputDocument extends Record<string, unknown> {
 }
 
 /**
+ * Completed/accepted output (priority `fyi`) is only worth a card for a week.
+ * Blocked, pending-review, and changes-requested output is real work and is
+ * never age-gated.
+ *
+ * "Now" is read from `Date.now()` so tests can pin the clock with
+ * `jest.useFakeTimers({ now })`, matching the rest of the briefing suite.
+ */
+const ACCEPTED_OUTPUT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+function acceptedOutputIsFresh(doc: AgentOutputDocument): boolean {
+  const finishedAt = normalizeTimestamp(doc.completedAt) ?? normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.createdAt)
+  if (!finishedAt) return false
+  return Date.now() - finishedAt.getTime() <= ACCEPTED_OUTPUT_WINDOW_MS
+}
+
+/**
  * Adapter for agent output briefing items.
  */
 export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
@@ -49,7 +65,7 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
   /**
    * Determine if this agent output should generate a briefing item.
    */
-  shouldGenerate(doc: AgentOutputDocument, _docId: string): boolean {
+  shouldGenerate(doc: AgentOutputDocument, docId: string): boolean {
     // Must have a summary
     if (!doc.summary || doc.summary.trim().length === 0) {
       return false
@@ -68,6 +84,11 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
     // Skip if blocked with no meaningful output
     if (doc.columnId === 'blocked' && doc.blockedReason && doc.summary.includes('Watcher error')) {
       return false // These are system errors, handled elsewhere
+    }
+
+    // Completed/accepted output is only FYI for a week; review work is kept regardless of age.
+    if (agentOutputAdapter.extractPriority(doc, docId) === 'fyi') {
+      return acceptedOutputIsFresh(doc)
     }
 
     return true

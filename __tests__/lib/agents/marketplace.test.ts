@@ -20,6 +20,7 @@ describe('agent marketplace catalog', () => {
     expect(pip?.name).toBe('Pip')
     expect(pip?.publicPersona.toLowerCase()).toContain('do not assume partners in biz')
     expect(pip?.publicSkills).toContain('project-management')
+    expect(pip?.publicSkills).toContain('pib-chat-canvas')
     expect(pip?.publicSkills).not.toContain('ceo-on-demand-gather')
     expect(pip?.publicSkills).not.toContain('client-documents')
   })
@@ -64,7 +65,8 @@ describe('agent marketplace catalog', () => {
 
   it('keeps full PiB skill policy for platform pip', () => {
     const names = skillNamesForAgent('pip')
-    expect(names).toEqual(expect.arrayContaining(['client-documents', 'ceo-on-demand-gather']))
+    expect(names).toEqual(expect.arrayContaining(['pib-chat-canvas', 'ceo-on-demand-gather']))
+    expect(names).not.toContain('client-documents')
     const manifest = buildSkillPackManifest('pip')
     expect(manifest.policyVersion).not.toMatch(/^marketplace-public/)
   })

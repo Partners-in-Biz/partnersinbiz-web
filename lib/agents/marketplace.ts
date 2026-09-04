@@ -51,6 +51,7 @@ const CORE_PUBLIC = [
   'collaboration-runtime',
   'evidence-ledger',
   'daily-workflow',
+  'pib-chat-canvas',
   'interactive-project-planning',
 ] as const
 
@@ -59,6 +60,7 @@ const RESEARCH_PUBLIC = [
   'data-analyst',
   'evidence-ledger',
   'collaboration-runtime',
+  'pib-chat-canvas',
 ] as const
 
 const CONTENT_PUBLIC = [
@@ -66,6 +68,7 @@ const CONTENT_PUBLIC = [
   'research-intelligence',
   'collaboration-runtime',
   'evidence-ledger',
+  'pib-chat-canvas',
 ] as const
 
 const MARKETPLACE_TEMPLATES: MarketplaceTemplate[] = [
@@ -279,6 +282,7 @@ export function listPublicMarketplaceSkillIds(): string[] {
     'collaboration-runtime',
     'evidence-ledger',
     'daily-workflow',
+    'pib-chat-canvas',
     'interactive-project-planning',
     'research-intelligence',
     'data-analyst',

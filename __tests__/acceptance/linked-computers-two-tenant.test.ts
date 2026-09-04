@@ -29,7 +29,7 @@ function fixture() {
     'orgMembers/org-b_user-b': { orgId: 'org-b', uid: 'user-b', status: 'active' },
     'linked_devices/device-a': {
       deviceId: 'device-a', ownerUserId: 'user-a', runtimeTargetId: 'linked-device:device-a', label: 'Office Mac',
-      platform: 'macos', architecture: 'arm64', runtimeVersion: '2.0.0', capabilities: ['workspace.execute'],
+      platform: 'macos', architecture: 'arm64', runtimeVersion: '2.0.0', hermesVersion: '0.20.6', capabilities: ['workspace.execute'],
       status: 'active', health: 'ok', credentialVersion: 2, lastSeenAt: new Date(now).toISOString(), publicKey: 'public-key',
     },
     'linked_device_credentials/device-a': { deviceId: 'device-a', credentialVersion: 2 },

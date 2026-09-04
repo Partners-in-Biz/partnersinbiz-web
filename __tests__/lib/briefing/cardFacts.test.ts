@@ -160,9 +160,13 @@ describe('briefing card facts', () => {
   })
 })
 
+// Case fixtures only supply the source-specific context; `orgId` (the one
+// required BriefingContext field) is stamped by sampleItem.
+type SampleContext = Omit<BriefingSourceItem['context'], 'orgId'>
+
 function sampleItem(
   type: BriefingSourceType,
-  context: BriefingSourceItem['context'],
+  context: SampleContext,
   metadata: Record<string, unknown>,
 ): BriefingSourceItem {
   return {
@@ -174,7 +178,7 @@ function sampleItem(
     summary: `Generic ${type} summary`,
     excerpt: null,
     actor: { id: 'user:1', name: 'Operator', role: 'admin', type: 'user' },
-    context: { orgId: 'org-1', ...context },
+    context: { ...context, orgId: 'org-1' },
     occurredAt: new Date('2026-08-20T12:00:00.000Z'),
     sourceHash: 'hash',
     metadata,
@@ -183,7 +187,7 @@ function sampleItem(
 
 const SOURCE_FACT_CASES: Array<{
   type: BriefingSourceType
-  context: BriefingSourceItem['context']
+  context: SampleContext
   metadata: Record<string, unknown>
   factIds: string[]
   factValues?: Record<string, string>

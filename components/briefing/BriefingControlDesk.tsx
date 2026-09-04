@@ -7,13 +7,19 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
+import { TodayRail } from './cockpit/TodayRail'
+import { BriefingCardForKind, type BookCallInput, type BriefingCardActions } from './cards/BriefingCardForKind'
+import type { BusyBlock } from './cards/types'
+import { AgentGroupCard } from './cards/AgentGroupCard'
+import { LaneEmptyState } from './cockpit/LaneEmptyState'
+import { canStopAgentRun, harvestPipDraft } from './deskHelpers'
+import { BRIEFING_WORK_LANES, resolveWorkKind, type BriefingWorkKind } from '@/lib/briefing/workKind'
 import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
 import {
   briefingContactChannels,
   briefingDisplayFacts,
   briefingHandoffAgentId,
   briefingHasContactChannel,
-  briefingListFacts,
   briefingPersonName,
   briefingUsefulSummary,
   isBoilerplateDisabledReason,
@@ -70,16 +76,6 @@ function ActionControlLabel({ children }: { children: ReactNode }) {
   )
 }
 
-const PRIORITIES = [
-  { value: 'all', label: 'All priorities', icon: 'select_all' },
-  { value: 'critical', label: 'Blocked', icon: 'priority_high' },
-  { value: 'needs-peet', label: 'Action required', icon: 'person_alert' },
-  { value: 'client-risk', label: 'Risk', icon: 'release_alert' },
-  { value: 'review', label: 'Review', icon: 'rate_review' },
-  { value: 'progress', label: 'In motion', icon: 'motion_photos_auto' },
-  { value: 'fyi', label: 'Changed', icon: 'history' },
-]
-
 const SOURCES = [
   { value: 'all', label: 'All sources' },
   { value: 'task', label: 'Tasks' },
@@ -117,44 +113,56 @@ const SOURCES = [
   { value: 'form-submission', label: 'Form submissions' },
 ]
 
-const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
-  critical: 'Blocked',
-  'needs-peet': 'Action required',
-  'client-risk': 'Risk',
-  review: 'Review',
-  progress: 'In motion',
-  fyi: 'Changed',
-}
+const COLLAPSED_LANES_KEY = 'pib.briefings.collapsedLanes'
+const DEFAULT_COLLAPSED_LANES: Record<BriefingWorkKind, boolean> = { meeting: false, reply: false, approval: false, agent: true, blocked: false }
 
-function priorityClass(priority: BriefingCard['priority']) {
-  switch (priority) {
-    case 'critical':
-      return 'border-red-400/45 bg-red-500/15 text-red-100'
-    case 'needs-peet':
-      return 'border-amber-300/45 bg-[var(--sc-surface)]/15 text-[var(--sc-ink-soft)]'
-    case 'client-risk':
-      return 'border-orange-300/45 bg-orange-400/15 text-orange-100'
-    case 'review':
-      return 'border-sky-300/45 bg-sky-400/15 text-sky-100'
-    case 'progress':
-      return 'border-emerald-300/45 bg-emerald-400/15 text-emerald-100'
-    default:
-      return 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
+function readCollapsedLanes(): Record<BriefingWorkKind, boolean> {
+  if (typeof window === 'undefined') return DEFAULT_COLLAPSED_LANES
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_LANES_KEY)
+    if (!raw) return DEFAULT_COLLAPSED_LANES
+    const parsed = JSON.parse(raw) as Partial<Record<BriefingWorkKind, boolean>>
+    return { ...DEFAULT_COLLAPSED_LANES, ...parsed }
+  } catch {
+    return DEFAULT_COLLAPSED_LANES
   }
 }
 
-function priorityAccentColor(priority: BriefingCard['priority'] | string) {
-  switch (priority) {
-    case 'critical':
-      return '#ef4444'
-    case 'needs-peet':
-      return 'var(--color-accent-v2)'
-    case 'client-risk':
-      return '#f97316'
-    case 'review':
+function writeCollapsedLanes(value: Record<BriefingWorkKind, boolean>) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(COLLAPSED_LANES_KEY, JSON.stringify(value))
+  } catch {
+    // Preference storage is best-effort.
+  }
+}
+
+/** Lane collapsing is a desktop affordance; mobile always shows the selected lane in full. */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(true)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const query = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return isDesktop
+}
+
+function accentForLane(kind: BriefingWorkKind) {
+  switch (kind) {
+    case 'meeting':
+      return '#10b981'
+    case 'reply':
       return '#60a5fa'
-    case 'progress':
-      return '#4ade80'
+    case 'approval':
+      return 'var(--color-accent-v2)'
+    case 'agent':
+      return '#a78bfa'
+    case 'blocked':
+      return '#f97316'
     default:
       return 'var(--color-pib-line)'
   }
@@ -713,6 +721,16 @@ function bookingActionable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'booking' && Boolean(item.source.id) && item.metadata?.bookingStatus !== 'completed' && item.metadata?.bookingStatus !== 'cancelled'
 }
 
+/** Meet-link repair is allowed whenever the card is a live booking — Briefings live UI is portal mode. */
+function canRepairBookingMeetLink(item: BriefingCard) {
+  if (item.source.type !== 'booking' || !item.source.id) return false
+  const status = typeof item.metadata?.bookingStatus === 'string'
+    ? item.metadata.bookingStatus
+    : typeof item.metadata?.status === 'string' ? item.metadata.status : ''
+  if (status === 'completed' || status === 'cancelled') return false
+  return status === 'confirmed' || /needs meet link/i.test(item.title)
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -866,6 +884,18 @@ function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
 
+function formatSnoozeUntil(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'later'
+  const sameDay = date.toDateString() === new Date().toDateString()
+  const time = date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return sameDay ? time : `${date.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`
+}
+
+export { canStopAgentRun, harvestPipDraft } from './deskHelpers'
+
+type PipDraft = { conversationId: string; text: string; harvestedAt: number }
+
 type PulseRow = {
   id: string
   name: string
@@ -879,26 +909,6 @@ type PulseRow = {
 }
 
 const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
-
-const SUMMARY_COUNTER_DEFS = [
-  { id: 'needsPeet', label: 'Needs Peet', icon: 'person_alert', color: 'var(--color-accent-v2)' },
-  { id: 'blockedByPeet', label: 'Waiting on input', icon: 'front_hand', color: '#f97316' },
-  { id: 'approvalNeeded', label: 'Needs approval', icon: 'approval', color: '#f59e0b' },
-  { id: 'agentReview', label: 'Review agent work', icon: 'smart_toy', color: '#4ade80' },
-  { id: 'followUpsDue', label: 'Follow up', icon: 'forward_to_inbox', color: '#60a5fa' },
-  { id: 'clientRisk', label: 'Account risk', icon: 'release_alert', color: '#ef4444' },
-  { id: 'inProgress', label: 'Moving', icon: 'progress_activity', color: '#38bdf8' },
-  { id: 'recentlyCompleted', label: 'Done recently', icon: 'task_alt', color: '#a78bfa' },
-] as const
-
-type MainWorkflowLaneId = 'call' | 'follow-up' | 'blocked'
-type WorkflowLaneId = MainWorkflowLaneId | 'agent-ops'
-
-const WORKFLOW_LANES: Array<{ id: MainWorkflowLaneId; label: string; icon: string; description: string }> = [
-  { id: 'call', label: 'Call', icon: 'phone_in_talk', description: 'CRM contacts, deals, and call-ready tasks' },
-  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Bookings, inbox, comments, and relationship next steps' },
-  { id: 'blocked', label: 'Blocked', icon: 'front_hand', description: 'Waiting on Peet: approvals and blockers' },
-]
 
 function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -950,114 +960,22 @@ function accountPulseIdentity(item: BriefingCard): { id: string; name: string } 
   return { id: WORKSPACE_OPERATIONS_KEY, name: 'Workspace operations' }
 }
 
-function workflowHaystack(item: BriefingCard) {
-  return `${item.priority} ${item.source.type} ${item.title} ${item.summary} ${item.excerpt ?? ''} ${cleanText(item.metadata?.status)} ${cleanText(item.metadata?.agentStatus)} ${cleanText(item.metadata?.columnId)} ${cleanText(item.metadata?.approvalStatus)} ${cleanText(item.metadata?.reviewState)} ${cleanText(item.metadata?.runStatus)} ${cleanText(item.metadata?.brokerStatus)} ${cleanText(item.metadata?.supportStatus)} ${cleanText(item.metadata?.invoiceStatus)} ${cleanText(item.metadata?.quoteStatus)} ${cleanText(item.metadata?.campaignStatus)} ${cleanText(item.metadata?.broadcastStatus)} ${cleanText(item.metadata?.orderStatus)} ${cleanText(item.metadata?.fulfillmentStatus)}`.toLowerCase()
-}
-
-function isAgentReviewItem(item: BriefingCard) {
-  return item.source.type === 'agent-output'
-    || item.source.type === 'agent-learning-review'
-    || item.source.type === 'agent-run'
-    || item.actor.type === 'agent'
-    || Boolean(agentOutputReviewCard(item) || agentLearningReviewCard(item))
-}
-
-function isApprovalNeededItem(item: BriefingCard) {
-  const type = item.source.type
-  const haystack = workflowHaystack(item)
-  if (type === 'approval' || type === 'client-document' || type === 'workspace-broker-job') return true
-  if (type === 'social-post' || type === 'seo-content' || type === 'ad-campaign' || type === 'expense') return true
-  if (type === 'invoice' && /draft|payment_pending_verification/.test(haystack)) return true
-  if (type === 'broadcast' && /draft|ready|paused/.test(haystack)) return true
-  if (type === 'campaign' && /draft|ready|approve|launch/.test(haystack)) return true
-  return /approval|approve|awaiting|pending review|ready for review|client review|reviewState:awaiting/.test(haystack)
-}
-
-function isFollowUpDueItem(item: BriefingCard) {
-  return [
-    'activity',
-    'contact',
-    'comment',
-    'conversation',
-    'notification',
-    'support-ticket',
-    'enquiry',
-    'form-submission',
-    'social-inbox',
-    'mailbox-message',
-    'booking',
-    'calendar-event',
-  ].includes(item.source.type) || /follow[- ]?up|reply|rsvp|unread|new enquiry|new form|dm needs|email from/.test(workflowHaystack(item))
-}
-
-function isCallItem(item: BriefingCard): boolean {
-  if (briefingContactChannels(item).phone) return true
-  if (['contact', 'deal', 'booking'].includes(item.source.type)) return true
-  if (isCrmRelationshipSource(item.source.type) && briefingHasContactChannel(item)) return true
-
-  if (item.source.type === 'task') {
-    const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : []
-    const hasCallTag = tags.some((tag: unknown) => typeof tag === 'string' && /call-ready|needs-peet/i.test(tag))
-    const hasCallTitle = /Needs Peet:.*Call|Call.*Needs Peet/i.test(item.title)
-    return hasCallTag || hasCallTitle
-  }
-
-  return false
-}
-
-function isBlockedItem(item: BriefingCard): boolean {
-  // Approval-needed items
-  if (isApprovalNeededItem(item)) return true
-  
-  // Critical and needs-peet priority items (excluding agent ops and bookings which go to Follow up)
-  if (item.priority === 'needs-peet' || item.priority === 'critical') {
-    // Exclude agent-runs and agent-ops blockers
-    if (item.source.type === 'agent-run' || item.source.type === 'agent-output') return false
-    // Exclude bookings unless they have approval/blocked keywords
-    if (item.source.type === 'booking') {
-      const haystack = workflowHaystack(item)
-      return /approval|blocked|awaiting|missing/.test(haystack)
-    }
-    return true
-  }
-  
-  return false
-}
-
-function isAgentOpsItem(item: BriefingCard): boolean {
-  // Agent runs, outputs, learning reviews
-  if (['agent-run', 'agent-output', 'agent-learning-review', 'business-insight-review'].includes(item.source.type)) return true
-  
-  // Blocked/failed agent work
-  if (item.source.type === 'task' && item.priority === 'review') {
-    const haystack = workflowHaystack(item)
-    if (/blocked|failed|agent/.test(haystack)) return true
-  }
-  
-  // SEO tasks at review priority (blocked SEO)
-  if (item.source.type === 'seo-task' && item.priority === 'review') return true
-  
-  // Workspace broker jobs
-  if (item.source.type === 'workspace-broker-job') return true
-  
-  return false
-}
-
-function workflowLaneForItem(item: BriefingCard): WorkflowLaneId {
-  if (isCallItem(item)) return 'call'
-  if (isBlockedItem(item) || isAgentOpsItem(item)) return 'blocked'
-  return 'follow-up'
-}
-
-function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
-  return items.filter((item) => workflowLaneForItem(item) === laneId).length
-}
-
 export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: Mode; portalScope?: PortalOrgRouteScope; currentUser?: { uid: string; displayName: string } }) {
-  const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
+  const { orgs, orgId, setOrgId, priority, sourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
-  const [mobileLane, setMobileLane] = useState<MainWorkflowLaneId>('call')
-  const [showAgentOps, setShowAgentOps] = useState(false)
+  const [mobileLane, setMobileLane] = useState<BriefingWorkKind>('meeting')
+  // Agent work is background movement; it starts folded so the desk opens on human work.
+  const [collapsedLanes, setCollapsedLanes] = useState<Record<BriefingWorkKind, boolean>>(DEFAULT_COLLAPSED_LANES)
+  const isDesktop = useIsDesktop()
+  useEffect(() => {
+    setCollapsedLanes(readCollapsedLanes())
+  }, [])
+  const [pinnedLane, setPinnedLane] = useState<BriefingWorkKind | null>(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatSeedId, setChatSeedId] = useState<string | null>(null)
+  const [pipDraft, setPipDraft] = useState<PipDraft | null>(null)
+  const [expandedAgentGroups, setExpandedAgentGroups] = useState<Record<string, boolean>>({})
+  const [refreshKey, setRefreshKey] = useState(0)
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [snapshotting, setSnapshotting] = useState(false)
   const [replyText, setReplyText] = useState('')
@@ -1088,33 +1006,139 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
   }, [accountPulseId, allItems, mode])
   
-  const mainLaneItems = useMemo(() => {
-    return pulseScopedItems.filter((item) => {
-      const lane = workflowLaneForItem(item)
-      return lane !== 'agent-ops'
-    })
+  const laneItems = useMemo(() => {
+    const buckets: Record<BriefingWorkKind, BriefingCard[]> = { meeting: [], reply: [], approval: [], agent: [], blocked: [] }
+    for (const item of pulseScopedItems) buckets[resolveWorkKind(item)].push(item)
+    return buckets
   }, [pulseScopedItems])
-  
-  const agentOpsItems = useMemo(() => {
-    return pulseScopedItems.filter((item) => workflowLaneForItem(item) === 'agent-ops')
-  }, [pulseScopedItems])
-  
+
+  // Agent work is one card per agent: a single agent with many runs collapses into one group.
+  const agentGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; agentId: string; agentName: string; items: BriefingCard[] }>()
+    for (const item of laneItems.agent) {
+      const metaAgentId = typeof item.metadata?.agentId === 'string' ? item.metadata.agentId : null
+      const agentId = (item.actor?.type === 'agent' ? item.actor.id.replace(/^agent:/, '') : null) ?? metaAgentId ?? item.actor?.id ?? 'unknown'
+      const agentName = item.actor?.name || (agentId.charAt(0).toUpperCase() + agentId.slice(1))
+      const key = `${item.orgId || item.context.orgId || ''}:${agentId}`
+      const existing = groups.get(key)
+      if (existing) existing.items.push(item)
+      else groups.set(key, { key, agentId, agentName, items: [item] })
+    }
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
+  }, [laneItems.agent])
+
+  const laneCounts = useMemo(() => ({
+    meeting: laneItems.meeting.length,
+    reply: laneItems.reply.length,
+    approval: laneItems.approval.length,
+    agent: laneItems.agent.length,
+    blocked: laneItems.blocked.length,
+  }), [laneItems])
+
   const selected = pulseScopedItems.find((item) => item.id === selectedId) ?? null
   const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
   const selectedLearningReview = selected ? agentLearningReviewCard(selected) : null
+  const chatSeedItem = chatSeedId ? allItems.find((item) => item.id === chatSeedId) ?? null : null
 
-  const dailySnapshot = useMemo(() => ({
-    call: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'call').length,
-    followUp: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'follow-up').length,
-    blocked: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'blocked').length,
-  }), [mainLaneItems])
+  // Bump the Today rail (calendar + inbox) whenever the feed refreshes.
+  const generatedAt = feed?.generatedAt ?? null
+  useEffect(() => {
+    if (!generatedAt) return
+    setRefreshKey((value) => value + 1)
+  }, [generatedAt])
 
-  // Hidden Mission Control summary stats (section is display:none but needs type-checking)
-  const missionRoutes: Array<{ id: string; label: string; icon: string; description: string; count: number }> = []
-  const topStats: Record<string, number> = {}
-  
-  // Workflow lane for the selected item
-  const workflowLane = selected ? workflowLaneForItem(selected) : null
+  // Work lane for the selected item
+  const selectedKind = selected ? resolveWorkKind(selected) : null
+
+  function selectLane(kind: BriefingWorkKind) {
+    setMobileLane(kind)
+    setPinnedLane((current) => (current === kind ? null : kind))
+    setCollapsedLanes((current) => (current[kind] ? { ...current, [kind]: false } : current))
+    if (typeof document !== 'undefined') {
+      document.getElementById(`briefing-lane-${kind}`)?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
+    }
+  }
+
+  function toggleLaneCollapsed(kind: BriefingWorkKind) {
+    setCollapsedLanes((current) => {
+      const next = { ...current, [kind]: !current[kind] }
+      writeCollapsedLanes(next)
+      return next
+    })
+  }
+
+  function askPip(item: BriefingCard) {
+    setChatSeedId(item.id)
+    setChatOpen(true)
+  }
+
+  // When Pip finishes a turn in the dock, keep her reply handy as a one-click draft for the reply box.
+  function handleChatLifecycle(event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) {
+    if (event.phase !== 'completed') return
+    void harvestPipDraft(event.conversationId).then((text) => {
+      if (!text) return
+      setPipDraft({ conversationId: event.conversationId, text, harvestedAt: Date.now() })
+    }).catch(() => { /* draft harvesting is best-effort */ })
+  }
+
+  function adoptPipDraft(setter: (value: string) => void) {
+    if (!pipDraft) return
+    setter(pipDraft.text)
+    setFlash({ kind: 'ok', message: "Pip's draft copied into the reply box. Edit before sending." })
+  }
+
+  function pipDraftButton(setter: (value: string) => void) {
+    if (!pipDraft) return null
+    return (
+      <button type="button" className="pib-btn-secondary mt-2 w-full justify-center text-xs" onClick={() => adoptPipDraft(setter)} title={pipDraft.text.slice(0, 200)}>
+        <Icon name="smart_toy" />
+        Use Pip&apos;s draft
+      </button>
+    )
+  }
+
+  /** Busy blocks for a calendar day, used by the Book call picker to flag conflicts. */
+  async function loadBusy(dateYmd: string): Promise<BusyBlock[]> {
+    const params = new URLSearchParams({ date: dateYmd })
+    const scopedOrg = orgId || portalScope?.orgId
+    if (scopedOrg) params.set('orgId', scopedOrg)
+    const res = await fetch(`/api/v1/workspace/calendar/today?${params.toString()}`)
+    if (!res.ok) return []
+    const body = await res.json().catch(() => null) as { data?: unknown } | null
+    const data = body?.data
+    const rows = Array.isArray(data)
+      ? data
+      : data && typeof data === 'object' && Array.isArray((data as { meetings?: unknown }).meetings)
+        ? (data as { meetings: unknown[] }).meetings
+        : data && typeof data === 'object' && Array.isArray((data as { events?: unknown }).events)
+          ? (data as { events: unknown[] }).events
+          : []
+    return rows.flatMap((row) => {
+      const event = row as { start?: unknown; end?: unknown; title?: unknown; summary?: unknown; allDay?: unknown; busy?: unknown }
+      if (typeof event.start !== 'string' || typeof event.end !== 'string') return []
+      if (event.allDay === true || event.busy === false) return []
+      const title = typeof event.title === 'string' ? event.title : typeof event.summary === 'string' ? event.summary : null
+      return [{ start: event.start, end: event.end, title }]
+    })
+  }
+
+  async function stopAgentRun(item: BriefingCard) {
+    if (!canStopAgentRun(item, mode)) return
+    const runId = item.context.agentRunId ?? String(item.metadata?.hermesRunId ?? '')
+    const runOrgId = item.orgId || item.context.orgId
+    setBusyAction('stop-run')
+    try {
+      const res = await fetch(`/api/v1/admin/hermes/profiles/${encodeURIComponent(runOrgId)}/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Stop run failed')
+      setFlash({ kind: 'ok', message: `Stop requested for ${item.actor?.name ?? 'the agent'}.` })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Stop run failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
 
   function selectedDecisionOptionId(item: BriefingCard) {
     return decisionChoices[item.id]
@@ -1213,22 +1237,28 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     }
   }
 
-  async function setItemState(item: BriefingCard, action: 'handled' | 'snoozed' | 'active') {
+  async function setItemState(item: BriefingCard, action: 'handled' | 'snoozed' | 'active', snoozedUntil?: string) {
     setBusyAction(action)
     try {
+      const until = action === 'snoozed' ? (snoozedUntil ?? defaultSnoozeDate()) : undefined
       const res = await fetch(`/api/v1/briefings/items/${encodeURIComponent(item.id)}/state`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           orgId: item.orgId || item.context.orgId,
           action,
-          snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined,
+          snoozedUntil: until,
         }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'State update failed')
       setFeed((current) => current ? { ...current, items: current.items.filter((row) => row.id !== item.id), total: Math.max(0, current.total - 1) } : current)
-      setFlash({ kind: 'ok', message: action === 'snoozed' ? 'Snoozed for 24 hours.' : action === 'handled' ? 'Marked handled.' : 'Returned to active.' })
+      setFlash({
+        kind: 'ok',
+        message: action === 'snoozed'
+          ? (snoozedUntil ? `Snoozed until ${formatSnoozeUntil(snoozedUntil)}.` : 'Snoozed for 24 hours.')
+          : action === 'handled' ? 'Marked handled.' : 'Returned to active.',
+      })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'State update failed' })
     } finally {
@@ -1809,6 +1839,65 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     }
   }
 
+  function canAddMeetLink(item: BriefingCard) {
+    return canRepairBookingMeetLink(item)
+  }
+
+  async function addMeetLink(item: BriefingCard) {
+    if (!canAddMeetLink(item)) return
+    setBusyAction('booking-repair')
+    try {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(item.source.id)}/repair`, { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Could not create the Meet link')
+      const errors = Array.isArray(body.errors) ? body.errors : []
+      setFlash(errors.length
+        ? { kind: 'error', message: `Booking repaired with warnings: ${errors.join('; ')}` }
+        : { kind: 'ok', message: 'Calendar event and Meet link created for the booking.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Could not create the Meet link' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  function canBookCall(item: BriefingCard) {
+    if (!['contact', 'deal', 'activity', 'enquiry', 'form-submission'].includes(item.source.type)) return false
+    const contactId = typeof item.context.contactId === 'string' ? item.context.contactId : typeof item.metadata?.contactId === 'string' ? item.metadata.contactId : ''
+    return Boolean(contactId) && Boolean(briefingContactChannels(item).email)
+  }
+
+  async function bookCall(item: BriefingCard, input: BookCallInput) {
+    if (!canBookCall(item)) return
+    const contactId = (typeof item.context.contactId === 'string' && item.context.contactId) || String(item.metadata?.contactId ?? '')
+    const scopeOrgId = item.context.orgId || item.orgId || orgId
+    setBusyAction('book-call')
+    try {
+      const query = scopeOrgId ? `?orgId=${encodeURIComponent(scopeOrgId)}` : ''
+      const res = await fetch(`/api/v1/crm/contacts/${encodeURIComponent(contactId)}/schedule-meeting${query}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          startAt: input.startAt,
+          endAt: input.endAt,
+          title: input.title,
+          description: `Booked from Briefings: ${item.title}`,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Johannesburg',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Could not book the call')
+      setFlash({ kind: 'ok', message: `Call booked with ${briefingPersonName(item) || 'the contact'}. Invite sent.` })
+      await setItemState(item, 'handled')
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Could not book the call' })
+      throw err
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function notificationAction(item: BriefingCard, status: 'read' | 'archived') {
     if (!canNotificationAct(item)) return
     setBusyAction(`notification-${status}`)
@@ -2384,107 +2473,89 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     }
   }
 
+  const cardActions: BriefingCardActions = {
+    mode,
+    busy: Boolean(busyAction),
+    select: (item) => setSelectedId(item.id),
+    openMore: (item) => {
+      setSelectedId(item.id)
+      setShowMoreActions(true)
+    },
+    snooze: (item) => { void setItemState(item, 'snoozed') },
+    snoozeUntil: (item, untilIso) => { void setItemState(item, 'snoozed', untilIso) },
+    canStopRun: (item) => canStopAgentRun(item, mode),
+    stopRun: (item) => { void stopAgentRun(item) },
+    loadBusy,
+    done: (item) => { void setItemState(item, 'handled') },
+    sourceHref: (item) => (mode === 'admin' ? adminSourceHref(item) : sourceHref(item, mode, portalScope)) ?? null,
+    askPip,
+    canApprove: (item) => reviewable(item) || approvalGateReviewable(item) || documentReviewable(item) || (canSocialPostAct(item) && Boolean(socialActionStage(item))),
+    approve: (item) => { void approvePhase2Item(item) },
+    sendBack: (item) => {
+      if (reviewable(item) || approvalGateReviewable(item) || documentReviewable(item)) {
+        void rejectPhase2Item(item)
+        return
+      }
+      setSelectedId(item.id)
+      setShowMoreActions(true)
+    },
+    canUnblock: (item) => canTaskUnblock(item),
+    unblock: (item) => { void unblockTask(item) },
+    canAssignAgent: (item) => canTaskAct(item),
+    assignAgent: (item) => { void assignPhase2Agent(item) },
+    agentLabel: (item) => phase2AgentLabel(item),
+    createFollowUp: (item) => { void createPhase2Task(item) },
+    canAddMeetLink,
+    addMeetLink: (item) => { void addMeetLink(item) },
+    canBookCall,
+    bookCall,
+  }
+
+  const rail = (
+    <TodayRail
+      mode={mode}
+      orgId={orgId || portalScope?.orgId || undefined}
+      portalScope={portalScope}
+      laneCounts={laneCounts}
+      activeLane={pinnedLane}
+      onSelectLane={selectLane}
+      autoRefresh={autoRefresh}
+      onToggleLive={() => setAutoRefresh((value) => !value)}
+      onSnapshot={() => { void createSnapshot() }}
+      snapshotting={snapshotting}
+      refreshKey={refreshKey}
+    />
+  )
+
   const workFeedContent = (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 text-[var(--color-pib-text)]">
-        {/* Daily snapshot strip  -  desktop only; mobile uses lane filter tabs instead */}
-        <section className="hidden shrink-0 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3 lg:block">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
-              <div>
-                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.call}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Call</p>
-              </div>
-              <div>
-                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.followUp}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Follow up</p>
-              </div>
-              <div>
-                <p className="text-2xl text-[var(--color-pib-text)]">{dailySnapshot.blocked}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Blocked</p>
-              </div>
-            </div>
-            {agentOpsItems.length > 0 ? (
-              <button 
-                type="button" 
-                onClick={() => setShowAgentOps(!showAgentOps)}
-                className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
-              >
-                <Icon name="smart_toy" />
-                <span>Agents ({agentOpsItems.length})</span>
-                <Icon name={showAgentOps ? 'expand_less' : 'expand_more'} />
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="hidden" aria-hidden="true">
-          <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
-            <div className="pl-2">
-              <p className="sc-tiny !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Mission Control' : 'Workspace / Mission Control'}</p>
-              <h1 className="mt-1 max-w-4xl text-3xl text-[var(--color-pib-text)] sm:text-4xl">Briefings Mission Control</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                One place to see what needs Peet, what is blocked, and what can safely move without opening every task.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3" aria-label="Mission Control routing summary">
-              {missionRoutes.map((route) => (
-                <div key={route.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <Icon name={route.icon} className="text-[18px] text-brand" />
-                    <span className="text-2xl text-[var(--color-pib-text)]">{route.count}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-[var(--color-pib-text)]">{route.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{route.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Mission Control detail counters">
-            {SUMMARY_COUNTER_DEFS.map((stat) => (
-              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-2">
-                <p className="text-lg text-[var(--color-pib-text)]">{topStats[stat.id]}</p>
-                <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {flash ? (
-          <div className={`rounded-lg border px-4 py-3 text-sm ${flash.kind === 'ok' ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100' : 'border-red-400/40 bg-red-400/10 text-red-100'}`}>
-            {flash.message}
+          <div
+            role="status"
+            className={`pointer-events-auto fixed bottom-4 right-4 z-[60] max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${flash.kind === 'ok' ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-100' : 'border-red-400/40 bg-red-500/10 text-red-700 dark:text-red-100'}`}
+          >
+            <div className="flex items-start gap-2">
+              <span className="min-w-0 flex-1">{flash.message}</span>
+              <button type="button" aria-label="Dismiss message" className="shrink-0 rounded p-0.5 opacity-70 hover:opacity-100" onClick={() => setFlash(null)}>
+                <Icon name="close" />
+              </button>
+            </div>
           </div>
         ) : null}
 
-        <section className={`shrink-0 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5 ${mode === 'admin' ? '' : 'hidden lg:block'}`}>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {mode === 'admin' ? (
-              <>
-                <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
-                <select id="briefing-workspace-filter" aria-label="Workspace" className="h-8 max-w-52 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
-                  <option value="">All visible workspaces</option>
-                  {orgs.map((org) => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
-                </select>
-              </>
-            ) : (
-              <span className="hidden max-w-44 truncate px-2 text-xs text-[var(--color-pib-text-muted)] sm:inline">{activeWorkspaceName}</span>
-            )}
-            <div className="ml-auto hidden items-center gap-1 lg:flex">
-              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
-                <Icon name={autoRefresh ? 'sync' : 'sync_disabled'} />
-                {autoRefresh ? 'Live on' : 'Live off'}
-              </button>
-              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]" type="button" onClick={createSnapshot} disabled={snapshotting}>
-                <Icon name="bookmark_added" />
-                {snapshotting ? 'Saving' : 'Snapshot'}
-              </button>
-            </div>
-          </div>
-        </section>
+        {mode === 'admin' ? (
+          <section className="flex h-8 shrink-0 items-center gap-1.5" aria-label="Workspace">
+            <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
+            <select id="briefing-workspace-filter" aria-label="Workspace" className="h-7 max-w-52 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
+              <option value="">All visible workspaces</option>
+              {orgs.map((org) => (
+                <option key={org.id} value={org.id}>{org.name}</option>
+              ))}
+            </select>
+          </section>
+        ) : null}
 
-        <section className="flex h-9 shrink-0 min-w-0 items-center gap-1 overflow-x-auto" aria-label={mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}>
+        <section className="flex h-8 shrink-0 min-w-0 items-center gap-1 overflow-x-auto" aria-label={mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}>
           <div className="sr-only">
               <p>{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
               <p>
@@ -2520,250 +2591,117 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         </section>
 
-        {/* Mobile: filter to one workflow column so cards stay visible */}
+        {/* Mobile: filter to one work lane so cards stay visible */}
         <nav
-          aria-label="Briefings workflow lanes"
-          className="grid shrink-0 grid-cols-3 gap-1 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 p-1 lg:hidden"
+          aria-label="Briefings work lanes"
+          className="grid shrink-0 grid-cols-5 gap-1 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 p-1 lg:hidden"
         >
-          {WORKFLOW_LANES.map((lane) => {
-            const count = workflowLaneCount(mainLaneItems, lane.id)
-            const selected = mobileLane === lane.id
+          {BRIEFING_WORK_LANES.map((lane) => {
+            const count = laneCounts[lane.id]
+            const isSelected = mobileLane === lane.id
             return (
               <button
                 key={lane.id}
                 type="button"
-                aria-pressed={selected}
+                aria-pressed={isSelected}
                 onClick={() => setMobileLane(lane.id)}
-                className={`flex h-9 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition ${
-                  selected
+                title={lane.label}
+                className={`flex h-9 min-w-0 flex-col items-center justify-center rounded-lg px-1 text-[10px] font-medium leading-3 transition ${
+                  isSelected
                     ? 'bg-[var(--color-row-hover)] text-[var(--color-pib-text)]'
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
-                <span className="shrink-0 text-[15px]" style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }} aria-hidden="true">{lane.icon}</span>
+                <span className="flex items-center gap-1">
+                  <Icon name={lane.icon} className="text-[14px]" />
+                  <span className="tabular-nums">{count}</span>
+                </span>
                 <span className="truncate">{lane.label}</span>
-                <span className="tabular-nums text-[var(--color-pib-text-muted)]">{count}</span>
               </button>
             )
           })}
         </nav>
 
-        {/* Three-column day desk layout  -  one lane on mobile, three on desktop */}
-        <section aria-label="Daily briefings desk" className="grid min-h-0 min-w-0 flex-1 gap-2 overflow-hidden lg:grid-cols-3">
-          {WORKFLOW_LANES.map((lane) => {
-            const laneItems = mainLaneItems.filter((item) => workflowLaneForItem(item) === lane.id)
+        {/* Work lanes  -  one lane on mobile, a scroll-snap row of columns on desktop */}
+        <section aria-label="Daily briefings desk" className="flex min-h-0 min-w-0 flex-1 gap-2 overflow-x-auto overflow-y-hidden lg:snap-x lg:snap-mandatory">
+          {BRIEFING_WORK_LANES.map((lane) => {
+            const items = laneItems[lane.id]
             const showOnMobile = mobileLane === lane.id
+            const collapsed = isDesktop && collapsedLanes[lane.id]
+            const pinned = pinnedLane === lane.id
+            const accent = accentForLane(lane.id)
+            if (collapsed) {
+              return (
+                <button
+                  key={lane.id}
+                  id={`briefing-lane-${lane.id}`}
+                  type="button"
+                  onClick={() => toggleLaneCollapsed(lane.id)}
+                  aria-expanded={false}
+                  aria-label={`Expand ${lane.label} lane (${items.length})`}
+                  className={`${showOnMobile ? 'flex' : 'hidden'} h-full w-12 shrink-0 snap-start flex-col items-center gap-2 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 py-3 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] lg:flex`}
+                >
+                  <span style={{ color: accent }} className="grid place-items-center"><Icon name={lane.icon} className="text-[16px]" /></span>
+                  <span className="rounded bg-[var(--color-pib-surface-muted)] px-1.5 py-0.5 text-[11px] tabular-nums text-[var(--color-pib-text)]">{items.length}</span>
+                  <span className="mt-1 text-[11px] font-medium [writing-mode:vertical-rl]">{lane.label}</span>
+                  <Icon name="unfold_more" className="mt-auto text-[16px]" />
+                </button>
+              )
+            }
             return (
               <div
                 key={lane.id}
-                className={`min-h-0 flex-col rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 ${showOnMobile ? 'flex' : 'hidden'} lg:flex`}
+                id={`briefing-lane-${lane.id}`}
+                data-testid={`briefing-lane-${lane.id}`}
+                className={`${showOnMobile ? 'flex' : 'hidden'} h-full min-h-0 w-full shrink-0 snap-start flex-col rounded-[6px] border bg-[var(--color-card)]/45 lg:flex lg:w-[min(100%,320px)] lg:flex-1 lg:basis-72 ${pinned ? 'border-primary/40' : 'border-[var(--color-pib-line)]'}`}
               >
                 {/* Column header */}
                 <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--color-pib-line)] px-3">
-                  <div className="flex items-center gap-2">
-                    <span 
-                      className="st-icon text-[16px]" 
-                      style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }}
-                      aria-hidden="true"
-                    >
-                      {lane.icon}
-                    </span>
-                    <span className="text-sm font-medium text-[var(--color-pib-text)]">{lane.label}</span>
-                    <span className="rounded bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{laneItems.length}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span style={{ color: accent }} className="grid place-items-center"><Icon name={lane.icon} className="text-[16px]" /></span>
+                    <span className="truncate text-sm font-medium text-[var(--color-pib-text)]" title={lane.description}>{lane.label}</span>
+                    <span className="rounded bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[11px] tabular-nums text-[var(--color-pib-text-muted)]">{items.length}</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleLaneCollapsed(lane.id)}
+                    aria-label={`Collapse ${lane.label} lane`}
+                    className="hidden rounded p-1 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)] lg:grid"
+                  >
+                    <Icon name="unfold_less" className="text-[16px]" />
+                  </button>
                 </div>
 
                 {/* Cards in this column */}
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
                   {loading ? (
                     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4 text-center text-xs text-[var(--color-pib-text-muted)]">Loading…</div>
-                  ) : laneItems.length === 0 ? (
-                    <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4 text-center text-xs text-[var(--color-pib-text-muted)]">Nothing here</div>
+                  ) : items.length === 0 ? (
+                    <LaneEmptyState kind={lane.id} />
+                  ) : lane.id === 'agent' ? (
+                    agentGroups.map((group) => group.items.length === 1 ? (
+                      <BriefingCardForKind key={group.items[0].id} item={group.items[0]} kind="agent" actions={cardActions} />
+                    ) : (
+                      <AgentGroupCard
+                        key={group.key}
+                        agentId={group.agentId}
+                        agentName={group.agentName}
+                        items={group.items}
+                        actions={cardActions}
+                        expanded={expandedAgentGroups[group.key] ?? group.items.length <= 3}
+                        onToggle={() => setExpandedAgentGroups((current) => ({ ...current, [group.key]: !(current[group.key] ?? group.items.length <= 3) }))}
+                      />
+                    ))
                   ) : (
-                    laneItems.map((item) => {
-                      const channels = briefingContactChannels(item)
-                      const listFacts = briefingListFacts(item)
-                      const summary = humanReadableCopy(briefingUsefulSummary(item) || item.summary)
-                      const primaryAction = (() => {
-                        if (channels.phone) return { type: 'call' as const, href: `tel:${channels.phone}`, label: 'Call', icon: 'call' }
-                        if (channels.email) return { type: 'email' as const, href: `mailto:${channels.email}`, label: 'Email', icon: 'mail' }
-                        if (lane.id === 'call') {
-                          if (item.metadata?.phone) return { type: 'call' as const, href: `tel:${item.metadata.phone}`, label: 'Call', icon: 'call' }
-                          if (item.metadata?.email) return { type: 'email' as const, href: `mailto:${item.metadata.email}`, label: 'Email', icon: 'mail' }
-                        }
-                        if (lane.id === 'blocked') {
-                          if (reviewable(item) || approvalGateReviewable(item) || documentReviewable(item)) {
-                            return { type: 'approve' as const, label: 'Approve', icon: 'verified' }
-                          }
-                          if (canTaskUnblock(item)) {
-                            return { type: 'unblock' as const, label: 'Unblock', icon: 'play_arrow' }
-                          }
-                        }
-                        if (lane.id === 'follow-up') {
-                          return { type: 'done' as const, label: 'Done', icon: 'done' }
-                        }
-                        return null
-                      })()
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 transition hover:bg-[var(--color-pib-surface-muted)]"
-                          style={{ borderLeft: `3px solid ${priorityAccentColor(item.priority)}` }}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
-                                <p data-testid="briefing-card-title" className="break-words text-sm leading-5 text-[var(--color-pib-text)]">{item.title}</p>
-                              </button>
-                              {summary ? (
-                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                                  {summary}
-                                </p>
-                              ) : null}
-                              {listFacts.length ? (
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                  {listFacts.map((fact) => (
-                                    <span key={fact.id} className="max-w-full truncate rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
-                                      <span className="text-[var(--color-pib-text-muted)]">{fact.label}:</span> {fact.value}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
-                                <span className={`rounded border px-2 py-0.5  ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
-                                <span className="truncate">{item.timeAgo}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Primary action button */}
-                          <div className="mt-3 flex items-center gap-2">
-                            {primaryAction ? (
-                              primaryAction.type === 'call' || primaryAction.type === 'email' ? (
-                                <a
-                                  href={primaryAction.href}
-                                  className="pib-btn-primary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <span className="st-icon text-[15px]">{primaryAction.icon}</span>
-                                  {primaryAction.label}
-                                </a>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="pib-btn-primary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (primaryAction.type === 'approve') {
-                                      void approvePhase2Item(item)
-                                    } else if (primaryAction.type === 'unblock') {
-                                      void unblockTask(item)
-                                    } else if (primaryAction.type === 'done') {
-                                      void setItemState(item, 'handled')
-                                    }
-                                  }}
-                                  disabled={!!busyAction}
-                                >
-                                  <span className="st-icon text-[15px]">{primaryAction.icon}</span>
-                                  {primaryAction.label}
-                                </button>
-                              )
-                            ) : (
-                              <button
-                                type="button"
-                                className="pib-btn-secondary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedId(item.id)
-                                }}
-                              >
-                                <Icon name="open_in_new" />
-                                Open
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="pib-btn-secondary shrink-0 justify-center px-3 py-2 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                void setItemState(item, 'snoozed')
-                              }}
-                              disabled={!!busyAction}
-                              title="Snooze 24h"
-                            >
-                              <Icon name="snooze" />
-                            </button>
-                            <button
-                              type="button"
-                              className="shrink-0 rounded-md border border-[var(--color-pib-line)] px-2 py-2 text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-muted)] hover:text-[var(--color-pib-text)]"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedId(item.id)
-                                setShowMoreActions(true)
-                              }}
-                              title="More actions"
-                            >
-                              <Icon name="more_horiz" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })
+                    items.map((item) => (
+                      <BriefingCardForKind key={item.id} item={item} kind={lane.id} actions={cardActions} />
+                    ))
                   )}
                 </div>
               </div>
             )
           })}
         </section>
-
-        {/* Agent ops collapsed drawer */}
-        {showAgentOps && agentOpsItems.length > 0 ? (
-          <section className="mt-2 rounded-[6px] border border-[var(--color-pib-line)] bg-[var(--color-card)]/45">
-            <div className="flex h-10 items-center justify-between border-b border-[var(--color-pib-line)] px-3">
-              <div className="flex items-center gap-2">
-                <Icon name="smart_toy" />
-                <span className="text-sm font-medium text-[var(--color-pib-text)]">Agent operations</span>
-                <span className="rounded bg-[var(--color-pib-surface-muted)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{agentOpsItems.length}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAgentOps(false)}
-                className="text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
-              >
-                Collapse
-              </button>
-            </div>
-            <div className="grid gap-2 p-2 sm:grid-cols-2 lg:grid-cols-3">
-              {agentOpsItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3"
-                  style={{ borderLeft: `3px solid ${priorityAccentColor('review')}` }}
-                >
-                  <p className="break-words text-sm leading-5 text-[var(--color-pib-text)]">
-                    <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
-                      {item.title}
-                    </button>
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                    {humanReadableCopy(item.summary)}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="pib-btn-secondary min-w-0 flex-1 justify-center px-3 py-2 text-xs"
-                      onClick={() => setSelectedId(item.id)}
-                    >
-                      <Icon name="open_in_new" />
-                      Open
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         {/* Detail panel modal for selected item */}
         {selected ? (
@@ -2859,7 +2797,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {/* Primary actions - context-aware based on current stack */}
                 <div className="space-y-2" aria-label="Primary actions">
-                  {(workflowLane === 'call' || briefingHasContactChannel(selected)) && (briefingContactChannels(selected).email || briefingContactChannels(selected).phone) ? (
+                  {(selectedKind === 'meeting' || briefingHasContactChannel(selected)) && (briefingContactChannels(selected).email || briefingContactChannels(selected).phone) ? (
                     <div className="grid grid-cols-2 gap-2">
                       {briefingContactChannels(selected).phone ? (
                         <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
@@ -2876,7 +2814,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     </div>
                   ) : null}
                   
-                  {workflowLane === 'blocked' ? (
+                  {selectedKind === 'blocked' || selectedKind === 'approval' ? (
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -2896,7 +2834,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     </div>
                   ) : null}
                   
-                  {workflowLane === 'follow-up' ? (
+                  {selectedKind === 'reply' || selectedKind === 'agent' || selectedKind === 'meeting' ? (
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -3544,6 +3482,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setMailboxReplyText(event.target.value)}
                       placeholder="Draft a reply without sending it yet..."
                      aria-label="Draft a reply without sending it yet..."/>
+                    {pipDraftButton(setMailboxReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => draftMailboxReply(selected)} disabled={!mailboxReplyText.trim() || mailboxReplyTo(selected).length === 0 || !selected.metadata?.accountId || !!busyAction}>
                       <Icon name="draft" />
                       Draft email reply
@@ -3563,6 +3502,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply with a decision, note, or instruction..."
                      aria-label="Reply with a decision, note, or instruction..."/>
+                    {pipDraftButton(setReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
                       <Icon name="reply" />
                       {canDocumentCommentReplyAct(selected) ? 'Reply to document comment' : canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
@@ -3652,6 +3592,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply to the client and keep the support thread moving..."
                      aria-label="Reply to the client and keep the support thread moving..."/>
+                    {pipDraftButton(setReplyText)}
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSupportTicket(selected, replyText)} disabled={!replyText.trim() || !!busyAction}>
                       <Icon name="support_agent" />
                       Reply to support ticket
@@ -3965,11 +3906,18 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       currentUser={currentUser}
       orgId={orgId}
       orgName={orgs.find((org) => org.id === orgId)?.name ?? (mode === 'portal' ? activeWorkspaceName : orgId ? undefined : 'All workspaces')}
-      itemCount={mainLaneItems.length}
+      itemCount={pulseScopedItems.length}
       generatedAt={feed?.generatedAt}
       loading={loading}
       onRefresh={() => { void loadFeed() }}
-      selectedContextSeed={selected ? briefingContextSeed(selected, mode, portalScope) : null}
+      selectedContextSeed={selected ? briefingContextSeed(selected, mode, portalScope) : chatSeedItem ? briefingContextSeed(chatSeedItem, mode, portalScope) : null}
+      chatOpen={chatOpen}
+      onChatOpenChange={(open) => {
+        setChatOpen(open)
+        if (!open) setChatSeedId(null)
+      }}
+      onChatConversationLifecycle={handleChatLifecycle}
+      rail={rail}
       workFeedContent={workFeedContent}
     />
   )

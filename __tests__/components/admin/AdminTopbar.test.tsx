@@ -22,6 +22,7 @@ describe('AdminTopbar', () => {
     expect(notifications).toHaveAttribute('data-user-id', 'admin-1')
     expect(notifications).toHaveAttribute('data-mode', 'admin')
     expect(screen.getByRole('button', { name: 'Switch to Ink' })).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveClass('st-topbar')
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
     expect(screen.queryByText('peet@example.com')).not.toBeInTheDocument()
   })
