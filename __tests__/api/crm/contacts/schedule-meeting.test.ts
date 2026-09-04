@@ -55,6 +55,14 @@ function contactSnap(data: Record<string, unknown> | null) {
   return { exists: data !== null, data: () => data ?? undefined }
 }
 
+// The route resolves the contact through `lib/crm/assignment-access`. The test
+// actor is a plain `member` with the default `owned_or_linked` CRM record
+// scope, so the contact must be assigned to them to be visible — otherwise the
+// route legitimately answers 404 "Contact not found".
+function ownedContact(data: Record<string, unknown>) {
+  return contactSnap({ orgId: ORG_ID, assignedTo: ACTOR_REF.uid, ...data })
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockBatchCommit.mockResolvedValue(undefined)
@@ -85,8 +93,7 @@ beforeEach(() => {
 
 describe('POST /api/v1/crm/contacts/:id/schedule-meeting', () => {
   it('creates a calendar event, logs activity, and updates the contact', async () => {
-    mockContactGet.mockResolvedValue(contactSnap({
-      orgId: ORG_ID,
+    mockContactGet.mockResolvedValue(ownedContact({
       name: 'Ada Client',
       email: 'ada@example.com',
     }))
@@ -101,8 +108,13 @@ describe('POST /api/v1/crm/contacts/:id/schedule-meeting', () => {
 
     expect(res.status).toBe(201)
     expect(mockBatchSet).toHaveBeenCalledTimes(2)
+    expect(mockBatchUpdate).toHaveBeenCalledTimes(1)
     expect(mockBatchUpdate).toHaveBeenCalledWith(contactRef, expect.objectContaining({
       lastContactedAt: expect.anything(),
+      // Booking the meeting clears the CRM next action so the Briefings
+      // Meeting lane stops nudging to call this person.
+      nextAction: null,
+      updatedAt: expect.anything(),
     }))
     expect(mockBatchCommit).toHaveBeenCalledTimes(1)
 
@@ -133,8 +145,7 @@ describe('POST /api/v1/crm/contacts/:id/schedule-meeting', () => {
   })
 
   it('creates the meeting in the connected Google Calendar and stores the links on the CRM event', async () => {
-    mockContactGet.mockResolvedValue(contactSnap({
-      orgId: ORG_ID,
+    mockContactGet.mockResolvedValue(ownedContact({
       name: 'Ada Client',
       email: 'ada@example.com',
     }))
@@ -179,6 +190,11 @@ describe('POST /api/v1/crm/contacts/:id/schedule-meeting', () => {
       googleEventId: 'google-event-1',
       googleHtmlLink: 'https://calendar.google/event',
     }))
+
+    expect(mockBatchUpdate).toHaveBeenCalledWith(contactRef, expect.objectContaining({
+      lastContactedAt: expect.anything(),
+      nextAction: null,
+    }))
   })
 
   it('rejects invalid meeting windows', async () => {
@@ -209,7 +225,7 @@ describe('POST /api/v1/crm/contacts/:id/schedule-meeting', () => {
   })
 
   it('requires an email address for the meeting attendee', async () => {
-    mockContactGet.mockResolvedValue(contactSnap({ orgId: ORG_ID, name: 'No Email' }))
+    mockContactGet.mockResolvedValue(ownedContact({ name: 'No Email' }))
 
     const { POST } = await import('@/app/api/v1/crm/contacts/[id]/schedule-meeting/route')
     const res = await POST(makeReq({

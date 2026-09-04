@@ -49,8 +49,8 @@ interface TaskDocument extends Record<string, unknown> {
  * FYI task movement (done/moved columns with nothing to review) is only worth a
  * card while it is fresh and attached to something that makes it work: an
  * assigned agent or a due date. Older or unowned FYI movement is noise in the
- * Agent lane. Real work (needs-peet, critical, review, progress, client-risk)
- * is never age-gated here.
+ * Agent lane. Real work (needs-peet, critical, review, client-risk) is never
+ * age-gated here; human progress work has its own wider window below.
  *
  * "Now" is read from `Date.now()` so tests can pin the clock with
  * `jest.useFakeTimers({ now })`, matching the rest of the briefing suite.
@@ -61,13 +61,45 @@ function taskTouchedAt(doc: TaskDocument): Date | null {
   return normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.createdAt) ?? normalizeTimestamp(doc.completedAt)
 }
 
-function fyiTaskIsWorthACard(doc: TaskDocument): boolean {
+/**
+ * Progress tasks (in_progress / todo column) with no agent on them are human
+ * work. They only earn a card while somebody is actually moving them: touched
+ * within the last 7 days, or carrying a due date. Seven days rather than the
+ * 24h FYI window because humans work on a weekly cadence — a task last touched
+ * on Monday is still live on Friday, one untouched for a fortnight is noise.
+ *
+ * Agent-driven progress is never dropped here: an assigned agent, or an
+ * `agentStatus` in `ACTIVE_AGENT_STATUSES`, means the agent-run adapters own
+ * that card's lifecycle regardless of age.
+ */
+const PROGRESS_TASK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+const ACTIVE_AGENT_STATUSES = new Set(['running', 'in-progress'])
+
+function taskHasAgent(doc: TaskDocument): boolean {
+  return typeof doc.assigneeAgentId === 'string' && doc.assigneeAgentId.trim().length > 0
+}
+
+function taskHasDueDate(doc: TaskDocument): boolean {
+  return normalizeTimestamp(doc.dueDate) !== null
+}
+
+function taskTouchedWithin(doc: TaskDocument, windowMs: number): boolean {
   const touchedAt = taskTouchedAt(doc)
   if (!touchedAt) return false
-  if (Date.now() - touchedAt.getTime() > FYI_TASK_WINDOW_MS) return false
-  const hasAgent = typeof doc.assigneeAgentId === 'string' && doc.assigneeAgentId.trim().length > 0
-  const hasDueDate = normalizeTimestamp(doc.dueDate) !== null
-  return hasAgent || hasDueDate
+  return Date.now() - touchedAt.getTime() <= windowMs
+}
+
+function fyiTaskIsWorthACard(doc: TaskDocument): boolean {
+  if (!taskTouchedWithin(doc, FYI_TASK_WINDOW_MS)) return false
+  return taskHasAgent(doc) || taskHasDueDate(doc)
+}
+
+function progressTaskIsWorthACard(doc: TaskDocument): boolean {
+  if (typeof doc.agentStatus === 'string' && ACTIVE_AGENT_STATUSES.has(doc.agentStatus)) return true
+  if (taskHasAgent(doc)) return true
+  if (taskHasDueDate(doc)) return true
+  return taskTouchedWithin(doc, PROGRESS_TASK_WINDOW_MS)
 }
 
 /**
@@ -100,11 +132,15 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Determine if this task should generate a briefing item.
    * Skip deleted tasks and tasks in "backlog" column (too noisy).
    * FYI-only movement must be recent and owned (agent or due date) to qualify.
+   * Human progress work must be recent (7d), owned by an agent, or dated.
+   * critical / needs-peet / review / client-risk are never age-gated.
    */
   shouldGenerate(doc: TaskDocument, docId: string): boolean {
     if (doc.deleted === true) return false
     if (doc.columnId === 'backlog') return false
-    if (taskAdapter.extractPriority(doc, docId) === 'fyi') return fyiTaskIsWorthACard(doc)
+    const priority = taskAdapter.extractPriority(doc, docId)
+    if (priority === 'fyi') return fyiTaskIsWorthACard(doc)
+    if (priority === 'progress') return progressTaskIsWorthACard(doc)
     return true
   },
 
