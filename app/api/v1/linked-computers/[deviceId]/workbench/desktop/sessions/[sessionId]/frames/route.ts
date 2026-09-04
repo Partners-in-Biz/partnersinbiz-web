@@ -4,6 +4,7 @@ import {
   isWorkbenchBrowserFrameContentType,
   MAX_WORKBENCH_BROWSER_FRAME_BYTES,
 } from '@/lib/messages/workbench/browser-frame-storage'
+import { desktopSessionHttpStatus } from '@/lib/messages/workbench/desktop-session'
 import { storeDesktopFrame } from '@/lib/messages/workbench/desktop-session-store'
 
 export const dynamic = 'force-dynamic'
@@ -23,9 +24,13 @@ export async function POST(request: NextRequest, ctx: Context) {
     const seq = Number(body.seq)
     const contentType = typeof body.contentType === 'string' ? body.contentType : ''
     const dataBase64 = typeof body.dataBase64 === 'string' ? body.dataBase64 : ''
-    if (!leaseToken || !Number.isSafeInteger(seq) || seq < 0 || !isWorkbenchBrowserFrameContentType(contentType) || !dataBase64) {
+    if (!leaseToken || !Number.isSafeInteger(seq) || seq < 0 || !dataBase64) {
       return NextResponse.json({ success: false, error: 'Invalid frame request' }, { status: 400, headers: noStoreHeaders })
     }
+    if (!isWorkbenchBrowserFrameContentType(contentType)) {
+      return NextResponse.json({ success: false, error: 'Invalid frame request' }, { status: 400, headers: noStoreHeaders })
+    }
+    const frameContentType: 'image/jpeg' | 'image/png' = contentType === 'image/png' ? 'image/png' : 'image/jpeg'
     if (dataBase64.length > Math.ceil(MAX_WORKBENCH_BROWSER_FRAME_BYTES * 4 / 3) + 1_024) {
       return NextResponse.json({ success: false, error: 'Frame too large' }, { status: 413, headers: noStoreHeaders })
     }
@@ -35,8 +40,9 @@ export async function POST(request: NextRequest, ctx: Context) {
       deviceId,
       leaseToken,
       seq,
-      contentType,
+      contentType: frameContentType,
       bytes,
+      credentialVersion: identity.credentialVersion,
       screenWidth: typeof body.screenWidth === 'number' ? body.screenWidth : undefined,
       screenHeight: typeof body.screenHeight === 'number' ? body.screenHeight : undefined,
     })
@@ -46,9 +52,7 @@ export async function POST(request: NextRequest, ctx: Context) {
     }, { headers: noStoreHeaders })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'frame upload failed'
-    const status = /authentication|signature|credential|mismatch|denied/.test(message) ? 403
-      : /lease/.test(message) ? 409
-        : 500
+    const status = desktopSessionHttpStatus(error)
     return NextResponse.json({ success: false, error: message }, { status, headers: noStoreHeaders })
   }
 }

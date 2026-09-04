@@ -19,6 +19,7 @@ import type {
 import { shouldRenderClosedWorkbenchIconStrip } from '@/lib/messages/mobile-conversation-chrome'
 import { WorkbenchBrowserPanel } from './WorkbenchBrowserPanel'
 import { WorkbenchChangesPanel } from './WorkbenchChangesPanel'
+import { WorkbenchDesktopPanel } from './WorkbenchDesktopPanel'
 import { WorkbenchFilesPanel } from './WorkbenchFilesPanel'
 import { WorkbenchTerminalPanel } from './WorkbenchTerminalPanel'
 
@@ -122,6 +123,19 @@ export interface AgentWorkbenchRailProps {
   /** Latest accessibility snapshot text for the Agent view; null until the first refresh. */
   browserAgentSnapshotText?: string | null
   browserAgentSnapshotLoading?: boolean
+  /** Conversation id needed to poll Mac desktop sessions from the Browser tab. */
+  conversationId?: string | null
+  /** Live Mac desktop session; when present, the Browser tab renders `WorkbenchDesktopPanel`. */
+  desktopSession?: {
+    sessionId: string
+    latestFrameUrl?: string | null
+    status?: string | null
+    driver?: 'agent' | 'user'
+    screenWidth?: number
+    screenHeight?: number
+  } | null
+  hasDesktopWatch?: boolean
+  hasDesktopControl?: boolean
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
@@ -215,6 +229,10 @@ export function AgentWorkbenchRail({
   onRefreshBrowserAgentSnapshot,
   browserAgentSnapshotText,
   browserAgentSnapshotLoading,
+  conversationId,
+  desktopSession,
+  hasDesktopWatch = false,
+  hasDesktopControl = false,
   compact = false,
   onRunTerminalCommand,
   onClearTerminal,
@@ -434,7 +452,19 @@ export function AgentWorkbenchRail({
             onKillSession={onKillTerminalSession}
           />
         )}
-        {activeTabMeta.id === 'browser' && (
+        {activeTabMeta.id === 'browser' && desktopSession?.sessionId && conversationId ? (
+          <WorkbenchDesktopPanel
+            conversationId={conversationId}
+            sessionId={desktopSession.sessionId}
+            latestFrameUrl={desktopSession.latestFrameUrl}
+            status={desktopSession.status}
+            driver={desktopSession.driver}
+            screenWidth={desktopSession.screenWidth}
+            screenHeight={desktopSession.screenHeight}
+            hasDesktopWatch={hasDesktopWatch}
+            hasDesktopControl={hasDesktopControl}
+          />
+        ) : activeTabMeta.id === 'browser' ? (
           <WorkbenchBrowserPanel
             targets={browserTargets}
             onAddToChat={onAddBrowserNoteToChat}
@@ -458,7 +488,7 @@ export function AgentWorkbenchRail({
             snapshotText={browserAgentSnapshotText}
             snapshotLoading={browserAgentSnapshotLoading}
           />
-        )}
+        ) : null}
         {activeTabMeta.id === 'changes' && (
           <WorkbenchChangesPanel
             changes={changes}

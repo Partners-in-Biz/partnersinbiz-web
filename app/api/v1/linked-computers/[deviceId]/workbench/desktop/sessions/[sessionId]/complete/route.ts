@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateSignedDeviceRequest, noStoreHeaders } from '@/lib/linked-computers/http'
+import { desktopSessionHttpStatus } from '@/lib/messages/workbench/desktop-session'
 import { completeDesktopSession } from '@/lib/messages/workbench/desktop-session-store'
 
 export const dynamic = 'force-dynamic'
@@ -14,13 +15,25 @@ export async function POST(request: NextRequest, ctx: Context) {
       return NextResponse.json({ success: false, error: 'Linked computer access denied' }, { status: 403, headers: noStoreHeaders })
     }
     const body = JSON.parse(rawBody) as Record<string, unknown>
+    const leaseToken = typeof body.leaseToken === 'string' ? body.leaseToken : ''
+    if (!leaseToken) {
+      return NextResponse.json({ success: false, error: 'lease mismatch' }, { status: 409, headers: noStoreHeaders })
+    }
     const status = body.status === 'exited' || body.status === 'failed' ? body.status : 'killed'
-    await completeDesktopSession(sessionId, status)
-    return NextResponse.json({ success: true, data: { sessionId, status } }, { headers: noStoreHeaders })
+    const session = await completeDesktopSession({
+      sessionId,
+      deviceId,
+      credentialVersion: identity.credentialVersion,
+      leaseToken,
+      status,
+    })
+    return NextResponse.json({ success: true, data: { sessionId, status: session.status } }, { headers: noStoreHeaders })
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'complete failed'
+    const status = desktopSessionHttpStatus(error)
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'complete failed',
-    }, { status: 500, headers: noStoreHeaders })
+      error: message,
+    }, { status, headers: noStoreHeaders })
   }
 }

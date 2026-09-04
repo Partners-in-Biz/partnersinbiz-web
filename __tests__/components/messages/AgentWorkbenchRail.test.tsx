@@ -92,6 +92,42 @@ describe('AgentWorkbenchRail', () => {
     expect(screen.getByTestId('agent-workbench-tab-files')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('content of components/UnifiedChat.tsx')).toBeInTheDocument()
   })
+
+  it('renders the desktop panel on the browser tab when a Mac desktop session is live', () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: {} }),
+    } as Response)
+    try {
+      render(
+        <AgentWorkbenchRail
+          open
+          activeTab="browser"
+          onOpenChange={jest.fn()}
+          onTabChange={jest.fn()}
+          conversationId="conv-1"
+          desktopSession={{
+            sessionId: 'desk_1',
+            latestFrameUrl: 'https://cdn.example.test/desk.jpg',
+            status: 'running',
+            driver: 'agent',
+            screenWidth: 1440,
+            screenHeight: 900,
+          }}
+          hasDesktopWatch
+          terminalEntries={[]}
+          fileTree={[]}
+          changes={[]}
+          browserTargets={[]}
+        />,
+      )
+      expect(screen.getByTestId('workbench-desktop-panel')).toBeInTheDocument()
+      expect(screen.getByRole('img', { name: 'Desktop' })).toHaveAttribute('src', 'https://cdn.example.test/desk.jpg')
+      expect(screen.queryByLabelText('Browser target URL')).not.toBeInTheDocument()
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
 })
 
 describe('WorkbenchBrowserPanel security boundary', () => {

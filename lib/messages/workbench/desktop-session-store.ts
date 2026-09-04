@@ -7,41 +7,27 @@ import crypto from 'node:crypto'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { storeWorkbenchBrowserFrame } from '@/lib/messages/workbench/browser-frame-storage'
+import {
+  assertDesktopSessionComplete,
+  assertLiveDesktopLease,
+  isTerminalDesktopSessionStatus,
+  type DesktopSession,
+  type DesktopSessionDriver,
+  type DesktopSessionStatus,
+} from '@/lib/messages/workbench/desktop-session'
+
+export {
+  assertDesktopSessionComplete,
+  assertLiveDesktopLease,
+  isTerminalDesktopSessionStatus,
+  TERMINAL_DESKTOP_SESSION_STATUSES,
+  type DesktopSession,
+  type DesktopSessionDriver,
+  type DesktopSessionStatus,
+} from '@/lib/messages/workbench/desktop-session'
 
 export const WORKBENCH_DESKTOP_SESSIONS_COLLECTION = 'conversation_workbench_desktop_sessions'
 export const WORKBENCH_DESKTOP_SESSION_QUEUES_COLLECTION = 'linked_device_workbench_desktop_session_queues'
-
-export type DesktopSessionStatus =
-  | 'awaiting_approval'
-  | 'queued'
-  | 'claimed'
-  | 'running'
-  | 'exited'
-  | 'killed'
-  | 'expired'
-  | 'failed'
-
-export type DesktopSessionDriver = 'agent' | 'user'
-
-export type DesktopSession = {
-  sessionId: string
-  conversationId: string
-  orgId: string
-  deviceId: string
-  runtimeTargetId: string
-  credentialVersion: number
-  status: DesktopSessionStatus
-  driver: DesktopSessionDriver
-  latestFrameUrl: string | null
-  frameCount: number
-  screenWidth: number
-  screenHeight: number
-  leaseToken: string | null
-  pendingControls: Array<Record<string, unknown>>
-  createdAtMs: number
-  updatedAtMs: number
-  ttlExpiresAtMs: number
-}
 
 const TTL_MS = 30 * 60 * 1000
 
@@ -196,10 +182,14 @@ export async function storeDesktopFrame(input: {
   bytes: Buffer
   screenWidth?: number
   screenHeight?: number
+  credentialVersion?: number
 }): Promise<DesktopSession> {
   const session = await getWorkbenchDesktopSession(input.sessionId)
-  if (session.deviceId !== input.deviceId) throw new Error('device mismatch')
-  if (session.leaseToken && session.leaseToken !== input.leaseToken) throw new Error('lease mismatch')
+  assertLiveDesktopLease(session, {
+    deviceId: input.deviceId,
+    leaseToken: input.leaseToken,
+    credentialVersion: input.credentialVersion,
+  })
   const stored = await storeWorkbenchBrowserFrame({
     orgId: session.orgId,
     conversationId: session.conversationId,
@@ -220,18 +210,48 @@ export async function storeDesktopFrame(input: {
   return getWorkbenchDesktopSession(input.sessionId)
 }
 
-export async function completeDesktopSession(sessionId: string, status: DesktopSessionStatus = 'killed'): Promise<void> {
-  const session = await getWorkbenchDesktopSession(sessionId)
-  await sessionRef(sessionId).update({
+async function markDesktopSessionTerminal(session: DesktopSession, status: DesktopSessionStatus): Promise<DesktopSession> {
+  if (isTerminalDesktopSessionStatus(session.status)) return session
+  await sessionRef(session.sessionId).update({
     status,
     leaseToken: null,
     pendingControls: [],
     updatedAt: FieldValue.serverTimestamp(),
   })
   await queueRef(session.deviceId).set({
-    sessionIds: FieldValue.arrayRemove(sessionId),
+    sessionIds: FieldValue.arrayRemove(session.sessionId),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true })
+  return getWorkbenchDesktopSession(session.sessionId)
+}
+
+export async function completeDesktopSession(input: {
+  sessionId: string
+  deviceId: string
+  credentialVersion: number
+  leaseToken?: string
+  status?: DesktopSessionStatus
+}): Promise<DesktopSession> {
+  const session = await getWorkbenchDesktopSession(input.sessionId)
+  assertDesktopSessionComplete(session, {
+    deviceId: input.deviceId,
+    credentialVersion: input.credentialVersion,
+    leaseToken: input.leaseToken,
+  })
+  const status = input.status && isTerminalDesktopSessionStatus(input.status) ? input.status : 'killed'
+  return markDesktopSessionTerminal(session, status)
+}
+
+/** Conversation-auth kill path: caller already proved they own the chat. */
+export async function finalizeDesktopSessionForConversation(input: {
+  sessionId: string
+  conversationId: string
+  status?: DesktopSessionStatus
+}): Promise<DesktopSession> {
+  const session = await getWorkbenchDesktopSession(input.sessionId)
+  if (session.conversationId !== input.conversationId) throw new Error('desktop session not found')
+  const status = input.status && isTerminalDesktopSessionStatus(input.status) ? input.status : 'killed'
+  return markDesktopSessionTerminal(session, status)
 }
 
 export function publicDesktopSession(session: DesktopSession) {

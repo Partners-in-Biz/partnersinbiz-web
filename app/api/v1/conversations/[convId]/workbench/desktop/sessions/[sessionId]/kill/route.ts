@@ -3,8 +3,8 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import {
-  completeDesktopSession,
   enqueueDesktopControl,
+  finalizeDesktopSessionForConversation,
   getWorkbenchDesktopSession,
   publicDesktopSession,
 } from '@/lib/messages/workbench/desktop-session-store'
@@ -19,8 +19,7 @@ export const POST = withAuth('client', async (_req: NextRequest, user, ctx) => {
     const existing = await getWorkbenchDesktopSession(sessionId)
     if (existing.conversationId !== convId) return apiError('Not found', 404)
     await enqueueDesktopControl(sessionId, { kind: 'kill' })
-    await completeDesktopSession(sessionId, 'killed')
-    const session = await getWorkbenchDesktopSession(sessionId)
+    const session = await finalizeDesktopSessionForConversation({ sessionId, conversationId: convId, status: 'killed' })
     return apiSuccess(publicDesktopSession(session))
   } catch (error) {
     if (error instanceof WorkbenchAuthorizationError) return apiError(error.message, error.status)
