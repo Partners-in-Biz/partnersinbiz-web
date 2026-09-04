@@ -35,6 +35,12 @@ import {
   type WorkbenchBrowserClaim,
 } from './workbench-browser'
 import {
+  pollWorkbenchDesktopForever,
+  probeDesktopCapabilities,
+  runDesktopClaim,
+  type DesktopClaim,
+} from './workbench-desktop'
+import {
   executeAgentHostJob,
   linkedRuntimeAgentHostClaimBody,
   pollAgentHostForever,
@@ -94,11 +100,66 @@ async function pair(challengeId:string,releaseChannel:'internal'|'stable'='stabl
 }
 async function acknowledgeRotation(value:RuntimeIdentity,deliveryId:string){const response=await new DeviceApiClient(api,value).post(`/api/v1/linked-computers/${value.deviceId}/credentials/rotation/ack`,{rotationDeliveryId:deliveryId});if(!response.ok)throw new Error('rotation acknowledgement rejected')}
 export function nativeWorkspaceSyncSupported(platform=process.platform){return workspaceSyncNativeSupported(platform)}
-export function linkedRuntimeHeartbeatBody(platform=process.platform,hermesProbe:LocalHermesProbe={availableAgentIds:['pip']}){const sync=nativeWorkspaceSyncSupported(platform),hermesReady=hermesProbe.availableAgentIds.length>0,capabilities=[...(hermesReady?['workspace.execute' as const]:[]),...(sync?['workspace.sync' as const]:[])];return{runtimeVersion,health:hermesReady?'ok' as const:'degraded' as const,capabilities,availableAgentIds:hermesProbe.availableAgentIds,...(hermesProbe.availableProfiles?{availableProfiles:hermesProbe.availableProfiles}:{}),...(hermesProbe.hermesVersion?{hermesVersion:hermesProbe.hermesVersion}:{}),...(hermesProbe.healthReason?{healthReason:hermesProbe.healthReason}:{}),...(sync?{syncProtocolVersion:1 as const}:{}),claimRotation:true}}
+export function linkedRuntimeHeartbeatBody(
+  platform = process.platform,
+  hermesProbe: LocalHermesProbe = { availableAgentIds: ['pip'] },
+  desktop: { watch?: boolean; control?: boolean } = {},
+) {
+  const sync = nativeWorkspaceSyncSupported(platform)
+  const hermesReady = hermesProbe.availableAgentIds.length > 0
+  const capabilities = [
+    ...(hermesReady ? ['workspace.execute' as const] : []),
+    ...(sync ? ['workspace.sync' as const] : []),
+    ...(desktop.watch ? ['desktop.watch' as const] : []),
+    ...(desktop.control ? ['desktop.control' as const] : []),
+  ]
+  return {
+    runtimeVersion,
+    health: hermesReady ? 'ok' as const : 'degraded' as const,
+    capabilities,
+    availableAgentIds: hermesProbe.availableAgentIds,
+    ...(hermesProbe.availableProfiles ? { availableProfiles: hermesProbe.availableProfiles } : {}),
+    ...(hermesProbe.hermesVersion ? { hermesVersion: hermesProbe.hermesVersion } : {}),
+    ...(hermesProbe.healthReason ? { healthReason: hermesProbe.healthReason } : {}),
+    ...(sync ? { syncProtocolVersion: 1 as const } : {}),
+    claimRotation: true,
+  }
+}
 export function linkedRuntimeSyncClaimBody(){return{runtimeVersion,syncProtocolVersion:1 as const}}
 export function linkedRuntimeWorkbenchClaimBody(){return{runtimeVersion,workbenchProtocolVersion:1 as const}}
 export function linkedRuntimeAgentClaimBody(){return{...linkedRuntimeAgentHostClaimBody(),runtimeVersion}}
-async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const hermesProbe=await probeLocalHermes();const updateReason=readHermesUpdateHealthReason(process.env);const probeForBeat=hermesProbe.availableAgentIds.length>0&&updateReason?{...hermesProbe,healthReason:updateReason}:hermesProbe;linkedRunCapacity.setHealthyAgentIds(hermesProbe.availableAgentIds);const client=new DeviceApiClient(api,i);const data=await client.postParsed(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody(process.platform,probeForBeat),jsonData);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation);scheduleHermesUpdateAfterHeartbeat({client,env:process.env,isIdle:()=>isRuntimeIdleForHermesUpdate(linkedRunCapacity),probedVersion:hermesProbe.hermesVersion??null,setAcceptingClaims:(accepting)=>linkedRunCapacity.setAcceptingClaims(accepting),log:(message)=>{try{process.stderr.write(`${message}\n`)}catch{}}})}
+async function heartbeat() {
+  let i = await identity()
+  if (i.pendingRotationDeliveryId) i = await handleRotation(i, { rotation: null }, persistIdentity, identity, acknowledgeRotation)
+  const hermesProbe = await probeLocalHermes()
+  const updateReason = readHermesUpdateHealthReason(process.env)
+  const probeForBeat = hermesProbe.availableAgentIds.length > 0 && updateReason
+    ? { ...hermesProbe, healthReason: updateReason }
+    : hermesProbe
+  linkedRunCapacity.setHealthyAgentIds(hermesProbe.availableAgentIds)
+  const desktopProbe = process.platform === 'darwin'
+    ? await probeDesktopCapabilities().catch(() => ({ watch: false, control: false }))
+    : { watch: false, control: false }
+  const client = new DeviceApiClient(api, i)
+  const data = await client.postParsed(
+    `/api/v1/linked-computers/${i.deviceId}/heartbeat`,
+    linkedRuntimeHeartbeatBody(process.platform, probeForBeat, {
+      watch: desktopProbe.watch,
+      control: desktopProbe.control,
+    }),
+    jsonData,
+  )
+  await handleRotation(i, data, persistIdentity, identity, acknowledgeRotation)
+  scheduleHermesUpdateAfterHeartbeat({
+    client,
+    env: process.env,
+    isIdle: () => isRuntimeIdleForHermesUpdate(linkedRunCapacity),
+    probedVersion: hermesProbe.hermesVersion ?? null,
+    setAcceptingClaims: (accepting) => linkedRunCapacity.setAcceptingClaims(accepting),
+    log: (message) => { try { process.stderr.write(`${message}\n`) } catch { /* ignore */ } },
+  })
+}
+
 async function claim(capacity:LinkedRunClaimCapacity):Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion,saturatedAgentIds:capacity.saturatedAgentIds});if(response.status===204)return null;return await jsonData(response) as Job}
 async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
 async function workbenchClaim():Promise<WorkbenchRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/claim`,linkedRuntimeWorkbenchClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchRuntimeJob}
@@ -131,6 +192,8 @@ async function workbenchRun(job:WorkbenchRuntimeJob){const i=await identity();re
 async function workbenchSessionsRun(claim:WorkbenchSessionClaim){const i=await identity();return runWorkbenchSessionClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchTunnelsRun(claim:WorkbenchTunnelClaim){const i=await identity();return runWorkbenchTunnelClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchBrowserSessionsRun(claim:WorkbenchBrowserClaim){const i=await identity();return runWorkbenchBrowserClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
+async function workbenchDesktopSessionsClaim():Promise<DesktopClaim|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/desktop/sessions/claim`,{runtimeVersion,workbenchDesktopSessionsProtocolVersion:1});if(response.status===204)return null;return await jsonData(response) as DesktopClaim}
+async function workbenchDesktopSessionsRun(claim:DesktopClaim){const i=await identity();return runDesktopClaim(claim,(path,body)=>post(path,body),i.deviceId)}
 async function waitForAgentIdle(agentId:string,timeoutMs:number){const deadline=Date.now()+timeoutMs;const {localHermesAgentHasActiveWork}=await import('./hermes');while(Date.now()<deadline){if(linkedRunCapacity.activeCount(agentId)===0&&!(await localHermesAgentHasActiveWork(agentId)))return true;await new Promise(r=>setTimeout(r,500))}return false}
 async function envProviderCanary(agentId:string,provider:string,model:string){const {probeLocalHermesAdminConfig,listLocalHermesModels}=await import('./hermes');const modelIds=await listLocalHermesModels(agentId).catch(()=>[] as string[]);const config=await probeLocalHermesAdminConfig(agentId).catch(()=>null);const providerToken=provider.split(/[-_:/]/)[0].toLowerCase();const modelPresent=modelIds.some(id=>{const lower=id.toLowerCase();return lower===model.toLowerCase()||lower.startsWith(`${providerToken}-`)||lower.startsWith(`${providerToken}/`)||lower.includes(`/${providerToken}/`)});const configPresent=Boolean(config&&JSON.stringify(config).toLowerCase().includes(provider.toLowerCase()));if(!modelPresent&&!configPresent)return{ok:false as const,modelIds,error:`Provider ${provider} is not advertised on the running ${agentId} gateway (no restart performed)`};return{ok:true as const,modelIds}}
 async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256),waitForAgentIdle,providerCanary:async({agentId,provider,model,applyMode})=>{if(applyMode==='env'){try{return await envProviderCanary(agentId,provider,model)}catch(error){return{ok:false,modelIds:[],error:error instanceof Error?error.message:'Provider env canary failed'}}}try{const output=await callLocalHermes(agentId,{prompt:'Reply exactly PIB_CREDENTIAL_OK. Do not use tools.',model,provider,working_directory:process.cwd()}, {...process.env,PIB_LOCAL_HERMES_RUN_TIMEOUT_MS:'60000'});const text=typeof output==='string'?output:JSON.stringify(output);if(!text.includes('PIB_CREDENTIAL_OK'))return{ok:false,modelIds:[],error:'Provider canary returned an unexpected response'};return{ok:true,modelIds:await listLocalHermesModels(agentId)}}catch(error){return{ok:false,modelIds:[],error:error instanceof Error?error.message:'Provider canary failed'}}}});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
@@ -141,7 +204,7 @@ async function clearRevocation(){await store.clear();fs.rmSync(revocationMarker,
 export async function recoverPendingRevocation(attempt:()=>Promise<void>,clear:()=>Promise<void>,wait:(ms:number)=>Promise<void>,stop:()=>boolean){let delay=1000;while(!stop()){try{await attempt();await clear();return true}catch{await wait(delay);delay=Math.min(delay*2,30000)}}return false}
 export async function heartbeatForever(beat:()=>Promise<void>,stop:()=>boolean,intervalMs=60_000,wait:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms)),onAttempt:()=>void|Promise<void>=()=>undefined){const retryCap=Math.min(Math.max(1_000,intervalMs),30_000);let retryDelay=Math.min(1_000,retryCap);while(!stop()){try{await Promise.resolve(onAttempt()).catch(()=>undefined);await beat();retryDelay=Math.min(1_000,retryCap);if(!stop())await wait(intervalMs)}catch{if(!stop())await wait(retryDelay);retryDelay=Math.min(retryDelay*2,retryCap)}}}
 export async function runRuntimeServicePollers(...pollers:Array<()=>Promise<void>>){await Promise.all(pollers.map(poller=>poller()))}
-async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const livenessFile=process.env.PIB_RUNTIME_LIVENESS_FILE;const pollers=[()=>pollForever(claim,run,()=>stopped,{capacity:linkedRunCapacity}),()=>pollWorkbenchForever(workbenchClaim,workbenchRun,()=>stopped),()=>pollWorkbenchSessionsForever(workbenchSessionsClaim,workbenchSessionsRun,()=>stopped),()=>pollWorkbenchTunnelsForever(workbenchTunnelsClaim,workbenchTunnelsRun,()=>stopped),()=>pollWorkbenchBrowserForever(workbenchBrowserSessionsClaim,workbenchBrowserSessionsRun,()=>stopped),()=>pollAgentHostForever(agentHostClaim,agentHostRun,()=>stopped),()=>pollRelayForever({stop:()=>stopped,getDeviceId:async()=>(await identity()).deviceId,post:(path,body)=>post(path,body)}),()=>heartbeatForever(heartbeat,()=>stopped,60_000,ms=>new Promise(r=>setTimeout(r,ms)),()=>{if(livenessFile)touchRuntimeHeartbeatLiveness(livenessFile)})];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
+async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const livenessFile=process.env.PIB_RUNTIME_LIVENESS_FILE;const pollers=[()=>pollForever(claim,run,()=>stopped,{capacity:linkedRunCapacity}),()=>pollWorkbenchForever(workbenchClaim,workbenchRun,()=>stopped),()=>pollWorkbenchSessionsForever(workbenchSessionsClaim,workbenchSessionsRun,()=>stopped),()=>pollWorkbenchTunnelsForever(workbenchTunnelsClaim,workbenchTunnelsRun,()=>stopped),()=>pollWorkbenchBrowserForever(workbenchBrowserSessionsClaim,workbenchBrowserSessionsRun,()=>stopped),()=>pollWorkbenchDesktopForever(workbenchDesktopSessionsClaim,workbenchDesktopSessionsRun,()=>stopped),()=>pollAgentHostForever(agentHostClaim,agentHostRun,()=>stopped),()=>pollRelayForever({stop:()=>stopped,getDeviceId:async()=>(await identity()).deviceId,post:(path,body)=>post(path,body)}),()=>heartbeatForever(heartbeat,()=>stopped,60_000,ms=>new Promise(r=>setTimeout(r,ms)),()=>{if(livenessFile)touchRuntimeHeartbeatLiveness(livenessFile)})];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
 async function supervise(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});await superviseRuntimeService({stateRoot,executable:process.execPath,env:process.env,stop:()=>stopped})}
 async function revoke(){fs.mkdirSync(stateRoot,{recursive:true,mode:0o700});fs.writeFileSync(revocationMarker,JSON.stringify({pending:true,createdAt:new Date().toISOString()}),{mode:0o600});const result=await revokeAndCleanup(signedRemoteRevoke,clearRevocation);if(result.remoteRevokePending){process.stderr.write('Remote revoke pending; secure identity retained for revoke-only retry.\n');throw new Error('remote revoke pending')}}
 function option(args:string[],name:string){const i=args.indexOf(name);if(i<0||!args[i+1])throw new Error(`${name} is required`);return args[i+1]}

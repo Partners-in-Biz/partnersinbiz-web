@@ -56,6 +56,7 @@ export function ConversationOverflowSheet({
   designCommands,
   onDesignCommand,
   conversationActions,
+  deskPanel,
   children,
 }: {
   open: boolean
@@ -88,6 +89,8 @@ export function ConversationOverflowSheet({
   designCommands?: OverflowDesignCommand[]
   onDesignCommand?: (command: OverflowDesignCommand) => void
   conversationActions?: ReactNode
+  /** Bot mode desk (screen + routines) for phone overflow */
+  deskPanel?: ReactNode
   children?: ReactNode
 }) {
   if (!open) return null
@@ -212,6 +215,13 @@ export function ConversationOverflowSheet({
                 onOpenWorkbench={showAgentWorkbench ? (tab) => { onOpenWorkbench?.(tab); onClose() } : undefined}
                 onToggleWorkbench={showAgentWorkbench ? () => { onToggleWorkbench?.(); onClose() } : undefined}
               />
+            </section>
+          )}
+
+          {deskPanel && (
+            <section aria-label="Desk" data-testid="overflow-desk-panel" className="space-y-2">
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Desk</p>
+              {deskPanel}
             </section>
           )}
 

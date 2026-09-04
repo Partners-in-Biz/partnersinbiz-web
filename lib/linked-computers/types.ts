@@ -1,7 +1,11 @@
 export type LinkedDeviceStatus = 'active' | 'paused' | 'revoked' | 'removed'
 export type LinkedDevicePlatform = 'macos' | 'windows' | 'linux'
 export type LinkedDeviceArchitecture = 'arm64' | 'x64'
-export type LinkedDeviceCapability = 'workspace.execute' | 'workspace.sync'
+export type LinkedDeviceCapability =
+  | 'workspace.execute'
+  | 'workspace.sync'
+  | 'desktop.watch'
+  | 'desktop.control'
 export type LinkedDeviceKind = 'computer' | 'vps'
 export type LinkedDeviceOwnerType = 'user' | 'organization'
 export type LinkedDeviceHealthReason =

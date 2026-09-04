@@ -150,6 +150,23 @@ describe('bot mode surfaces', () => {
     expect(onShowChrome).toHaveBeenCalled()
   })
 
+  it('shows screen thumbnail status and device badge', () => {
+    render(
+      <BotDeskPanel
+        botName="Blake"
+        computers={[{ id: 'vps', label: 'hermes-vps-01', kind: 'vps', platform: 'linux', online: true, availableAgentIds: ['blake'] }]}
+        latestFrameUrl="https://example.com/frame.jpg"
+        following
+        sessionStatus="running"
+        onOpenScreen={jest.fn()}
+      />,
+    )
+    expect(screen.getByTestId('bot-desk-status-pill')).toHaveTextContent('Watching')
+    expect(screen.getByTestId('bot-desk-device-badge')).toHaveTextContent('VPS')
+    expect(screen.getByTestId('bot-desk-frame-thumb')).toHaveAttribute('src', 'https://example.com/frame.jpg')
+    expect(screen.getByText(/Watch Blake's browser/i)).toBeInTheDocument()
+  })
+
   it('shows the bot screen, routines, plugins, and skills', () => {
     const onOpenScreen = jest.fn()
     const onInsertSkill = jest.fn()

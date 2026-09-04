@@ -22,9 +22,9 @@ import {
   isPortalNavActive,
   type PortalNavItem,
 } from '@/components/portal/shell'
-import { BotModeChromeToggle } from '@/components/messages/bot-mode/BotModeChromeToggle'
-import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
-import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
+import { ChatChromeProvider, useChatChrome } from '@/components/messages/chrome/ChatChromeProvider'
+import { ChatChromeToggle } from '@/components/messages/chrome/ChatChromeToggle'
+import { ChatImmersiveShell } from '@/components/messages/chrome/ChatImmersiveShell'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
@@ -437,9 +437,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </>
         )}
       >
-        <PortalLayoutContent>{children}</PortalLayoutContent>
+        <PortalLayoutWithChatChrome>{children}</PortalLayoutWithChatChrome>
       </Suspense>
     </ThemeProvider>
+  )
+}
+
+function PortalLayoutWithChatChrome({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  return (
+    <ChatChromeProvider pathname={pathname}>
+      <PortalLayoutContent>{children}</PortalLayoutContent>
+    </ChatChromeProvider>
   )
 }
 
@@ -447,6 +456,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const chatChrome = useChatChrome()
   const requestedOrgId = searchParams.get('orgId')?.trim() ?? ''
   const requestedOrgSlug = searchParams.get('orgSlug')?.trim() ?? ''
   const requestedSourceCompanyId = searchParams.get('sourceCompanyId')?.trim() ?? ''
@@ -490,8 +500,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     enable_social_listening: false,
     show_whatsapp: false,
   })
-  const [chromeRevealed, setChromeRevealed] = useState(false)
-  const botModeParam = searchParams.get('mode')
 
   // Keyboard shortcuts: Cmd+K (palette), Cmd+S (save event), ? (cheat sheet),
   // and G-prefix nav sequences (G then D/C/E/S/O).
@@ -697,10 +705,6 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false)
   }, [pathname])
 
-  useEffect(() => {
-    if (botModeParam !== 'bot') setChromeRevealed(false)
-  }, [botModeParam])
-
   function toggleCollapsed() {
     setCollapsed(prev => {
       localStorage.setItem('portal_sidebar_collapsed', String(!prev))
@@ -874,28 +878,28 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     </>
   )
 
-  const hideSiteChrome = shouldHideSiteChrome({
-    pathname,
-    mode: botModeParam,
-    chromeRevealed,
-  })
-  const botModeChrome = isMessagesRoute && botModeParam === 'bot'
-  const revealedChromeToggle = botModeChrome && chromeRevealed ? (
-    <BotModeChromeToggle revealed onToggle={() => setChromeRevealed(false)} />
+  const hideSiteChrome = chatChrome.hideSiteChrome
+  const revealedChromeToggle = isMessagesRoute && chatChrome.showFullChrome && !hideSiteChrome ? (
+    <ChatChromeToggle
+      revealed
+      pinned={chatChrome.pinned}
+      onToggle={chatChrome.hide}
+      onTogglePin={chatChrome.togglePin}
+    />
   ) : null
 
   if (hideSiteChrome) {
     return (
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-        <BotModeImmersiveShell onShowChrome={() => setChromeRevealed(true)}>
+        <ChatImmersiveShell onShowChrome={chatChrome.reveal}>
           {tracker}
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider>
           </main>
           <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
           <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-        </BotModeImmersiveShell>
+        </ChatImmersiveShell>
       </>
     )
   }

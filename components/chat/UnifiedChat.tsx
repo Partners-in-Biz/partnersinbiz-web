@@ -118,6 +118,7 @@ import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
+import { useChatChrome } from '@/components/messages/chrome/ChatChromeProvider'
 import {
   MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS,
   MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS,
@@ -409,6 +410,8 @@ interface WorkspaceRuntimePresence {
   lastHealthStatus: string | null
   /** Healthy Hermes agent ids on this linked computer (when known). */
   availableAgentIds?: string[]
+  /** Runtime-advertised capabilities (workspace.execute, desktop.watch, …). */
+  capabilities?: string[]
 }
 
 interface WorkspaceCatalogueSnapshot {
@@ -1382,6 +1385,7 @@ export default function UnifiedChat({
   agentRoomsEnabled = false,
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
+  const chatChrome = useChatChrome()
   const mobileConversationViewport = useMobileConversationViewport()
   const hideMobileConversationChrome = shouldHideMobileConversationChrome({
     compact,
@@ -1390,6 +1394,8 @@ export default function UnifiedChat({
   const firstPaintChromeClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS
   const firstPaintBlockClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS
   const firstPaintBotStripClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS
+  const showDeskChrome = chatChrome.showFullChrome
+  const showRuntimeBar = chatChrome.showRuntimeBar
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -4348,6 +4354,68 @@ export default function UnifiedChat({
   const startWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('start') }, [setWorkbenchBrowserSessionFollow])
   const stopWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('stop') }, [setWorkbenchBrowserSessionFollow])
 
+  const openScreenWatch = useCallback(async () => {
+    if (!showAgentWorkbench) return
+    const primary = botComputers.find((computer) => computer.online) ?? botComputers[0]
+    const preferDesktop = Boolean(primary?.capabilities?.includes('desktop.watch'))
+    if (preferDesktop && activeId) {
+      openWorkbenchTab('browser')
+      try {
+        const created = await fetch(
+          `/api/v1/conversations/${encodeURIComponent(activeId)}/workbench/desktop/sessions`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+        )
+        if (created.ok) {
+          const body = await created.json()
+          const sessionId = (body?.data ?? body)?.sessionId
+          if (typeof sessionId === 'string') {
+            await fetch(
+              `/api/v1/conversations/${encodeURIComponent(activeId)}/workbench/desktop/sessions/${encodeURIComponent(sessionId)}/approve`,
+              { method: 'POST' },
+            )
+            await fetch(
+              `/api/v1/conversations/${encodeURIComponent(activeId)}/workbench/desktop/sessions/${encodeURIComponent(sessionId)}/follow`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'start', intervalMs: 750 }),
+              },
+            )
+          }
+        }
+      } catch {
+        // Fall through to browser watch
+      }
+      return
+    }
+    openWorkbenchTab('browser')
+    const status = workbenchBrowserSession?.status
+    if (status === 'running' && workbenchBrowserSession?.sessionId && !workbenchBrowserFollowing) {
+      void setWorkbenchBrowserSessionFollow('start')
+      return
+    }
+    if (status === 'awaiting_approval' && workbenchBrowserSession?.sessionId) {
+      await approveWorkbenchBrowserSession()
+      return
+    }
+    if (!workbenchBrowserSession?.sessionId && activeId) {
+      const online = botComputers.some((computer) => computer.online)
+      if (!online) return
+      await startWorkbenchBrowserSession()
+    }
+  }, [
+    showAgentWorkbench,
+    openWorkbenchTab,
+    workbenchBrowserSession?.status,
+    workbenchBrowserSession?.sessionId,
+    workbenchBrowserFollowing,
+    setWorkbenchBrowserSessionFollow,
+    approveWorkbenchBrowserSession,
+    activeId,
+    botComputers,
+    startWorkbenchBrowserSession,
+  ])
+
   const killWorkbenchBrowserSession = useCallback(async () => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserFollowing(false)
@@ -7249,6 +7317,7 @@ export default function UnifiedChat({
       e.preventDefault()
       if (!input.trim() && attachments.length === 0) return
       if (sending) return
+      chatChrome.notify('message_sent')
       if (!allowSendMessages) {
         setError('Replies are disabled for your organisation role.')
         return
@@ -7272,6 +7341,7 @@ export default function UnifiedChat({
       input,
       attachments,
       sending,
+      chatChrome,
       allowSendMessages,
       runtimeBlocksComposer,
       hasInFlightAgentRun,
@@ -8940,7 +9010,7 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {botMode && (
+        {botMode && showDeskChrome && (
           <BotComputerStrip
             className={firstPaintBotStripClass || 'xl:hidden'}
             computers={botComputers}
@@ -9619,6 +9689,7 @@ export default function UnifiedChat({
               aria-controls={contextPickerOpen ? contextPickerPanelId : undefined}
               aria-activedescendant={contextPickerActiveOptionId}
               value={input}
+              onFocus={() => chatChrome.notify('composer_focus')}
               onChange={(e) => {
                 composerEditRevisionRef.current += 1
                 suppressContextPickerKeyUpRef.current = false
@@ -9701,9 +9772,20 @@ export default function UnifiedChat({
               />
               {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : hasInFlightAgentRun ? 'Queue' : 'Send'}</span>}
             </button>
+            {hermesLayout && !showRuntimeBar && (
+              <button
+                type="button"
+                data-testid="composer-runtime-peek"
+                aria-label="Show runtime controls"
+                onClick={() => chatChrome.notify('runtime_peek')}
+                className="self-end hidden h-9 w-9 place-items-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] md:grid"
+              >
+                <Icon name="tune" className="text-[18px]" />
+              </button>
+            )}
           </div>
 
-          {hermesLayout && (
+          {hermesLayout && showRuntimeBar && (
             <div
               data-testid="hermes-runtime-control-bar"
               className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
@@ -9846,6 +9928,27 @@ export default function UnifiedChat({
             const full = DESIGN_COMMANDS.find((item) => item.id === command.id)
             if (full) insertDesignCommand(full)
           }}
+          deskPanel={botMode ? (
+            <BotDeskPanel
+              variant="sheet"
+              botId={activeBotId}
+              botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
+              computers={botComputers}
+              workbenchOpen={workbenchOpen}
+              isolatedFolder={isolatedBotFolder}
+              standingGoal={activeConversation?.goalState?.goal ?? null}
+              orgId={orgId}
+              latestFrameUrl={workbenchBrowserSession?.latestFrameUrl ?? null}
+              sessionStatus={workbenchBrowserSession?.status ?? null}
+              following={workbenchBrowserFollowing}
+              computersHref={computersHref}
+              onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch(); setHeaderMenuOpen(false) } : undefined}
+              onNewRoutine={() => {
+                setInput((current) => current.trim() ? current : '/goal ')
+                setHeaderMenuOpen(false)
+              }}
+            />
+          ) : null}
           conversationActions={activeConversation ? (
             <>
               <button
@@ -9987,7 +10090,7 @@ export default function UnifiedChat({
         />
       )}
 
-      {botMode && (
+      {botMode && showDeskChrome && (
         <BotDeskPanel
           botId={activeBotId}
           botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
@@ -9995,9 +10098,49 @@ export default function UnifiedChat({
           workbenchOpen={workbenchOpen}
           isolatedFolder={isolatedBotFolder}
           standingGoal={activeConversation?.goalState?.goal ?? null}
-          onOpenScreen={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
+          orgId={orgId}
+          latestFrameUrl={workbenchBrowserSession?.latestFrameUrl ?? null}
+          sessionStatus={workbenchBrowserSession?.status ?? null}
+          following={workbenchBrowserFollowing}
+          computersHref={computersHref}
+          onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
           onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
         />
+      )}
+      {/* Tablet: desk as right drawer when chrome is revealed (BotDeskPanel is xl-only in rail variant) */}
+      {botMode && showDeskChrome && (
+        <div
+          data-testid="bot-desk-tablet-drawer"
+          className="fixed inset-y-0 right-0 z-[75] flex w-[min(320px,85vw)] border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-xl md:flex xl:hidden"
+        >
+          <BotDeskPanel
+            variant="drawer"
+            botId={activeBotId}
+            botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
+            computers={botComputers}
+            workbenchOpen={workbenchOpen}
+            isolatedFolder={isolatedBotFolder}
+            standingGoal={activeConversation?.goalState?.goal ?? null}
+            orgId={orgId}
+            latestFrameUrl={workbenchBrowserSession?.latestFrameUrl ?? null}
+            sessionStatus={workbenchBrowserSession?.status ?? null}
+            following={workbenchBrowserFollowing}
+            computersHref={computersHref}
+            onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
+            onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
+          />
+        </div>
+      )}
+      {botMode && !showDeskChrome && (
+        <button
+          type="button"
+          data-testid="bot-desk-peek"
+          aria-label="Show bot screen"
+          onClick={chatChrome.reveal}
+          className="fixed right-2 top-1/2 z-[70] hidden -translate-y-1/2 rounded-lg border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_70%,transparent)] p-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] md:grid"
+        >
+          <Icon name="screenshot_monitor" className="text-[18px]" />
+        </button>
       )}
 
       {accessConversation && (

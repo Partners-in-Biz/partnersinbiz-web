@@ -98,18 +98,17 @@ describe('AdminShell message drawer coordination', () => {
     expect(localStorage.getItem('sidebar_collapsed')).toBe('true')
   })
 
-  it('keeps the org messages page on the standard admin content padding', () => {
+  it('hides admin chrome on messages by default until Show navigation is clicked', () => {
     mockPathname = '/admin/org/partners/messages'
+    mockSearchParams = new URLSearchParams()
 
     render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Messages</main></AdminShell>)
 
-    const main = document.querySelector('[data-slot="app-shell-main"]')
-    const content = document.querySelector('[data-slot="app-shell-content"]')
-
-    expect(main).toHaveClass('px-4', 'md:px-8', 'py-8')
-    expect(main).not.toHaveClass('px-2', 'md:px-4', 'py-4')
-    expect(content).toHaveClass('max-w-[1400px]')
-    expect(content).not.toHaveClass('max-w-none')
+    expect(screen.queryByTestId('admin-sidebar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('bot-mode-immersive-shell')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }))
+    expect(screen.getByTestId('admin-sidebar')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide navigation' })).toBeInTheDocument()
   })
 
   it('hides admin chrome in Bot mode until Show navigation is clicked', () => {

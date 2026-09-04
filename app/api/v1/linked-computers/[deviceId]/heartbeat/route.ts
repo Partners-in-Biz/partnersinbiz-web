@@ -81,6 +81,8 @@ export async function handleDeviceHeartbeat(
     const capabilities = [
       ...(advertisedCapabilities.includes('workspace.execute') ? ['workspace.execute' as const] : []),
       ...(advertisedCapabilities.includes('workspace.sync') && syncProtocolVersion === 1 ? ['workspace.sync' as const] : []),
+      ...(advertisedCapabilities.includes('desktop.watch') ? ['desktop.watch' as const] : []),
+      ...(advertisedCapabilities.includes('desktop.control') ? ['desktop.control' as const] : []),
     ]
     const recorded = await record({
       deviceId,
