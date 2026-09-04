@@ -22,6 +22,11 @@ import {
 import { assertDeviceOrgAccess, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
 import { sanitizeLinkedRunChatEvents } from './run-events'
+import {
+  presenceFromRunStatus,
+  publishAgentPresence,
+} from '@/lib/messages/agent-presence'
+import type { ChatEvent } from '@/lib/hermes/types'
 
 export const LINKED_RUN_JOBS = 'linked_device_run_jobs'
 export const LINKED_RUN_QUEUES = 'linked_device_run_queues'
@@ -428,6 +433,33 @@ function requeueLinkedRunForRuntimeRecovery(job: LinkedRunJob, nowMs: number): L
   }
 }
 
+function currentStepFromChatEvents(events: ChatEvent[]): string | undefined {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.event !== 'tool.started') continue
+    if (typeof event.activity === 'string' && event.activity.trim()) return event.activity.trim()
+    if (typeof event.tool === 'string' && event.tool.trim()) return `Using ${event.tool.trim()}`
+  }
+  return undefined
+}
+
+function publishPresenceForLinkedJob(
+  job: Pick<LinkedRunJob, 'orgId' | 'agentId' | 'conversationId' | 'deviceId'>,
+  status: string,
+  currentStep?: string,
+): void {
+  const mapped = presenceFromRunStatus(status, currentStep)
+  if (!mapped) return
+  publishAgentPresence({
+    orgId: job.orgId,
+    agentId: job.agentId,
+    conversationId: job.conversationId,
+    deviceId: job.deviceId,
+    state: mapped.state,
+    currentStep: mapped.currentStep,
+  })
+}
+
 export async function enqueueLinkedRun(input: {
   requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string; projectReplicaId?: string
   mappingId: string; relativeFolder: string; workingDirectory?: string; credentialVersion: number; payload: LinkedRunPayload
@@ -487,6 +519,7 @@ export async function enqueueLinkedRun(input: {
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     })
   })
+  publishPresenceForLinkedJob(job, 'queued')
   return job
 }
 
@@ -939,6 +972,8 @@ export async function updateLinkedRunFromDevice(input: {
     }
     return next
   })
+  const toolStep = input.event === 'progress' ? currentStepFromChatEvents(incomingEvents) : undefined
+  publishPresenceForLinkedJob(result, result.status, toolStep)
   return result
 }
 

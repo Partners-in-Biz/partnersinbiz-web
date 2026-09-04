@@ -30,6 +30,7 @@ import {
   resolveMessagesExperienceMode,
   type MessagesExperienceMode,
 } from '@/lib/messages/experience-mode'
+import { useChatChrome } from '@/components/messages/chrome/ChatChromeProvider'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
 const SURFACE_META: Record<MessagesSurface, { title: string; description: string }> = {
@@ -202,6 +203,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     try { return JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.conversationRailMode === 'collapsed' ? 'collapsed' : 'expanded' } catch { return 'expanded' }
   })
   const [experienceMode, setExperienceMode] = useState<MessagesExperienceMode>(() => readStoredExperienceMode(storageKey, initialExperienceMode))
+  const chatChrome = useChatChrome()
   const [canvasForcesCollapsedRail, setCanvasForcesCollapsedRail] = useState(false)
   const [focusedPaneId, setFocusedPaneId] = useState('primary')
   const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
@@ -518,6 +520,23 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     syncExperienceModeToUrl(mode)
   }, [])
 
+  // Sync stored/restored experience mode into the URL on mount so site chrome
+  // (which keys off ?mode=) stays consistent after a localStorage restore.
+  useEffect(() => {
+    const searchParam = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('mode')
+      : null
+    const resolved = resolveMessagesExperienceMode({
+      searchParam,
+      stored: experienceMode,
+    })
+    if (resolved !== searchParam && (resolved === 'bot' || searchParam === 'bot' || !searchParam)) {
+      syncExperienceModeToUrl(resolved)
+      if (resolved !== experienceMode) setExperienceMode(resolved)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-time sync only
+  }, [])
+
   const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
 
   // The GCP gateway invalidates a running background tab when it changes. Keep
@@ -554,12 +573,19 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       data-messages-experience="quiet-2026"
       data-experience-mode={experienceMode}
       className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-pib-bg)] shadow-none ${
-        experienceMode === 'bot'
+        chatChrome.hideSiteChrome || experienceMode === 'bot'
           ? 'h-full min-h-0'
           : 'h-[calc(100dvh-72px)] lg:min-h-[640px]'
       }`}
     >
-      <header data-testid="hermes-messages-shell-topbar" className={`hidden h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2.5 md:flex ${experienceMode === 'bot' ? 'pl-12' : ''}`}>
+      <header
+        data-testid="hermes-messages-shell-topbar"
+        className={[
+          'h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2.5',
+          chatChrome.showFullChrome ? 'hidden md:flex' : 'hidden',
+          experienceMode === 'bot' || chatChrome.hideSiteChrome || chatChrome.revealed ? 'pl-12' : '',
+        ].join(' ')}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <Icon name={experienceMode === 'bot' ? 'smart_toy' : 'forum'} className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" />
           <div className="flex min-w-0 items-center gap-2">

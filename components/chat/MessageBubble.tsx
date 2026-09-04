@@ -14,6 +14,8 @@ import { FilePart } from '@/components/chat/parts/FilePart'
 import { HtmlArtifactPart } from '@/components/chat/parts/HtmlArtifactPart'
 import { MathPart } from '@/components/chat/parts/MathPart'
 import { MermaidPart } from '@/components/chat/parts/MermaidPart'
+import { ActionCardPartView } from '@/components/chat/parts/ActionCardPart'
+import { SystemEventPartView } from '@/components/chat/parts/SystemEventPart'
 import { PartStatusBox } from '@/components/chat/parts/status-box'
 import {
   toBrowserFramePart,
@@ -22,6 +24,8 @@ import {
   toHtmlArtifactPart,
   toMathPart,
   toMermaidPart,
+  toSystemEventPart,
+  toActionCardPart,
 } from '@/components/chat/parts/from-rich-part'
 import { normalizeWorkspacePanel, WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 import {
@@ -1611,13 +1615,23 @@ function RichMessagePartView({
   onOpenArtifact?: (part: RichMessagePart) => void
 }) {
   const type = String(part.type).toLowerCase()
-  const checked = type === 'chart' || type === 'mermaid' || type === 'math' || type === 'html_artifact' || type === 'file' || type === 'browser_frame'
+  const checked = type === 'chart' || type === 'mermaid' || type === 'math' || type === 'html_artifact' || type === 'file' || type === 'browser_frame' || type === 'system_event' || type === 'action_card'
     ? validatePart(part)
     : null
   if (checked && !checked.ok) {
     return <PartStatusBox>Unsupported content</PartStatusBox>
   }
   const validPart = checked?.ok ? checked.part : part
+  if (type === 'system_event') {
+    const event = toSystemEventPart(validPart)
+    if (!event) return <PartStatusBox>Unsupported content</PartStatusBox>
+    return <SystemEventPartView part={event} />
+  }
+  if (type === 'action_card') {
+    const card = toActionCardPart(validPart)
+    if (!card) return <PartStatusBox>Unsupported content</PartStatusBox>
+    return <ActionCardPartView part={card} />
+  }
   if (type === 'chart') {
     const chart = toChartPart(validPart)
     if (!chart) return <PartStatusBox>Unsupported content</PartStatusBox>

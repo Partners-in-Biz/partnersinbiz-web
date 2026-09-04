@@ -44,6 +44,20 @@ export async function dispatchWebhook(
     return Array.isArray(events) && events.includes(event)
   })
 
+  // Best-effort PiB routine event fan-out (independent of outbound subscribers).
+  try {
+    const { fanoutRoutineEvent } = await import('@/lib/routines/event-fanout')
+    void fanoutRoutineEvent(orgId, {
+      eventId: `${event}_${Date.now()}`,
+      source: 'pib',
+      summary: event,
+      filter: { event },
+      data: payload,
+    }).catch((err) => console.error('[routines-fanout]', err))
+  } catch (err) {
+    console.error('[routines-fanout]', err)
+  }
+
   if (!matching.length) return { queued: 0 }
 
   const batch = adminDb.batch()

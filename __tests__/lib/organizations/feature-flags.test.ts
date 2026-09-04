@@ -68,4 +68,20 @@ describe('featureFlagsFromOrgData', () => {
       featureFlagsFromOrgData({ settings: { featureFlags: { agentRoomsEnabled: true } } }).agentRoomsEnabled,
     ).toBe(true)
   })
+
+  it('defaults personalAgentRoomsEnabled to false and reads an explicit opt-in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.personalAgentRoomsEnabled).toBe(false)
+    expect(featureFlagsFromOrgData({}).personalAgentRoomsEnabled).toBe(false)
+    expect(
+      featureFlagsFromOrgData({ settings: { featureFlags: { personalAgentRoomsEnabled: true } } }).personalAgentRoomsEnabled,
+    ).toBe(true)
+  })
+
+  it('defaults botRoutinesEnabled to false and reads an explicit opt-in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.botRoutinesEnabled).toBe(false)
+    expect(featureFlagsFromOrgData({}).botRoutinesEnabled).toBe(false)
+    expect(
+      featureFlagsFromOrgData({ settings: { featureFlags: { botRoutinesEnabled: true } } }).botRoutinesEnabled,
+    ).toBe(true)
+  })
 })

@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { assertCanManageAgentRooms, createAgentRoomWithMirror } from '@/lib/agent-rooms/service'
+import { assertCanCreateAgentRoom, createAgentRoomWithMirror } from '@/lib/agent-rooms/service'
 import { listAgentRooms } from '@/lib/agent-rooms/store'
-import { normalizeAgentRoomSlug, type AgentRoomMember } from '@/lib/agent-rooms/types'
+import { normalizeAccessScope, normalizeAgentRoomSlug, type AgentRoomMember } from '@/lib/agent-rooms/types'
 import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
 import { orgFeatureFlagEnabled } from '@/lib/organizations/feature-flags'
 
@@ -32,21 +32,23 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { orgId } = await (ctx as Ctx).params
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   if (!(await orgFeatureFlagEnabled(orgId, 'agentRoomsEnabled'))) return apiError('feature_disabled', 404)
-  return apiSuccess({ rooms: await listAgentRooms(orgId) })
+  return apiSuccess({ rooms: await listAgentRooms(orgId, { viewerUserId: user.uid }) })
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { orgId } = await (ctx as Ctx).params
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   if (!(await orgFeatureFlagEnabled(orgId, 'agentRoomsEnabled'))) return apiError('feature_disabled', 404)
+
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body || typeof body !== 'object') return apiError('Malformed JSON body', 400)
+  const accessScope = normalizeAccessScope(body.accessScope)
   try {
-    await assertCanManageAgentRooms(user, orgId)
+    await assertCanCreateAgentRoom(user, orgId, accessScope)
   } catch {
     return apiError('Forbidden', 403)
   }
 
-  const body = await req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body || typeof body !== 'object') return apiError('Malformed JSON body', 400)
   const slug = normalizeAgentRoomSlug(body.slug)
   const name = typeof body.name === 'string' ? body.name : ''
   const members = asMembers(body.members)
@@ -62,6 +64,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       pictureUrl,
       members,
       humanTeamIds,
+      accessScope,
       actor: user,
     })
     return apiSuccess({ room }, 201)

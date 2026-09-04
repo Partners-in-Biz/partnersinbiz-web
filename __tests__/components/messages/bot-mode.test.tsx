@@ -49,6 +49,21 @@ describe('bot mode surfaces', () => {
     expect(onStartChannel).toHaveBeenCalledWith('maya')
   })
 
+  it('shows a presence dot on the roster avatar', () => {
+    render(
+      <BotRoster
+        bots={[{
+          ...bots[0],
+          presence: { state: 'working', currentStep: 'Editing report.md' },
+        }]}
+        activeBotId="theo"
+        onSelectBot={jest.fn()}
+      />,
+    )
+    expect(screen.getByTestId('bot-roster-presence-theo')).toBeInTheDocument()
+    expect(screen.getByTestId('bot-roster-avatar-theo')).toHaveAttribute('data-presence', 'working')
+  })
+
   it('shows computers and workbench controls', () => {
     const onOpenWorkbench = jest.fn()
     render(
@@ -148,6 +163,23 @@ describe('bot mode surfaces', () => {
     expect(screen.getByTestId('bot-mode-immersive-shell')).toHaveTextContent('Desk')
     fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }))
     expect(onShowChrome).toHaveBeenCalled()
+  })
+
+  it('shows screen thumbnail status and device badge', () => {
+    render(
+      <BotDeskPanel
+        botName="Blake"
+        computers={[{ id: 'vps', label: 'hermes-vps-01', kind: 'vps', platform: 'linux', online: true, availableAgentIds: ['blake'] }]}
+        latestFrameUrl="https://example.com/frame.jpg"
+        following
+        sessionStatus="running"
+        onOpenScreen={jest.fn()}
+      />,
+    )
+    expect(screen.getByTestId('bot-desk-status-pill')).toHaveTextContent('Watching')
+    expect(screen.getByTestId('bot-desk-device-badge')).toHaveTextContent('VPS')
+    expect(screen.getByTestId('bot-desk-frame-thumb')).toHaveAttribute('src', 'https://example.com/frame.jpg')
+    expect(screen.getByText(/Watch Blake's browser/i)).toBeInTheDocument()
   })
 
   it('shows the bot screen, routines, plugins, and skills', () => {

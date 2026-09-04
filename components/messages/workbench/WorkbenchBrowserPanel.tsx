@@ -233,6 +233,8 @@ export interface WorkbenchBrowserPanelProps {
   onFollowStop?: () => void
   /** Slice-2 arbitration: the human explicitly takes the wheel from the agent. */
   onTakeControl?: () => void
+  /** Hands the wheel back to the agent after the human was driving. */
+  onHandBack?: () => void
   /** Human-only toggle: allow the agent to reach private/internal hosts on this session. */
   onToggleAllowPrivate?: () => void
   /** Requests a fresh accessibility snapshot for the Agent view (the exact text the agent sees). */
@@ -260,6 +262,7 @@ export function WorkbenchBrowserPanel({
   onFollowStart,
   onFollowStop,
   onTakeControl,
+  onHandBack,
   onToggleAllowPrivate,
   onRefreshSnapshot,
   snapshotText,
@@ -685,6 +688,21 @@ export function WorkbenchBrowserPanel({
                 className="shrink-0 rounded-md border border-amber-400/40 bg-[var(--sc-surface)]/15 px-2 py-1 text-[10px] text-[var(--sc-ink-soft)] hover:bg-[var(--sc-surface)]/25"
               >
                 Take control
+              </button>
+            </div>
+          )}
+          {(userDriving && onHandBack) && (
+            <div className="flex items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-1">
+              <p className="min-w-0 flex-1 text-[10px] leading-snug text-emerald-200/90">
+                You&apos;re driving this page. Hand it back when you want the agent to continue.
+              </p>
+              <button
+                type="button"
+                onClick={() => onHandBack?.()}
+                data-testid="workbench-agent-hand-back"
+                className="shrink-0 rounded-md border border-emerald-400/40 bg-emerald-400/15 px-2 py-1 text-[10px] font-medium text-emerald-200 hover:bg-emerald-400/25"
+              >
+                Hand back
               </button>
             </div>
           )}

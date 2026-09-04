@@ -27,28 +27,42 @@ jest.mock('@/lib/organizations/feature-flags', () => ({
 }))
 
 const assertCanManageAgentRooms = jest.fn(async () => undefined)
-const createAgentRoomWithMirror = jest.fn(async (input: { slug: string }) => ({
-  roomId: `org-1_${input.slug}`,
+const assertCanManageAgentRoom = jest.fn(async () => undefined)
+const assertCanCreateAgentRoom = jest.fn(async () => undefined)
+const createAgentRoomWithMirror = jest.fn(async (input: { slug: string; accessScope?: string }) => ({
+  roomId: input.accessScope === 'personal' ? `org-1_u_admin-1_${input.slug}` : `org-1_${input.slug}`,
   slug: input.slug,
   status: 'active',
+  accessScope: input.accessScope ?? 'organization',
 }))
 const archiveAgentRoomWithMirror = jest.fn(async () => ({
   roomId: 'org-1_growth-desk',
   status: 'archived',
 }))
+const updateAgentRoomWithMirror = jest.fn(async () => ({
+  roomId: 'org-1_growth-desk',
+  name: 'Growth desk 2',
+}))
 jest.mock('@/lib/agent-rooms/service', () => ({
   assertCanManageAgentRooms: (...args: unknown[]) => assertCanManageAgentRooms(...args as []),
+  assertCanManageAgentRoom: (...args: unknown[]) => assertCanManageAgentRoom(...args as []),
+  assertCanCreateAgentRoom: (...args: unknown[]) => assertCanCreateAgentRoom(...args as []),
   createAgentRoomWithMirror: (...args: unknown[]) => createAgentRoomWithMirror(...args as []),
   archiveAgentRoomWithMirror: (...args: unknown[]) => archiveAgentRoomWithMirror(...args as []),
+  updateAgentRoomWithMirror: (...args: unknown[]) => updateAgentRoomWithMirror(...args as []),
 }))
 
 const listAgentRooms = jest.fn(async () => [{ roomId: 'org-1_growth-desk', name: 'Growth desk' }])
-const getAgentRoom = jest.fn(async () => ({ roomId: 'org-1_growth-desk', orgId: 'org-1', status: 'active' }))
-const updateAgentRoom = jest.fn(async () => ({ roomId: 'org-1_growth-desk', name: 'Growth desk 2' }))
+const getAgentRoom = jest.fn(async () => ({
+  roomId: 'org-1_growth-desk',
+  orgId: 'org-1',
+  status: 'active',
+  accessScope: 'organization',
+  ownerUserId: null,
+}))
 jest.mock('@/lib/agent-rooms/store', () => ({
   listAgentRooms: (...args: unknown[]) => listAgentRooms(...args as []),
   getAgentRoom: (...args: unknown[]) => getAgentRoom(...args as []),
-  updateAgentRoom: (...args: unknown[]) => updateAgentRoom(...args as []),
 }))
 
 const adoptProjectionDrift = jest.fn(async () => ({
@@ -81,11 +95,15 @@ describe('agent room routes', () => {
     clientCanAccessOrg.mockReturnValue(true)
     orgFeatureFlagEnabled.mockResolvedValue(true)
     assertCanManageAgentRooms.mockResolvedValue(undefined)
+    assertCanManageAgentRoom.mockResolvedValue(undefined)
+    assertCanCreateAgentRoom.mockResolvedValue(undefined)
+    MOCK_USER.uid = 'admin-1'
   })
 
-  it('lists rooms when the flag is on', async () => {
+  it('lists rooms filtered by viewer', async () => {
     const res = await GET(request('http://localhost/api/v1/orgs/org-1/agent-rooms'), ctx)
     expect(res.status).toBe(200)
+    expect(listAgentRooms).toHaveBeenCalledWith('org-1', { viewerUserId: 'admin-1' })
     await expect(res.json()).resolves.toMatchObject({
       success: true,
       data: { rooms: [{ roomId: 'org-1_growth-desk' }] },
@@ -104,7 +122,7 @@ describe('agent room routes', () => {
     expect(res.status).toBe(403)
   })
 
-  it('creates a room for an org admin', async () => {
+  it('creates an org room for an admin', async () => {
     const res = await POST(request('http://localhost/api/v1/orgs/org-1/agent-rooms', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -115,11 +133,33 @@ describe('agent room routes', () => {
       }),
     }), ctx)
     expect(res.status).toBe(201)
-    expect(createAgentRoomWithMirror).toHaveBeenCalled()
+    expect(assertCanCreateAgentRoom).toHaveBeenCalledWith(MOCK_USER, 'org-1', 'organization')
+    expect(createAgentRoomWithMirror).toHaveBeenCalledWith(expect.objectContaining({
+      accessScope: 'organization',
+    }))
   })
 
-  it('rejects a non-admin create', async () => {
-    assertCanManageAgentRooms.mockRejectedValue(new Error('agent rooms: administrator required'))
+  it('creates a personal room when accessScope is personal', async () => {
+    MOCK_USER.uid = 'user-1'
+    const res = await POST(request('http://localhost/api/v1/orgs/org-1/agent-rooms', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        slug: 'desk',
+        name: 'My desk',
+        accessScope: 'personal',
+        members: [{ agentId: 'pip', deviceId: null }, { agentId: 'maya', deviceId: null }],
+      }),
+    }), ctx)
+    expect(res.status).toBe(201)
+    expect(assertCanCreateAgentRoom).toHaveBeenCalledWith(MOCK_USER, 'org-1', 'personal')
+    expect(createAgentRoomWithMirror).toHaveBeenCalledWith(expect.objectContaining({
+      accessScope: 'personal',
+    }))
+  })
+
+  it('rejects a create when assertCanCreateAgentRoom fails', async () => {
+    assertCanCreateAgentRoom.mockRejectedValue(new Error('agent rooms: administrator required'))
     const res = await POST(request('http://localhost/api/v1/orgs/org-1/agent-rooms', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -129,23 +169,40 @@ describe('agent room routes', () => {
     expect(createAgentRoomWithMirror).not.toHaveBeenCalled()
   })
 
+  it('forbids PATCH when the caller cannot manage the room', async () => {
+    assertCanManageAgentRoom.mockRejectedValue(new Error('agent rooms: room owner required'))
+    const res = await PATCH(request('http://localhost/api/v1/orgs/org-1/agent-rooms/org-1_growth-desk', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Nope' }),
+    }), ctx)
+    expect(res.status).toBe(403)
+    expect(updateAgentRoomWithMirror).not.toHaveBeenCalled()
+  })
+
   it('archives a room on DELETE', async () => {
     const res = await DELETE(request('http://localhost/api/v1/orgs/org-1/agent-rooms/org-1_growth-desk'), ctx)
     expect(res.status).toBe(200)
-    expect(archiveAgentRoomWithMirror).toHaveBeenCalledWith({ orgId: 'org-1', roomId: 'org-1_growth-desk' })
+    expect(assertCanManageAgentRoom).toHaveBeenCalled()
+    expect(archiveAgentRoomWithMirror).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      roomId: 'org-1_growth-desk',
+      actorUserId: 'admin-1',
+    })
   })
 
-  it('patches a room name', async () => {
+  it('patches a room name via updateAgentRoomWithMirror', async () => {
     const res = await PATCH(request('http://localhost/api/v1/orgs/org-1/agent-rooms/org-1_growth-desk', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Growth desk 2' }),
     }), ctx)
     expect(res.status).toBe(200)
-    expect(updateAgentRoom).toHaveBeenCalledWith(expect.objectContaining({
+    expect(updateAgentRoomWithMirror).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       roomId: 'org-1_growth-desk',
       name: 'Growth desk 2',
+      actorUserId: 'admin-1',
     }))
   })
 

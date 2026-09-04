@@ -46,6 +46,43 @@ export interface BrowserFramePart {
   sessionId?: string
 }
 
+export interface SystemEventPart {
+  type: 'system_event'
+  eventKind: string
+  actorKind: 'user' | 'agent' | 'system'
+  actorLabel: string
+  summary: string
+  at: string
+  href?: string
+}
+
+export type ActionCardKind =
+  | 'email_sent'
+  | 'file_written'
+  | 'pr_opened'
+  | 'post_scheduled'
+  | 'routine_run'
+  | 'custom'
+
+export interface ActionCardPart {
+  type: 'action_card'
+  kind: ActionCardKind
+  title: string
+  detail?: string
+  status?: 'pending' | 'succeeded' | 'failed' | 'cancelled'
+  url?: string
+  meta?: Record<string, string | number | boolean | null>
+}
+
+export interface RoutineProposalPart {
+  type: 'routine_proposal'
+  name: string
+  prompt: string
+  schedule?: string
+  triggerKind?: 'schedule' | 'event'
+  agentId?: string
+}
+
 export const PART_LIMITS = {
   chartRows: 2_000,
   chartSeries: 12,
@@ -53,6 +90,9 @@ export const PART_LIMITS = {
   mathChars: 5_000,
   htmlChars: 200_000,
   fileNameChars: 200,
+  systemEventSummaryChars: 500,
+  actionCardTitleChars: 200,
+  actionCardDetailChars: 2_000,
 } as const
 
 export function validatePart(part: RichMessagePart): { ok: true; part: RichMessagePart } | { ok: false; reason: string } {
@@ -87,6 +127,20 @@ export function validatePart(part: RichMessagePart): { ok: true; part: RichMessa
     const name = typeof part.name === 'string' ? part.name : ''
     if (name.length > PART_LIMITS.fileNameChars) return { ok: false, reason: 'file name is too long' }
     if (typeof part.url !== 'string' || !part.url.trim()) return { ok: false, reason: 'file is missing a url' }
+    return { ok: true, part }
+  }
+  if (type === 'system_event') {
+    const summary = typeof part.summary === 'string' ? part.summary : ''
+    if (!summary.trim()) return { ok: false, reason: 'system event is missing a summary' }
+    if (summary.length > PART_LIMITS.systemEventSummaryChars) return { ok: false, reason: 'system event summary is too long' }
+    return { ok: true, part }
+  }
+  if (type === 'action_card') {
+    const title = typeof part.title === 'string' ? part.title : ''
+    if (!title.trim()) return { ok: false, reason: 'action card is missing a title' }
+    if (title.length > PART_LIMITS.actionCardTitleChars) return { ok: false, reason: 'action card title is too long' }
+    const detail = typeof part.detail === 'string' ? part.detail : ''
+    if (detail.length > PART_LIMITS.actionCardDetailChars) return { ok: false, reason: 'action card detail is too long' }
     return { ok: true, part }
   }
   return { ok: true, part }

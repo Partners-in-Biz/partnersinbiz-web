@@ -33,11 +33,17 @@ export function CreateRoomDialog({
   orgId,
   onCreated,
   onClose,
+  canCreateOrgRooms = false,
+  personalRoomsEnabled = false,
 }: {
   orgId: string
   onCreated: (conversationId: string) => void
   onClose: () => void
+  canCreateOrgRooms?: boolean
+  personalRoomsEnabled?: boolean
 }) {
+  const defaultScope = personalRoomsEnabled && !canCreateOrgRooms ? 'personal' : 'organization'
+  const [accessScope, setAccessScope] = useState<'personal' | 'organization'>(defaultScope)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -107,11 +113,12 @@ export function CreateRoomDialog({
           name: name.trim(),
           slug: slug.trim(),
           pictureUrl: pictureUrl.trim() || null,
+          accessScope,
           members: members.map((member) => ({
             agentId: member.agentId.trim(),
             deviceId: member.deviceId.trim() || null,
           })),
-          humanTeamIds,
+          humanTeamIds: accessScope === 'personal' ? [] : humanTeamIds,
         }),
       })
       const body = await response.json().catch(() => null)
@@ -131,6 +138,8 @@ export function CreateRoomDialog({
     }
   }
 
+  const showScopePicker = personalRoomsEnabled || canCreateOrgRooms
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color-mix(in_srgb,var(--sc-ink)_45%,transparent)] p-3 sm:items-center" role="dialog" aria-label="Create room">
       <form onSubmit={(event) => void handleSubmit(event)} className="w-full max-w-lg space-y-3 rounded-[4px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-4">
@@ -143,6 +152,35 @@ export function CreateRoomDialog({
             Close
           </button>
         </div>
+        {showScopePicker && (
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">Scope</legend>
+            {personalRoomsEnabled && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="accessScope"
+                  aria-label="Personal room"
+                  checked={accessScope === 'personal'}
+                  onChange={() => setAccessScope('personal')}
+                />
+                Personal — only you
+              </label>
+            )}
+            {canCreateOrgRooms && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="accessScope"
+                  aria-label="Organisation room"
+                  checked={accessScope === 'organization'}
+                  onChange={() => setAccessScope('organization')}
+                />
+                Organisation — admins manage
+              </label>
+            )}
+          </fieldset>
+        )}
         <label className="block text-sm">
           Name
           <input
@@ -233,7 +271,7 @@ export function CreateRoomDialog({
             </button>
           )}
         </fieldset>
-        {teams.length > 0 && (
+        {accessScope === 'organization' && teams.length > 0 && (
           <fieldset className="space-y-1.5">
             <legend className="text-sm font-medium">Human teams</legend>
             {teams.map((team) => (

@@ -86,4 +86,18 @@ describe('ConversationListItem', () => {
 
     expect(screen.getByLabelText('3 unread messages')).toHaveTextContent('3')
   })
+
+  it('renders a Needs you pill when the conversation needs attention', () => {
+    render(
+      <ConversationListItem
+        conversation={makeConversation({ needsYou: true })}
+        active={false}
+        onClick={() => {}}
+        currentUserUid="user-1"
+        density="compact"
+      />,
+    )
+
+    expect(screen.getByTestId('conversation-needs-you-conv-1')).toHaveTextContent('Needs you')
+  })
 })

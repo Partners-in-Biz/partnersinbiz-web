@@ -1,10 +1,12 @@
 import type {
+  ActionCardPart,
   BrowserFramePart,
   ChartPart,
   FilePartV2,
   HtmlArtifactPart,
   MathPart,
   MermaidPart,
+  SystemEventPart,
 } from '@/lib/chat/parts'
 import type { RichMessagePart } from '@/lib/hermes/types'
 
@@ -110,5 +112,46 @@ export function toBrowserFramePart(part: RichMessagePart): BrowserFramePart {
     screenshotUrl: typeof part.screenshotUrl === 'string' ? part.screenshotUrl : '',
     url: typeof part.url === 'string' ? part.url : '',
     ...(typeof part.sessionId === 'string' ? { sessionId: part.sessionId } : {}),
+  }
+}
+
+export function toSystemEventPart(part: RichMessagePart): SystemEventPart | null {
+  const summary = typeof part.summary === 'string' ? part.summary : typeof part.content === 'string' ? part.content : ''
+  if (!summary.trim()) return null
+  const actorKind = part.actorKind === 'user' || part.actorKind === 'agent' ? part.actorKind : 'system'
+  return {
+    type: 'system_event',
+    eventKind: typeof part.eventKind === 'string' && part.eventKind ? part.eventKind : 'event',
+    actorKind,
+    actorLabel: typeof part.actorLabel === 'string' && part.actorLabel ? part.actorLabel : 'System',
+    summary,
+    at: typeof part.at === 'string' && part.at ? part.at : new Date(0).toISOString(),
+    ...(typeof part.href === 'string' && part.href ? { href: part.href } : {}),
+  }
+}
+
+const ACTION_KINDS = new Set<ActionCardPart['kind']>([
+  'email_sent', 'file_written', 'pr_opened', 'post_scheduled', 'routine_run', 'custom',
+])
+
+export function toActionCardPart(part: RichMessagePart): ActionCardPart | null {
+  const title = typeof part.title === 'string' ? part.title : ''
+  if (!title.trim()) return null
+  const kind = typeof part.kind === 'string' && ACTION_KINDS.has(part.kind as ActionCardPart['kind'])
+    ? part.kind as ActionCardPart['kind']
+    : 'custom'
+  const status = part.status === 'pending' || part.status === 'succeeded' || part.status === 'failed' || part.status === 'cancelled'
+    ? part.status
+    : undefined
+  return {
+    type: 'action_card',
+    kind,
+    title,
+    ...(typeof part.detail === 'string' ? { detail: part.detail } : {}),
+    ...(status ? { status } : {}),
+    ...(typeof part.url === 'string' ? { url: part.url } : {}),
+    ...(part.meta && typeof part.meta === 'object' && !Array.isArray(part.meta)
+      ? { meta: part.meta as ActionCardPart['meta'] }
+      : {}),
   }
 }

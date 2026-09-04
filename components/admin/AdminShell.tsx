@@ -13,9 +13,9 @@ import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
-import { BotModeChromeToggle } from '@/components/messages/bot-mode/BotModeChromeToggle'
-import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
-import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
+import { ChatChromeProvider, useChatChrome } from '@/components/messages/chrome/ChatChromeProvider'
+import { ChatChromeToggle } from '@/components/messages/chrome/ChatChromeToggle'
+import { ChatImmersiveShell } from '@/components/messages/chrome/ChatImmersiveShell'
 
 interface AdminShellProps {
   userEmail: string
@@ -27,14 +27,22 @@ type LayoutMode = 'sidebar' | 'topbar'
 
 export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const pathname = usePathname()
+  return (
+    <ChatChromeProvider pathname={pathname}>
+      <AdminShellContent userEmail={userEmail} userUid={userUid}>{children}</AdminShellContent>
+    </ChatChromeProvider>
+  )
+}
+
+function AdminShellContent({ userEmail, userUid, children }: AdminShellProps) {
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const { selectedOrgId, orgName, orgs } = useOrg()
+  const chatChrome = useChatChrome()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
-  const [chromeRevealed, setChromeRevealed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
-  const botModeParam = searchParams.get('mode')
 
   useEffect(() => {
     const restorePreferences = () => {
@@ -46,10 +54,6 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     const id = window.setTimeout(restorePreferences, 0)
     return () => window.clearTimeout(id)
   }, [])
-
-  useEffect(() => {
-    if (botModeParam !== 'bot') setChromeRevealed(false)
-  }, [botModeParam])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -107,6 +111,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const isCanvasRoute = pathname.startsWith('/admin/creative-canvas')
   const isProjectsRoute = /\/admin\/org\/[^/]+\/projects(?:\/|$)/.test(pathname)
   const isFullBleedRoute = isCanvasRoute || isProjectsRoute
+  const isMessagesRoute = /\/messages(?:\/|$)/.test(pathname) || /\/conversations(?:\/|$)/.test(pathname)
   const mainClassName = isCanvasRoute ? 'p-2' : isProjectsRoute ? 'px-3 md:px-4 py-4 md:py-5' : 'px-4 md:px-8 py-8'
   const innerClassName = isFullBleedRoute ? 'max-w-none' : 'max-w-[1400px]'
   const messageAction = (
@@ -134,22 +139,22 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     )
   }
 
-  const hideSiteChrome = shouldHideSiteChrome({
-    pathname,
-    mode: botModeParam,
-    chromeRevealed,
-  })
-  if (hideSiteChrome) {
+  if (chatChrome.hideSiteChrome) {
     return (
-      <BotModeImmersiveShell onShowChrome={() => setChromeRevealed(true)}>
+      <ChatImmersiveShell onShowChrome={chatChrome.reveal}>
         <WelcomeFlashHandler />
         {children}
-      </BotModeImmersiveShell>
+      </ChatImmersiveShell>
     )
   }
 
-  const revealedChromeToggle = botModeParam === 'bot' && /\/messages(?:\/|$)/.test(pathname) ? (
-    <BotModeChromeToggle revealed onToggle={() => setChromeRevealed(false)} />
+  const revealedChromeToggle = isMessagesRoute && chatChrome.showFullChrome ? (
+    <ChatChromeToggle
+      revealed
+      pinned={chatChrome.pinned}
+      onToggle={chatChrome.hide}
+      onTogglePin={chatChrome.togglePin}
+    />
   ) : null
 
   const commandPalette = <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />

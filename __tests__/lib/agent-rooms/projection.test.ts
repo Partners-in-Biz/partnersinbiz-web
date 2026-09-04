@@ -9,6 +9,7 @@ import {
   PROFILE_PROJECTIONS_COLLECTION,
   PROJECTION_DRIFT_GRACE_MS,
   projectionHash,
+  projectAgentRoomAfterWrite,
   revertProjectionDrift,
   shouldMarkProjectionDrifted,
   upsertDesiredProjection,
@@ -89,6 +90,8 @@ const room: AgentRoom = {
   humanTeamIds: [],
   conversationId: 'conv-1',
   allowOrgWideDms: false,
+  accessScope: 'organization',
+  ownerUserId: null,
   projectionVersion: 1,
   status: 'active',
   createdByUserId: 'admin-1',
@@ -153,6 +156,7 @@ describe('desired profile and rooms', () => {
   it('lists rooms where a member has this deviceId or a platform member', async () => {
     const { db } = fakeDb({
       'linked_device_grants/org-1_device-a': { orgId: 'org-1', deviceId: 'device-a', status: 'active' },
+      'linked_devices/device-a': { ownerUserId: 'user-1' },
     })
     const rooms = await desiredRoomsForDevice('device-a', {
       db: db as never,
@@ -162,6 +166,56 @@ describe('desired profile and rooms', () => {
       ],
     })
     expect(rooms.map((item) => item.roomId)).toEqual(['org-1_growth-desk'])
+  })
+
+  it('excludes personal rooms whose owner does not match the device owner', async () => {
+    const { db } = fakeDb({
+      'linked_device_grants/org-1_device-a': { orgId: 'org-1', deviceId: 'device-a', status: 'active' },
+      'linked_devices/device-a': { ownerUserId: 'user-1' },
+    })
+    const personal: AgentRoom = {
+      ...room,
+      roomId: 'org-1_u_user-2_desk',
+      accessScope: 'personal',
+      ownerUserId: 'user-2',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'maya', deviceId: 'device-a' },
+      ],
+    }
+    const rooms = await desiredRoomsForDevice('device-a', {
+      db: db as never,
+      listAgentRooms: async () => [room, personal],
+    })
+    expect(rooms.map((item) => item.roomId)).toEqual(['org-1_growth-desk'])
+  })
+})
+
+describe('projectAgentRoomAfterWrite', () => {
+  it('upserts desired projection for pinned member devices', async () => {
+    const { db } = fakeDb({
+      'linked_device_grants/org-1_device-a': { orgId: 'org-1', deviceId: 'device-a', status: 'active' },
+      'linked_devices/device-a': {
+        ownerUserId: 'admin-1',
+        availableAgents: [{ orgId: 'org-1', agentId: 'maya', profile: 'partners--maya', healthy: true }],
+      },
+      'organizations/org-1': { slug: 'partners' },
+    })
+    const enqueueBotProjectionJob = jest.fn(async () => 'job-1')
+    await projectAgentRoomAfterWrite({
+      room,
+      actorUserId: 'admin-1',
+    }, {
+      db: db as never,
+      now,
+      getAgent: async () => ({ name: 'Maya', role: 'Marketing' }) as never,
+      listAgentRooms: async () => [room],
+      enqueueBotProjectionJob,
+    })
+    expect(enqueueBotProjectionJob).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'device-a',
+      agentId: 'maya',
+    }))
   })
 })
 

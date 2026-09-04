@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { appendSystemEvent } from '@/lib/conversations/system-events'
 import { handleClickBrowserSession } from '@/app/api/v1/conversations/[convId]/workbench/browser/sessions/[sessionId]/click/route'
 import { handleTypeBrowserSession } from '@/app/api/v1/conversations/[convId]/workbench/browser/sessions/[sessionId]/type/route'
 import { handlePressBrowserSession } from '@/app/api/v1/conversations/[convId]/workbench/browser/sessions/[sessionId]/press/route'
@@ -12,6 +13,10 @@ import { handleSetBrowserDriver } from '@/app/api/v1/conversations/[convId]/work
 import { handleSetBrowserAllowPrivate } from '@/app/api/v1/conversations/[convId]/workbench/browser/sessions/[sessionId]/allow-private/route'
 import type { AuthorizedWorkbenchContext } from '@/lib/messages/workbench/authorization'
 import type { WorkbenchBrowserSession } from '@/lib/messages/workbench/browser-sessions'
+
+jest.mock('@/lib/conversations/system-events', () => ({
+  appendSystemEvent: jest.fn(async () => ({ id: 'evt-1' })),
+}))
 
 const user = { uid: 'user-a', role: 'client' as const, orgId: 'org-a' }
 /** Only the fields these routes actually read; `conversation` is a full document in production. */
@@ -204,6 +209,10 @@ describe('conversation workbench browser interaction routes', () => {
 })
 
 describe('conversation workbench browser control-plane routes', () => {
+  beforeEach(() => {
+    jest.mocked(appendSystemEvent).mockClear()
+  })
+
   it('queues a snapshot request and forwards the agent actor header', async () => {
     const enqueue = jest.fn(async () => session())
     const accepted = await handleSnapshotBrowserSession(request({}, 'snapshot'), user, 'conversation-a', 'wbbs_a', {
@@ -331,6 +340,30 @@ describe('conversation workbench browser control-plane routes', () => {
       authorize: async () => authorization, get: async () => session(), set,
     })
     expect(set).toHaveBeenLastCalledWith({ ...expectedBinding, driver: 'user', actorKind: undefined })
+    expect(appendSystemEvent).toHaveBeenCalledWith(expect.objectContaining({
+      convId: 'conversation-a',
+      event: expect.objectContaining({ eventKind: 'driver.take_control' }),
+    }))
+  })
+
+  it('appends a hand-back system event for the Messages UI (no X-Agent-Actor)', async () => {
+    const set = jest.fn(async () => session({ driver: 'agent' }))
+    const res = await handleSetBrowserDriver(request({ driver: 'agent' }, 'driver'), user, 'conversation-a', 'wbbs_a', {
+      authorize: async () => authorization, get: async () => session({ driver: 'user' }), set,
+    })
+    expect(res.status).toBe(200)
+    expect(appendSystemEvent).toHaveBeenCalledWith(expect.objectContaining({
+      convId: 'conversation-a',
+      event: expect.objectContaining({ eventKind: 'driver.hand_back', actorKind: 'user' }),
+    }))
+  })
+
+  it('does not append a system event when an agent sets the driver', async () => {
+    const set = jest.fn(async () => session())
+    await handleSetBrowserDriver(request({ driver: 'agent' }, 'driver', 'POST', { 'x-agent-actor': 'agent-1' }), user, 'conversation-a', 'wbbs_a', {
+      authorize: async () => authorization, get: async () => session(), set,
+    })
+    expect(appendSystemEvent).not.toHaveBeenCalled()
   })
 
   it('rejects an unknown driver and maps an agent takeover of an active user session to 409', async () => {

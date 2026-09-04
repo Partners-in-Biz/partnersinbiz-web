@@ -43,6 +43,7 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', configAccess: true },
   { href: '/portal/settings/sequences', label: 'Sequences', icon: 'route', configAccess: true },
   { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook', configAccess: true },
+  { href: '/portal/settings/integrations', label: 'Integrations', icon: 'extension', minRole: 'admin' },
   { href: '/portal/settings/llm-providers', label: 'LLM providers', icon: 'smart_toy', minRole: null },
   { href: '/portal/settings/api-keys', label: 'API keys', icon: 'key', minRole: 'admin' },
   { href: '/portal/settings/domain', label: 'Custom domain', icon: 'language', minRole: 'admin' },

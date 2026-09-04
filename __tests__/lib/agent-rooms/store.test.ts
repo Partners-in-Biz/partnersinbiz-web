@@ -5,6 +5,7 @@ import {
   listAgentRooms,
   updateAgentRoom,
 } from '@/lib/agent-rooms/store'
+import { personalAgentRoomId } from '@/lib/agent-rooms/types'
 
 type Row = Record<string, unknown>
 
@@ -72,11 +73,34 @@ function seed() {
   return {
     'agent_team/pip': { agentId: 'pip', name: 'Pip', enabled: true },
     'agent_team/maya': { agentId: 'maya', name: 'Maya', enabled: true },
+    'agent_team/my-bot': {
+      agentId: 'my-bot',
+      name: 'My Bot',
+      enabled: true,
+      accessScope: 'personal',
+      ownerUserId: 'user-1',
+      scopeOrgId: 'org-1',
+    },
+    'agent_team/their-bot': {
+      agentId: 'their-bot',
+      name: 'Their Bot',
+      enabled: true,
+      accessScope: 'personal',
+      ownerUserId: 'user-2',
+      scopeOrgId: 'org-1',
+    },
     'linked_devices/device-a': {
+      ownerUserId: 'user-1',
+      availableAgents: [{ orgId: 'org-1', agentId: 'maya', profile: 'partners--maya', healthy: true }],
+    },
+    'linked_devices/device-b': {
+      ownerUserId: 'user-2',
       availableAgents: [{ orgId: 'org-1', agentId: 'maya', profile: 'partners--maya', healthy: true }],
     },
     'linked_device_grants/org-1_device-a': { orgId: 'org-1', deviceId: 'device-a', status: 'active' },
+    'linked_device_grants/org-1_device-b': { orgId: 'org-1', deviceId: 'device-b', status: 'active' },
     'org_teams/org-1_growth': { orgId: 'org-1', status: 'active', name: 'Growth' },
+    'orgMembers/org-1_user-1': { orgId: 'org-1', uid: 'user-1', role: 'member', status: 'active' },
   }
 }
 
@@ -97,6 +121,8 @@ describe('agent rooms store', () => {
       projectionVersion: 1,
       allowOrgWideDms: false,
       conversationId: 'conv-1',
+      accessScope: 'organization',
+      ownerUserId: null,
     })
   })
 
@@ -173,5 +199,133 @@ describe('agent rooms store', () => {
     expect(archived.projectionVersion).toBe(3)
     await expect(getAgentRoom('org-1', 'org-1_growth-desk', { db })).resolves.toMatchObject({ status: 'archived' })
     await expect(listAgentRooms('org-1', { db })).resolves.toHaveLength(1)
+  })
+
+  it('refuses personal agents in organisation rooms', async () => {
+    const { db } = fakeDb(seed())
+    await expect(createAgentRoom({
+      orgId: 'org-1',
+      slug: 'mixed',
+      name: 'Mixed',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'my-bot', deviceId: null },
+      ],
+      conversationId: 'conv-1',
+      actorUserId: 'admin-1',
+      accessScope: 'organization',
+    }, { db, now })).rejects.toThrow('personal agents cannot join organisation rooms')
+  })
+
+  it('creates a personal room with owner-only id and empty humanTeamIds', async () => {
+    const { db } = fakeDb(seed())
+    const room = await createAgentRoom({
+      orgId: 'org-1',
+      slug: 'desk',
+      name: 'My desk',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'my-bot', deviceId: null },
+      ],
+      humanTeamIds: ['org-1_growth'],
+      conversationId: 'conv-p',
+      actorUserId: 'user-1',
+      accessScope: 'personal',
+      ownerUserId: 'user-1',
+    }, { db, now })
+    expect(room.roomId).toBe(personalAgentRoomId('org-1', 'user-1', 'desk'))
+    expect(room.accessScope).toBe('personal')
+    expect(room.ownerUserId).toBe('user-1')
+    expect(room.humanTeamIds).toEqual([])
+  })
+
+  it('refuses another member\'s personal agent in a personal room', async () => {
+    const { db } = fakeDb(seed())
+    await expect(createAgentRoom({
+      orgId: 'org-1',
+      slug: 'steal',
+      name: 'Steal',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'their-bot', deviceId: null },
+      ],
+      conversationId: 'conv-p',
+      actorUserId: 'user-1',
+      accessScope: 'personal',
+      ownerUserId: 'user-1',
+    }, { db, now })).rejects.toThrow("cannot seat another member's personal agent")
+  })
+
+  it('refuses a non-owner device pin in a personal room', async () => {
+    const { db } = fakeDb({
+      ...seed(),
+      'linked_devices/device-a': {
+        ownerUserId: 'user-2',
+        availableAgents: [{ orgId: 'org-1', agentId: 'maya', profile: 'partners--maya', healthy: true }],
+      },
+    })
+    await expect(createAgentRoom({
+      orgId: 'org-1',
+      slug: 'foreign-device',
+      name: 'Foreign',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'maya', deviceId: 'device-a' },
+      ],
+      conversationId: 'conv-p',
+      actorUserId: 'user-1',
+      accessScope: 'personal',
+      ownerUserId: 'user-1',
+    }, { db, now })).rejects.toThrow('personal room devices must be owner-owned')
+  })
+
+  it('lists org rooms plus the viewer\'s personal rooms only', async () => {
+    const { db } = fakeDb(seed())
+    await createAgentRoom({
+      orgId: 'org-1',
+      slug: 'growth-desk',
+      name: 'Growth desk',
+      members,
+      conversationId: 'conv-1',
+      actorUserId: 'admin-1',
+    }, { db, now })
+    await createAgentRoom({
+      orgId: 'org-1',
+      slug: 'desk',
+      name: 'User desk',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'my-bot', deviceId: null },
+      ],
+      conversationId: 'conv-p',
+      actorUserId: 'user-1',
+      accessScope: 'personal',
+      ownerUserId: 'user-1',
+    }, { db, now })
+    await createAgentRoom({
+      orgId: 'org-1',
+      slug: 'other',
+      name: 'Other desk',
+      members: [
+        { agentId: 'pip', deviceId: null },
+        { agentId: 'their-bot', deviceId: null },
+      ],
+      conversationId: 'conv-o',
+      actorUserId: 'user-2',
+      accessScope: 'personal',
+      ownerUserId: 'user-2',
+    }, { db, now })
+
+    const forUser1 = await listAgentRooms('org-1', { db, viewerUserId: 'user-1' })
+    expect(forUser1.map((room) => room.roomId).sort()).toEqual([
+      'org-1_growth-desk',
+      personalAgentRoomId('org-1', 'user-1', 'desk'),
+    ].sort())
+
+    const forUser2 = await listAgentRooms('org-1', { db, viewerUserId: 'user-2' })
+    expect(forUser2.map((room) => room.roomId).sort()).toEqual([
+      'org-1_growth-desk',
+      personalAgentRoomId('org-1', 'user-2', 'other'),
+    ].sort())
   })
 })

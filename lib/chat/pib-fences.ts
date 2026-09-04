@@ -1,6 +1,6 @@
 import type { RichMessagePart } from '@/lib/hermes/types'
 
-const FENCE_RE = /```(pib:chart|pib:mermaid|pib:math|pib:html|mermaid|mmd)\n([\s\S]*?)```/g
+const FENCE_RE = /```(pib:chart|pib:mermaid|pib:math|pib:html|pib:action|mermaid|mmd)\n([\s\S]*?)```/g
 
 export function extractPibFences(markdown: string): { markdown: string; parts: RichMessagePart[] } {
   if (!markdown) return { markdown: '', parts: [] }
@@ -21,6 +21,13 @@ export function extractPibFences(markdown: string): { markdown: string; parts: R
       parts.push({ type: 'math', latex: source })
     } else if (info === 'pib:html') {
       parts.push({ type: 'html_artifact', title: 'Artifact', html: source })
+    } else if (info === 'pib:action') {
+      try {
+        const parsed = JSON.parse(source) as Record<string, unknown>
+        parts.push({ type: 'action_card', kind: 'custom', ...parsed })
+      } catch {
+        return full
+      }
     } else {
       return full
     }

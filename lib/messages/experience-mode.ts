@@ -76,6 +76,10 @@ export const BOT_MODE_COPY = {
   importBotLabel: 'Import a shared Bot',
   routinesLabel: 'Routines',
   pluginsLabel: 'Plugins',
+  /** Tools / computer / skills — shared broadly at org level. */
+  capabilitiesLabel: 'Capabilities',
+  /** Memory / files / rooms — stays with the bot role. */
+  contextLabel: 'Context',
   screenLabel: 'Screen',
 } as const
 

@@ -32,6 +32,10 @@ import {
   touchConversation,
 } from './conversations'
 import { buildThinkingTrace, mergeChatEvents } from './thinking-trace'
+import {
+  presenceFromRunStatus,
+  publishAgentPresence,
+} from '@/lib/messages/agent-presence'
 
 type JsonObject = Record<string, unknown>
 
@@ -484,6 +488,24 @@ function resolveAgentId(inputAgentId: AgentId | undefined, msgData: JsonObject):
   return candidate ? candidate as AgentId : null
 }
 
+function publishPresenceFromFinalize(input: {
+  orgId: string
+  agentId: string
+  conversationId: string
+  status: string
+  currentStep?: string
+}): void {
+  const mapped = presenceFromRunStatus(input.status, input.currentStep)
+  if (!mapped) return
+  publishAgentPresence({
+    orgId: input.orgId,
+    agentId: input.agentId,
+    conversationId: input.conversationId,
+    state: mapped.state,
+    currentStep: mapped.currentStep,
+  })
+}
+
 export async function finalizeConversationRun(input: {
   convId: string
   msgId: string
@@ -514,10 +536,20 @@ export async function finalizeConversationRun(input: {
     throw new HermesConversationRunError('Agent does not match this message', 409)
   }
   const messageAlreadyCompleted = msgData.status === 'completed'
+  const bumpPresence = (status: string, currentStep?: string) => {
+    publishPresenceFromFinalize({
+      orgId: conversation.orgId,
+      agentId: storedAgentId,
+      conversationId: input.convId,
+      status,
+      currentStep,
+    })
+  }
 
   const linkedDeviceId = cleanString(msgData.linkedDeviceId)
   if (linkedDeviceId) {
     if (messageAlreadyCompleted) {
+      bumpPresence('completed')
       return {
         status: 'completed',
         content: cleanString(msgData.content) ?? '',
@@ -527,6 +559,7 @@ export async function finalizeConversationRun(input: {
     }
     if (msgData.status === 'failed') {
       const error = cleanString(msgData.error) ?? 'The linked computer run failed.'
+      bumpPresence('failed')
       return { status: 'failed', content: '', error, runId, alreadyFinal: true }
     }
     const linkedResult = await getLinkedRunResult({
@@ -552,6 +585,7 @@ export async function finalizeConversationRun(input: {
         error: err instanceof Error ? err.message : String(err),
       }))
     }
+    bumpPresence(linkedResult.status)
     return {
       status: linkedResult.status,
       runId: linkedResult.runId,
@@ -595,6 +629,7 @@ export async function finalizeConversationRun(input: {
         error: CONVERSATION_RUN_LOST_ERROR,
       })
       await touchConversation(input.convId, `[run lost] ${CONVERSATION_RUN_LOST_ERROR}`, 'assistant', input.msgId)
+      bumpPresence('failed')
       return {
         status: 'failed',
         content: '',
@@ -605,6 +640,7 @@ export async function finalizeConversationRun(input: {
     }
 
     if (response.status === 404) {
+      bumpPresence('streaming')
       return { status: 'running', runId, hermesStatus: 'not_found', httpStatus: response.status }
     }
 
@@ -645,6 +681,7 @@ export async function finalizeConversationRun(input: {
         ...ledgerRichPatch,
         ...usagePatch,
       })
+      bumpPresence('completed')
       return {
         status: 'completed',
         content: typeof msgData.content === 'string' ? msgData.content : output,
@@ -712,6 +749,7 @@ export async function finalizeConversationRun(input: {
       }
     }
 
+    bumpPresence('completed')
     return { status: 'completed', content: output, runId, hermesStatus, ...richFields }
   }
 
@@ -720,6 +758,7 @@ export async function finalizeConversationRun(input: {
       status: hermesStatus,
       response: data,
     })
+    bumpPresence('completed')
     return {
       status: 'completed',
       runId,
@@ -754,6 +793,7 @@ export async function finalizeConversationRun(input: {
       ...usagePatch,
     })
     await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant', input.msgId)
+    bumpPresence('failed')
     return { status: 'failed', content: error, error, runId, hermesStatus, ...richPatch }
   }
 
@@ -771,6 +811,7 @@ export async function finalizeConversationRun(input: {
       response: data,
       ...richPatch,
     })
+    bumpPresence('waiting_approval')
     return { status: 'waiting_approval', runId, hermesStatus, ...richPatch }
   }
 
@@ -789,6 +830,7 @@ export async function finalizeConversationRun(input: {
       error: CONVERSATION_RUN_STALE_ERROR,
     })
     await touchConversation(input.convId, `[run timed out] ${CONVERSATION_RUN_STALE_ERROR}`, 'assistant', input.msgId)
+    bumpPresence('failed')
     return {
       status: 'failed',
       content: '',
@@ -802,6 +844,11 @@ export async function finalizeConversationRun(input: {
     status: hermesStatus,
     response: data,
   })
+  const toolStep = [...eventsForThinking].reverse().find((event) => event.event === 'tool.started')
+  bumpPresence(
+    'streaming',
+    typeof toolStep?.activity === 'string' ? toolStep.activity : toolStep?.tool,
+  )
   return { status: 'running', runId, hermesStatus }
 }
 

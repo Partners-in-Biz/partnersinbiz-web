@@ -1,10 +1,12 @@
 import type {
+  ActionCardPart,
   BrowserFramePart,
   ChartPart,
   FilePartV2,
   HtmlArtifactPart,
   MathPart,
   MermaidPart,
+  SystemEventPart,
 } from '@/lib/chat/parts'
 import type { RichMessagePart } from '@/lib/hermes/types'
 
@@ -15,6 +17,8 @@ export type ChatPartPreviewId =
   | 'html_artifact'
   | 'file'
   | 'browser_frame'
+  | 'system_event'
+  | 'action_card'
 
 export type ChatPartPreviewFixture = {
   id: ChatPartPreviewId
@@ -29,6 +33,8 @@ type TypedPreviewPart =
   | HtmlArtifactPart
   | FilePartV2
   | BrowserFramePart
+  | SystemEventPart
+  | ActionCardPart
 
 function asPreviewPart(part: TypedPreviewPart): RichMessagePart {
   return { ...part } as RichMessagePart
@@ -80,6 +86,24 @@ const BROWSER_FRAME: BrowserFramePart = {
   sessionId: 'sess-golden-1',
 }
 
+const SYSTEM_EVENT: SystemEventPart = {
+  type: 'system_event',
+  eventKind: 'driver.hand_back',
+  actorKind: 'user',
+  actorLabel: 'Peet',
+  summary: 'Handed the desktop back to Blake',
+  at: '2026-09-04T09:00:00.000Z',
+}
+
+const ACTION_CARD: ActionCardPart = {
+  type: 'action_card',
+  kind: 'routine_run',
+  title: 'Morning brief',
+  detail: 'Posted the daily pipeline summary.',
+  status: 'succeeded',
+  url: 'https://partnersinbiz.online/messages/conv-1',
+}
+
 export const CHAT_PART_PREVIEW_FIXTURES: readonly ChatPartPreviewFixture[] = [
   { id: 'chart', title: 'Pipeline', part: asPreviewPart(CHART) },
   { id: 'mermaid', title: 'Flow', part: asPreviewPart(MERMAID) },
@@ -87,4 +111,6 @@ export const CHAT_PART_PREVIEW_FIXTURES: readonly ChatPartPreviewFixture[] = [
   { id: 'html_artifact', title: 'Hostile card', part: asPreviewPart(HTML_ARTIFACT) },
   { id: 'file', title: 'report.csv', part: asPreviewPart(FILE) },
   { id: 'browser_frame', title: 'Browser frame', part: asPreviewPart(BROWSER_FRAME) },
+  { id: 'system_event', title: 'Hand back', part: asPreviewPart(SYSTEM_EVENT) },
+  { id: 'action_card', title: 'Routine run', part: asPreviewPart(ACTION_CARD) },
 ]

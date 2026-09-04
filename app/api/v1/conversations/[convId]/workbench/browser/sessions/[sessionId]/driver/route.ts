@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { appendSystemEvent } from '@/lib/conversations/system-events'
 import {
   authorizeWorkbenchConversation,
   isWorkbenchBrowserSessionOwnedByContext,
@@ -62,6 +63,7 @@ export async function handleSetBrowserDriver(
     if (!existing || !isWorkbenchBrowserSessionOwnedByContext(existing, user, conversationId, authorization)) {
       return apiError('Workbench browser session not found', 404)
     }
+    const actorKind = workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor'))
     const session = await dependencies.set({
       sessionId,
       conversationId: authorization.conversation.id,
@@ -76,8 +78,22 @@ export async function handleSetBrowserDriver(
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
       driver: body.driver as 'user' | 'agent',
-      actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
+      actorKind,
     })
+    // Messages UI omits X-Agent-Actor, so header parse is undefined — treat as human.
+    if (actorKind !== 'agent') {
+      await appendSystemEvent({
+        convId: conversationId,
+        event: {
+          eventKind: body.driver === 'user' ? 'driver.take_control' : 'driver.hand_back',
+          actorKind: 'user',
+          actorLabel: 'You',
+          summary: body.driver === 'user'
+            ? 'Took control of the browser'
+            : 'Handed the browser back to the agent',
+        },
+      }).catch(() => undefined)
+    }
     return apiSuccess(publicWorkbenchBrowserSession(session))
   } catch (error) {
     return routeError(error)

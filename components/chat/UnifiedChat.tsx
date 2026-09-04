@@ -85,6 +85,7 @@ import {
 } from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import { HoverTip } from '@/components/ui/HoverTip'
+import { ComputerActivityChip } from '@/components/messages/chrome/ComputerActivityChip'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
@@ -119,13 +120,19 @@ import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
 import {
+  isTerminalDesktopSessionStatus,
+  parsePublicDesktopSession,
+  type PublicDesktopSession,
+} from '@/lib/messages/workbench/desktop-session'
+import { useChatChrome } from '@/components/messages/chrome/ChatChromeProvider'
+import {
   MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS,
   MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS,
   MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS,
   shouldAutoOpenBotWorkbench,
   shouldHideMobileConversationChrome,
 } from '@/lib/messages/mobile-conversation-chrome'
-import { buildBotRosterItems } from '@/lib/messages/bot-roster'
+import { buildBotRosterItems, type BotRosterPresence } from '@/lib/messages/bot-roster'
 import {
   botInboxTitle,
   findOpenBotInboxThread,
@@ -213,6 +220,11 @@ const WORKBENCH_BROWSER_FALLBACK_VIEWPORT = { width: 1280, height: 720 } as cons
 const WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS = 800
 /** Frame poll cadence when the Browser tab is open but not following. */
 const WORKBENCH_BROWSER_IDLE_POLL_INTERVAL_MS = 2_500
+/** Device-side capture + desk-thumb poll while following a Mac desktop session. */
+const WORKBENCH_DESKTOP_FOLLOW_INTERVAL_MS = 750
+const WORKBENCH_DESKTOP_IDLE_POLL_INTERVAL_MS = 1_500
+
+type WorkbenchDesktopSessionViewState = PublicDesktopSession & { following: boolean }
 const CONVERSATION_REALTIME_GATEWAY_URL = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_GATEWAY_URL?.trim() ?? ''
 const CONVERSATION_REALTIME_TRANSPORT = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_TRANSPORT?.trim().toLowerCase() ?? 'off'
 const CONVERSATION_REALTIME_WEBSOCKET_URL = CONVERSATION_REALTIME_GATEWAY_URL
@@ -409,6 +421,8 @@ interface WorkspaceRuntimePresence {
   lastHealthStatus: string | null
   /** Healthy Hermes agent ids on this linked computer (when known). */
   availableAgentIds?: string[]
+  /** Runtime-advertised capabilities (workspace.execute, desktop.watch, …). */
+  capabilities?: string[]
 }
 
 interface WorkspaceCatalogueSnapshot {
@@ -1382,6 +1396,7 @@ export default function UnifiedChat({
   agentRoomsEnabled = false,
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
+  const chatChrome = useChatChrome()
   const mobileConversationViewport = useMobileConversationViewport()
   const hideMobileConversationChrome = shouldHideMobileConversationChrome({
     compact,
@@ -1390,6 +1405,8 @@ export default function UnifiedChat({
   const firstPaintChromeClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS
   const firstPaintBlockClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS
   const firstPaintBotStripClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS
+  const showDeskChrome = chatChrome.showFullChrome
+  const showRuntimeBar = chatChrome.showRuntimeBar
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -1441,6 +1458,8 @@ export default function UnifiedChat({
   const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
   // Device-side frame following, driven by the Browser panel's Follow toggle.
   const [workbenchBrowserFollowing, setWorkbenchBrowserFollowing] = useState(false)
+  const [workbenchDesktopSession, setWorkbenchDesktopSession] = useState<WorkbenchDesktopSessionViewState | null>(null)
+  const workbenchDesktopAbortRef = useRef<AbortController | null>(null)
   /** Ref mirror of `workbenchBrowserFollowing` so the stable `applyWorkbenchBrowserSessionUpdate` callback can stamp the view state. */
   const workbenchBrowserFollowingRef = useRef(false)
   const [workbenchBrowserSnapshotText, setWorkbenchBrowserSnapshotText] = useState<string | null>(null)
@@ -1671,6 +1690,7 @@ export default function UnifiedChat({
   const [newInitialAgentIds, setNewInitialAgentIds] = useState<string[]>([])
   const [botStudioDevices, setBotStudioDevices] = useState<BotStudioDevice[]>([])
   const [botStudioCanCreate, setBotStudioCanCreate] = useState(false)
+  const [agentPresenceById, setAgentPresenceById] = useState<Record<string, BotRosterPresence>>({})
   const [botStudioCreating, setBotStudioCreating] = useState(false)
   const [botStudioImporting, setBotStudioImporting] = useState(false)
   const [botStudioError, setBotStudioError] = useState<string | null>(null)
@@ -2439,6 +2459,29 @@ export default function UnifiedChat({
     ),
     [activeWorkspaceContext?.runtimeTarget, workspaceRuntimeTargetsByWorkspace],
   )
+  const primaryBotComputer = botComputers.find((computer) => computer.online) ?? botComputers[0] ?? null
+  const deskUsesDesktop = Boolean(workbenchDesktopSession?.sessionId)
+  const computerSessionActive = Boolean(
+    (workbenchDesktopSession?.sessionId && !isTerminalDesktopSessionStatus(workbenchDesktopSession.status))
+    || (workbenchBrowserSession?.sessionId && workbenchBrowserSession.status
+      && !['exited', 'killed', 'expired', 'failed', 'error', 'idle'].includes(String(workbenchBrowserSession.status))),
+  )
+  const deskLatestFrameUrl = deskUsesDesktop
+    ? (workbenchDesktopSession?.latestFrameUrl ?? null)
+    : (workbenchBrowserSession?.latestFrameUrl ?? null)
+  const deskSessionStatus = deskUsesDesktop
+    ? (workbenchDesktopSession?.status ?? null)
+    : (workbenchBrowserSession?.status ?? null)
+  const computerActivityActive = deskSessionStatus === 'running'
+    || workbenchDesktopSession?.status === 'running'
+    || workbenchBrowserSession?.status === 'running'
+    || Object.values(agentPresenceById).some(
+      (presence) => presence.state === 'working'
+        && /computer/i.test(presence.currentStep ?? ''),
+    )
+  const deskFollowing = deskUsesDesktop
+    ? Boolean(workbenchDesktopSession?.following)
+    : workbenchBrowserFollowing
   const unavailableActiveRuntime = useMemo(
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
@@ -2528,8 +2571,8 @@ export default function UnifiedChat({
     [allHermesAgentGroups, hiddenFolderKeySet],
   )
   const botRoster = useMemo(
-    () => buildBotRosterItems(Object.values(agentMap), hermesAgentGroups, botComputers),
-    [agentMap, botComputers, hermesAgentGroups],
+    () => buildBotRosterItems(Object.values(agentMap), hermesAgentGroups, botComputers, agentPresenceById),
+    [agentMap, agentPresenceById, botComputers, hermesAgentGroups],
   )
   const botInboxThreads = useMemo(
     () => listBotInboxThreads(
@@ -2766,6 +2809,21 @@ export default function UnifiedChat({
         if (cancelled || !body?.data) return
         setBotStudioDevices(Array.isArray(body.data.devices) ? body.data.devices : [])
         setBotStudioCanCreate(Boolean(body.data.canCreate))
+        const presenceRows = Array.isArray(body.data.presence) ? body.data.presence : []
+        const next: Record<string, BotRosterPresence> = {}
+        for (const row of presenceRows) {
+          if (!row || typeof row.agentId !== 'string' || typeof row.state !== 'string') continue
+          next[row.agentId] = {
+            state: row.state,
+            ...(typeof row.currentStep === 'string' && row.currentStep.trim()
+              ? { currentStep: row.currentStep.trim() }
+              : {}),
+            ...(typeof row.conversationId === 'string' && row.conversationId.trim()
+              ? { conversationId: row.conversationId.trim() }
+              : {}),
+          }
+        }
+        setAgentPresenceById(next)
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -4195,6 +4253,19 @@ export default function UnifiedChat({
     }
   }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
 
+  /** Hands the browser wheel back to the agent after the human was driving. */
+  const handBackWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    try {
+      const updated = await setWorkbenchBrowserSessionDriverApi(activeId, workbenchBrowserSession.sessionId, { driver: 'agent' })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to hand the browser back to the agent.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
   /** Human-only toggle: allow/revoke the agent's access to private/internal hosts. */
   const toggleAllowPrivateWorkbenchBrowserSession = useCallback(async () => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return
@@ -4348,6 +4419,98 @@ export default function UnifiedChat({
   const startWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('start') }, [setWorkbenchBrowserSessionFollow])
   const stopWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('stop') }, [setWorkbenchBrowserSessionFollow])
 
+  const applyWorkbenchDesktopSessionUpdate = useCallback((remote: PublicDesktopSession, following?: boolean) => {
+    setWorkbenchDesktopSession((prev) => ({
+      ...remote,
+      following: following ?? prev?.following ?? false,
+    }))
+  }, [])
+
+  const startDesktopWatch = useCallback(async (conversationId: string): Promise<boolean> => {
+    openWorkbenchTab('browser')
+    const base = `/api/v1/conversations/${encodeURIComponent(conversationId)}/workbench/desktop/sessions`
+    try {
+      const createdRes = await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      const created = parsePublicDesktopSession(await createdRes.json().catch(() => null))
+      if (!createdRes.ok || !created) return false
+      applyWorkbenchDesktopSessionUpdate(created, false)
+
+      const approveRes = await fetch(`${base}/${encodeURIComponent(created.sessionId)}/approve`, { method: 'POST' })
+      const approved = parsePublicDesktopSession(await approveRes.json().catch(() => null))
+      if (!approveRes.ok || !approved) return false
+      applyWorkbenchDesktopSessionUpdate(approved, false)
+
+      const followRes = await fetch(`${base}/${encodeURIComponent(created.sessionId)}/follow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start', intervalMs: WORKBENCH_DESKTOP_FOLLOW_INTERVAL_MS }),
+      })
+      const followed = parsePublicDesktopSession(await followRes.json().catch(() => null))
+      if (!followRes.ok || !followed) return false
+      applyWorkbenchDesktopSessionUpdate(followed, true)
+      return true
+    } catch {
+      return false
+    }
+  }, [applyWorkbenchDesktopSessionUpdate, openWorkbenchTab])
+
+  const openBrowserWatch = useCallback(async () => {
+    openWorkbenchTab('browser')
+    const status = workbenchBrowserSession?.status
+    if (status === 'running' && workbenchBrowserSession?.sessionId && !workbenchBrowserFollowing) {
+      void setWorkbenchBrowserSessionFollow('start')
+      return
+    }
+    if (status === 'awaiting_approval' && workbenchBrowserSession?.sessionId) {
+      await approveWorkbenchBrowserSession()
+      return
+    }
+    if (!workbenchBrowserSession?.sessionId && activeId) {
+      const online = botComputers.some((computer) => computer.online)
+      if (!online) return
+      await startWorkbenchBrowserSession()
+    }
+  }, [
+    openWorkbenchTab,
+    workbenchBrowserSession?.status,
+    workbenchBrowserSession?.sessionId,
+    workbenchBrowserFollowing,
+    setWorkbenchBrowserSessionFollow,
+    approveWorkbenchBrowserSession,
+    activeId,
+    botComputers,
+    startWorkbenchBrowserSession,
+  ])
+
+  const openScreenWatch = useCallback(async () => {
+    if (!showAgentWorkbench) return
+    const primary = botComputers.find((computer) => computer.online) ?? botComputers[0]
+    const preferDesktop = Boolean(primary?.capabilities?.includes('desktop.watch'))
+    if (preferDesktop && activeId) {
+      if (workbenchDesktopSession?.sessionId && !isTerminalDesktopSessionStatus(workbenchDesktopSession.status)) {
+        openWorkbenchTab('browser')
+        setWorkbenchDesktopSession((prev) => (prev ? { ...prev, following: true } : prev))
+        return
+      }
+      const started = await startDesktopWatch(activeId)
+      if (started) return
+    }
+    await openBrowserWatch()
+  }, [
+    showAgentWorkbench,
+    botComputers,
+    activeId,
+    workbenchDesktopSession?.sessionId,
+    workbenchDesktopSession?.status,
+    openWorkbenchTab,
+    startDesktopWatch,
+    openBrowserWatch,
+  ])
+
   const killWorkbenchBrowserSession = useCallback(async () => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserFollowing(false)
@@ -4371,7 +4534,43 @@ export default function UnifiedChat({
     setWorkbenchBrowserSession(null)
     setWorkbenchBrowserFollowing(false)
     workbenchBrowserFollowingRef.current = false
+    workbenchDesktopAbortRef.current?.abort()
+    setWorkbenchDesktopSession(null)
   }, [activeId])
+
+  useEffect(() => {
+    if (!activeId || !workbenchDesktopSession?.sessionId) return
+    if (isTerminalDesktopSessionStatus(workbenchDesktopSession.status)) return
+    const conversationId = activeId
+    const sessionId = workbenchDesktopSession.sessionId
+    const controller = new AbortController()
+    workbenchDesktopAbortRef.current = controller
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/conversations/${encodeURIComponent(conversationId)}/workbench/desktop/sessions/${encodeURIComponent(sessionId)}`,
+          { cache: 'no-store', signal: controller.signal },
+        )
+        if (!res.ok) return
+        const remote = parsePublicDesktopSession(await res.json().catch(() => null))
+        if (!remote || remote.sessionId !== sessionId) return
+        setWorkbenchDesktopSession((prev) => (prev && prev.sessionId === sessionId
+          ? { ...prev, ...remote, following: prev.following }
+          : prev))
+      } catch {
+        // A follow-up poll failing (e.g. a transient network blip) shouldn't surface as an error banner.
+      }
+    }
+    void poll()
+    const interval = window.setInterval(
+      () => { void poll() },
+      workbenchDesktopSession.following ? WORKBENCH_DESKTOP_FOLLOW_INTERVAL_MS : WORKBENCH_DESKTOP_IDLE_POLL_INTERVAL_MS,
+    )
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [activeId, workbenchDesktopSession?.sessionId, workbenchDesktopSession?.status, workbenchDesktopSession?.following])
 
   // Following is only meaningful on a live session - a session that exits or is killed
   // leaves the flag behind otherwise, and the panel would keep claiming it is live.
@@ -7249,6 +7448,7 @@ export default function UnifiedChat({
       e.preventDefault()
       if (!input.trim() && attachments.length === 0) return
       if (sending) return
+      chatChrome.notify('message_sent')
       if (!allowSendMessages) {
         setError('Replies are disabled for your organisation role.')
         return
@@ -7272,6 +7472,7 @@ export default function UnifiedChat({
       input,
       attachments,
       sending,
+      chatChrome,
       allowSendMessages,
       runtimeBlocksComposer,
       hasInFlightAgentRun,
@@ -7453,6 +7654,12 @@ export default function UnifiedChat({
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
+      <ComputerActivityChip
+        active={computerActivityActive || computerSessionActive}
+        onOpen={() => {
+          openWorkbenchTab('browser')
+        }}
+      />
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       {showConversationList && showListOnMobile && tabletSessionsDrawer && <div data-testid="sessions-backdrop" aria-hidden="true" onClick={closeSessions} className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--sc-ink)_45%,transparent)] xl:hidden" />}
       {showConversationList && <aside
@@ -7593,6 +7800,7 @@ export default function UnifiedChat({
           <RoomList
             orgId={orgId}
             activeConversationId={activeId}
+            canCreateOrgRooms={userRole === 'owner' || userRole === 'admin' || Boolean(allowManageConversationAccess)}
             onOpenConversation={(conversationId) => {
               setActiveId(conversationId)
               closeSessions()
@@ -8940,7 +9148,7 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {botMode && (
+        {botMode && showDeskChrome && (
           <BotComputerStrip
             className={firstPaintBotStripClass || 'xl:hidden'}
             computers={botComputers}
@@ -9001,6 +9209,16 @@ export default function UnifiedChat({
           onTypeBrowserAgentSession={typeInWorkbenchBrowserSession}
           onStartBrowserAgentSessionFollow={startWorkbenchBrowserSessionFollow}
           onStopBrowserAgentSessionFollow={stopWorkbenchBrowserSessionFollow}
+          onTakeControlBrowserAgentSession={takeControlWorkbenchBrowserSession}
+          onHandBackBrowserAgentSession={handBackWorkbenchBrowserSession}
+          onToggleAllowPrivateBrowserAgentSession={toggleAllowPrivateWorkbenchBrowserSession}
+          onRefreshBrowserAgentSnapshot={refreshWorkbenchBrowserSnapshot}
+          browserAgentSnapshotText={workbenchBrowserSnapshotText}
+          browserAgentSnapshotLoading={workbenchBrowserSnapshotLoading}
+          conversationId={activeId}
+          desktopSession={workbenchDesktopSession}
+          hasDesktopWatch={Boolean(primaryBotComputer?.capabilities?.includes('desktop.watch'))}
+          hasDesktopControl={Boolean(primaryBotComputer?.capabilities?.includes('desktop.control'))}
           compact={compact}
           onRunTerminalCommand={runWorkbenchTerminalCommand}
           onClearTerminal={clearWorkbenchLocalTerminal}
@@ -9619,6 +9837,7 @@ export default function UnifiedChat({
               aria-controls={contextPickerOpen ? contextPickerPanelId : undefined}
               aria-activedescendant={contextPickerActiveOptionId}
               value={input}
+              onFocus={() => chatChrome.notify('composer_focus')}
               onChange={(e) => {
                 composerEditRevisionRef.current += 1
                 suppressContextPickerKeyUpRef.current = false
@@ -9701,9 +9920,20 @@ export default function UnifiedChat({
               />
               {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : hasInFlightAgentRun ? 'Queue' : 'Send'}</span>}
             </button>
+            {hermesLayout && !showRuntimeBar && (
+              <button
+                type="button"
+                data-testid="composer-runtime-peek"
+                aria-label="Show runtime controls"
+                onClick={() => chatChrome.notify('runtime_peek')}
+                className="self-end hidden h-9 w-9 place-items-center rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] md:grid"
+              >
+                <Icon name="tune" className="text-[18px]" />
+              </button>
+            )}
           </div>
 
-          {hermesLayout && (
+          {hermesLayout && showRuntimeBar && (
             <div
               data-testid="hermes-runtime-control-bar"
               className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-[6px] border border-[var(--color-card-border)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
@@ -9846,6 +10076,27 @@ export default function UnifiedChat({
             const full = DESIGN_COMMANDS.find((item) => item.id === command.id)
             if (full) insertDesignCommand(full)
           }}
+          deskPanel={botMode ? (
+            <BotDeskPanel
+              variant="sheet"
+              botId={activeBotId}
+              botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
+              computers={botComputers}
+              workbenchOpen={workbenchOpen}
+              isolatedFolder={isolatedBotFolder}
+              standingGoal={activeConversation?.goalState?.goal ?? null}
+              orgId={orgId}
+              latestFrameUrl={deskLatestFrameUrl}
+              sessionStatus={deskSessionStatus}
+              following={deskFollowing}
+              computersHref={computersHref}
+              onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch(); setHeaderMenuOpen(false) } : undefined}
+              onNewRoutine={() => {
+                setInput((current) => current.trim() ? current : '/routine ')
+                setHeaderMenuOpen(false)
+              }}
+            />
+          ) : null}
           conversationActions={activeConversation ? (
             <>
               <button
@@ -9987,7 +10238,7 @@ export default function UnifiedChat({
         />
       )}
 
-      {botMode && (
+      {botMode && showDeskChrome && (
         <BotDeskPanel
           botId={activeBotId}
           botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
@@ -9995,9 +10246,49 @@ export default function UnifiedChat({
           workbenchOpen={workbenchOpen}
           isolatedFolder={isolatedBotFolder}
           standingGoal={activeConversation?.goalState?.goal ?? null}
-          onOpenScreen={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
-          onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
+          orgId={orgId}
+          latestFrameUrl={deskLatestFrameUrl}
+          sessionStatus={deskSessionStatus}
+          following={deskFollowing}
+          computersHref={computersHref}
+          onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
+          onNewRoutine={() => setInput((current) => current.trim() ? current : '/routine ')}
         />
+      )}
+      {/* Tablet: desk as right drawer when chrome is revealed (BotDeskPanel is xl-only in rail variant) */}
+      {botMode && showDeskChrome && (
+        <div
+          data-testid="bot-desk-tablet-drawer"
+          className="fixed inset-y-0 right-0 z-[75] flex w-[min(320px,85vw)] border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-xl md:flex xl:hidden"
+        >
+          <BotDeskPanel
+            variant="drawer"
+            botId={activeBotId}
+            botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
+            computers={botComputers}
+            workbenchOpen={workbenchOpen}
+            isolatedFolder={isolatedBotFolder}
+            standingGoal={activeConversation?.goalState?.goal ?? null}
+            orgId={orgId}
+            latestFrameUrl={deskLatestFrameUrl}
+            sessionStatus={deskSessionStatus}
+            following={deskFollowing}
+            computersHref={computersHref}
+            onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
+            onNewRoutine={() => setInput((current) => current.trim() ? current : '/routine ')}
+          />
+        </div>
+      )}
+      {botMode && !showDeskChrome && (
+        <button
+          type="button"
+          data-testid="bot-desk-peek"
+          aria-label="Show bot screen"
+          onClick={chatChrome.reveal}
+          className="fixed right-2 top-1/2 z-[70] hidden -translate-y-1/2 rounded-lg border border-[var(--color-pib-line)] bg-[color-mix(in_srgb,var(--sc-ink)_70%,transparent)] p-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] md:grid"
+        >
+          <Icon name="screenshot_monitor" className="text-[18px]" />
+        </button>
       )}
 
       {accessConversation && (

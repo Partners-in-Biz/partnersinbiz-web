@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto'
 import { getAgent } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import { adminDb } from '@/lib/firebase/admin'
-import { parseManagedProfileName } from '@/lib/linked-computers/managed-profile'
+import { managedProfileName, parseManagedProfileName } from '@/lib/linked-computers/managed-profile'
+import { getOrgSlug } from '@/lib/organizations/slug'
 import { getAgentRoom, listAgentRooms, updateAgentRoom, type AgentRoomStoreOptions } from './store'
-import type { AgentRoom, AgentRoomMember } from './types'
+import { memberKey, type AgentRoom, type AgentRoomMember } from './types'
 
 export const PROFILE_PROJECTIONS_COLLECTION = 'linked_device_profile_projections'
 export const PROJECTION_DRIFT_GRACE_MS = 2 * 60_000
@@ -213,15 +214,125 @@ export async function desiredRoomsForDevice(
     const orgId = typeof row.orgId === 'string' ? row.orgId : ''
     if (orgId) orgIds.add(orgId)
   }
+  const deviceSnap = await db.collection('linked_devices').doc(deviceId).get()
+  const deviceOwnerUserId = typeof deviceSnap.data()?.ownerUserId === 'string'
+    ? deviceSnap.data()!.ownerUserId as string
+    : null
   const rooms: AgentRoom[] = []
   for (const orgId of orgIds) {
+    // Load all rooms for the org (no viewer filter) so personal ownership can be checked here.
     const listed = await loadRooms(orgId, roomStoreOptions(options))
     rooms.push(...listed)
   }
-  return rooms.filter((room) => (
-    room.status === 'active'
-    && room.members.some((member) => member.deviceId === deviceId || member.deviceId === null)
-  ))
+  return rooms.filter((room) => {
+    if (room.status !== 'active') return false
+    if (!room.members.some((member) => member.deviceId === deviceId || member.deviceId === null)) {
+      return false
+    }
+    if (room.accessScope === 'personal') {
+      return Boolean(room.ownerUserId && deviceOwnerUserId && room.ownerUserId === deviceOwnerUserId)
+    }
+    return true
+  })
+}
+
+async function resolveProfileForMember(
+  orgId: string,
+  member: AgentRoomMember,
+  db: DbLike,
+): Promise<string | null> {
+  if (member.deviceId) {
+    const deviceSnap = await db.collection('linked_devices').doc(member.deviceId).get()
+    const available = Array.isArray(deviceSnap.data()?.availableAgents)
+      ? deviceSnap.data()!.availableAgents as Array<Record<string, unknown>>
+      : []
+    const hit = available.find((row) => row.orgId === orgId && row.agentId === member.agentId)
+    if (typeof hit?.profile === 'string' && hit.profile.trim()) return hit.profile.trim()
+  }
+  try {
+    const orgSlug = await getOrgSlug(orgId, { db: db as never })
+    return managedProfileName(orgSlug, member.agentId)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * After a room create/update/archive, upsert desired projections for every
+ * member device. Platform members (deviceId null) project onto devices that
+ * currently report the agent under an active org grant.
+ */
+export async function projectAgentRoomAfterWrite(input: {
+  room: AgentRoom
+  actorUserId: string
+  previousMembers?: AgentRoomMember[]
+}, options: ProjectionOptions = {}): Promise<void> {
+  const db = resolveDb(options)
+  const targets = new Map<string, { deviceId: string; agentId: AgentId; profile: string }>()
+
+  async function addMember(member: AgentRoomMember): Promise<void> {
+    if (!isValidAgentId(member.agentId)) return
+    if (member.deviceId) {
+      const profile = await resolveProfileForMember(input.room.orgId, member, db)
+      if (!profile) return
+      targets.set(`${member.deviceId}\0${member.agentId}`, {
+        deviceId: member.deviceId,
+        agentId: member.agentId,
+        profile,
+      })
+      return
+    }
+    const grants = await db.collection('linked_device_grants')
+      .where('orgId', '==', input.room.orgId)
+      .where('status', '==', 'active')
+      .get()
+    for (const grantDoc of grants.docs) {
+      const grant = grantDoc.data()
+      const deviceId = typeof grant.deviceId === 'string' ? grant.deviceId : ''
+      if (!deviceId) continue
+      if (input.room.accessScope === 'personal' && input.room.ownerUserId) {
+        const deviceSnap = await db.collection('linked_devices').doc(deviceId).get()
+        if (deviceSnap.data()?.ownerUserId !== input.room.ownerUserId) continue
+      }
+      const deviceSnap = await db.collection('linked_devices').doc(deviceId).get()
+      const available = Array.isArray(deviceSnap.data()?.availableAgents)
+        ? deviceSnap.data()!.availableAgents as Array<Record<string, unknown>>
+        : []
+      const hit = available.find((row) => row.orgId === input.room.orgId && row.agentId === member.agentId)
+      if (!hit) continue
+      const profile = typeof hit.profile === 'string' && hit.profile.trim()
+        ? hit.profile.trim()
+        : await resolveProfileForMember(input.room.orgId, { agentId: member.agentId, deviceId }, db)
+      if (!profile) continue
+      targets.set(`${deviceId}\0${member.agentId}`, {
+        deviceId,
+        agentId: member.agentId,
+        profile,
+      })
+    }
+  }
+
+  const seenKeys = new Set<string>()
+  for (const member of [...input.room.members, ...(input.previousMembers ?? [])]) {
+    const key = memberKey(member)
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
+    await addMember(member)
+  }
+
+  for (const target of targets.values()) {
+    try {
+      await upsertDesiredProjection({
+        orgId: input.room.orgId,
+        deviceId: target.deviceId,
+        profile: target.profile,
+        agentId: target.agentId,
+        actorUserId: input.actorUserId,
+      }, options)
+    } catch {
+      // Best-effort: room write already succeeded; projection can catch up on next heartbeat.
+    }
+  }
 }
 
 function roomsToProjection(rooms: AgentRoom[]): { rooms: BotProjectionRoom[]; projectionVersion: number } {

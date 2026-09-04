@@ -497,6 +497,22 @@ describe('WorkbenchBrowserPanel — agent driver arbitration (slice-2)', () => {
     expect(screen.queryByTestId('workbench-agent-driving')).not.toBeInTheDocument()
   })
 
+  it('calls onHandBack from the Hand back affordance while the human drives', () => {
+    const onHandBack = jest.fn()
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'user' })}
+        onStartBrowserSession={jest.fn()}
+        onHandBack={onHandBack}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-hand-back')).toHaveTextContent('Hand back')
+    fireEvent.click(screen.getByTestId('workbench-agent-hand-back'))
+    expect(onHandBack).toHaveBeenCalled()
+  })
+
   it('shows no driver badge while the session is idle', () => {
     render(
       <WorkbenchBrowserPanel
