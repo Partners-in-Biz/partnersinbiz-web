@@ -2,6 +2,7 @@ import type { AgentId } from '@/lib/agents/types'
 import { validatePart, type SystemEventPart } from '@/lib/chat/parts'
 import { createMessage, getConversation, touchConversation } from '@/lib/conversations/conversations'
 import type { ConversationMessage } from '@/lib/conversations/types'
+import type { RichMessagePart } from '@/lib/hermes/types'
 
 export class SystemEventError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -27,7 +28,7 @@ export async function appendSystemEvent(input: AppendSystemEventInput): Promise<
   if (!conversation) throw new SystemEventError('Conversation not found', 404)
 
   const at = input.event.at ?? new Date().toISOString()
-  const part: SystemEventPart = {
+  const part: RichMessagePart = {
     type: 'system_event',
     eventKind: String(input.event.eventKind || 'event').slice(0, 80),
     actorKind: input.event.actorKind === 'user' || input.event.actorKind === 'agent' ? input.event.actorKind : 'system',
@@ -39,7 +40,8 @@ export async function appendSystemEvent(input: AppendSystemEventInput): Promise<
   const checked = validatePart(part)
   if (!checked.ok) throw new SystemEventError(checked.reason, 400)
 
-  const content = (input.content ?? part.summary).slice(0, 2000)
+  const summary = typeof part.summary === 'string' ? part.summary : ''
+  const content = (input.content ?? summary).slice(0, 2000)
 
   const message = await createMessage(input.convId, {
     conversationId: input.convId,
@@ -50,7 +52,7 @@ export async function appendSystemEvent(input: AppendSystemEventInput): Promise<
     status: 'completed',
     authorKind: 'system',
     authorId: 'system',
-    authorDisplayName: part.actorLabel,
+    authorDisplayName: String(part.actorLabel || 'System'),
   })
 
   await touchConversation(input.convId, content.slice(0, 140), 'system', message.id)

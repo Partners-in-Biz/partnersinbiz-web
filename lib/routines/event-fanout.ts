@@ -1,6 +1,12 @@
 import { listEnabledEventRoutines } from './store'
 import { fireRoutineForEvent } from './service'
-import type { RoutineEventPayload, RoutineTriggerEvent } from './types'
+import type { RoutineEventPayload } from './types'
+
+type EventMatchTrigger = {
+  kind: string
+  source?: string
+  filter?: Record<string, string>
+}
 
 /**
  * Match event filter keys — every key in `filter` must equal the corresponding
@@ -24,10 +30,10 @@ export function eventMatchesFilter(
   return true
 }
 
-export function matchEventRoutines(
-  routines: Array<{ trigger: { kind: string } & Partial<RoutineTriggerEvent> }>,
+export function matchEventRoutines<T extends { trigger: EventMatchTrigger }>(
+  routines: T[],
   event: RoutineEventPayload,
-): typeof routines {
+): T[] {
   return routines.filter((routine) => {
     if (routine.trigger.kind !== 'event') return false
     if (routine.trigger.source !== event.source) return false
