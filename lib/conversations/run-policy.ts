@@ -23,7 +23,13 @@ export const CONVERSATION_BROWSER_CONNECT_USER_ERROR =
   'This run was interrupted (gateway restart or browser tool failure). Send the message again. Prefer platform API / CRM tools over browser navigation on the VPS.'
 
 export const CONVERSATION_RUN_RECOVERING_USER_ERROR =
+  'The computer dropped this run. Send the message again.'
+
+/** Legacy essay that used to appear as a failed bubble while polling/requeue ran. */
+export const CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR =
   'The agent hit a temporary computer/gateway interruption. Partners in Biz is retrying automatically — leave this chat open.'
+
+export const CONVERSATION_STREAM_FALLBACK_ACTIVITY = 'Still working'
 
 function conversationRunErrorText(raw: string | null | undefined): string {
   return typeof raw === 'string' ? raw.trim() : ''
@@ -63,6 +69,14 @@ export function isConversationInfrastructureInterrupt(raw: string | null | undef
     || lower.includes('fetch failed')
     || lower.includes('networkerror')
     || (lower.includes('shutdown context') && lower.includes('sigterm'))
+    || lower.includes('rate limit')
+    || lower.includes('ratelimit')
+    || lower.includes('too many requests')
+    || lower.includes('resource_exhausted')
+    || lower.includes('resource exhausted')
+    || lower.includes('overloaded')
+    || lower.includes('computational limit')
+    || /\b429\b/.test(lower)
 }
 
 /**
@@ -98,8 +112,15 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
   if (/\bhermes_update_failed\b/.test(text)) {
     return 'Hermes could not update on this computer. It keeps working on the previous version; see the runbook.'
   }
+  if (
+    text === CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR
+    || text.toLowerCase().includes('retrying automatically')
+    || text.toLowerCase().includes('leave this chat open')
+    || text.toLowerCase().includes('live event stream unavailable')
+  ) {
+    return CONVERSATION_RUN_RECOVERING_USER_ERROR
+  }
   if (isConversationBrowserToolFailure(text) || isConversationInfrastructureInterrupt(text)) {
-    // Prefer recovery copy when something still surfaces; auto-requeue is the primary path.
     return CONVERSATION_RUN_RECOVERING_USER_ERROR
   }
   // Cap length so tool dumps never fill the chat bubble.

@@ -19,6 +19,8 @@ export function BotModeLanding({
   studioError = null,
   onCreateBot,
   onImportBot,
+  defaultDeviceId = '',
+  members = [],
 }: {
   bots: BotRosterItem[]
   computers: VisibleBotComputer[]
@@ -29,8 +31,10 @@ export function BotModeLanding({
   creatingBot?: boolean
   importingBot?: boolean
   studioError?: string | null
-  onCreateBot?: (input: { name: string; role: string; persona: string; deviceId: string; agentHandle?: string }) => void
+  onCreateBot?: (input: { name: string; role: string; persona: string; deviceId: string; agentHandle?: string; accessMode?: 'personal' | 'organization' | 'people'; sharedWithUserIds?: string[] }) => void
   onImportBot?: (input: { shareId: string; deviceId: string }) => void
+  defaultDeviceId?: string
+  members?: Array<{ uid: string; displayName?: string | null; email?: string | null }>
 }) {
   const featured = bots.slice(0, 8)
   const onlineComputers = computers.filter((computer) => computer.online)
@@ -45,7 +49,7 @@ export function BotModeLanding({
         <p className="mb-2 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Explore bots</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {featured.length === 0 ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">No Bots are visible yet.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No agents on this computer yet. Create one below or pick another machine.</p>
           ) : featured.map((bot) => (
             <button
               key={bot.id}
@@ -88,6 +92,8 @@ export function BotModeLanding({
       {(onCreateBot || onImportBot) && (
         <BotStudioPanel
           devices={studioDevices}
+          defaultDeviceId={defaultDeviceId}
+          members={members}
           canCreate={canCreateBot}
           creating={creatingBot}
           importing={importingBot}

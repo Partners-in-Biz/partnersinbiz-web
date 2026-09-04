@@ -201,7 +201,9 @@ function eventLabel(event: ChatEvent): string {
     case 'reasoning.summary':
       return 'Reasoning summary available'
     case 'heartbeat':
-      return 'Still polling run'
+      return 'Still working'
+    case 'stream.unavailable':
+      return 'Still working'
     case 'run.completed':
       return 'Finalising response'
     case 'run.failed':
@@ -241,6 +243,7 @@ function commandConsoleRows(events: ChatEvent[]): Array<{
       const name = event.event ?? ''
       return name !== 'assistant.text_delta'
         && name !== 'heartbeat'
+        && name !== 'stream.unavailable'
         && name !== 'reasoning.delta'
         && name !== 'reasoning.summary'
     })
@@ -273,9 +276,17 @@ function commandConsoleRows(events: ChatEvent[]): Array<{
     .slice(-24)
 }
 
+function isQuietLiveEvent(event: ChatEvent): boolean {
+  return event.event === 'assistant.text_delta'
+    || event.event === 'heartbeat'
+    || event.event === 'stream.unavailable'
+    || event.activity === 'Live event stream unavailable; final response polling will continue.'
+    || event.activity === 'Still working'
+}
+
 function currentActivity(events: ChatEvent[], elapsed: number, hasRunId: boolean): { label: string; detail?: string } {
-  const meaningful = events.filter((event) => event.event !== 'assistant.text_delta')
-  const latest = meaningful.at(-1) ?? events.at(-1)
+  const meaningful = events.filter((event) => !isQuietLiveEvent(event))
+  const latest = meaningful.at(-1) ?? events.filter((event) => event.event !== 'stream.unavailable').at(-1)
   if (!latest) {
     if (!hasRunId) {
       return {
@@ -402,7 +413,7 @@ function ThoughtStream({
                   event.stopPropagation()
                   onStopRun()
                 }}
-                className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-200 hover:bg-red-500/15"
+                className="pib-chat-danger inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium"
               >
                 <Icon name="stop" className="text-[12px]" />
                 Stop
@@ -2590,17 +2601,17 @@ export default function MessageBubble({
       </summary>
       <div className="max-h-80 overflow-y-auto border-t border-[var(--color-pib-line)] p-2 font-mono text-[11px] leading-relaxed">
         {consoleRows.map((row) => (
-          <div key={row.key} className="mb-1.5 overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[#050505]/80 last:mb-0">
-            <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-2 py-1 text-[10px]">
+          <div key={row.key} className="pib-terminal-block mb-1.5 overflow-hidden rounded-md border border-[var(--color-pib-line)] last:mb-0">
+            <div className="flex items-center gap-2 border-b border-white/10 px-2 py-1 text-[10px]">
               <span className={[
                 'h-2 w-2 rounded-[4px] shrink-0',
                 row.status === 'failed' ? 'bg-red-400' : row.status === 'running' ? 'bg-primary animate-pulse' : row.status === 'done' ? 'bg-emerald-400' : 'bg-[color-mix(in_srgb,var(--color-pib-text)_40%,transparent)]',
               ].join(' ')} />
-              <span className="min-w-0 flex-1 truncate text-primary">{row.label}</span>
-              <span className="shrink-0 text-[var(--color-pib-text-muted)]/70">{row.meta}</span>
+              <span className="pib-terminal-fg min-w-0 flex-1 truncate">{row.label}</span>
+              <span className="pib-terminal-muted shrink-0">{row.meta}</span>
             </div>
             {row.body && (
-              <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">
+              <pre className="pib-terminal-muted max-h-44 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] [overflow-wrap:anywhere]">
                 {row.body}
               </pre>
             )}
@@ -2673,7 +2684,7 @@ export default function MessageBubble({
                     <button
                       type="button"
                       onClick={onStopRun}
-                      className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                      className="pib-chat-danger inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium"
                     >
                       <Icon name="stop" className="text-[13px]" />
                       Stop
@@ -2747,7 +2758,7 @@ export default function MessageBubble({
             onMouseUp={handleTextSelection}
             className={
               isFailed
-                ? 'max-w-full overflow-hidden rounded-[6px] rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
+                ? 'pib-chat-danger max-w-full overflow-hidden rounded-[6px] rounded-tl-md border px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
@@ -2768,7 +2779,9 @@ export default function MessageBubble({
             <ChatMessageContent
               mentions={renderedMessage.mentions}
               content={
-                displayContent
+                (isFailed
+                  ? humanizeConversationRunError(displayContent || renderedMessage.error || '')
+                  : displayContent)
                 || (isFailed && renderedMessage.error
                   ? humanizeConversationRunError(renderedMessage.error)
                   : '')

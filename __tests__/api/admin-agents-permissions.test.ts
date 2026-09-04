@@ -320,7 +320,9 @@ describe('admin agent permissions', () => {
     expect(res.headers.get('Content-Type')).toContain('text/event-stream')
     const text = await res.text()
     expect(text).toContain('stream.unavailable')
-    expect(text).toContain('final response polling will continue')
+    expect(text).toContain('Still working')
+    expect(text).not.toContain('Live event stream unavailable')
+    expect(text).not.toContain('final response polling will continue')
     expect(mockCallAgentStream).toHaveBeenCalledWith('pip', '/v1/runs/run-1/events')
   })
 

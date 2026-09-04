@@ -25,6 +25,7 @@ import {
 import type { AgentId } from '@/lib/agents/types'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
+import { hostedAgentIdsForDevice } from '@/lib/linked-computers/hosted-agents'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,6 +93,26 @@ export const GET = withAuth(
     const selectedCredentialReadyAgentIds = Array.isArray(selectedDevice?.credentialReadyAgentIds)
       ? selectedDevice.credentialReadyAgentIds as unknown[]
       : []
+    const selectedDesiredAgentIds = Array.isArray(selectedDevice?.desiredAgents)
+      ? (selectedDevice.desiredAgents as unknown[]).flatMap((entry) => {
+        if (typeof entry === 'string') return [entry]
+        if (entry && typeof entry === 'object' && typeof (entry as { agentId?: unknown }).agentId === 'string') {
+          return [(entry as { agentId: string }).agentId]
+        }
+        return []
+      })
+      : []
+    const treatAsVps = selectedDevice?.deviceKind === 'vps'
+      || (!selectedDevice && (runtimeTargetId === 'vps' || Boolean(runtimeTargetId?.startsWith('vps:'))))
+    const hostedAgentIds = runtimeTargetId
+      ? new Set(await hostedAgentIdsForDevice({
+        deviceKind: treatAsVps ? 'vps' : 'computer',
+        availableAgentIds: selectedAvailableAgentIds,
+        availableAgents: Array.isArray(selectedDevice?.availableAgents) ? selectedDevice.availableAgents as { agentId?: unknown }[] : null,
+        credentialReadyAgentIds: selectedCredentialReadyAgentIds,
+        desiredAgentIds: selectedDesiredAgentIds,
+      }))
+      : null
 
     const snap = await adminDb.collection('agent_team').get()
     for (const doc of snap.docs) {
@@ -141,6 +162,7 @@ export const GET = withAuth(
         }
         const scopedOrgId = (agent as ScopedAgentRow).scopeOrgId
         if (scopedOrgId && scopedOrgId !== scope.orgId) return false
+        if (hostedAgentIds && !hostedAgentIds.has(agent.agentId)) return false
 
         // Members must not see specialists they cannot start. Org chat config
         // may list specialists for "client" role, but start still requires a

@@ -39,6 +39,7 @@ describe('WorkbenchTerminalPanel — Jobs mode', () => {
 
     expect(screen.getByTestId('workbench-terminal-mode-jobs')).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('$ git status', { exact: false })).toBeInTheDocument()
+    expect(screen.getByTestId('workbench-terminal-entry')).toHaveClass('pib-terminal-block')
 
     fireEvent.click(screen.getByTestId('workbench-terminal-quick-command-git-status'))
     expect(onRunCommand).toHaveBeenCalledWith('git status')

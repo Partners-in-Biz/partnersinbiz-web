@@ -239,6 +239,9 @@ describe('UnifiedChat mobile conversation first paint', () => {
     await waitFor(() => expect(screen.getByTestId('conversation-title')).toHaveTextContent('VP - H&G - CRM'))
     expect(screen.getByRole('button', { name: 'Open Sessions' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Conversation options' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Sessions' }))
+    expect(screen.getByTestId('messages-experience-icon-toggle')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close sessions' }))
 
     expect(isHiddenUntilMd(screen.getByTestId('conversation-command-session').className)).toBe(true)
     expect(isHiddenUntilMd(screen.getByTestId('conversation-mobile-subtitle').className)).toBe(true)
@@ -285,6 +288,8 @@ describe('UnifiedChat mobile conversation first paint', () => {
 
     await waitFor(() => expect(screen.getByTestId('conversation-title')).toHaveTextContent('VP - H&G - CRM'))
     await waitFor(() => expect(screen.getByTestId('command-session-badge')).toBeInTheDocument())
+    expect(screen.getByTestId('messages-experience-icon-toggle')).toHaveAttribute('data-experience-mode', 'bot')
+    expect(screen.getByRole('button', { name: 'Switch to Messages' })).toBeInTheDocument()
     expect(screen.getByTestId('bot-computer-strip')).toHaveTextContent('Computers')
     expect(screen.getByTestId('hermes-runtime-control-bar')).toHaveTextContent('0 queued')
     expect(screen.getByTestId('hermes-agent-workbench-toggle')).toBeInTheDocument()

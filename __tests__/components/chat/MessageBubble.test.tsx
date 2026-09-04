@@ -1037,6 +1037,58 @@ describe('MessageBubble', () => {
     expect(screen.getByText('Unsupported content')).toBeInTheDocument()
   })
 
+  it('uses Paper-safe danger styles on a failed agent bubble', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'The agent hit a temporary computer/gateway interruption. Partners in Biz is retrying automatically — leave this chat open.',
+          authorKind: 'agent',
+          authorId: 'blake',
+          authorDisplayName: 'Blake',
+          status: 'failed',
+          error: 'gateway_draining',
+        }}
+      />,
+    )
+    const bubble = screen.getByText(/computer dropped this run/i)
+    expect(bubble).toHaveClass('pib-chat-danger')
+    expect(bubble.className).not.toMatch(/text-red-200/)
+    expect(screen.queryByText(/retrying automatically/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/leave this chat open/i)).not.toBeInTheDocument()
+  })
+
+  it('does not surface a live-stream fallback as a status lecture', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        liveEvents={[
+          {
+            event: 'stream.unavailable',
+            activity: 'Live event stream unavailable; final response polling will continue.',
+            timestamp: Date.now() / 1000,
+          },
+        ]}
+        message={{
+          id: 'msg-stream',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'pending',
+          runId: 'run-stream',
+        }}
+      />,
+    )
+    expect(screen.queryByText(/Live event stream unavailable/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/final response polling will continue/i)).not.toBeInTheDocument()
+  })
+
   it('renders a durable linked-computer queue with elapsed state and Stop', () => {
     const stop = jest.fn()
     render(

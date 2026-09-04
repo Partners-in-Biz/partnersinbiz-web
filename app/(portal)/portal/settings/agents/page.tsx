@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import { CreateAgentOnMachineForm } from '@/components/agents/CreateAgentOnMachineForm'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type AgentRow = {
@@ -104,6 +105,7 @@ export default function OrganisationAgentsPage() {
     persona: '',
     deviceId: '',
   })
+  const [shareMembers, setShareMembers] = useState<Array<{ uid: string; displayName?: string | null; email?: string | null }>>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -124,6 +126,22 @@ export default function OrganisationAgentsPage() {
   }, [endpoint])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    const orgId = scope.orgId
+    if (!orgId) return
+    fetch(`/api/v1/organizations/${encodeURIComponent(orgId)}/members`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        const rows = Array.isArray(body?.data) ? body.data : []
+        setShareMembers(rows.flatMap((row: { uid?: string; userId?: string; displayName?: string; email?: string }) => {
+          const uid = row.uid || row.userId
+          if (!uid) return []
+          return [{ uid, displayName: row.displayName ?? null, email: row.email ?? null }]
+        }))
+      })
+      .catch(() => {})
+  }, [scope.orgId])
 
   const customAgents = useMemo(
     () => agents.filter((agent) => !agent.isMarketplace && agent.agentKind !== 'marketplace'),
@@ -173,22 +191,37 @@ export default function OrganisationAgentsPage() {
     setEditingAgentId(null)
   }
 
-  async function createAgent(event: FormEvent) {
-    event.preventDefault()
+  async function createAgent(input: {
+    name: string
+    role: string
+    persona: string
+    deviceId: string
+    agentHandle?: string
+    accessMode: 'personal' | 'organization' | 'people'
+    sharedWithUserIds: string[]
+  }) {
     setSaving(true)
     setMessage('')
     try {
       const response = await fetch(endpoint('/api/v1/portal/settings/agents'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          agentId: input.agentHandle || form.agentId,
+          name: input.name,
+          role: input.role,
+          persona: input.persona,
+          deviceId: input.deviceId,
+          accessMode: input.accessMode,
+          sharedWithUserIds: input.sharedWithUserIds,
+        }),
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error ?? 'Failed to create agent')
       setShowCreate(false)
       setForm({ agentId: '', name: '', role: 'Specialist', persona: '', deviceId: '' })
       await load()
-      setMessage(`${body.data?.agent?.name ?? 'Agent'} is being installed and kept in sync on the selected computer.`)
+      setMessage(`${body.data?.agent?.name ?? 'Agent'} is being installed on the selected computer. It will appear there once that machine hosts it.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to create agent')
     } finally {
@@ -704,47 +737,21 @@ export default function OrganisationAgentsPage() {
         </div>
 
         {showCreate && (
-          <form id="new-custom-agent" onSubmit={createAgent} className="pib-card scroll-mt-6 space-y-4 p-4">
+          <div id="new-custom-agent" className="pib-card scroll-mt-6 space-y-4 p-4">
             <p className="text-sm text-[var(--color-pib-text-muted)]">
-              Personal computers create a private agent owned by you. Shared VPS creation is available only to organisation owners and admins.
+              The agent is installed on the computer you pick. Choose who can use it on that machine. It will not appear on other machines.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1">
-                <span className="pib-label">Agent ID</span>
-                <input required maxLength={20} className="pib-input w-full font-mono" placeholder="my-research-agent" value={form.agentId} onChange={(event) => setForm((value) => ({ ...value, agentId: event.target.value.toLowerCase() }))} />
-              </label>
-              <label className="space-y-1">
-                <span className="pib-label">Name</span>
-                <input required maxLength={100} className="pib-input w-full" placeholder="Research assistant" value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} />
-              </label>
-              <label className="space-y-1">
-                <span className="pib-label">Role</span>
-                <input required maxLength={120} className="pib-input w-full" value={form.role} onChange={(event) => setForm((value) => ({ ...value, role: event.target.value }))} />
-              </label>
-              <label className="space-y-1">
-                <span className="pib-label">Computer or VPS</span>
-                <select required className="pib-select w-full" value={form.deviceId} onChange={(event) => setForm((value) => ({ ...value, deviceId: event.target.value }))}>
-                  <option value="">Choose a computer</option>
-                  {devices.map((device) => (
-                    <option key={device.deviceId} value={device.deviceId} disabled={!device.supportsCustomAgents}>
-                      {device.label} · {device.ownerType === 'organization' ? 'organisation VPS' : 'owned by you'}
-                      {!device.supportsCustomAgents ? ' · update required' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="block space-y-1">
-              <span className="pib-label">Purpose and behaviour</span>
-              <textarea required maxLength={20000} className="pib-input min-h-24 w-full" placeholder="What this agent owns, which work it should handle, and how it should behave." value={form.persona} onChange={(event) => setForm((value) => ({ ...value, persona: event.target.value }))} />
-            </label>
-            <div className="flex justify-end gap-2">
-              <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button type="submit" disabled={saving || devices.length === 0} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
-                {saving ? 'Creating…' : 'Create & sync'}
-              </button>
-            </div>
-          </form>
+            <CreateAgentOnMachineForm
+              devices={devices}
+              defaultDeviceId={form.deviceId}
+              members={shareMembers}
+              creating={saving}
+              canCreate={devices.length > 0}
+              submitLabel="Create & sync"
+              onSubmit={createAgent}
+            />
+            <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
         )}
 
         <div className="pib-card divide-y divide-[var(--color-pib-line)]">

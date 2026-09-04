@@ -35,6 +35,14 @@ jest.mock('@/lib/orgMembers/org-access-policy', () => ({
   loadOrgMemberAccessPolicy: (...args: unknown[]) => mockLoadOrgMemberAccessPolicy(...args),
 }))
 
+jest.mock('@/lib/linked-computers/hosted-agents', () => ({
+  hostedAgentIdsForDevice: jest.fn(async (input: { availableAgentIds?: unknown[] | null; deviceKind?: string }) => {
+    const ids = (input.availableAgentIds ?? []).filter((id): id is string => typeof id === 'string')
+    if (input.deviceKind === 'vps' && ids.length === 0) return ['pip', 'sales']
+    return ids
+  }),
+}))
+
 async function readJson(res: Response) {
   return JSON.parse(await res.text())
 }
@@ -45,7 +53,7 @@ beforeEach(() => {
   mockAgentRuntimeAccess = {}
   mockOrgChatConfigGet.mockResolvedValue({
     exists: true,
-    data: () => ({ visibleAgents: { client: ['pip', 'sales', 'theo'] } }),
+    data: () => ({ visibleAgents: { client: ['pip', 'sales', 'theo', 'blake'] } }),
   })
   mockLoadOrgMemberAccessPolicy.mockResolvedValue({
     preset: 'custom',
@@ -83,6 +91,13 @@ beforeEach(() => {
         enabled: true,
         name: 'Sales',
         provisioningMode: 'cloud',
+      }),
+    },
+    {
+      data: () => ({
+        agentId: 'blake',
+        enabled: true,
+        name: 'Blake',
       }),
     },
   ]
@@ -162,5 +177,19 @@ describe('visible agents API', () => {
     expect(body.data).toEqual(expect.not.arrayContaining([
       expect.objectContaining({ agentId: 'theo' }),
     ]))
+  })
+
+  it('drops agents that are not hosted on the selected VPS', async () => {
+    const { GET } = await import('@/app/api/v1/orgs/[orgId]/visible-agents/route')
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/orgs/org-1/visible-agents?runtimeTarget=vps'),
+      { params: Promise.resolve({ orgId: 'org-1' }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    const ids = (body.data as Array<{ agentId: string }>).map((row) => row.agentId)
+    expect(ids).toEqual(expect.arrayContaining(['pip', 'sales']))
+    expect(ids).not.toContain('theo')
+    expect(ids).not.toContain('blake')
   })
 })

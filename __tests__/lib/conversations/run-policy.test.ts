@@ -7,6 +7,12 @@ import {
 } from '@/lib/conversations/run-policy'
 
 describe('humanizeConversationRunError', () => {
+  it('rewrites the old retrying-automatically essay into a short send-again line', () => {
+    expect(humanizeConversationRunError(
+      'The agent hit a temporary computer/gateway interruption. Partners in Biz is retrying automatically — leave this chat open.',
+    )).toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+  })
+
   it('rewrites agent-browser connect failures into recovery guidance', () => {
     expect(humanizeConversationRunError('Unable to connect. Is the computer able to access the url?'))
       .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
@@ -55,6 +61,10 @@ describe('isRecoverableConversationRunError', () => {
     expect(isConversationBrowserToolFailure('Unable to connect. Is the computer able to access the url?')).toBe(true)
     expect(isConversationInfrastructureInterrupt('Local Hermes pip runtime restarting; reattachment retry window exhausted')).toBe(true)
     expect(isRecoverableConversationRunError('gateway_draining')).toBe(true)
+    expect(isRecoverableConversationRunError('The agent hit a temporary computational limit')).toBe(true)
+    expect(isRecoverableConversationRunError('429 Too Many Requests / rate limit')).toBe(true)
+    expect(humanizeConversationRunError('RESOURCE_EXHAUSTED: overloaded'))
+      .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
     expect(isRecoverableConversationRunError('Project is not linked to this computer')).toBe(false)
   })
 })

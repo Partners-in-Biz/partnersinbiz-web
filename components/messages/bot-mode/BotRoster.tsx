@@ -125,7 +125,7 @@ export function BotRoster({
   return (
     <div data-testid="bot-roster" className="flex min-h-0 flex-col gap-0.5">
       {bots.length === 0 ? (
-        <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No Bots are visible for this organisation yet.</p>
+        <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No agents on this computer yet. Create one or pick another machine.</p>
       ) : bots.map((bot) => {
         const selected = bot.id === activeBotId
         const preview = bot.lastPreview || bot.role

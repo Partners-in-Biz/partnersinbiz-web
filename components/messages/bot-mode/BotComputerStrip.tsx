@@ -19,6 +19,7 @@ export function BotComputerStrip({
   workbenchOpen = false,
   isolatedFolder = null,
   browserProfileId = null,
+  onSelectComputer,
   onOpenWorkbench,
   onToggleWorkbench,
   className,
@@ -29,6 +30,7 @@ export function BotComputerStrip({
   workbenchOpen?: boolean
   isolatedFolder?: string | null
   browserProfileId?: string | null
+  onSelectComputer?: (computerId: string) => void
   onOpenWorkbench?: (tab: WorkbenchTab) => void
   onToggleWorkbench?: () => void
   className?: string
@@ -48,16 +50,13 @@ export function BotComputerStrip({
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">No computers paired yet.</p>
       ) : computers.map((computer) => {
         const active = computer.id === activeComputerId
-        return (
-          <span
-            key={computer.id}
-            data-testid={`bot-computer-${computer.id}`}
-            className={`inline-flex h-11 max-w-[220px] items-center gap-1.5 rounded-lg border px-2.5 text-[11px] xl:h-8 ${
-              active
-                ? 'border-primary/40 bg-primary/12 text-[var(--color-pib-text)]'
-                : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
-            }`}
-          >
+        const className = `inline-flex h-11 max-w-[220px] items-center gap-1.5 rounded-lg border px-2.5 text-[11px] xl:h-8 ${
+          active
+            ? 'border-primary/40 bg-primary/12 text-[var(--color-pib-text)]'
+            : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]'
+        }`
+        const body = (
+          <>
             <span
               aria-hidden="true"
               className={`h-1.5 w-1.5 shrink-0 ${computer.online ? 'bg-emerald-300' : 'bg-[color-mix(in_srgb,var(--st-warning)_12%,transparent)]'}`} style={{ borderRadius: '50%' }}
@@ -66,7 +65,27 @@ export function BotComputerStrip({
               {computer.kind === 'vps' ? 'VPS' : 'Computer'} · {computer.label}
             </span>
             <span className="sr-only">{computer.online ? 'online' : 'unavailable'}</span>
-          </span>
+          </>
+        )
+        if (!onSelectComputer) {
+          return (
+            <span key={computer.id} data-testid={`bot-computer-${computer.id}`} className={className}>
+              {body}
+            </span>
+          )
+        }
+        return (
+          <button
+            key={computer.id}
+            type="button"
+            data-testid={`bot-computer-${computer.id}`}
+            aria-pressed={active}
+            aria-label={`Work on ${computer.kind === 'vps' ? 'VPS' : 'computer'} ${computer.label}`}
+            onClick={() => onSelectComputer(computer.id)}
+            className={className}
+          >
+            {body}
+          </button>
         )
       })}
       {isolatedFolder && (

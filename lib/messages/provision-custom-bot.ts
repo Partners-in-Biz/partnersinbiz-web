@@ -14,6 +14,12 @@ import {
 import type { LinkedDevice } from '@/lib/linked-computers/types'
 import type { OrgRole } from '@/lib/organizations/types'
 import { buildBotComputerBinding } from '@/lib/messages/bot-computer-isolation'
+import {
+  grantAgentRuntimeAccessToMembers,
+  parseSharedMemberUserIds,
+  resolveCreatedAgentAccess,
+  type CreateAgentAccessMode,
+} from '@/lib/orgMembers/agent-runtime-grants'
 
 export async function provisionCustomBotOnDevice(input: {
   orgId: string
@@ -27,6 +33,8 @@ export async function provisionCustomBotOnDevice(input: {
   iconKey?: string
   colorKey?: string
   deviceId: string
+  accessMode?: CreateAgentAccessMode
+  sharedWithUserIds?: unknown
 }): Promise<{ agent: AgentTeamDoc; deviceId: string; runtimeTargetId: string; enqueuedJobIds: string[] }> {
   const agentId = buildScopedAgentId(input.orgId, input.handle)
   const deviceRef = adminDb.collection('linked_devices').doc(input.deviceId)
@@ -42,12 +50,20 @@ export async function provisionCustomBotOnDevice(input: {
     error.status = 409
     throw error
   }
-  const accessScope = assertCanCreateAgentOnDevice({
+  const deviceAccessScope = assertCanCreateAgentOnDevice({
     device,
     actorUserId: input.actorUserId,
     orgId: input.orgId,
     role: input.role,
   })
+  const createdAccess = resolveCreatedAgentAccess({
+    deviceAccessScope,
+    requested: input.accessMode,
+  })
+  const accessScope = createdAccess.accessScope
+  const sharedWithUserIds = createdAccess.grantMembers
+    ? parseSharedMemberUserIds(input.sharedWithUserIds)
+    : []
   const agent = await createLinkedAgent({
     agentId,
     name: input.name,
@@ -89,10 +105,20 @@ export async function provisionCustomBotOnDevice(input: {
     orgId: input.orgId,
     desired,
   })
+  const runtimeTargetId = device.runtimeTargetId || `linked-device:${input.deviceId}`
+  if (sharedWithUserIds.length > 0) {
+    await grantAgentRuntimeAccessToMembers({
+      orgId: input.orgId,
+      runtimeTargetId,
+      agentId,
+      memberUserIds: sharedWithUserIds,
+      actorUserId: input.actorUserId,
+    })
+  }
   return {
     agent: { ...agent, ...(botComputer ? { botComputer } : {}) },
     deviceId: input.deviceId,
-    runtimeTargetId: device.runtimeTargetId || `linked-device:${input.deviceId}`,
+    runtimeTargetId,
     enqueuedJobIds: sync.enqueuedJobIds,
   }
 }

@@ -38,6 +38,7 @@ export function ConversationOverflowSheet({
   computers = [],
   computersHref,
   activeComputerId,
+  onSelectComputer,
   isolatedFolder,
   browserProfileId,
   showAgentWorkbench = false,
@@ -71,6 +72,7 @@ export function ConversationOverflowSheet({
   computers?: VisibleBotComputer[]
   computersHref?: string
   activeComputerId?: string | null
+  onSelectComputer?: (computerId: string) => void
   isolatedFolder?: string | null
   browserProfileId?: string | null
   showAgentWorkbench?: boolean
@@ -208,6 +210,7 @@ export function ConversationOverflowSheet({
               <BotComputerStrip
                 computers={computers}
                 activeComputerId={activeComputerId}
+                onSelectComputer={onSelectComputer}
                 computersHref={computersHref}
                 workbenchOpen={workbenchOpen}
                 isolatedFolder={isolatedFolder}

@@ -261,6 +261,29 @@
 }
 
 @layer components {
+  /* Paper/Ink-safe danger chips. Do not use Tailwind text-red-200 on pale red fills. */
+  .pib-chat-danger {
+    border-color: color-mix(in srgb, var(--st-danger) 40%, transparent);
+    background: var(--color-error-container);
+    color: var(--color-on-error-container);
+  }
+  .pib-chat-danger:hover {
+    background: color-mix(in srgb, var(--st-danger) 18%, transparent);
+  }
+
+  /* Always-dark terminal chrome with light ink. Paper tokens make
+     `text-primary` / `--color-pib-text-muted` dark, so they vanish on #050505. */
+  .pib-terminal-block {
+    background: #1a1714;
+    color: #f3efe6;
+  }
+  .pib-terminal-block .pib-terminal-fg {
+    color: #f3efe6;
+  }
+  .pib-terminal-block .pib-terminal-muted {
+    color: rgba(243, 239, 230, 0.72);
+  }
+
   /* === Studio re-skin of legacy class names (Phase 1). Names frozen. === */
 
   .pib-link-underline {
