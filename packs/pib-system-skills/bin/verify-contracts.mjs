@@ -27,6 +27,7 @@ check(manifest.tiers?.core?.skills?.includes('client-documents'), 'core includes
 check(manifest.tiers?.core?.skills?.includes('agent-runtime-ops'), 'core includes agent-runtime-ops')
 check(manifest.tiers?.core?.skills?.includes('reports'), 'core includes reports')
 check(manifest.tiers?.core?.skills?.includes('daily-workflow'), 'core includes daily-workflow')
+check(manifest.tiers?.core?.skills?.includes('pib-bot-teams'), 'core includes pib-bot-teams')
 check(manifest.tiers?.core?.skills?.includes('pib-chat-canvas'), 'core includes pib-chat-canvas')
 
 const dailySkillPath = join(root, 'skills/daily-workflow/SKILL.md')
@@ -40,6 +41,28 @@ if (existsSync(dailySkillPath) && existsSync(dailyRepoPath)) {
   check(dailyPack === dailyRepo, 'daily-workflow repo and pack copies match')
   check(!dailyPack.includes('rm -rf'), 'daily-workflow forbids destructive cleanup commands')
   check(!dailyPack.includes('git add -A'), 'daily-workflow forbids blind stage-all')
+}
+
+const teamsSkillPath = join(root, 'skills/pib-bot-teams/SKILL.md')
+const teamsRepoPath = join(repoRoot, '.claude/skills/pib-bot-teams/SKILL.md')
+check(existsSync(teamsSkillPath), 'pib-bot-teams pack skill exists')
+check(existsSync(teamsRepoPath), 'pib-bot-teams repo skill exists')
+if (existsSync(teamsSkillPath) && existsSync(teamsRepoPath)) {
+  const teamsPack = readFileSync(teamsSkillPath, 'utf8')
+  const teamsRepo = readFileSync(teamsRepoPath, 'utf8')
+  check(teamsPack === teamsRepo, 'pib-bot-teams repo and pack copies match')
+  check(teamsPack.includes('Address teammates with `@handle`'), 'pib-bot-teams documents @handle addressing')
+  check(teamsPack.includes('message_agent'), 'pib-bot-teams documents message_agent')
+  check(teamsPack.includes('maxRounds'), 'pib-bot-teams documents maxRounds')
+  check(teamsPack.includes('maxMessages'), 'pib-bot-teams documents maxMessages')
+  check(teamsPack.includes('maxMembers'), 'pib-bot-teams documents maxMembers')
+  check(teamsPack.includes('Desktop-only'), 'pib-bot-teams documents Desktop-only @user escalation')
+  check(teamsPack.includes('needsYou'), 'pib-bot-teams documents PiB needsYou mention parser')
+  check(teamsPack.includes('Never put API keys, tokens, passwords, `.env` values, session cookies, or file contents'), 'pib-bot-teams forbids credentials and file contents in DMs')
+  check(teamsPack.includes('report the typed reason **exactly** as received'), 'pib-bot-teams reports failure reasons verbatim')
+  check(teamsPack.includes('hermes-bots-groups'), 'pib-bot-teams persists rooms via hermes-bots-groups')
+  check(teamsPack.includes('profiles.configure'), 'pib-bot-teams persists rooms via profiles.configure')
+  check(teamsPack.includes('groups.*'), 'pib-bot-teams forbids hosted groups.*')
 }
 
 const canvasSkillPath = join(root, 'skills/pib-chat-canvas/SKILL.md')

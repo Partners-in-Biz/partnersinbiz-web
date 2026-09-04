@@ -53,6 +53,7 @@ describe('agent skill policy manifest', () => {
       'platform-ops',
       'agent-runtime-ops',
       'pib-agent-org-setup',
+      'pib-bot-teams',
       'pib-chat-canvas',
       'pib-staff-billing-access',
       'platform-admin-users',
@@ -326,6 +327,51 @@ describe('agent skill policy manifest', () => {
     expect(repoSkill).toContain('Only stop development servers started during the current session')
   })
 
+  it('delivers pib-bot-teams to every managed agent and the core pack', () => {
+    const agentIds = Object.keys(AGENT_SKILL_POLICY.agents).sort()
+    const catalog = AGENT_SKILL_POLICY.skillCatalog['pib-bot-teams']
+    const repoSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/pib-bot-teams/SKILL.md',
+    ), 'utf8')
+    const packSkill = readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/skills/pib-bot-teams/SKILL.md',
+    ), 'utf8')
+    const packManifest = JSON.parse(readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/manifest.json',
+    ), 'utf8'))
+
+    expect(catalog.allowedAgentIds.slice().sort()).toEqual(agentIds)
+    expect(catalog.allowedAgentIds).toEqual(AGENT_SKILL_POLICY.skillCatalog['daily-workflow'].allowedAgentIds)
+    expect(catalog).toEqual(expect.objectContaining({
+      ownerAgentId: 'pip',
+      riskLevel: 'medium',
+      syncTarget: 'vps',
+    }))
+    for (const agentId of agentIds) {
+      expect(AGENT_SKILL_POLICY.agents[agentId].pibSkills).toContain('pib-bot-teams')
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('pib-bot-teams')
+    }
+
+    expect(packSkill).toBe(repoSkill)
+    expect(packManifest.tiers.core.skills).toContain('pib-bot-teams')
+    expect(packManifest.skills['pib-bot-teams']).toEqual(expect.objectContaining({
+      tier: 'core',
+      owner: 'pip',
+      risk: 'medium',
+    }))
+    expect(repoSkill).toContain('Address teammates with `@handle`')
+    expect(repoSkill).toContain('message_agent')
+    expect(repoSkill).toContain('maxRounds')
+    expect(repoSkill).toContain('Desktop-only')
+    expect(repoSkill).toContain('needsYou')
+    expect(repoSkill).toContain('hermes-bots-groups')
+    expect(repoSkill).toContain('profiles.configure')
+    expect(catalog.allowedAgentIds).not.toContain('*')
+  })
+
   it('delivers pib-chat-canvas to every managed agent, the core pack, and marketplace public packs', () => {
     const agentIds = Object.keys(AGENT_SKILL_POLICY.agents).sort()
     const catalog = AGENT_SKILL_POLICY.skillCatalog['pib-chat-canvas']
@@ -425,6 +471,7 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/evidence-ledger',
       'partnersinbiz/project-management',
       'partnersinbiz/daily-workflow',
+      'partnersinbiz/pib-bot-teams',
       'partnersinbiz/pib-chat-canvas',
       'partnersinbiz/client-documents',
       'partnersinbiz/docs-lead',

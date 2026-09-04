@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.11 — 2026-09-03
+
+- Add `pib-bot-teams` (core): teach every managed profile to address teammates
+  with `@handle`, choose `message_agent` vs a direct room answer, honour the
+  Hermes `botMode.rounds` caps (3 rounds / 10 messages / 6 members), escalate
+  with `@user` (Desktop-only; PiB sets `needsYou` from its mention parser),
+  never paste credentials or file contents into a DM, and report delivery
+  failure reasons verbatim. Rooms persist via `hermes-bots-groups` /
+  `profiles.configure`, not hosted `groups.*`. Owner: pip; allowed on every
+  platform agent.
+- Bump `catalogVersion` to `2026-09-03.system-skills-v0.1.11` so the pack stays
+  in lockstep with `config/agent-skill-policy.json`.
+
 ## 0.1.10 — 2026-09-03
 
 - Add `pib-chat-canvas` (core): teach every managed profile to emit `pib:chart`,

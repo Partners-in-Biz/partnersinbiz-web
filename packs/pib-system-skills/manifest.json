@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.10",
-  "catalogVersion": "2026-09-03.system-skills-v0.1.10",
+  "packVersion": "0.1.11",
+  "catalogVersion": "2026-09-03.system-skills-v0.1.11",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -21,6 +21,7 @@
       "skills": [
         "system-auth",
         "daily-workflow",
+        "pib-bot-teams",
         "pib-chat-canvas",
         "client-documents",
         "docs-lead",
@@ -81,6 +82,13 @@
       "risk": "high",
       "requiredScopes": [],
       "summary": "Safe natural-language start-day and end-day workflow with live workspace resolution, verification, durable context, and non-destructive git/process boundaries."
+    },
+    "pib-bot-teams": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Teach every managed profile to address teammates with @handle, choose message_agent vs a direct room answer, honour 3-round / 10-message / 6-member caps, escalate with @user, and report delivery failures verbatim. Rooms persist via hermes-bots-groups / profiles.configure, not hosted groups.*."
     },
     "pib-chat-canvas": {
       "tier": "core",
