@@ -503,6 +503,79 @@ describe('briefing feed', () => {
     })
   })
 
+  it('shows a received quote to the recipient org owner even without a CRM link', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    // No companies map, no assignment: the owner of the receiving org still has
+    // to decide on the quote, so the operator check must look at recipientOrgId.
+    makeOrgOwner('org-1', 'owner-1')
+    collections.quotes = [
+      makeDoc('quote-2', {
+        orgId: 'pib-platform-owner',
+        sourceOrgId: 'pib-platform-owner',
+        recipientOrgId: 'org-1',
+        quoteNumber: 'QUO-1002',
+        status: 'sent',
+        total: 9200,
+        currency: 'ZAR',
+        recipientName: 'Owner One',
+        updatedAt: '2026-05-31T09:45:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'owner-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'quote' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({ source: { type: 'quote', id: 'quote-2' }, title: 'Quote awaiting decision: QUO-1002' })
+
+    // A plain member of the recipient org is not the operator and still sees nothing.
+    const memberFeed = await buildBriefingFeed(
+      { uid: 'member-9', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'quote' },
+    )
+    expect(memberFeed.items).toHaveLength(0)
+  })
+
+  it('keeps comments on the viewer\'s own task visible when only comments are requested', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Readable Project', slug: 'readable-project' })]
+    collectionGroups.tasks = [
+      makeDoc('task-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        title: 'My assigned task',
+        assigneeId: 'user-1',
+        columnId: 'in_progress',
+        updatedAt: '2026-06-17T09:00:00.000Z',
+      }, 'projects/project-1/tasks/task-1'),
+    ]
+    collectionGroups.comments = [
+      makeDoc('comment-2', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        taskId: 'task-1',
+        text: 'Left a note for the assignee.',
+        userId: 'someone-else',
+        userRole: 'admin',
+        createdAt: '2026-06-17T09:30:00.000Z',
+      }, 'comments/comment-2'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    // sourceType: 'comment' used to skip the task loop, leaving the linked-task
+    // set empty so only self-authored comments survived.
+    const feed = await buildBriefingFeed(
+      { uid: 'user-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'comment' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({ source: { type: 'comment', id: 'comment-2' } })
+  })
+
   it('surfaces active shipments as delivery control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     makeOrgOwner('org-1', 'client-1')

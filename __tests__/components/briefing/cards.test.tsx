@@ -273,7 +273,7 @@ describe('BriefingCardForKind', () => {
   })
 
   it('loads busy blocks for the chosen day in Book call and flags overlaps', async () => {
-    const loadBusy = jest.fn(async (date: string) => (date === '2026-09-05' ? [{ start: '2026-09-05T10:00:00', end: '2026-09-05T10:30:00', title: 'Buhle' }] : []))
+    const loadBusy = jest.fn(async (date: string) => (date === '2031-03-12' ? [{ start: '2031-03-12T10:00:00', end: '2031-03-12T10:30:00', title: 'Buhle' }] : []))
     const actions = makeActions({ canBookCall: jest.fn(() => true), loadBusy })
     const item = makeItem({
       title: 'Follow up with Jane Buyer',
@@ -287,13 +287,13 @@ describe('BriefingCardForKind', () => {
     expect(loadBusy.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(screen.getByRole('button', { name: /create invite/i })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('When'), { target: { value: '2026-09-05T10:15' } })
-    await waitFor(() => expect(loadBusy).toHaveBeenCalledWith('2026-09-05'))
+    fireEvent.change(screen.getByLabelText('When'), { target: { value: '2031-03-12T10:15' } })
+    await waitFor(() => expect(loadBusy).toHaveBeenCalledWith('2031-03-12'))
     expect(await screen.findByText('Overlaps with 10:00–10:30 Buhle')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /book anyway/i })).toBeInTheDocument()
 
     // Moving off the busy block clears the warning without another fetch (same day).
-    fireEvent.change(screen.getByLabelText('When'), { target: { value: '2026-09-05T11:00' } })
+    fireEvent.change(screen.getByLabelText('When'), { target: { value: '2031-03-12T11:00' } })
     await waitFor(() => expect(screen.queryByText(/Overlaps with/)).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: /create invite/i })).toBeInTheDocument()
     expect(loadBusy).toHaveBeenCalledTimes(2)

@@ -1,4 +1,5 @@
 import {
+  recordAddressedOrgIds,
   recordLinkedToUser,
   recordLinkedViaCrm,
   recordOperatorAddressed,
@@ -144,9 +145,28 @@ describe('briefing personal-scope helpers', () => {
       expect(recordOperatorAddressed('ad-campaign', { status: 'pending_approval' })).toBe(true)
     })
 
+    it('matches the statuses the broadcast and ad-campaign adapters actually emit', () => {
+      // broadcastAdapter emits a needs-peet "ready to send" card for drafts.
+      expect(recordOperatorAddressed('broadcast', { status: 'draft' })).toBe(true)
+      expect(recordOperatorAddressed('broadcast', { status: 'sent' })).toBe(false)
+      // adCampaignAdapter only generates for PENDING_REVIEW + reviewState awaiting.
+      expect(recordOperatorAddressed('ad-campaign', { status: 'PENDING_REVIEW', reviewState: 'awaiting' })).toBe(true)
+      expect(recordOperatorAddressed('ad-campaign', { status: 'pending_review', reviewState: 'resolved' })).toBe(false)
+      expect(recordOperatorAddressed('ad-campaign', { status: 'ACTIVE' })).toBe(false)
+    })
+
     it('returns false for unknown types and null docs', () => {
       expect(recordOperatorAddressed('project', { status: 'active' })).toBe(false)
       expect(recordOperatorAddressed('task', null)).toBe(false)
+    })
+  })
+
+  describe('recordAddressedOrgIds', () => {
+    it('collects the owner org plus recipient/target/source orgs, deduplicated', () => {
+      expect(recordAddressedOrgIds({ orgId: 'pib', sourceOrgId: 'pib', recipientOrgId: 'org-1' })).toEqual(['pib', 'org-1'])
+      expect(recordAddressedOrgIds({ orgId: 'org-1', targetOrgId: ' org-2 ' })).toEqual(['org-1', 'org-2'])
+      expect(recordAddressedOrgIds({ orgId: '' })).toEqual([])
+      expect(recordAddressedOrgIds(null)).toEqual([])
     })
   })
 })
