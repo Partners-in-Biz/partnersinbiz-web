@@ -41,6 +41,17 @@
   box-shadow: none;
 }
 
+/* ModuleShell wraps children in .st-stack (16px grid gap). That reads as an
+   empty band between the Bot mode nav and the conversation header. */
+.pib-shell[data-messages-experience] > .st-stack,
+[data-pib-shell][data-messages-experience] > .st-stack {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
 /* Neural field canvas sits behind chrome */
 .messages-neural-field {
   position: absolute;

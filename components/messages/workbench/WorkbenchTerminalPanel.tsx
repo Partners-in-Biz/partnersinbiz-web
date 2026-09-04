@@ -224,7 +224,7 @@ function WorkbenchSessionView({
             aria-label="Kill shell session"
             onClick={() => onKill?.()}
             disabled={killDisabled}
-            className="shrink-0 rounded-md border border-red-400/35 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="pib-chat-danger shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
           >
             Kill
           </button>
@@ -238,10 +238,10 @@ function WorkbenchSessionView({
       )}
 
       {session?.error && (
-        <div role="alert" className="shrink-0 space-y-1 border-b border-red-400/20 bg-red-500/10 px-2 py-1.5 text-[10px] text-red-200">
+        <div role="alert" className="pib-chat-danger shrink-0 space-y-1 border-b px-2 py-1.5 text-[10px]">
           <p>{session.error}</p>
           {isNodePtyError(session.error) && (
-            <p data-testid="workbench-session-node-pty-hint" className="text-red-100/80">{NODE_PTY_HINT}</p>
+            <p data-testid="workbench-session-node-pty-hint" className="opacity-80">{NODE_PTY_HINT}</p>
           )}
         </div>
       )}
@@ -258,7 +258,7 @@ function WorkbenchSessionView({
         <div
           ref={transcriptRef}
           data-testid="workbench-session-transcript"
-          className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-[#050505]/80 p-2 font-mono text-[11px] leading-relaxed text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]"
+          className="pib-terminal-block pib-terminal-muted min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words p-2 font-mono text-[11px] leading-relaxed [overflow-wrap:anywhere]"
         >
           {session?.transcript || (
             <span className="text-[var(--color-pib-text-muted)]/60">
@@ -458,14 +458,14 @@ export function WorkbenchTerminalPanel({
       {commandBar}
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed">
         {entries.map((entry) => (
-          <div key={entry.id} className="overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[#050505]/80">
-            <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-2 py-1 text-[10px]">
+          <div key={entry.id} data-testid="workbench-terminal-entry" className="pib-terminal-block overflow-hidden rounded-lg border border-[var(--color-pib-line)]">
+            <div className="flex items-center gap-2 border-b border-white/10 px-2 py-1 text-[10px]">
               <span aria-hidden="true" className={`h-2 w-2 shrink-0 ${STATUS_DOT[entry.status] ?? STATUS_DOT.info}`} style={{ borderRadius: '50%' }} />
-              <span className="min-w-0 flex-1 truncate text-primary">{entry.label}</span>
-              <span className="shrink-0 text-[var(--color-pib-text-muted)]/70">{entry.meta}</span>
+              <span className="pib-terminal-fg min-w-0 flex-1 truncate">{entry.label}</span>
+              <span className="pib-terminal-muted shrink-0">{entry.meta}</span>
             </div>
             {entry.body && (
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">
+              <pre className="pib-terminal-muted max-h-56 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] [overflow-wrap:anywhere]">
                 {entry.body}
               </pre>
             )}

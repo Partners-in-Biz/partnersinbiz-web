@@ -54,16 +54,28 @@ describe('resolveNewConversationAgentGate', () => {
     })
   })
 
-  it('falls back to platform agents when the runtime inventory is unknown', () => {
+  it('treats unknown inventory on a selected machine as empty, not the org roster', () => {
     expect(resolveNewConversationAgentGate({
       scope: 'company',
       runtimeRequired: true,
       runtimeSelected: true,
       runtimeAvailableAgentIds: null,
     })).toEqual({
-      mode: 'platform',
-      allowedAgentIds: null,
-      reason: null,
+      mode: 'runtime-empty',
+      allowedAgentIds: [],
+      reason: 'No agents are running on this computer yet. Install or start Hermes agents on it, then retry.',
+    })
+  })
+
+  it('requires a computer for general chats when the caller marks runtime required', () => {
+    expect(resolveNewConversationAgentGate({
+      scope: 'general',
+      runtimeRequired: true,
+      runtimeSelected: false,
+    })).toEqual({
+      mode: 'awaiting-runtime',
+      allowedAgentIds: [],
+      reason: 'Select a computer first to see which agents are available there.',
     })
   })
 })

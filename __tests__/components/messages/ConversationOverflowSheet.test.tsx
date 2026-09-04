@@ -103,4 +103,20 @@ describe('ConversationOverflowSheet', () => {
     expect(onExperienceModeChange).toHaveBeenCalledWith('messages')
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('selects a computer from the overflow strip', () => {
+    const onSelectComputer = jest.fn()
+    render(
+      <ConversationOverflowSheet
+        open
+        onClose={jest.fn()}
+        title="Hunt & Gun"
+        computers={computers}
+        computersHref="/portal/settings/linked-computers"
+        onSelectComputer={onSelectComputer}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Work on VPS hermes-vps-01' }))
+    expect(onSelectComputer).toHaveBeenCalledWith('vps')
+  })
 })

@@ -487,11 +487,11 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
               partners: [{
                 id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'partners-mac-workspace',
                 mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: true,
-                isFresh: true, isHealthy: true, lastSeenAt: null,
+                isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
               }, {
                 id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'client-growth-map',
                 mappingLabel: 'Client Growth', selectable: true, enabled: true, isLocal: true,
-                isFresh: true, isHealthy: true, lastSeenAt: null,
+                isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
               }],
             },
             projects: [],
@@ -525,7 +525,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(dialog).getByRole('option', { name: /Peets-Mac-mini\.local · Partners in Biz/ })).toBeInTheDocument()
     expect(within(dialog).getByRole('option', { name: /Peets-Mac-mini\.local · Client Growth/ })).toBeInTheDocument()
     fireEvent.change(runtime, { target: { value: 'device-mac::client-growth-map' } })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Theo Builder/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
     await waitFor(() => expect(creates).toEqual([expect.objectContaining({
       workspaceId: 'partners',
@@ -725,15 +725,15 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
               partners: [{
                 id: 'partners-vps', label: 'Partners VPS', mappingId: 'partners-vps-workspace',
                 mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: false,
-                isFresh: true, isHealthy: true, lastSeenAt: null,
+                isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
               }, {
                 id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'client-growth-map',
                 mappingLabel: 'Client Growth', selectable: true, enabled: true, isLocal: true,
-                isFresh: true, isHealthy: true, lastSeenAt: null,
+                isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
               }, {
                 id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'partners-mac-workspace',
                 mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: true,
-                isFresh: true, isHealthy: true, lastSeenAt: null,
+                isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
               }],
             },
             projects: [],
@@ -796,6 +796,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       id: 'conv-recovered',
       title: 'New conversation',
       createdAt: { seconds: Math.floor(Date.now() / 1000) },
+      workspaceContext: { workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'device-mac', runtimeLabel: 'Studio Mac' },
     }
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -808,7 +809,17 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       }
       if (url.includes('/contacts')) return jsonResponse({ data: [] })
       if (url.startsWith('/api/v1/workspaces?')) {
-        return jsonResponse({ data: { workspaces: [], runtimeTargetsByWorkspace: {}, projects: [] } })
+        return jsonResponse({ data: {
+          workspaces: [{
+            workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme',
+            sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'device-mac', folderVersion: 1,
+          }],
+          runtimeTargetsByWorkspace: { acme: [{
+            id: 'device-mac', label: 'Studio Mac', selectable: true, enabled: true, isLocal: true,
+            isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['pip'],
+          }] },
+          projects: [],
+        } })
       }
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({
@@ -839,7 +850,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
     const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Pip Operator/ }))
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Pip Operator/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
 
     await waitFor(() => expect(postAttempts).toBe(2))
@@ -907,7 +918,17 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       if (url.includes('/contacts')) return jsonResponse({ data: [] })
       if (url.startsWith('/api/v1/workspaces?')) {
         workspaceUrls.push(url)
-        return jsonResponse({ data: { workspaces: [], runtimeTargetsByWorkspace: {}, projects: [] } })
+        return jsonResponse({ data: {
+          workspaces: [{
+            workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme',
+            sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'device-mac', folderVersion: 1,
+          }],
+          runtimeTargetsByWorkspace: { acme: [{
+            id: 'device-mac', label: 'Studio Mac', selectable: true, enabled: true, isLocal: true,
+            isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
+          }] },
+          projects: [],
+        } })
       }
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
       throw new Error(`Unhandled fetch: ${url}`)
@@ -921,7 +942,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(startConversation).toBeTruthy()
     fireEvent.click(startConversation!)
     const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Theo Builder/ }))
 
     await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=theo'))).toBe(true))
   })
@@ -946,7 +967,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
           }],
           runtimeTargetsByWorkspace: { acme: pipCatalogue ? [{
             id: 'linked-device:mac-a', label: 'Studio Mac', selectable: true, enabled: true,
-            isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null,
+            isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null, availableAgentIds: ['theo'],
           }] : [] },
           projects: [],
         } })
@@ -964,7 +985,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(await screen.findByPlaceholderText('Send a message')).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
     const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Theo Builder/ }))
 
     await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=theo'))).toBe(true))
     expect(screen.queryByText('Computer unavailable')).not.toBeInTheDocument()

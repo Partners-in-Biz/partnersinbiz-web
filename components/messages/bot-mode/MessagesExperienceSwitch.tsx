@@ -12,11 +12,36 @@ export function MessagesExperienceSwitch({
   value,
   onChange,
   showLabels = false,
+  variant = 'tabs',
+  className,
 }: {
   value: MessagesExperienceMode
   onChange: (mode: MessagesExperienceMode) => void
   showLabels?: boolean
+  /** `icon` is a single toggle for the Sessions rail. */
+  variant?: 'tabs' | 'icon'
+  className?: string
 }) {
+  if (variant === 'icon') {
+    const next = value === 'bot' ? 'messages' : 'bot'
+    const label = value === 'bot' ? 'Switch to Messages' : 'Switch to Bot mode'
+    const icon = value === 'bot' ? 'forum' : 'smart_toy'
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-pressed={value === 'bot'}
+        data-testid="messages-experience-icon-toggle"
+        data-experience-mode={value}
+        onClick={() => onChange(next)}
+        className={className ?? 'grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]'}
+      >
+        <Icon name={icon} className="text-[16px]" />
+      </button>
+    )
+  }
+
   return (
     <div
       role="tablist"

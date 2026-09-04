@@ -47,6 +47,15 @@ describe('bot computers', () => {
     ])
     expect(computersForBot(computers, 'theo').map((computer) => computer.id)).toEqual(['mac'])
   })
+
+  it('does not treat an empty inventory as every machine', () => {
+    const computers = uniqueBotComputers([
+      { id: 'mac', label: 'Mac', selectable: true, isFresh: true, isHealthy: true, availableAgentIds: [] },
+      { id: 'vps', label: 'VPS', selectable: true, isFresh: true, isHealthy: true, availableAgentIds: ['pip'] },
+    ])
+    expect(computersForBot(computers, 'pip').map((computer) => computer.id)).toEqual(['vps'])
+    expect(computersForBot(computers, 'blake')).toEqual([])
+  })
 })
 
 describe('bot roster', () => {

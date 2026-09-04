@@ -12,6 +12,7 @@ import type {
   LinkedDeviceWorkspaceMapping,
 } from './types'
 import { DEFAULT_RUNTIME_CHANNELS, getRuntimeChannelConfig, type RuntimeReleaseChannel } from './runtime-config'
+import { hostedAgentIdsForDevice } from './hosted-agents'
 
 const DEVICE_STALE_AFTER_MS = 5 * 60 * 1000
 const SAFE_RUNTIME_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
@@ -313,9 +314,25 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
       device,
       (channelConfig ?? DEFAULT_RUNTIME_CHANNELS[channelName]).hermes.minVersion,
     )
-    const availableAgentIds = Array.isArray(device.availableAgentIds)
+    const observedAgentIds = Array.isArray(device.availableAgentIds)
       ? device.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
       : []
+    const desiredAgentIds = Array.isArray((device as LinkedDevice & { desiredAgents?: unknown }).desiredAgents)
+      ? ((device as LinkedDevice & { desiredAgents: unknown[] }).desiredAgents).flatMap((entry) => {
+        if (typeof entry === 'string') return [entry]
+        if (entry && typeof entry === 'object' && typeof (entry as { agentId?: unknown }).agentId === 'string') {
+          return [(entry as { agentId: string }).agentId]
+        }
+        return []
+      })
+      : []
+    const availableAgentIds = await hostedAgentIdsForDevice({
+      deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
+      availableAgentIds: observedAgentIds,
+      availableAgents: device.availableAgents,
+      credentialReadyAgentIds: device.credentialReadyAgentIds,
+      desiredAgentIds,
+    })
     const requestedAgentUnavailable = Boolean(input.agentId && availableAgentIds.length > 0 && !availableAgentIds.includes(input.agentId))
     const unavailableReason: LinkedRuntimeUnavailableReason | undefined = !canExecute || device.health !== 'ok' || seen == null
       ? 'offline'

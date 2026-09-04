@@ -23,16 +23,17 @@ interface ParticipantBarProps {
 
 const AGENT_COLOR: Record<string, { dot: string; label: string }> = {
   violet:  { dot: 'bg-[color-mix(in_srgb,var(--st-info)_14%,transparent)]', label: 'text-[var(--st-info)]' },
-  sky:     { dot: 'bg-sky-400',    label: 'text-sky-300' },
+  sky:     { dot: 'bg-[color-mix(in_srgb,var(--st-info)_55%,transparent)]', label: 'text-[var(--st-info)]' },
   amber:   { dot: 'bg-[color-mix(in_srgb,var(--st-warning)_14%,transparent)]',  label: 'text-[var(--st-warning)]' },
-  emerald: { dot: 'bg-emerald-400',label: 'text-emerald-300' },
-  rose:    { dot: 'bg-rose-400',   label: 'text-rose-300' },
+  emerald: { dot: 'bg-[color-mix(in_srgb,var(--st-success)_55%,transparent)]', label: 'text-[var(--st-success)]' },
+  rose:    { dot: 'bg-[color-mix(in_srgb,var(--st-danger)_55%,transparent)]', label: 'text-[var(--st-danger)]' },
 }
 
 // Agent ID → default color key (matches AgentTeamDoc.colorKey in Firestore)
 const AGENT_DEFAULT_COLOR: Record<string, string> = {
   pip:   'violet',
   theo:  'sky',
+  blake: 'sky',
   maya:  'amber',
   sage:  'emerald',
   nora:  'rose',

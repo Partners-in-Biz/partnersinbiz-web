@@ -39,6 +39,16 @@ describe('bot mode surfaces', () => {
     expect(onChange).toHaveBeenCalledWith('bot')
   })
 
+  it('toggles messages and bot mode from a single rail icon', () => {
+    const onChange = jest.fn()
+    const { rerender } = render(<MessagesExperienceSwitch value="messages" onChange={onChange} variant="icon" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Bot mode' }))
+    expect(onChange).toHaveBeenCalledWith('bot')
+    rerender(<MessagesExperienceSwitch value="bot" onChange={onChange} variant="icon" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Messages' }))
+    expect(onChange).toHaveBeenCalledWith('messages')
+  })
+
   it('lists named bots and starts a channel', () => {
     const onSelectBot = jest.fn()
     const onStartChannel = jest.fn()
@@ -79,6 +89,19 @@ describe('bot mode surfaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Browser on the computer' }))
     expect(onOpenWorkbench).toHaveBeenCalledWith('browser')
     expect(screen.getByRole('link', { name: '1/2 online' })).toHaveAttribute('href', '/portal/settings/linked-computers')
+  })
+
+  it('lets the user select a computer', () => {
+    const onSelectComputer = jest.fn()
+    render(
+      <BotComputerStrip
+        computers={computers}
+        activeComputerId="mac"
+        onSelectComputer={onSelectComputer}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Work on VPS Canonical VPS' }))
+    expect(onSelectComputer).toHaveBeenCalledWith('vps')
   })
 
   it('renders a canvas-aware landing with bots and computers', () => {

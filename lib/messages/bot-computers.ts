@@ -84,10 +84,11 @@ export function uniqueBotComputers(
 
 export function computersForBot(computers: VisibleBotComputer[], agentId?: string | null): VisibleBotComputer[] {
   if (!agentId) return computers
-  const matching = computers.filter((computer) =>
-    computer.availableAgentIds.length === 0 || computer.availableAgentIds.includes(agentId),
-  )
-  return matching.length > 0 ? matching : computers
+  return computers.filter((computer) => computer.availableAgentIds.includes(agentId))
+}
+
+export function selectedBotComputerStorageKey(orgId: string): string {
+  return `pib.selectedBotComputer.${orgId}`
 }
 
 export function computerHasDesktopWatch(computer: VisibleBotComputer): boolean {

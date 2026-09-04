@@ -203,7 +203,7 @@ export function createLinkedComputerRunSseStream(
             run_id: jobId,
             timestamp: Date.now() / 1000,
             error: error instanceof Error ? error.message : 'Linked stream failed',
-            activity: 'Live event stream unavailable; final response polling will continue.',
+            activity: 'Still working',
           })
         } finally {
           if (!closed) {

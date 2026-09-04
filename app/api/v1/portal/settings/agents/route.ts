@@ -27,6 +27,11 @@ import {
 } from '@/lib/linked-computers/agent-host-service'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
 import type { OrgRole } from '@/lib/organizations/types'
+import {
+  grantAgentRuntimeAccessToMembers,
+  parseSharedMemberUserIds,
+  resolveCreatedAgentAccess,
+} from '@/lib/orgMembers/agent-runtime-grants'
 
 export const dynamic = 'force-dynamic'
 
@@ -150,7 +155,11 @@ export const POST = withPortalAuthAndRole(
       return apiError('Invalid JSON body', 400)
     }
 
-    const agentHandle = String(body.agentId ?? '').trim().toLowerCase()
+    const existingHandles = await adminDb.collection('agent_team').where('scopeOrgId', '==', orgId).get()
+    const taken = existingHandles.docs.map((doc) => String((doc.data() as { agentHandle?: string }).agentHandle || ''))
+    const { allocateBotHandle } = await import('@/lib/messages/bot-shares')
+    const agentHandle = allocateBotHandle(body.agentId ?? body.agentHandle ?? body.handle, taken, String(body.name ?? ''))
+      ?? String(body.agentId ?? '').trim().toLowerCase()
     const agentId = ORG_AGENT_HANDLE_RE.test(agentHandle)
       ? buildScopedAgentId(orgId, agentHandle)
       : ''
@@ -180,12 +189,22 @@ export const POST = withPortalAuthAndRole(
     if (!runtimeSupportsCustomAgentProfiles(device.runtimeVersion)) {
       return apiError('Update this linked computer runtime before creating agents', 409)
     }
-    let accessScope: 'personal' | 'organization'
+    let deviceAccessScope: 'personal' | 'organization'
     try {
-      accessScope = assertCanCreateAgentOnDevice({ device, actorUserId: uid, orgId, role })
+      deviceAccessScope = assertCanCreateAgentOnDevice({ device, actorUserId: uid, orgId, role })
     } catch (error) {
       return apiError(error instanceof Error ? error.message : 'You cannot create an agent on this computer', 403)
     }
+    const createdAccess = resolveCreatedAgentAccess({
+      deviceAccessScope,
+      requested: body.accessMode === 'organization' || body.accessMode === 'people' || body.accessMode === 'personal'
+        ? body.accessMode
+        : undefined,
+    })
+    const accessScope = createdAccess.accessScope
+    const sharedWithUserIds = createdAccess.grantMembers
+      ? parseSharedMemberUserIds(body.sharedWithUserIds)
+      : []
 
     try {
       const agent = await createLinkedAgent({
@@ -220,6 +239,15 @@ export const POST = withPortalAuthAndRole(
           desired,
         })
         const runtimeTargetId = device.runtimeTargetId || `linked-device:${deviceId}`
+        if (sharedWithUserIds.length > 0) {
+          await grantAgentRuntimeAccessToMembers({
+            orgId,
+            runtimeTargetId,
+            agentId,
+            memberUserIds: sharedWithUserIds,
+            actorUserId: uid,
+          })
+        }
         return NextResponse.json({
           data: {
             agent,

@@ -77,7 +77,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
         run_id: runId,
         timestamp: Date.now() / 1000,
         error: `Agent gateway returned ${upstream.status}`,
-        activity: 'Live event stream unavailable; final response polling will continue.',
+        activity: 'Still working',
       }))
     }
 
@@ -90,7 +90,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
       run_id: runId,
       timestamp: Date.now() / 1000,
       error: err instanceof Error ? err.message : 'Stream failed',
-      activity: 'Live event stream unavailable; final response polling will continue.',
+      activity: 'Still working',
     }))
   }
 })

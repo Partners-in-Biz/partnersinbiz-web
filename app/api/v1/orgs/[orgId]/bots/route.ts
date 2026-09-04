@@ -129,6 +129,10 @@ export const POST = withAuth(
         iconKey: String(body.iconKey ?? 'smart_toy').trim() || 'smart_toy',
         colorKey: String(body.colorKey ?? 'sky').trim() || 'sky',
         deviceId,
+        accessMode: body.accessMode === 'organization' || body.accessMode === 'people' || body.accessMode === 'personal'
+          ? body.accessMode
+          : undefined,
+        sharedWithUserIds: body.sharedWithUserIds,
       })
       const { apiKey: _apiKey, ...safeAgent } = created.agent
       return apiSuccess({

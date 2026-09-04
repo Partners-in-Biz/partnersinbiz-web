@@ -40,6 +40,8 @@ function eventLabel(event: ChatEvent): string {
 }
 
 function eventPreview(event: ChatEvent): string {
+  if (event.event === 'stream.unavailable') return ''
+  if (event.activity === 'Live event stream unavailable; final response polling will continue.') return ''
   return event.preview || event.text || event.delta || event.output || event.stdout || event.stderr || ''
 }
 
@@ -110,7 +112,7 @@ export function RuntimeExecutionSection({
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
         <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div><div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider, { auto: isAuto })}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>}{isAuto && catalog?.autoLabel && <div className="truncate text-[10px] text-[var(--color-pib-text-muted)]">Live Hermes Auto</div>}</div>
         <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] xl:h-6 xl:w-6"><Icon name={copiedRunId ? 'check' : 'content_copy'} className="text-[13px]" /></button></div>
-          {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex flex-wrap gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200 xl:min-h-7"><Icon name="stop_circle" className="text-[14px]" />Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-[var(--color-pib-text)] xl:min-h-7"><Icon name="refresh" className="text-[14px]" />Retry run</button>}</div> : null}
+          {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex flex-wrap gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="pib-chat-danger inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium xl:min-h-7"><Icon name="stop_circle" className="text-[14px]" />Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-[var(--color-pib-text)] xl:min-h-7"><Icon name="refresh" className="text-[14px]" />Retry run</button>}</div> : null}
         </div>
         <div><div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Live events</div>{events.length === 0 ? <div className="text-[11px] text-[var(--color-pib-text-muted)]">No runtime events recorded.</div> : <div className="space-y-1.5">{events.slice(-8).map((event, index) => <div key={index} className="flex items-start gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]"><span className="mt-1 h-1.5 w-1.5 shrink-0 bg-primary/70" style={{ borderRadius: '50%' }}/><span className="flex min-w-0 items-center gap-1 truncate"><span>{eventLabel(event)}</span>{eventPreview(event) && <span aria-hidden="true">·</span>}{eventPreview(event) && <span>{eventPreview(event)}</span>}</span></div>)}</div>}</div>
       </div>}
@@ -251,7 +253,7 @@ export function RuntimeInspectorRail({
                 <button
                   type="button"
                   onClick={onStop}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                  className="pib-chat-danger inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-medium"
                 >
                   <Icon name="stop_circle" className="text-[14px]" />
                   Stop run

@@ -60,11 +60,15 @@ export function resolveNewConversationAgentGate(input: {
     .map((id) => (typeof id === 'string' ? id.trim() : ''))
     .filter(Boolean)
 
-  // Linked computers report inventory; empty means Hermes has no healthy local agents.
-  // Compatibility / execution-location targets may omit the field entirely — treat that
-  // as "unknown inventory" and fall through to org-visible platform agents.
+  // A selected machine with unknown or empty inventory is empty — never the
+  // full org roster. Compatibility VPS targets used to omit availableAgentIds
+  // and leak every agent_team row (including bots not hosted on that box).
   if (input.runtimeAvailableAgentIds == null) {
-    return { mode: 'platform', allowedAgentIds: null, reason: null }
+    return {
+      mode: 'runtime-empty',
+      allowedAgentIds: [],
+      reason: 'No agents are running on this computer yet. Install or start Hermes agents on it, then retry.',
+    }
   }
 
   if (ids.length === 0) {
