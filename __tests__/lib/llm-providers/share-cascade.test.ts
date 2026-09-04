@@ -11,6 +11,9 @@ const mockWriteAudit = jest.fn()
 const mockResolveShare = jest.fn()
 const mockDeviceGet = jest.fn()
 const mockConnectionQueryGet = jest.fn()
+const mockGrantQueryGet = jest.fn()
+const mockGrantUpdate = jest.fn()
+const mockPutDeviceGrant = jest.fn()
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'SERVER_TIMESTAMP' },
@@ -25,12 +28,25 @@ jest.mock('@/lib/firebase/admin', () => ({
           if (name === 'linked_devices') return mockDeviceGet(id, ...args)
           return Promise.resolve({ exists: false, id, data: () => undefined })
         },
-        update: jest.fn(),
+        update: (...args: unknown[]) => {
+          if (name === 'linked_device_grants') return mockGrantUpdate(id, ...args)
+          return Promise.resolve()
+        },
         set: jest.fn(),
       }),
       where: () => ({
-        where: () => ({ get: (...args: unknown[]) => mockConnectionQueryGet(...args) }),
-        get: (...args: unknown[]) => mockConnectionQueryGet(...args),
+        where: () => ({
+          get: (...args: unknown[]) => (
+            name === 'linked_device_grants'
+              ? mockGrantQueryGet(...args)
+              : mockConnectionQueryGet(...args)
+          ),
+        }),
+        get: (...args: unknown[]) => (
+          name === 'linked_device_grants'
+            ? mockGrantQueryGet(...args)
+            : mockConnectionQueryGet(...args)
+        ),
       }),
     }),
   },
@@ -56,7 +72,7 @@ jest.mock('@/lib/llm-providers/audit', () => ({
 }))
 
 jest.mock('@/lib/linked-computers/store', () => ({
-  putDeviceGrant: jest.fn(),
+  putDeviceGrant: (...args: unknown[]) => mockPutDeviceGrant(...args),
 }))
 
 import {
@@ -66,6 +82,7 @@ import {
   flagStaleRevokePending,
   reconcileShareBindingsForConnection,
   revokeMemberShareAccess,
+  revokeShareBindingsForTeam,
 } from '@/lib/llm-providers/share-cascade'
 import type { LlmCredentialBinding, LlmProviderConnection } from '@/lib/llm-providers/types'
 
@@ -318,5 +335,93 @@ describe('flagStaleRevokePending', () => {
     })
     expect(second.flagged).toBe(0)
     expect(writeAudit).not.toHaveBeenCalled()
+  })
+})
+
+describe('revokeShareBindingsForTeam', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockPutDeviceGrant.mockResolvedValue({ browsingConsentDisabled: false })
+    mockGrantUpdate.mockResolvedValue(undefined)
+    mockConnectionQueryGet.mockResolvedValue({ docs: [] })
+  })
+
+  it('archiving a team revokes grants that only referenced it', async () => {
+    mockGrantQueryGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'org-1_mac-only-team',
+          data: () => ({
+            deviceId: 'mac-only-team',
+            orgId: 'org-1',
+            accessMode: 'teams',
+            allowedTeamIds: ['team-sales'],
+            allowedUserIds: [],
+            status: 'active',
+            capabilities: ['workspace.execute', 'workspace.sync'],
+          }),
+        },
+        {
+          id: 'org-1_mac-two-teams',
+          data: () => ({
+            deviceId: 'mac-two-teams',
+            orgId: 'org-1',
+            accessMode: 'teams',
+            allowedTeamIds: ['team-sales', 'team-ops'],
+            allowedUserIds: [],
+            status: 'active',
+            capabilities: ['workspace.execute'],
+          }),
+        },
+        {
+          id: 'org-1_mac-other-team',
+          data: () => ({
+            deviceId: 'mac-other-team',
+            orgId: 'org-1',
+            accessMode: 'teams',
+            allowedTeamIds: ['team-ops'],
+            allowedUserIds: [],
+            status: 'active',
+          }),
+        },
+        {
+          id: 'org-1_mac-already-revoked',
+          data: () => ({
+            deviceId: 'mac-already-revoked',
+            orgId: 'org-1',
+            accessMode: 'teams',
+            allowedTeamIds: ['team-sales'],
+            allowedUserIds: [],
+            status: 'revoked',
+          }),
+        },
+      ],
+    })
+
+    const result = await revokeShareBindingsForTeam({
+      orgId: 'org-1',
+      teamId: 'team-sales',
+      formerMemberUserIds: [],
+      actorUserId: 'admin-1',
+    })
+
+    expect(mockPutDeviceGrant).toHaveBeenCalledTimes(1)
+    expect(mockPutDeviceGrant).toHaveBeenCalledWith({
+      deviceId: 'mac-only-team',
+      orgId: 'org-1',
+      actorUserId: 'admin-1',
+      status: 'revoked',
+      capabilities: ['workspace.execute', 'workspace.sync'],
+      accessMode: 'teams',
+      allowedUserIds: [],
+      allowedTeamIds: [],
+    })
+    expect(mockGrantUpdate).toHaveBeenCalledTimes(1)
+    expect(mockGrantUpdate).toHaveBeenCalledWith('org-1_mac-two-teams', {
+      allowedTeamIds: ['team-ops'],
+      updatedAt: 'SERVER_TIMESTAMP',
+    })
+    expect(result.grantIds).toEqual(['org-1_mac-only-team', 'org-1_mac-two-teams'])
+    expect(result.bindingIds).toEqual([])
   })
 })

@@ -48,9 +48,11 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 import {
+  orgShareAllowsDevice,
   resolveOrgLlmSyncTargets,
   resolveOrgShareLinkedComputerTargets,
 } from '@/lib/llm-providers/sync-targets'
+import type { LinkedDevice } from '@/lib/linked-computers/types'
 
 function seed(path: string, data: Record<string, unknown>) {
   store.set(path, data)
@@ -317,5 +319,137 @@ describe('organisation share linked-computer targets', () => {
     })
 
     expect(result.targets).toEqual([])
+  })
+})
+
+function userOwnedDevice(overrides: Partial<LinkedDevice> = {}): LinkedDevice {
+  return {
+    deviceId: 'mac-1',
+    ownerType: 'user',
+    ownerUserId: 'u1',
+    runtimeTargetId: 'linked-device:mac-1',
+    publicKeyFingerprint: 'fp',
+    label: 'Pat Mac',
+    platform: 'macos',
+    architecture: 'arm64',
+    runtimeVersion: '1.1.30',
+    capabilities: ['workspace.execute', 'workspace.sync'],
+    status: 'active',
+    credentialVersion: 1,
+    createdAt: null,
+    updatedAt: null,
+    lastSeenAt: null,
+    availableAgents: [{ orgId: 'org-1', agentId: 'pip', profile: 'acme--pip', healthy: true }],
+    ...overrides,
+  }
+}
+
+describe('orgShareAllowsDevice', () => {
+  beforeEach(() => {
+    store.clear()
+  })
+
+  it('allows a member device that is in the organisation share targets', async () => {
+    seedActiveMember('u1', 'linked-device:mac-1')
+    seed('linked_device_grants/org-1_mac-1', { status: 'active', orgId: 'org-1', deviceId: 'mac-1' })
+
+    await expect(orgShareAllowsDevice({
+      connection: {
+        orgId: 'org-1',
+        shareTargets: {
+          mode: 'organization',
+          teamIds: [],
+          userIds: [],
+          agentIds: [],
+          requireActiveDeviceGrant: true,
+        },
+      },
+      device: userOwnedDevice(),
+      profile: 'acme--pip',
+    })).resolves.toBe(true)
+  })
+
+  it('denies a device whose owner is not in the share targets', async () => {
+    seedActiveMember('u1', 'linked-device:mac-1')
+    seedActiveMember('u-other', 'linked-device:mac-other')
+    seed('linked_device_grants/org-1_mac-1', { status: 'active', orgId: 'org-1', deviceId: 'mac-1' })
+
+    await expect(orgShareAllowsDevice({
+      connection: {
+        orgId: 'org-1',
+        shareTargets: {
+          mode: 'selected_users',
+          teamIds: [],
+          userIds: ['u-other'],
+          agentIds: [],
+          requireActiveDeviceGrant: true,
+        },
+      },
+      device: userOwnedDevice(),
+      profile: 'acme--pip',
+    })).resolves.toBe(false)
+  })
+
+  it('denies a device whose grant is paused', async () => {
+    seedActiveMember('u1', 'linked-device:mac-1')
+    seed('linked_device_grants/org-1_mac-1', { status: 'paused', orgId: 'org-1', deviceId: 'mac-1' })
+
+    await expect(orgShareAllowsDevice({
+      connection: {
+        orgId: 'org-1',
+        shareTargets: {
+          mode: 'organization',
+          teamIds: [],
+          userIds: [],
+          agentIds: [],
+          requireActiveDeviceGrant: true,
+        },
+      },
+      device: userOwnedDevice(),
+      profile: 'acme--pip',
+    })).resolves.toBe(false)
+  })
+
+  it('teams mode allows a team member device and denies a non-member device', async () => {
+    seed('org_teams/team-sales', {
+      orgId: 'org-1',
+      status: 'active',
+      memberUserIds: ['u-team'],
+    })
+    seedActiveMember('u-team', 'linked-device:mac-team')
+    seedActiveMember('u-other', 'linked-device:mac-other')
+    seed('linked_device_grants/org-1_mac-team', { status: 'active', orgId: 'org-1', deviceId: 'mac-team' })
+    seed('linked_device_grants/org-1_mac-other', { status: 'active', orgId: 'org-1', deviceId: 'mac-other' })
+
+    const connection = {
+      orgId: 'org-1',
+      shareTargets: {
+        mode: 'teams' as const,
+        teamIds: ['team-sales'],
+        userIds: [],
+        agentIds: [],
+        requireActiveDeviceGrant: true,
+      },
+    }
+
+    await expect(orgShareAllowsDevice({
+      connection,
+      device: userOwnedDevice({
+        deviceId: 'mac-team',
+        ownerUserId: 'u-team',
+        runtimeTargetId: 'linked-device:mac-team',
+      }),
+      profile: 'acme--pip',
+    })).resolves.toBe(true)
+
+    await expect(orgShareAllowsDevice({
+      connection,
+      device: userOwnedDevice({
+        deviceId: 'mac-other',
+        ownerUserId: 'u-other',
+        runtimeTargetId: 'linked-device:mac-other',
+      }),
+      profile: 'acme--pip',
+    })).resolves.toBe(false)
   })
 })
