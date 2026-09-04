@@ -216,6 +216,14 @@ export default function ConversationListItem({
               {c.unreadCount! > 99 ? '99+' : c.unreadCount}
             </span>
           )}
+          {c.needsYou && (
+            <span
+              data-testid={`conversation-needs-you-${c.id}`}
+              className="shrink-0 rounded-[4px] border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium leading-3 text-primary"
+            >
+              Needs you
+            </span>
+          )}
         </div>
 
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] leading-3 text-[var(--color-pib-text-muted)]/85">
@@ -341,6 +349,14 @@ export default function ConversationListItem({
             className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-[4px] bg-primary px-1.5 font-mono text-[10px] font-medium leading-none text-on-primary"
           >
             {c.unreadCount! > 99 ? '99+' : c.unreadCount}
+          </span>
+        )}
+        {c.needsYou && (
+          <span
+            data-testid={`conversation-needs-you-${c.id}`}
+            className="shrink-0 rounded-[4px] border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+          >
+            Needs you
           </span>
         )}
       </div>

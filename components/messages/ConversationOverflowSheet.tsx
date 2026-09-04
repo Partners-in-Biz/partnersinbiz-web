@@ -227,7 +227,7 @@ export function ConversationOverflowSheet({
 
           {(showAgentWorkbench || showInspect) && (
             <section aria-label="Workbench" className="space-y-2">
-              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Tools</p>
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Capabilities</p>
               <div className="grid grid-cols-2 gap-2">
                 {showAgentWorkbench && (
                   <button

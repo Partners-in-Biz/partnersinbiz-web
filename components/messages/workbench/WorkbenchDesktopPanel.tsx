@@ -86,6 +86,21 @@ export function WorkbenchDesktopPanel({
     }
   }, [base])
 
+  const handBack = useCallback(async () => {
+    if (!base) return
+    setBusy(true)
+    try {
+      await fetch(`${base}/driver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver: 'agent' }),
+      })
+      setDriver('agent')
+    } finally {
+      setBusy(false)
+    }
+  }, [base])
+
   const clickAt = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!base || driver !== 'user') return
     const rect = event.currentTarget.getBoundingClientRect()
@@ -145,6 +160,17 @@ export function WorkbenchDesktopPanel({
           <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span>
         </div>
         <div className="flex items-center gap-1">
+          {hasDesktopControl && driver === 'user' && (
+            <button
+              type="button"
+              data-testid="workbench-desktop-hand-back"
+              disabled={busy || !sessionId}
+              onClick={() => { void handBack() }}
+              className="inline-flex h-7 items-center gap-1 rounded border border-emerald-400/35 bg-emerald-400/10 px-2 text-[11px] font-medium text-emerald-200 hover:bg-emerald-400/15 disabled:opacity-40"
+            >
+              Hand back
+            </button>
+          )}
           {hasDesktopControl && driver !== 'user' && (
             <button
               type="button"

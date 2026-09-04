@@ -11,7 +11,17 @@ export type RoutineRow = {
   name: string
   schedule?: string
   enabled?: boolean
-  source?: 'cron' | 'goal'
+  source?: 'cron' | 'goal' | 'routine'
+  prompt?: string
+  triggerKind?: 'schedule' | 'event'
+}
+
+export type RoutineRunRow = {
+  runId: string
+  status: string
+  startedAtMs: number
+  finishedAtMs?: number | null
+  eventSummary?: string | null
 }
 
 export type BotDeskPanelVariant = 'rail' | 'sheet' | 'drawer'
@@ -186,6 +196,14 @@ function BotRoutinesList({
     standingGoal ? [{ id: 'standing-goal', name: standingGoal, schedule: 'Standing goal', enabled: true, source: 'goal' }] : []
   ))
   const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [formName, setFormName] = useState('')
+  const [formCron, setFormCron] = useState('0 9 * * *')
+  const [formPrompt, setFormPrompt] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [runsByRoutine, setRunsByRoutine] = useState<Record<string, RoutineRunRow[]>>({})
 
   const loadRoutines = useCallback(() => {
     if (!botId) {
@@ -206,11 +224,14 @@ function BotRoutinesList({
             name: typeof row.name === 'string' ? row.name : 'Routine',
             schedule: typeof row.schedule === 'string' ? row.schedule : undefined,
             enabled: row.enabled !== false,
-            source: row.source === 'cron' || row.source === 'goal' ? row.source : 'cron',
+            source: row.source === 'cron' || row.source === 'goal' || row.source === 'routine'
+              ? row.source
+              : 'cron',
+            prompt: typeof row.prompt === 'string' ? row.prompt : undefined,
+            triggerKind: row.triggerKind === 'event' || row.triggerKind === 'schedule' ? row.triggerKind : undefined,
           })))
           return
         }
-        // Fallback: legacy admin cron + standing goal
         return fetch(`/api/v1/admin/agents/${encodeURIComponent(botId)}/cron`)
           .then((res) => (res.ok ? res.json() : null))
           .then((cronBody) => {
@@ -258,40 +279,162 @@ function BotRoutinesList({
     return typeof cleanup === 'function' ? cleanup : undefined
   }, [loadRoutines])
 
+  const loadRuns = useCallback(async (routineId: string) => {
+    if (!botId || !routineId.startsWith('rt_')) return
+    const qs = orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''
+    try {
+      const res = await fetch(`/api/v1/bots/${encodeURIComponent(botId)}/routines/${encodeURIComponent(routineId)}/runs${qs}`)
+      if (!res.ok) return
+      const body = await res.json()
+      const runs = (body?.data ?? body)?.runs
+      if (!Array.isArray(runs)) return
+      setRunsByRoutine((prev) => ({
+        ...prev,
+        [routineId]: runs.map((row: Record<string, unknown>) => ({
+          runId: typeof row.runId === 'string' ? row.runId : String(row.runId ?? ''),
+          status: typeof row.status === 'string' ? row.status : 'unknown',
+          startedAtMs: typeof row.startedAtMs === 'number' ? row.startedAtMs : 0,
+          finishedAtMs: typeof row.finishedAtMs === 'number' ? row.finishedAtMs : null,
+          eventSummary: typeof row.eventSummary === 'string' ? row.eventSummary : null,
+        })),
+      }))
+    } catch {
+      // ignore
+    }
+  }, [botId, orgId])
+
+  const createRoutine = async () => {
+    if (!botId || !orgId) {
+      setFormError('Bot and organisation are required')
+      return
+    }
+    if (!formName.trim() || !formPrompt.trim()) {
+      setFormError('Name and prompt are required')
+      return
+    }
+    setSaving(true)
+    setFormError(null)
+    try {
+      const res = await fetch(`/api/v1/bots/${encodeURIComponent(botId)}/routines`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          name: formName.trim(),
+          prompt: formPrompt.trim(),
+          accessScope: 'personal',
+          trigger: { kind: 'schedule', cron: formCron.trim() || '0 9 * * *', tz: 'UTC' },
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(typeof body?.error === 'string' ? body.error : `Create failed (${res.status})`)
+      }
+      setShowForm(false)
+      setFormName('')
+      setFormCron('0 9 * * *')
+      setFormPrompt('')
+      loadRoutines()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Create failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <section className="min-h-0 flex-1 overflow-y-auto p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">{BOT_MODE_COPY.routinesLabel}</p>
         <div className="flex items-center gap-1">
           <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]">{loading ? '…' : routines.length}</span>
-          {onNewRoutine && (
-            <button
-              type="button"
-              data-testid="bot-desk-new-routine"
-              onClick={() => {
-                onNewRoutine()
-                // Refetch shortly after a /goal insert so the list can pick up standing goals.
-                window.setTimeout(() => { loadRoutines() }, 2500)
-              }}
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
-            >
-              New
-            </button>
-          )}
+          <button
+            type="button"
+            data-testid="bot-desk-new-routine"
+            onClick={() => {
+              setShowForm((open) => !open)
+              onNewRoutine?.()
+            }}
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+          >
+            New routine
+          </button>
         </div>
       </div>
+
+      {showForm ? (
+        <div data-testid="bot-desk-routine-form" className="mb-3 space-y-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-2">
+          <input
+            data-testid="bot-desk-routine-name"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            placeholder="Name"
+            className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-[11px] text-[var(--color-pib-text)]"
+          />
+          <input
+            data-testid="bot-desk-routine-cron"
+            value={formCron}
+            onChange={(e) => setFormCron(e.target.value)}
+            placeholder="Cron (0 9 * * *)"
+            className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1 font-mono text-[11px] text-[var(--color-pib-text)]"
+          />
+          <textarea
+            data-testid="bot-desk-routine-prompt"
+            value={formPrompt}
+            onChange={(e) => setFormPrompt(e.target.value)}
+            placeholder="Prompt"
+            rows={3}
+            className="w-full rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1 text-[11px] text-[var(--color-pib-text)]"
+          />
+          {formError ? <p className="text-[10px] text-red-400">{formError}</p> : null}
+          <button
+            type="button"
+            data-testid="bot-desk-routine-save"
+            disabled={saving}
+            onClick={() => void createRoutine()}
+            className="w-full rounded bg-primary/90 px-2 py-1 text-[11px] font-medium text-on-primary disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Create'}
+          </button>
+        </div>
+      ) : null}
+
       {routines.length === 0 ? (
         <p className="text-[11px] leading-5 text-[var(--color-pib-text-muted)]">
-          Message {botName} or type /goal to save a skill, then schedule it as a routine. Recurring work keeps running on the computer after you close this tab.
+          Message {botName}, type /routine, or use New routine to schedule recurring work on this computer.
         </p>
       ) : routines.map((routine) => (
         <article key={routine.id} data-testid={`bot-routine-${routine.id}`} className="mb-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-2 py-1.5">
-          <p className="truncate text-[12px] font-medium text-[var(--color-pib-text)]">{routine.name}</p>
-          <p className="mt-0.5 truncate text-[10px] text-[var(--color-pib-text-muted)]">
-            {routine.enabled === false ? 'Paused' : 'Scheduled'}
-            {routine.schedule ? ` · ${routine.schedule}` : ''}
-            {routine.source ? ` · ${routine.source}` : ''}
-          </p>
+          <button
+            type="button"
+            className="w-full text-left"
+            onClick={() => {
+              if (routine.source !== 'routine') return
+              const next = expandedId === routine.id ? null : routine.id
+              setExpandedId(next)
+              if (next) void loadRuns(next)
+            }}
+          >
+            <p className="truncate text-[12px] font-medium text-[var(--color-pib-text)]">{routine.name}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[var(--color-pib-text-muted)]">
+              {routine.enabled === false ? 'Paused' : 'Scheduled'}
+              {routine.schedule ? ` · ${routine.schedule}` : ''}
+              {routine.source ? ` · ${routine.source}` : ''}
+            </p>
+          </button>
+          {expandedId === routine.id && routine.source === 'routine' ? (
+            <ul className="mt-1.5 space-y-1 border-t border-[var(--color-pib-line)] pt-1.5">
+              {(runsByRoutine[routine.id] ?? []).length === 0 ? (
+                <li className="text-[10px] text-[var(--color-pib-text-muted)]">No runs yet</li>
+              ) : (runsByRoutine[routine.id] ?? []).map((run) => (
+                <li key={run.runId} className="text-[10px] text-[var(--color-pib-text-muted)]">
+                  {run.status}
+                  {run.startedAtMs ? ` · ${new Date(run.startedAtMs).toLocaleString()}` : ''}
+                  {run.eventSummary ? ` · ${run.eventSummary}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </article>
       ))}
     </section>

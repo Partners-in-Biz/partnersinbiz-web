@@ -85,6 +85,7 @@ import {
 } from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import { HoverTip } from '@/components/ui/HoverTip'
+import { ComputerActivityChip } from '@/components/messages/chrome/ComputerActivityChip'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
@@ -131,7 +132,7 @@ import {
   shouldAutoOpenBotWorkbench,
   shouldHideMobileConversationChrome,
 } from '@/lib/messages/mobile-conversation-chrome'
-import { buildBotRosterItems } from '@/lib/messages/bot-roster'
+import { buildBotRosterItems, type BotRosterPresence } from '@/lib/messages/bot-roster'
 import {
   botInboxTitle,
   findOpenBotInboxThread,
@@ -1689,6 +1690,7 @@ export default function UnifiedChat({
   const [newInitialAgentIds, setNewInitialAgentIds] = useState<string[]>([])
   const [botStudioDevices, setBotStudioDevices] = useState<BotStudioDevice[]>([])
   const [botStudioCanCreate, setBotStudioCanCreate] = useState(false)
+  const [agentPresenceById, setAgentPresenceById] = useState<Record<string, BotRosterPresence>>({})
   const [botStudioCreating, setBotStudioCreating] = useState(false)
   const [botStudioImporting, setBotStudioImporting] = useState(false)
   const [botStudioError, setBotStudioError] = useState<string | null>(null)
@@ -2459,12 +2461,24 @@ export default function UnifiedChat({
   )
   const primaryBotComputer = botComputers.find((computer) => computer.online) ?? botComputers[0] ?? null
   const deskUsesDesktop = Boolean(workbenchDesktopSession?.sessionId)
+  const computerSessionActive = Boolean(
+    (workbenchDesktopSession?.sessionId && !isTerminalDesktopSessionStatus(workbenchDesktopSession.status))
+    || (workbenchBrowserSession?.sessionId && workbenchBrowserSession.status
+      && !['exited', 'killed', 'expired', 'failed', 'error', 'idle'].includes(String(workbenchBrowserSession.status))),
+  )
   const deskLatestFrameUrl = deskUsesDesktop
     ? (workbenchDesktopSession?.latestFrameUrl ?? null)
     : (workbenchBrowserSession?.latestFrameUrl ?? null)
   const deskSessionStatus = deskUsesDesktop
     ? (workbenchDesktopSession?.status ?? null)
     : (workbenchBrowserSession?.status ?? null)
+  const computerActivityActive = deskSessionStatus === 'running'
+    || workbenchDesktopSession?.status === 'running'
+    || workbenchBrowserSession?.status === 'running'
+    || Object.values(agentPresenceById).some(
+      (presence) => presence.state === 'working'
+        && /computer/i.test(presence.currentStep ?? ''),
+    )
   const deskFollowing = deskUsesDesktop
     ? Boolean(workbenchDesktopSession?.following)
     : workbenchBrowserFollowing
@@ -2557,8 +2571,8 @@ export default function UnifiedChat({
     [allHermesAgentGroups, hiddenFolderKeySet],
   )
   const botRoster = useMemo(
-    () => buildBotRosterItems(Object.values(agentMap), hermesAgentGroups, botComputers),
-    [agentMap, botComputers, hermesAgentGroups],
+    () => buildBotRosterItems(Object.values(agentMap), hermesAgentGroups, botComputers, agentPresenceById),
+    [agentMap, agentPresenceById, botComputers, hermesAgentGroups],
   )
   const botInboxThreads = useMemo(
     () => listBotInboxThreads(
@@ -2795,6 +2809,21 @@ export default function UnifiedChat({
         if (cancelled || !body?.data) return
         setBotStudioDevices(Array.isArray(body.data.devices) ? body.data.devices : [])
         setBotStudioCanCreate(Boolean(body.data.canCreate))
+        const presenceRows = Array.isArray(body.data.presence) ? body.data.presence : []
+        const next: Record<string, BotRosterPresence> = {}
+        for (const row of presenceRows) {
+          if (!row || typeof row.agentId !== 'string' || typeof row.state !== 'string') continue
+          next[row.agentId] = {
+            state: row.state,
+            ...(typeof row.currentStep === 'string' && row.currentStep.trim()
+              ? { currentStep: row.currentStep.trim() }
+              : {}),
+            ...(typeof row.conversationId === 'string' && row.conversationId.trim()
+              ? { conversationId: row.conversationId.trim() }
+              : {}),
+          }
+        }
+        setAgentPresenceById(next)
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -4220,6 +4249,19 @@ export default function UnifiedChat({
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
         ? { ...prev, error: error instanceof Error ? error.message : 'Failed to take control of the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  /** Hands the browser wheel back to the agent after the human was driving. */
+  const handBackWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    try {
+      const updated = await setWorkbenchBrowserSessionDriverApi(activeId, workbenchBrowserSession.sessionId, { driver: 'agent' })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to hand the browser back to the agent.', busy: false }
         : prev)
     }
   }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
@@ -7612,6 +7654,12 @@ export default function UnifiedChat({
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
+      <ComputerActivityChip
+        active={computerActivityActive || computerSessionActive}
+        onOpen={() => {
+          openWorkbenchTab('browser')
+        }}
+      />
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       {showConversationList && showListOnMobile && tabletSessionsDrawer && <div data-testid="sessions-backdrop" aria-hidden="true" onClick={closeSessions} className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--sc-ink)_45%,transparent)] xl:hidden" />}
       {showConversationList && <aside
@@ -7752,6 +7800,7 @@ export default function UnifiedChat({
           <RoomList
             orgId={orgId}
             activeConversationId={activeId}
+            canCreateOrgRooms={userRole === 'owner' || userRole === 'admin' || Boolean(allowManageConversationAccess)}
             onOpenConversation={(conversationId) => {
               setActiveId(conversationId)
               closeSessions()
@@ -9161,6 +9210,7 @@ export default function UnifiedChat({
           onStartBrowserAgentSessionFollow={startWorkbenchBrowserSessionFollow}
           onStopBrowserAgentSessionFollow={stopWorkbenchBrowserSessionFollow}
           onTakeControlBrowserAgentSession={takeControlWorkbenchBrowserSession}
+          onHandBackBrowserAgentSession={handBackWorkbenchBrowserSession}
           onToggleAllowPrivateBrowserAgentSession={toggleAllowPrivateWorkbenchBrowserSession}
           onRefreshBrowserAgentSnapshot={refreshWorkbenchBrowserSnapshot}
           browserAgentSnapshotText={workbenchBrowserSnapshotText}
@@ -10042,7 +10092,7 @@ export default function UnifiedChat({
               computersHref={computersHref}
               onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch(); setHeaderMenuOpen(false) } : undefined}
               onNewRoutine={() => {
-                setInput((current) => current.trim() ? current : '/goal ')
+                setInput((current) => current.trim() ? current : '/routine ')
                 setHeaderMenuOpen(false)
               }}
             />
@@ -10202,7 +10252,7 @@ export default function UnifiedChat({
           following={deskFollowing}
           computersHref={computersHref}
           onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
-          onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
+          onNewRoutine={() => setInput((current) => current.trim() ? current : '/routine ')}
         />
       )}
       {/* Tablet: desk as right drawer when chrome is revealed (BotDeskPanel is xl-only in rail variant) */}
@@ -10225,7 +10275,7 @@ export default function UnifiedChat({
             following={deskFollowing}
             computersHref={computersHref}
             onOpenScreen={showAgentWorkbench ? () => { void openScreenWatch() } : undefined}
-            onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
+            onNewRoutine={() => setInput((current) => current.trim() ? current : '/routine ')}
           />
         </div>
       )}

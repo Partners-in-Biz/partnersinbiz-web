@@ -49,6 +49,21 @@ describe('bot mode surfaces', () => {
     expect(onStartChannel).toHaveBeenCalledWith('maya')
   })
 
+  it('shows a presence dot on the roster avatar', () => {
+    render(
+      <BotRoster
+        bots={[{
+          ...bots[0],
+          presence: { state: 'working', currentStep: 'Editing report.md' },
+        }]}
+        activeBotId="theo"
+        onSelectBot={jest.fn()}
+      />,
+    )
+    expect(screen.getByTestId('bot-roster-presence-theo')).toBeInTheDocument()
+    expect(screen.getByTestId('bot-roster-avatar-theo')).toHaveAttribute('data-presence', 'working')
+  })
+
   it('shows computers and workbench controls', () => {
     const onOpenWorkbench = jest.fn()
     render(

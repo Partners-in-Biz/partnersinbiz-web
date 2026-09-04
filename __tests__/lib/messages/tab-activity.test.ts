@@ -18,6 +18,11 @@ describe('tab activity state machine', () => {
     expect(nextTabActivity('running', 'running', false)).toBe('running')
   })
 
+  it('marks computer activity on background tabs', () => {
+    expect(nextTabActivity(undefined, 'computer', false)).toBe('computer')
+    expect(nextTabActivity('computer', 'completed', false)).toBe('unread')
+  })
+
   it('marks unread when a background turn completes', () => {
     expect(nextTabActivity('running', 'completed', false)).toBe('unread')
   })

@@ -2,6 +2,7 @@ import {
   assertDesktopSessionComplete,
   assertLiveDesktopLease,
   desktopSessionHttpStatus,
+  isDesktopDrivingControl,
   isTerminalDesktopSessionStatus,
   parsePublicDesktopSession,
   type DesktopSession,
@@ -29,6 +30,18 @@ function session(overrides: Partial<DesktopSession> = {}): DesktopSession {
     ...overrides,
   }
 }
+
+describe('isDesktopDrivingControl', () => {
+  it('treats click/type/press/scroll as driving and follow/kill as not', () => {
+    expect(isDesktopDrivingControl({ kind: 'click' })).toBe(true)
+    expect(isDesktopDrivingControl({ kind: 'type' })).toBe(true)
+    expect(isDesktopDrivingControl({ kind: 'press' })).toBe(true)
+    expect(isDesktopDrivingControl({ kind: 'scroll' })).toBe(true)
+    expect(isDesktopDrivingControl({ kind: 'follow_start' })).toBe(false)
+    expect(isDesktopDrivingControl({ kind: 'kill' })).toBe(false)
+    expect(isDesktopDrivingControl({})).toBe(false)
+  })
+})
 
 describe('isTerminalDesktopSessionStatus', () => {
   it('treats exited, killed, expired, and failed as final', () => {
@@ -94,6 +107,7 @@ describe('desktopSessionHttpStatus', () => {
     expect(desktopSessionHttpStatus(new Error('lease mismatch'))).toBe(409)
     expect(desktopSessionHttpStatus(new Error('desktop session already final'))).toBe(409)
     expect(desktopSessionHttpStatus(new Error('desktop session not claimed'))).toBe(409)
+    expect(desktopSessionHttpStatus(new Error('workbench: desktop session is being driven by the user'))).toBe(409)
   })
 
   it('maps auth and device binding errors to 403 and missing sessions to 404', () => {

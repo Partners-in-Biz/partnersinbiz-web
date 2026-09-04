@@ -69,6 +69,16 @@ Raw HTML. The platform renders it in a no-script sandboxed iframe (no script, no
 
 Never put secrets or raw HTML from a web page into `pib:html`.
 
+### `pib:action`
+
+Emit a structured action card when you finish a tangible outcome (email sent, PR opened, file written, routine run). Body is JSON:
+
+```pib:action
+{"kind":"email_sent","title":"Sent invoice follow-up","detail":"To alex@example.com","status":"succeeded","url":"https://mail.example/thread/1"}
+```
+
+`kind` one of: `email_sent`, `file_written`, `pr_opened`, `post_scheduled`, `routine_run`, `custom`.
+
 ## Limits
 
 From `lib/chat/parts.ts` `PART_LIMITS`. Over-limit parts are dropped.
@@ -81,6 +91,9 @@ From `lib/chat/parts.ts` `PART_LIMITS`. Over-limit parts are dropped.
 | math | 5000 chars |
 | html | 200000 chars |
 | file name | 200 chars |
+| system event summary | 500 chars |
+| action card title | 200 chars |
+| action card detail | 2000 chars |
 
 ## Table vs chart
 

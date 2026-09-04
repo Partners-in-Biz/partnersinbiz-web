@@ -6,6 +6,7 @@ export type SlashCommandExecutorKind =
   | 'hermes_goal'
   | 'hermes_features'
   | 'design_command'
+  | 'bot_routine'
 
 export type SlashCommandId =
   | 'use-current-page'
@@ -18,6 +19,7 @@ export type SlashCommandId =
   | 'hire'
   | 'goal'
   | 'subgoal'
+  | 'routine'
   | 'toolsets'
   | 'memory'
   | 'rollback'
@@ -156,6 +158,15 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     aliases: ['/criteria'],
     icon: 'playlist_add_check',
     executorKind: 'hermes_goal',
+  },
+  {
+    id: 'routine',
+    token: '/routine',
+    label: 'Bot routine',
+    description: 'Propose a PiB schedule/event routine for this bot (name, cron, prompt). Confirm with Create routine.',
+    aliases: ['/routines', '/cron-routine'],
+    icon: 'schedule',
+    executorKind: 'bot_routine',
   },
   {
     id: 'toolsets',
@@ -339,6 +350,35 @@ export function hermesGoalCommandLine(payload: SlashCommandPayload): string {
   return args ? `/goal ${args}` : '/goal'
 }
 
+/** Parse `/routine name | cron | prompt` or free-form args into a proposal. */
+export function parseRoutineProposalArgs(args: string): {
+  name: string
+  cron: string
+  prompt: string
+} {
+  const raw = args.trim()
+  if (!raw) {
+    return {
+      name: 'New routine',
+      cron: '0 9 * * *',
+      prompt: '',
+    }
+  }
+  const parts = raw.split('|').map((p) => p.trim()).filter(Boolean)
+  if (parts.length >= 3) {
+    return { name: parts[0], cron: parts[1], prompt: parts.slice(2).join(' | ') }
+  }
+  if (parts.length === 2) {
+    return { name: parts[0], cron: '0 9 * * *', prompt: parts[1] }
+  }
+  return { name: raw.slice(0, 80) || 'New routine', cron: '0 9 * * *', prompt: raw }
+}
+
+export function routineCommandLine(payload: SlashCommandPayload): string {
+  const args = payload.args.trim()
+  return args ? `/routine ${args}` : '/routine'
+}
+
 export function hermesGoalGuidanceLines(payload: SlashCommandPayload): string[] {
   const native = hermesGoalCommandLine(payload)
   return [
@@ -391,6 +431,13 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
       ? buildDesignCommandGuidance(payload)
       : payload.executorKind === 'hermes_goal'
         ? hermesGoalGuidanceLines(payload)
+        : payload.executorKind === 'bot_routine'
+          ? [
+            'PiB bot routine proposal:',
+            '- Parse args as name | cron | prompt (pipe-separated) when possible.',
+            '- Do not invent Hermes cron jobs — PiB owns bot_routines.',
+            '- The client will show a Create routine action that POSTs to /api/v1/bots/:botId/routines.',
+          ]
         : payload.executorKind === 'hermes_features'
           ? [
             'Hermes Features control plane (PiB adapter on /v1/runs):',
@@ -411,6 +458,8 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
       ? ''
       : payload.executorKind === 'hermes_goal'
         ? `native: ${hermesGoalCommandLine(payload)}`
+        : payload.executorKind === 'bot_routine'
+          ? `native: ${routineCommandLine(payload)}`
         : payload.executorKind === 'hermes_features'
           ? `control: ${hermesFeaturesCommandLine(payload)}`
           : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',

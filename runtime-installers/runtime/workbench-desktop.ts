@@ -42,6 +42,8 @@ export type DesktopClaim =
     leaseToken: string
     screenWidth?: number
     screenHeight?: number
+    /** Present on protocol 2+; when `user`, agent input controls are no-ops. */
+    driver?: 'agent' | 'user'
   }
   | {
     kind: 'control'
@@ -49,6 +51,7 @@ export type DesktopClaim =
     control: DesktopControl
     attempt: number
     leaseToken: string
+    driver?: 'agent' | 'user'
   }
 
 export type PostFn = (path: string, body: Record<string, unknown>) => Promise<Response>
@@ -63,6 +66,8 @@ type DesktopEntry = {
   finished: boolean
   screenWidth: number
   screenHeight: number
+  /** Mirrored from claim; agent input is paused while `user`. */
+  driver: 'agent' | 'user'
 }
 
 const desktops = new Map<string, DesktopEntry>()
@@ -215,6 +220,7 @@ export async function handleDesktopCreate(
     finished: false,
     screenWidth: claim.screenWidth ?? 1440,
     screenHeight: claim.screenHeight ?? 900,
+    driver: claim.driver === 'user' ? 'user' : 'agent',
   }
   desktops.set(claim.sessionId, entry)
   entry.heartbeatTimer = setInterval(() => {
@@ -238,6 +244,9 @@ export async function runDesktopClaim(
   }
   const entry = desktops.get(claim.sessionId)
   if (!entry || entry.finished) return
+  if (claim.driver === 'user' || claim.driver === 'agent') {
+    entry.driver = claim.driver
+  }
   const control = claim.control
   if (control.kind === 'follow_start') {
     if (entry.followTimer) clearInterval(entry.followTimer)
@@ -263,6 +272,9 @@ export async function runDesktopClaim(
     ).catch(() => undefined)
     return
   }
+  // Protocol 2: keep frames flowing while the human drives, but do not apply
+  // agent-originated input (server should not enqueue these; belt-and-suspenders).
+  if (entry.driver === 'user') return
   if (control.kind === 'click') {
     await runPibInput(['click', String(Math.round(control.x)), String(Math.round(control.y))])
     return

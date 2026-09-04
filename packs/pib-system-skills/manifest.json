@@ -23,6 +23,7 @@
         "daily-workflow",
         "pib-bot-teams",
         "pib-chat-canvas",
+        "pib-routines",
         "client-documents",
         "docs-lead",
         "billing-finance",
@@ -96,6 +97,13 @@
       "risk": "low",
       "requiredScopes": [],
       "summary": "Teach agents to emit pib:chart, pib:mermaid, pib:math, and pib:html fences plus working-directory file references so Messages can render canvas parts."
+    },
+    "pib-routines": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Create and manage PiB-owned schedule/event bot routines via /api/v1/bots/{botId}/routines (flag botRoutinesEnabled)."
     },
     "client-documents": {
       "tier": "core",

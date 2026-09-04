@@ -35,6 +35,7 @@ import {
   type AuthorizedLinkedComputerDispatch,
 } from '@/lib/linked-computers/runtime-targets'
 import { enqueueLinkedRun } from '@/lib/linked-computers/run-queue-store'
+import { publishAgentPresence } from '@/lib/messages/agent-presence'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
 import {
@@ -66,7 +67,7 @@ import {
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { buildPromptBudget } from '@/lib/hermes-features/prompt-budget'
 import { classifyMessagesPromptIntent } from '@/lib/messages/prompt-profile'
-import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, parseRoutineProposalArgs, routineCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { renderDesignContextPayload } from '@/lib/chat/design-commands'
 import { findDesignContextItem } from '@/lib/research/store'
 import {
@@ -834,6 +835,74 @@ export const POST = withAuth(
       }
     }
 
+    // /routine: control plane — routine_proposal rich part + create_routine ui action.
+    if (slashCommand?.executorKind === 'bot_routine') {
+      const proposal = parseRoutineProposalArgs(slashCommand.args)
+      const agentId = dispatchAgentId
+        || (Array.isArray(conversation.participantAgentIds) ? conversation.participantAgentIds[0] : null)
+        || null
+      const displayContent = routineCommandLine(slashCommand)
+      const userMessage = await createMessage(convId, {
+        conversationId: convId,
+        role: 'user',
+        content: displayContent || '/routine',
+        ...(slashCommand ? { slashCommand } : {}),
+        authorKind: 'user',
+        authorId: user.uid,
+        authorDisplayName,
+        status: 'completed',
+      })
+      await touchConversation(convId, displayContent || '/routine', 'user', userMessage.id, user.uid)
+
+      const reply = proposal.prompt
+        ? `Proposed routine “${proposal.name}” on schedule \`${proposal.cron}\`. Confirm to create it for ${agentId || 'this bot'}.`
+        : 'Propose a routine with `/routine name | cron | prompt` (example: `/routine Morning brief | 0 9 * * * | Summarise overnight CRM activity`).'
+
+      const richParts = proposal.prompt && agentId
+        ? [{
+          type: 'routine_proposal',
+          name: proposal.name,
+          prompt: proposal.prompt,
+          schedule: proposal.cron,
+          triggerKind: 'schedule' as const,
+          agentId,
+        }]
+        : []
+
+      const uiActions = proposal.prompt && agentId
+        ? [{
+          id: `create-routine-${Date.now()}`,
+          type: 'create_routine',
+          label: 'Create routine',
+          variant: 'primary',
+          endpoint: `/api/v1/bots/${encodeURIComponent(agentId)}/routines`,
+          method: 'POST',
+          bodyMode: 'payload',
+          payload: {
+            orgId: conversation.orgId,
+            name: proposal.name,
+            prompt: proposal.prompt,
+            accessScope: 'personal',
+            trigger: { kind: 'schedule', cron: proposal.cron, tz: 'UTC' },
+          },
+        }]
+        : []
+
+      const assistantMessage = await createMessage(convId, {
+        conversationId: convId,
+        role: 'assistant',
+        content: reply,
+        authorKind: 'system',
+        authorId: 'system',
+        authorDisplayName: 'Routines',
+        status: 'completed',
+        ...(richParts.length ? { richParts } : {}),
+        ...(uiActions.length ? { uiActions } : {}),
+      })
+      await touchConversation(convId, reply, 'assistant', assistantMessage.id)
+      return apiSuccess({ message: userMessage, assistantMessage }, 201)
+    }
+
     // Hermes /goal + /subgoal: control plane + standing goal state on the conversation.
     // Control replies can complete without a Hermes run; set/resume/add criteria dispatch.
     let hermesGoalWorkPrompt: string | null = null
@@ -1059,6 +1128,12 @@ export const POST = withAuth(
         ...(modelSelection?.llmConnectionId ? { llmConnectionId: modelSelection.llmConnectionId } : {}),
         ...(modelSelection?.llmCredentialBindingId ? { llmCredentialBindingId: modelSelection.llmCredentialBindingId } : {}),
         status: 'pending',
+      })
+      publishAgentPresence({
+        orgId: conversation.orgId,
+        agentId,
+        conversationId: convId,
+        state: 'thinking',
       })
 
       // Never leave a pending assistant orphan: any throw after createMessage

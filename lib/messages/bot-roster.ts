@@ -1,3 +1,4 @@
+import type { AgentPresenceState } from './agent-presence'
 import type { VisibleBotComputer } from './bot-computers'
 import { computersForBot } from './bot-computers'
 import { canShareAgentAsGrokBot } from './bot-shares'
@@ -29,6 +30,12 @@ export interface BotRosterChannelGroup {
   }>
 }
 
+export type BotRosterPresence = {
+  state: AgentPresenceState
+  currentStep?: string
+  conversationId?: string
+}
+
 export interface BotRosterItem {
   id: string
   name: string
@@ -43,6 +50,7 @@ export interface BotRosterItem {
   onlineComputerCount: number
   kind?: BotRosterKind
   shareable?: boolean
+  presence?: BotRosterPresence
 }
 
 function resolveBotRosterKind(agent: BotRosterSourceAgent): BotRosterKind {
@@ -82,6 +90,7 @@ export function buildBotRosterItems(
   agents: BotRosterSourceAgent[],
   groups: BotRosterChannelGroup[],
   computers: VisibleBotComputer[],
+  presenceByAgentId?: Record<string, BotRosterPresence | undefined>,
 ): BotRosterItem[] {
   const groupById = new Map(groups.map((group) => [group.id, group]))
   return agents
@@ -90,6 +99,7 @@ export function buildBotRosterItems(
       const group = groupById.get(agent.agentId)
       const latest = latestConversation(group?.conversations ?? [])
       const botComputers = computersForBot(computers, agent.agentId)
+      const presence = presenceByAgentId?.[agent.agentId]
       return {
         id: agent.agentId,
         name: agent.name?.trim() || agent.agentId,
@@ -104,6 +114,7 @@ export function buildBotRosterItems(
         onlineComputerCount: botComputers.filter((computer) => computer.online).length,
         kind: resolveBotRosterKind(agent),
         shareable: canShareAgentAsGrokBot(agent),
+        ...(presence ? { presence } : {}),
       }
     })
 }

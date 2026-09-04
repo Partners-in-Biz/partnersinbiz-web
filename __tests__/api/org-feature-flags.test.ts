@@ -25,4 +25,19 @@ describe('organisation feature flags', () => {
     expect(resolveFeatureFlags({ agentRoomsEnabled: true }).agentRoomsEnabled).toBe(true)
     expect(resolveFeatureFlags({ agentRoomsEnabled: 'true' }).agentRoomsEnabled).toBe(true)
   })
+
+  it('keeps personal agent rooms off until an organisation opts in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.personalAgentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags(undefined).personalAgentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({}).personalAgentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({ personalAgentRoomsEnabled: true }).personalAgentRoomsEnabled).toBe(true)
+  })
+
+  it('keeps bot routines off until an organisation opts in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.botRoutinesEnabled).toBe(false)
+    expect(resolveFeatureFlags(undefined).botRoutinesEnabled).toBe(false)
+    expect(resolveFeatureFlags({}).botRoutinesEnabled).toBe(false)
+    expect(resolveFeatureFlags({ botRoutinesEnabled: true }).botRoutinesEnabled).toBe(true)
+    expect(resolveFeatureFlags({ botRoutinesEnabled: 'true' }).botRoutinesEnabled).toBe(true)
+  })
 })

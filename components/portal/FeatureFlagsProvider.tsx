@@ -9,6 +9,8 @@ export interface FeatureFlags {
   show_whatsapp: boolean
   emailMarketingStudioV2: boolean
   agentRoomsEnabled: boolean
+  personalAgentRoomsEnabled: boolean
+  botRoutinesEnabled: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags
@@ -20,6 +22,8 @@ const DEFAULT_FLAGS: FeatureFlags = {
   show_whatsapp: false,
   emailMarketingStudioV2: false,
   agentRoomsEnabled: false,
+  personalAgentRoomsEnabled: false,
+  botRoutinesEnabled: false,
 }
 
 interface FeatureFlagsContextValue {
@@ -69,6 +73,8 @@ export function FeatureFlagsProvider({
             show_whatsapp: coerce(raw.show_whatsapp, DEFAULT_FLAGS.show_whatsapp),
             emailMarketingStudioV2: coerce(raw.emailMarketingStudioV2, DEFAULT_FLAGS.emailMarketingStudioV2),
             agentRoomsEnabled: coerce(raw.agentRoomsEnabled, DEFAULT_FLAGS.agentRoomsEnabled),
+            personalAgentRoomsEnabled: coerce(raw.personalAgentRoomsEnabled, DEFAULT_FLAGS.personalAgentRoomsEnabled),
+            botRoutinesEnabled: coerce(raw.botRoutinesEnabled, DEFAULT_FLAGS.botRoutinesEnabled),
           })
         }
       })

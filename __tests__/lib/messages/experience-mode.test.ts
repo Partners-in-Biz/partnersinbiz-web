@@ -85,6 +85,16 @@ describe('bot roster', () => {
     expect(roster.map((bot) => bot.kind)).toEqual(['marketplace', 'custom'])
   })
 
+  it('attaches optional presence onto roster rows', () => {
+    const roster = buildBotRosterItems(
+      [{ agentId: 'theo', name: 'Theo', enabled: true }],
+      [],
+      [],
+      { theo: { state: 'thinking', currentStep: 'Planning next step' } },
+    )
+    expect(roster[0]?.presence).toEqual({ state: 'thinking', currentStep: 'Planning next step' })
+  })
+
   it('keeps Grok Bot surfaces and PiB extras in the capability map', () => {
     expect(BOT_MODE_CAPABILITIES.filter((item) => item.grok).map((item) => item.id)).toEqual([
       'named-bots',

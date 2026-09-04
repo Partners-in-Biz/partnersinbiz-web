@@ -15,6 +15,17 @@ export type DesktopSessionStatus =
 
 export type DesktopSessionDriver = 'agent' | 'user'
 
+/** Actor that is requesting a driver change or enqueuing a control. */
+export type DesktopSessionActorKind = 'agent' | 'user'
+
+/** Controls that move the desktop — blocked while the other actor owns the wheel. */
+export const DESKTOP_DRIVING_CONTROL_KINDS = ['click', 'type', 'press', 'scroll'] as const
+
+export function isDesktopDrivingControl(control: Record<string, unknown> | null | undefined): boolean {
+  const kind = typeof control?.kind === 'string' ? control.kind : ''
+  return (DESKTOP_DRIVING_CONTROL_KINDS as ReadonlyArray<string>).includes(kind)
+}
+
 export const TERMINAL_DESKTOP_SESSION_STATUSES: ReadonlyArray<DesktopSessionStatus> = [
   'exited',
   'killed',
@@ -89,7 +100,7 @@ export function assertDesktopSessionComplete(session: Pick<DesktopSession, 'devi
 export function desktopSessionHttpStatus(error: unknown): number {
   const message = error instanceof Error ? error.message : String(error ?? '')
   if (/not found/i.test(message)) return 404
-  if (/already final|not claimed|lease/i.test(message)) return 409
+  if (/already final|not claimed|lease|being driven/i.test(message)) return 409
   if (/authentication|signature|credential|device mismatch|denied/i.test(message)) return 403
   return 500
 }

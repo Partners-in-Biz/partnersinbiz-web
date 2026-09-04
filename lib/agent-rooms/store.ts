@@ -1,5 +1,7 @@
+import { canPullAgentToDevice, canStartLinkedAgent } from '@/lib/agents/org-agent-policy'
 import { isValidAgentId } from '@/lib/agents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { memberCanUseAgentOnRuntime, resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import { ORG_TEAMS_COLLECTION } from '@/lib/org-teams/types'
 import {
   AGENT_ROOMS_COLLECTION,
@@ -8,8 +10,11 @@ import {
   AGENT_ROOM_SLUG_RE,
   agentRoomId,
   memberKey,
+  normalizeAccessScope,
   normalizeAgentRoomSlug,
+  personalAgentRoomId,
   type AgentRoom,
+  type AgentRoomAccessScope,
   type AgentRoomMember,
 } from './types'
 
@@ -41,11 +46,18 @@ interface DbLike {
 export interface AgentRoomStoreOptions {
   db?: DbLike
   now?: () => unknown
+  /**
+   * When set, returns organisation rooms plus the viewer's personal rooms only.
+   * Implementation lists all rooms for the org and filters in memory (no composite
+   * Firestore index for accessScope + ownerUserId yet).
+   */
+  viewerUserId?: string
 }
 
 const AGENTS = 'agent_team'
 const DEVICES = 'linked_devices'
 const GRANTS = 'linked_device_grants'
+const MEMBERS = 'orgMembers'
 
 function timestamp(options: AgentRoomStoreOptions): unknown {
   return options.now ? options.now() : new Date().toISOString()
@@ -54,6 +66,10 @@ function timestamp(options: AgentRoomStoreOptions): unknown {
 function asRoom(id: string, data: Record<string, unknown> | undefined): AgentRoom | null {
   if (!data) return null
   const members = normalizeMembers(data.members)
+  const accessScope = normalizeAccessScope(data.accessScope)
+  const ownerUserId = typeof data.ownerUserId === 'string' && data.ownerUserId.trim()
+    ? data.ownerUserId.trim()
+    : null
   return {
     roomId: id,
     orgId: String(data.orgId ?? ''),
@@ -66,6 +82,8 @@ function asRoom(id: string, data: Record<string, unknown> | undefined): AgentRoo
       : [],
     conversationId: String(data.conversationId ?? ''),
     allowOrgWideDms: false,
+    accessScope,
+    ownerUserId: accessScope === 'personal' ? ownerUserId : null,
     projectionVersion: Number(data.projectionVersion ?? 0),
     status: data.status === 'archived' ? 'archived' : 'active',
     createdByUserId: String(data.createdByUserId ?? ''),
@@ -119,15 +137,32 @@ function cleanTeamIds(values: unknown): string[] {
   return [...new Set(values.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map((value) => value.trim()))]
 }
 
+function roomVisibleToViewer(room: AgentRoom, viewerUserId: string | undefined): boolean {
+  if (!viewerUserId) return true
+  if (room.accessScope !== 'personal') return true
+  return room.ownerUserId === viewerUserId
+}
+
 async function assertMembers(
   tx: TransactionLike,
   db: DbLike,
   orgId: string,
   members: AgentRoomMember[],
+  roomContext: { accessScope: AgentRoomAccessScope; ownerUserId: string | null },
 ): Promise<void> {
   if (members.length < AGENT_ROOM_MIN_MEMBERS || members.length > AGENT_ROOM_MAX_MEMBERS) {
     throw new Error(`agent rooms: members must be ${AGENT_ROOM_MIN_MEMBERS}..${AGENT_ROOM_MAX_MEMBERS}`)
   }
+
+  let ownerMembership: Record<string, unknown> | undefined
+  let orgManager = false
+  if (roomContext.accessScope === 'personal' && roomContext.ownerUserId) {
+    const memberSnap = await tx.get(db.collection(MEMBERS).doc(`${orgId}_${roomContext.ownerUserId}`))
+    ownerMembership = memberSnap.data()
+    const role = typeof ownerMembership?.role === 'string' ? ownerMembership.role : ''
+    orgManager = role === 'owner' || role === 'admin'
+  }
+
   for (const member of members) {
     const agentSnap = await tx.get(db.collection(AGENTS).doc(member.agentId))
     const agent = agentSnap.data()
@@ -137,6 +172,68 @@ async function assertMembers(
     if (scopeOrgId && scopeOrgId !== orgId) {
       throw new Error(`agent rooms: agent is not visible to this organisation: ${member.agentId}`)
     }
+
+    const agentAccessScope = agent.accessScope === 'personal' ? 'personal' : 'organization'
+    const agentOwnerUserId = typeof agent.ownerUserId === 'string' ? agent.ownerUserId : undefined
+
+    if (roomContext.accessScope === 'organization') {
+      // Close the org-room personal-agent gap: personal agents never seat in org rooms.
+      if (agentAccessScope === 'personal') {
+        throw new Error(`agent rooms: personal agents cannot join organisation rooms: ${member.agentId}`)
+      }
+    } else {
+      const ownerUserId = roomContext.ownerUserId
+      if (!ownerUserId) throw new Error('agent rooms: personal room requires ownerUserId')
+      if (agentAccessScope === 'personal' && agentOwnerUserId !== ownerUserId) {
+        throw new Error(`agent rooms: cannot seat another member's personal agent: ${member.agentId}`)
+      }
+
+      let deviceOwnerUserId: string | undefined
+      if (member.deviceId) {
+        const deviceSnap = await tx.get(db.collection(DEVICES).doc(member.deviceId))
+        const device = deviceSnap.data()
+        if (!deviceSnap.exists || !device) throw new Error(`agent rooms: device not found: ${member.deviceId}`)
+        deviceOwnerUserId = typeof device.ownerUserId === 'string' ? device.ownerUserId : undefined
+        if (deviceOwnerUserId !== ownerUserId) {
+          throw new Error(`agent rooms: personal room devices must be owner-owned: ${member.deviceId}`)
+        }
+      }
+
+      const accessPolicy = resolveMemberAccessPolicy({
+        role: (typeof ownerMembership?.role === 'string' ? ownerMembership.role : 'member') as 'owner' | 'admin' | 'member' | 'viewer',
+        accessScope: ownerMembership?.accessScope,
+        accessPolicy: ownerMembership?.accessPolicy,
+      })
+      const runtimeTargetId = member.deviceId ? `linked-device:${member.deviceId}` : `user:${ownerUserId}`
+      const explicitlyGranted = memberCanUseAgentOnRuntime(accessPolicy, runtimeTargetId, member.agentId)
+      const pullable = canPullAgentToDevice({
+        agent: {
+          agentId: member.agentId,
+          enabled: agent.enabled !== false,
+          scopeOrgId: scopeOrgId || undefined,
+          ownerUserId: agentOwnerUserId,
+          accessScope: agentAccessScope,
+          agentKind: typeof agent.agentKind === 'string' ? agent.agentKind : undefined,
+          marketplaceTemplateId: typeof agent.marketplaceTemplateId === 'string' ? agent.marketplaceTemplateId : undefined,
+        },
+        actorUserId: ownerUserId,
+        orgId,
+        orgManager,
+        explicitlyGranted,
+      })
+      const startable = canStartLinkedAgent({
+        accessScope: agentAccessScope,
+        ownerUserId: agentOwnerUserId,
+        actorUserId: ownerUserId,
+        callerRole: orgManager ? 'admin' : 'client',
+        selectedDeviceOwnerUserId: member.deviceId ? deviceOwnerUserId : ownerUserId,
+        explicitlyGranted,
+      })
+      if (!pullable && !startable) {
+        throw new Error(`agent rooms: owner cannot start agent in personal room: ${member.agentId}`)
+      }
+    }
+
     if (!member.deviceId) continue
     const grantSnap = await tx.get(db.collection(GRANTS).doc(`${orgId}_${member.deviceId}`))
     const grant = grantSnap.data()
@@ -182,25 +279,38 @@ export async function createAgentRoom(input: {
   humanTeamIds?: string[]
   conversationId: string
   actorUserId: string
+  accessScope?: AgentRoomAccessScope
+  ownerUserId?: string | null
 }, options: AgentRoomStoreOptions = {}): Promise<AgentRoom> {
   const orgId = input.orgId.trim()
   const slug = normalizeAgentRoomSlug(input.slug)
   const name = normalizeName(input.name)
   const pictureUrl = normalizePictureUrl(input.pictureUrl)
   const members = normalizeMembers(input.members)
-  const humanTeamIds = cleanTeamIds(input.humanTeamIds)
+  const accessScope = normalizeAccessScope(input.accessScope)
+  const ownerUserId = accessScope === 'personal'
+    ? (typeof input.ownerUserId === 'string' && input.ownerUserId.trim()
+      ? input.ownerUserId.trim()
+      : input.actorUserId)
+    : null
+  const humanTeamIds = accessScope === 'personal' ? [] : cleanTeamIds(input.humanTeamIds)
   const conversationId = input.conversationId.trim()
   if (!orgId) throw new Error('agent rooms: orgId is required')
   if (!AGENT_ROOM_SLUG_RE.test(slug)) throw new Error('agent rooms: invalid slug')
   if (!conversationId) throw new Error('agent rooms: conversationId is required')
+  if (accessScope === 'personal' && !ownerUserId) {
+    throw new Error('agent rooms: personal room requires ownerUserId')
+  }
 
-  const roomId = agentRoomId(orgId, slug)
+  const roomId = accessScope === 'personal'
+    ? personalAgentRoomId(orgId, ownerUserId!, slug)
+    : agentRoomId(orgId, slug)
   const db = options.db ?? (adminDb as unknown as DbLike)
   return db.runTransaction(async (tx) => {
     const roomRef = db.collection(AGENT_ROOMS_COLLECTION).doc(roomId)
     const existing = await tx.get(roomRef)
     if (existing.exists) throw new Error('agent rooms: slug already exists')
-    await assertMembers(tx, db, orgId, members)
+    await assertMembers(tx, db, orgId, members, { accessScope, ownerUserId })
     await assertHumanTeams(tx, db, orgId, humanTeamIds)
     const at = timestamp(options)
     const room: AgentRoom = {
@@ -213,6 +323,8 @@ export async function createAgentRoom(input: {
       humanTeamIds,
       conversationId,
       allowOrgWideDms: false,
+      accessScope,
+      ownerUserId,
       projectionVersion: 1,
       status: 'active',
       createdByUserId: input.actorUserId,
@@ -242,9 +354,18 @@ export async function updateAgentRoom(input: {
     const name = input.name !== undefined ? normalizeName(input.name) : room.name
     const pictureUrl = input.pictureUrl !== undefined ? normalizePictureUrl(input.pictureUrl) : room.pictureUrl
     const members = input.members !== undefined ? normalizeMembers(input.members) : room.members
-    const humanTeamIds = input.humanTeamIds !== undefined ? cleanTeamIds(input.humanTeamIds) : room.humanTeamIds
-    if (input.members !== undefined) await assertMembers(tx, db, input.orgId, members)
-    if (input.humanTeamIds !== undefined) await assertHumanTeams(tx, db, input.orgId, humanTeamIds)
+    const humanTeamIds = room.accessScope === 'personal'
+      ? []
+      : (input.humanTeamIds !== undefined ? cleanTeamIds(input.humanTeamIds) : room.humanTeamIds)
+    if (input.members !== undefined) {
+      await assertMembers(tx, db, input.orgId, members, {
+        accessScope: room.accessScope,
+        ownerUserId: room.ownerUserId,
+      })
+    }
+    if (input.humanTeamIds !== undefined && room.accessScope !== 'personal') {
+      await assertHumanTeams(tx, db, input.orgId, humanTeamIds)
+    }
     const at = timestamp(options)
     const updated: AgentRoom = {
       ...room,
@@ -311,8 +432,10 @@ export async function getAgentRoom(orgId: string, roomId: string, options: Agent
 export async function listAgentRooms(orgId: string, options: AgentRoomStoreOptions = {}): Promise<AgentRoom[]> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   const snap = await db.collection(AGENT_ROOMS_COLLECTION).where('orgId', '==', orgId).get()
+  // Filter personal rooms in memory by viewerUserId — avoids a composite index for now.
   return snap.docs
     .map((doc) => asRoom(doc.id, doc.data()))
     .filter((room): room is AgentRoom => Boolean(room))
+    .filter((room) => roomVisibleToViewer(room, options.viewerUserId))
     .sort((a, b) => a.name.localeCompare(b.name))
 }

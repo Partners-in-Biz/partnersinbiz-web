@@ -13,6 +13,7 @@ PiB is the authority for organisation agents on a paired machine.
 - Heartbeat `availableProfiles` is grant-filtered into `availableAgents` (each row has `orgId`) plus `ignoredProfiles`. Unmanaged profiles with `orgId: null` are omitted from both. Organisation keys are delivered only to matching `orgId` rows.
 - `executeAgentHostJob` refuses `org_mismatch` before any skill, credential, or browser work when the marker org disagrees with the job.
 - Protocol version is `4`. Claim accepts 3 or 4; v3 runtimes skip `managedProfile` jobs and leave them queued.
+- Workbench desktop sessions protocol is `2` (claim includes `driver`; runtime pauses agent input while `driver === 'user'`). Protocol `1` runtimes still work because the server gates agent driving controls.
 
 ## Hermes channel pin
 

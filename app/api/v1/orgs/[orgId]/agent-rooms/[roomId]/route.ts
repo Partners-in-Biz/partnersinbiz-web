@@ -1,8 +1,12 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { archiveAgentRoomWithMirror, assertCanManageAgentRooms } from '@/lib/agent-rooms/service'
-import { getAgentRoom, updateAgentRoom } from '@/lib/agent-rooms/store'
+import {
+  archiveAgentRoomWithMirror,
+  assertCanManageAgentRoom,
+  updateAgentRoomWithMirror,
+} from '@/lib/agent-rooms/service'
+import { getAgentRoom } from '@/lib/agent-rooms/store'
 import type { AgentRoomMember } from '@/lib/agent-rooms/types'
 import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
 import { orgFeatureFlagEnabled } from '@/lib/organizations/feature-flags'
@@ -30,31 +34,33 @@ function asStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
-async function requireRoomAccess(user: Parameters<typeof clientCanAccessOrg>[0], orgId: string) {
+async function requireFlagAndOrg(user: Parameters<typeof clientCanAccessOrg>[0], orgId: string) {
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   if (!(await orgFeatureFlagEnabled(orgId, 'agentRoomsEnabled'))) return apiError('feature_disabled', 404)
-  try {
-    await assertCanManageAgentRooms(user, orgId)
-  } catch {
-    return apiError('Forbidden', 403)
-  }
   return null
 }
 
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { orgId, roomId } = await (ctx as Ctx).params
-  const denied = await requireRoomAccess(user, orgId)
+  const denied = await requireFlagAndOrg(user, orgId)
   if (denied) return denied
 
   const existing = await getAgentRoom(orgId, roomId)
   if (!existing) return apiError('Room not found', 404)
+  try {
+    await assertCanManageAgentRoom(user, existing)
+  } catch {
+    return apiError('Forbidden', 403)
+  }
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null
   if (!body || typeof body !== 'object') return apiError('Malformed JSON body', 400)
   try {
-    const room = await updateAgentRoom({
+    const room = await updateAgentRoomWithMirror({
       orgId,
       roomId,
+      actorUserId: user.uid,
+      actorLabel: user.uid,
       ...(typeof body.name === 'string' ? { name: body.name } : {}),
       ...(body.pictureUrl === null || typeof body.pictureUrl === 'string' ? { pictureUrl: body.pictureUrl } : {}),
       ...(body.members !== undefined ? { members: asMembers(body.members) } : {}),
@@ -70,14 +76,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
 export const DELETE = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { orgId, roomId } = await (ctx as Ctx).params
-  const denied = await requireRoomAccess(user, orgId)
+  const denied = await requireFlagAndOrg(user, orgId)
   if (denied) return denied
 
   const existing = await getAgentRoom(orgId, roomId)
   if (!existing) return apiError('Room not found', 404)
+  try {
+    await assertCanManageAgentRoom(user, existing)
+  } catch {
+    return apiError('Forbidden', 403)
+  }
 
   try {
-    const room = await archiveAgentRoomWithMirror({ orgId, roomId })
+    const room = await archiveAgentRoomWithMirror({ orgId, roomId, actorUserId: user.uid })
     return apiSuccess({ room })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'agent rooms: archive failed'

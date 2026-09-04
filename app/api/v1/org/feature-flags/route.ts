@@ -13,6 +13,8 @@ export interface OrgFeatureFlags {
   emailMarketingStudioV2: boolean
   orgTeamsEnabled: boolean
   agentRoomsEnabled: boolean
+  personalAgentRoomsEnabled: boolean
+  botRoutinesEnabled: boolean
 }
 
 export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
@@ -23,6 +25,8 @@ export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
   emailMarketingStudioV2: false,
   orgTeamsEnabled: false,
   agentRoomsEnabled: false,
+  personalAgentRoomsEnabled: false,
+  botRoutinesEnabled: false,
 }
 
 function coerceFlag(value: unknown, fallback: boolean): boolean {
@@ -42,6 +46,8 @@ export function resolveFeatureFlags(raw: unknown): OrgFeatureFlags {
     emailMarketingStudioV2: coerceFlag(flags.emailMarketingStudioV2, DEFAULT_FEATURE_FLAGS.emailMarketingStudioV2),
     orgTeamsEnabled: coerceFlag(flags.orgTeamsEnabled, DEFAULT_FEATURE_FLAGS.orgTeamsEnabled),
     agentRoomsEnabled: coerceFlag(flags.agentRoomsEnabled, DEFAULT_FEATURE_FLAGS.agentRoomsEnabled),
+    personalAgentRoomsEnabled: coerceFlag(flags.personalAgentRoomsEnabled, DEFAULT_FEATURE_FLAGS.personalAgentRoomsEnabled),
+    botRoutinesEnabled: coerceFlag(flags.botRoutinesEnabled, DEFAULT_FEATURE_FLAGS.botRoutinesEnabled),
   }
 }
 

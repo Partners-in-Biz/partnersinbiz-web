@@ -30,7 +30,7 @@ describe('CreateRoomDialog', () => {
       return response({})
     })
     global.fetch = fetchMock
-    render(<CreateRoomDialog orgId="org-1" onCreated={onCreated} onClose={jest.fn()} />)
+    render(<CreateRoomDialog orgId="org-1" canCreateOrgRooms personalRoomsEnabled={false} onCreated={onCreated} onClose={jest.fn()} />)
     expect(await screen.findByLabelText('Growth')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'Growth Desk' } })
     expect(screen.getByLabelText('Room slug')).toHaveValue('growth-desk')
@@ -43,6 +43,7 @@ describe('CreateRoomDialog', () => {
       name: 'Growth Desk',
       slug: 'growth-desk',
       pictureUrl: null,
+      accessScope: 'organization',
       members: [
         { agentId: 'pip', deviceId: null },
         { agentId: 'maya', deviceId: 'device-a' },

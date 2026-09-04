@@ -116,6 +116,8 @@ export interface AgentWorkbenchRailProps {
   onStopBrowserAgentSessionFollow?: () => void
   /** Slice-2 arbitration: the human explicitly takes the wheel from the agent. */
   onTakeControlBrowserAgentSession?: () => void
+  /** Hands the browser wheel back to the agent. */
+  onHandBackBrowserAgentSession?: () => void
   /** Human-only toggle: allow the agent to reach private/internal hosts on this session. */
   onToggleAllowPrivateBrowserAgentSession?: () => void
   /** Requests a fresh accessibility snapshot for the Agent view (the text the agent sees). */
@@ -225,6 +227,7 @@ export function AgentWorkbenchRail({
   onStartBrowserAgentSessionFollow,
   onStopBrowserAgentSessionFollow,
   onTakeControlBrowserAgentSession,
+  onHandBackBrowserAgentSession,
   onToggleAllowPrivateBrowserAgentSession,
   onRefreshBrowserAgentSnapshot,
   browserAgentSnapshotText,
@@ -483,6 +486,7 @@ export function AgentWorkbenchRail({
             onFollowStart={onStartBrowserAgentSessionFollow}
             onFollowStop={onStopBrowserAgentSessionFollow}
             onTakeControl={onTakeControlBrowserAgentSession}
+            onHandBack={onHandBackBrowserAgentSession}
             onToggleAllowPrivate={onToggleAllowPrivateBrowserAgentSession}
             onRefreshSnapshot={onRefreshBrowserAgentSnapshot}
             snapshotText={browserAgentSnapshotText}

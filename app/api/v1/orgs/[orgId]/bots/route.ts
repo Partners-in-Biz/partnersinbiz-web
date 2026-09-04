@@ -11,6 +11,7 @@ import { canManageLinkedAgent, runtimeSupportsCustomAgentProfiles } from '@/lib/
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
 import { allocateBotHandle, canShareAgentAsGrokBot, sanitizeBotHandle } from '@/lib/messages/bot-shares'
+import { listAgentPresenceForOrg } from '@/lib/messages/agent-presence'
 import { memberOrgRole, provisionCustomBotOnDevice } from '@/lib/messages/provision-custom-bot'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -35,12 +36,13 @@ export const GET = withAuth(
     const role = memberOrgRole(membership.data()?.role)
     const canManageOrgAgents = user.role === 'admin' || role === 'owner' || role === 'admin'
 
-    const [agentSnap, personalDeviceSnap, orgDeviceSnap] = await Promise.all([
+    const [agentSnap, personalDeviceSnap, orgDeviceSnap, presenceRows] = await Promise.all([
       adminDb.collection('agent_team').where('scopeOrgId', '==', scope.orgId).get(),
       adminDb.collection('linked_devices').where('ownerUserId', '==', user.uid).get(),
       canManageOrgAgents
         ? adminDb.collection('linked_devices').where('ownerOrgId', '==', scope.orgId).get()
         : Promise.resolve({ docs: [] as Array<{ id: string; data: () => unknown }> }),
+      listAgentPresenceForOrg(scope.orgId),
     ])
 
     const agents = agentSnap.docs
@@ -76,6 +78,12 @@ export const GET = withAuth(
       agents,
       devices,
       canCreate: devices.some((device) => device.supportsCustomAgents),
+      presence: presenceRows.map((row) => ({
+        agentId: row.agentId,
+        state: row.state,
+        ...(row.currentStep ? { currentStep: row.currentStep } : {}),
+        ...(row.conversationId ? { conversationId: row.conversationId } : {}),
+      })),
     })
   },
 )

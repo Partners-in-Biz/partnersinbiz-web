@@ -10,8 +10,10 @@ import { storeWorkbenchBrowserFrame } from '@/lib/messages/workbench/browser-fra
 import {
   assertDesktopSessionComplete,
   assertLiveDesktopLease,
+  isDesktopDrivingControl,
   isTerminalDesktopSessionStatus,
   type DesktopSession,
+  type DesktopSessionActorKind,
   type DesktopSessionDriver,
   type DesktopSessionStatus,
 } from '@/lib/messages/workbench/desktop-session'
@@ -19,12 +21,17 @@ import {
 export {
   assertDesktopSessionComplete,
   assertLiveDesktopLease,
+  isDesktopDrivingControl,
   isTerminalDesktopSessionStatus,
   TERMINAL_DESKTOP_SESSION_STATUSES,
+  DESKTOP_DRIVING_CONTROL_KINDS,
   type DesktopSession,
+  type DesktopSessionActorKind,
   type DesktopSessionDriver,
   type DesktopSessionStatus,
 } from '@/lib/messages/workbench/desktop-session'
+
+export const WORKBENCH_DESKTOP_SESSIONS_PROTOCOL_VERSION = 2
 
 export const WORKBENCH_DESKTOP_SESSIONS_COLLECTION = 'conversation_workbench_desktop_sessions'
 export const WORKBENCH_DESKTOP_SESSION_QUEUES_COLLECTION = 'linked_device_workbench_desktop_session_queues'
@@ -109,14 +116,31 @@ export async function getWorkbenchDesktopSession(sessionId: string): Promise<Des
   }
 }
 
+export type DesktopSessionClaim =
+  | {
+    kind: 'create'
+    sessionId: string
+    attempt: number
+    leaseToken: string
+    screenWidth: number
+    screenHeight: number
+    driver: DesktopSessionDriver
+  }
+  | {
+    kind: 'control'
+    sessionId: string
+    control: Record<string, unknown>
+    attempt: number
+    leaseToken: string
+    driver: DesktopSessionDriver
+  }
+
 export async function claimWorkbenchDesktopSession(input: {
   deviceId: string
   credentialVersion: number
-}): Promise<
-  | { kind: 'create'; sessionId: string; attempt: number; leaseToken: string; screenWidth: number; screenHeight: number }
-  | { kind: 'control'; sessionId: string; control: Record<string, unknown>; attempt: number; leaseToken: string }
-  | null
-> {
+  /** Runtime protocol; 2+ receives `driver` (always included for both). */
+  protocolVersion?: number
+}): Promise<DesktopSessionClaim | null> {
   const qSnap = await queueRef(input.deviceId).get()
   const sessionIds = Array.isArray(qSnap.data()?.sessionIds) ? qSnap.data()!.sessionIds as string[] : []
   for (const sessionId of sessionIds) {
@@ -136,11 +160,27 @@ export async function claimWorkbenchDesktopSession(input: {
         leaseToken,
         screenWidth: session.screenWidth,
         screenHeight: session.screenHeight,
+        driver: session.driver,
       }
     }
     if ((session.status === 'claimed' || session.status === 'running') && session.pendingControls.length > 0) {
-      const control = session.pendingControls[0]!
-      const rest = session.pendingControls.slice(1)
+      // While the human drives, skip agent-style driving controls so protocol-1
+      // runtimes never execute them. Leave them queued until hand-back.
+      let claimIndex = 0
+      while (claimIndex < session.pendingControls.length) {
+        const candidate = session.pendingControls[claimIndex]!
+        if (session.driver === 'user' && isDesktopDrivingControl(candidate)) {
+          claimIndex += 1
+          continue
+        }
+        break
+      }
+      if (claimIndex >= session.pendingControls.length) continue
+      const control = session.pendingControls[claimIndex]!
+      const rest = [
+        ...session.pendingControls.slice(0, claimIndex),
+        ...session.pendingControls.slice(claimIndex + 1),
+      ]
       const leaseToken = session.leaseToken || crypto.randomBytes(16).toString('hex')
       await sessionRef(sessionId).update({
         pendingControls: rest,
@@ -154,13 +194,28 @@ export async function claimWorkbenchDesktopSession(input: {
         control,
         attempt: 1,
         leaseToken,
+        driver: session.driver,
       }
     }
   }
   return null
 }
 
-export async function enqueueDesktopControl(sessionId: string, control: Record<string, unknown>): Promise<DesktopSession> {
+export async function enqueueDesktopControl(
+  sessionId: string,
+  control: Record<string, unknown>,
+  options: { actorKind?: DesktopSessionActorKind } = {},
+): Promise<DesktopSession> {
+  const actorKind: DesktopSessionActorKind = options.actorKind ?? 'user'
+  const session = await getWorkbenchDesktopSession(sessionId)
+  if (isDesktopDrivingControl(control) && session.driver !== actorKind) {
+    const owner = session.driver === 'agent' ? 'the agent' : 'the user'
+    throw new Error(
+      actorKind === 'agent' && session.driver === 'user'
+        ? 'workbench: desktop session is being driven by the user'
+        : `workbench: desktop session is being driven by ${owner} — take control first`,
+    )
+  }
   await sessionRef(sessionId).update({
     pendingControls: FieldValue.arrayUnion(control),
     updatedAt: FieldValue.serverTimestamp(),
@@ -168,7 +223,21 @@ export async function enqueueDesktopControl(sessionId: string, control: Record<s
   return getWorkbenchDesktopSession(sessionId)
 }
 
-export async function setDesktopDriver(sessionId: string, driver: DesktopSessionDriver): Promise<DesktopSession> {
+/**
+ * Hands the wheel to `driver`. Humans may always set either side; an agent
+ * cannot seize control while the human is driving (409).
+ */
+export async function setDesktopDriver(
+  sessionId: string,
+  driver: DesktopSessionDriver,
+  options: { actorKind?: DesktopSessionActorKind } = {},
+): Promise<DesktopSession> {
+  const actorKind: DesktopSessionActorKind = options.actorKind ?? 'user'
+  if (driver !== 'user' && driver !== 'agent') throw new Error('workbench: invalid desktop session driver')
+  const session = await getWorkbenchDesktopSession(sessionId)
+  if (actorKind === 'agent' && driver === 'agent' && session.driver === 'user') {
+    throw new Error('workbench: desktop session is being driven by the user')
+  }
   await sessionRef(sessionId).update({ driver, updatedAt: FieldValue.serverTimestamp() })
   return getWorkbenchDesktopSession(sessionId)
 }
@@ -207,6 +276,9 @@ export async function storeDesktopFrame(input: {
     ...(input.screenHeight ? { screenHeight: input.screenHeight } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   })
+  // Skipped setAgentPresence(working, "Using the computer"): desktop sessions
+  // carry orgId but not a durable agentId. ComputerActivityChip uses live
+  // workbench session props from UnifiedChat instead.
   return getWorkbenchDesktopSession(input.sessionId)
 }
 

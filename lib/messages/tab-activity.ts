@@ -2,13 +2,14 @@
  * Workspace tab activity for Hermes Messages.
  *
  * - running: agent turn in flight on a tab the user is not viewing → pulse border
+ * - computer: desktop/browser session live on a background tab → computer accent
  * - unread: turn finished while the tab was not focused → solid bottom border
  * - idle: focused, or no pending attention
  */
 
-export type TabActivityPhase = 'idle' | 'running' | 'unread'
+export type TabActivityPhase = 'idle' | 'running' | 'unread' | 'computer'
 
-export type ConversationLifecyclePhase = 'running' | 'completed' | 'idle'
+export type ConversationLifecyclePhase = 'running' | 'completed' | 'idle' | 'computer'
 
 export type ConversationLifecycleEvent = {
   conversationId: string
@@ -35,8 +36,9 @@ export function nextTabActivity(
   isFocused: boolean,
 ): TabActivityPhase {
   if (event === 'running') return 'running'
+  if (event === 'computer') return 'computer'
   if (event === 'completed') return isFocused ? 'idle' : 'unread'
-  // Explicit idle: keep unread on background tabs; clear running.
+  // Explicit idle: keep unread on background tabs; clear running/computer.
   if (isFocused) return 'idle'
   if (current === 'unread') return 'unread'
   return 'idle'
