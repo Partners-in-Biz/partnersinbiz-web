@@ -197,6 +197,7 @@ export function publicConversationMessageView(message: ConversationMessage): Con
     authorId: message.authorId,
     authorDisplayName: message.authorDisplayName,
     ...(message.dispatchAgentId ? { dispatchAgentId: message.dispatchAgentId } : {}),
+    ...(message.deviceBadge ? { deviceBadge: message.deviceBadge } : {}),
     ...(message.createdAt ? { createdAt: message.createdAt } : {}),
   }
 }

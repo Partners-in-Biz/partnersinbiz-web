@@ -5,6 +5,7 @@ import {
 } from '@/lib/linked-computers/reveal-redaction'
 
 const CONTEXT = 'linked-computer-run-queue:v1'
+export const LINKED_RELAY_CONTEXT = 'linked-computer-relay:v1'
 const MAX_RECEIPT_SKEW_MS = 5 * 60 * 1000
 
 export type LinkedRunStatus = 'queued' | 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled' | 'expired'
@@ -105,32 +106,49 @@ function masterKey(): Buffer {
     : crypto.createHash('sha256').update(value).digest()
 }
 
-function jobKey(deviceId: string, jobId: string): Buffer {
-  return crypto.createHmac('sha256', masterKey()).update(`${CONTEXT}:${deviceId}:${jobId}`).digest()
+function jobKey(deviceId: string, jobId: string, context = CONTEXT): Buffer {
+  return crypto.createHmac('sha256', masterKey()).update(`${context}:${deviceId}:${jobId}`).digest()
 }
 
-export function encryptLinkedRunPayload(payload: LinkedRunPayload, deviceId: string, jobId: string): EncryptedLinkedRunPayload {
-  // Keep under Firestore doc + AES practical limits; prefer a usable run over hard fail.
-  const MAX_PROMPT = 700_000
-  if (!payload.prompt) throw new Error('linked computers: invalid run prompt')
-  if (payload.prompt.length > MAX_PROMPT) {
-    payload = { ...payload, prompt: `${payload.prompt.slice(0, MAX_PROMPT)}\n\n…[prompt truncated for linked dispatch]` }
+function linkedPayloadAad(deviceId: string, jobId: string, context: string): Buffer {
+  return Buffer.from(context === CONTEXT ? `${deviceId}\n${jobId}` : `${context}\n${deviceId}\n${jobId}`)
+}
+
+export function encryptLinkedRunPayload(
+  payload: LinkedRunPayload | Record<string, unknown>,
+  deviceId: string,
+  jobId: string,
+  context = CONTEXT,
+): EncryptedLinkedRunPayload {
+  let body: LinkedRunPayload | Record<string, unknown> = payload
+  if (context === CONTEXT) {
+    const run = payload as LinkedRunPayload
+    const MAX_PROMPT = 700_000
+    if (!run.prompt) throw new Error('linked computers: invalid run prompt')
+    if (run.prompt.length > MAX_PROMPT) {
+      body = { ...run, prompt: `${run.prompt.slice(0, MAX_PROMPT)}\n\n…[prompt truncated for linked dispatch]` }
+    }
+    if (run.images && (run.images.length > 5 || run.images.some((image) => (
+      !/^image\/(?:png|jpeg|gif|webp)$/i.test(image.contentType)
+      || !/^https:\/\//i.test(image.url)
+      || image.url.length > 8_192
+    )))) throw new Error('linked computers: invalid run images')
   }
-  if (payload.images && (payload.images.length > 5 || payload.images.some((image) => (
-    !/^image\/(?:png|jpeg|gif|webp)$/i.test(image.contentType)
-    || !/^https:\/\//i.test(image.url)
-    || image.url.length > 8_192
-  )))) throw new Error('linked computers: invalid run images')
   const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', jobKey(deviceId, jobId), iv)
-  cipher.setAAD(Buffer.from(`${deviceId}\n${jobId}`))
-  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()])
+  const cipher = crypto.createCipheriv('aes-256-gcm', jobKey(deviceId, jobId, context), iv)
+  cipher.setAAD(linkedPayloadAad(deviceId, jobId, context))
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(body), 'utf8'), cipher.final()])
   return { ciphertext: ciphertext.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') }
 }
 
-export function decryptLinkedRunPayload(value: EncryptedLinkedRunPayload, deviceId: string, jobId: string): LinkedRunPayload {
-  const decipher = crypto.createDecipheriv('aes-256-gcm', jobKey(deviceId, jobId), Buffer.from(value.iv, 'base64'))
-  decipher.setAAD(Buffer.from(`${deviceId}\n${jobId}`))
+export function decryptLinkedRunPayload(
+  value: EncryptedLinkedRunPayload,
+  deviceId: string,
+  jobId: string,
+  context = CONTEXT,
+): LinkedRunPayload {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', jobKey(deviceId, jobId, context), Buffer.from(value.iv, 'base64'))
+  decipher.setAAD(linkedPayloadAad(deviceId, jobId, context))
   decipher.setAuthTag(Buffer.from(value.tag, 'base64'))
   return JSON.parse(Buffer.concat([decipher.update(Buffer.from(value.ciphertext, 'base64')), decipher.final()]).toString('utf8')) as LinkedRunPayload
 }

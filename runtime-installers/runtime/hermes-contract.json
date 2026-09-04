@@ -298,5 +298,38 @@
   },
   "skillsApi": {
     "listRoute": "GET /v1/skills"
+  },
+  "cron": {
+    "cliArgv": ["hermes", "cron", "create"],
+    "createWithProfile": ["hermes", "-p", "{profile}", "cron", "create"],
+    "jobsFile": "{profileDir}/cron/jobs.json",
+    "continuity": "CLI --continuity stores context_from token self; POST /api/jobs omits it",
+    "monitor": {
+      "notBoolean": true,
+      "fields": ["monitor_script", "monitor_url"]
+    },
+    "apiServer": "GET/POST /api/jobs — create whitelist name,schedule,prompt,deliver,skills,repeat",
+    "dashboard": "GET/POST /api/cron/jobs",
+    "wsRpc": "cron.manage",
+    "pibSyncPolicyRecommendation": "Prefer hermes -p {profile} cron create over POST /api/jobs until API accepts extended fields"
+  },
+  "delegation": {
+    "toolName": "delegate_task",
+    "sseForwarded": ["subagent.start", "subagent.complete"],
+    "childStop": { "rpc": "subagent.interrupt", "params": ["subagent_id"] },
+    "childSteer": { "rpc": "subagent.steer", "params": ["subagent_id", "text", "session_id"] },
+    "parentStop": "POST /v1/runs/{run_id}/stop",
+    "parentSteer": "POST /v1/runs/{run_id}/steer",
+    "liveWsFixture": "UNVERIFIED"
+  },
+  "observability": {
+    "usageCommand": { "argv": ["hermes", "insights", "--days", "{days}"] },
+    "usageApi": { "route": "GET /api/analytics/usage", "auth": "UNVERIFIED for runtime" },
+    "apiServerUsageRoute": "UNVERIFIED"
+  },
+  "sandbox": {
+    "policyKey": "terminal.backend",
+    "pibMapping": { "none": "local", "docker": "docker" },
+    "detectAtRuntime": "_effective_terminal_backend"
   }
 }

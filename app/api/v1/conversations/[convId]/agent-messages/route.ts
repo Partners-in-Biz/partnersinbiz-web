@@ -9,30 +9,19 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
-import { getConversation, createMessage, touchConversation } from '@/lib/conversations/conversations'
+import { appendAgentMessage, AppendAgentMessageError } from '@/lib/conversations/append-agent-message'
+import { getConversation } from '@/lib/conversations/conversations'
 import { authorizeConversationProject, canAppendAgentMessage } from '@/lib/conversations/access'
-import { normalizeRichParts, normalizeUiActions } from '@/lib/hermes/rich-messages'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
 
-function cleanString(value: unknown, max = 20000): string {
-  if (typeof value !== 'string') return ''
-  return value.trim().slice(0, max)
-}
-
 function cleanAgentId(value: unknown): AgentId | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return AGENT_IDS.includes(trimmed as AgentId) ? trimmed as AgentId : null
-}
-
-function displayNameForAgent(conversation: Awaited<ReturnType<typeof getConversation>>, agentId: AgentId): string {
-  const participant = conversation?.participants
-    ?.find((item) => item.kind === 'agent' && item.agentId === agentId)
-  return participant?.kind === 'agent' && participant.name ? participant.name : agentId
 }
 
 function canAppendForAgent(user: ApiUser, agentId: AgentId): boolean {
@@ -76,38 +65,26 @@ export const POST = withAuth(
     const participantAgentIds = Array.isArray(conversation.participantAgentIds)
       ? conversation.participantAgentIds
       : []
-    if (!participantAgentIds.includes(agentId) && !canRelaySpecialistOutput(user, agentId, conversation)) {
+    const allowNonParticipant = canRelaySpecialistOutput(user, agentId, conversation)
+    if (!participantAgentIds.includes(agentId) && !allowNonParticipant) {
       return apiError('Agent is not a participant in this conversation', 403)
     }
 
-    const content = cleanString(raw.content)
-    const richParts = normalizeRichParts(raw.richParts ?? raw.rich_parts ?? raw.parts).slice(0, 10)
-    const uiActions = normalizeUiActions(raw.uiActions ?? raw.ui_actions).slice(0, 10)
-    const runId = cleanString(raw.runId ?? raw.run_id, 200)
-    if (!content && richParts.length === 0 && uiActions.length === 0) {
-      return apiError('content, richParts, or uiActions are required', 400)
+    try {
+      const message = await appendAgentMessage({
+        convId,
+        agentId,
+        content: typeof raw.content === 'string' ? raw.content : '',
+        richParts: raw.richParts ?? raw.rich_parts ?? raw.parts,
+        uiActions: raw.uiActions ?? raw.ui_actions,
+        runId: typeof (raw.runId ?? raw.run_id) === 'string' ? String(raw.runId ?? raw.run_id) : undefined,
+        authorDisplayName: typeof raw.authorDisplayName === 'string' ? raw.authorDisplayName : undefined,
+        allowNonParticipant,
+      })
+      return apiSuccess({ message }, 201)
+    } catch (error) {
+      if (error instanceof AppendAgentMessageError) return apiError(error.message, error.status)
+      throw error
     }
-
-    const authorDisplayName = cleanString(raw.authorDisplayName, 120)
-      || displayNameForAgent(conversation, agentId)
-
-    const message = await createMessage(convId, {
-      conversationId: convId,
-      role: 'assistant',
-      content,
-      ...(richParts.length > 0 ? { richParts, rich_parts: richParts } : {}),
-      ...(uiActions.length > 0 ? { uiActions, ui_actions: uiActions } : {}),
-      ...(runId ? { runId } : {}),
-      authorKind: 'agent',
-      authorId: `agent:${agentId}`,
-      authorDisplayName,
-      dispatchAgentId: agentId,
-      status: 'completed',
-    })
-
-    const preview = content || richParts.map((part) => part.title || part.type).filter(Boolean).join(', ')
-    await touchConversation(convId, preview, 'assistant', message.id)
-
-    return apiSuccess({ message }, 201)
   },
 )

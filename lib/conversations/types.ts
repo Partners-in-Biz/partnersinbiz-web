@@ -141,6 +141,13 @@ export interface Conversation {
     dispatcherAgentId: AgentId
     requestedAgentIds: AgentId[]
   }
+  /** Set when this conversation is the Messages mirror of an AgentRoom. */
+  agentRoom?: { roomId: string }
+  /**
+   * Room mirror escalation: a bot wrote `@user` (text mention, not a Hermes WS event).
+   * Unread for humanTeamIds is applied via read-state when this flips on.
+   */
+  needsYou?: boolean
   /** Immutable ancestry for sessions intentionally continued on another computer. */
   lineage?: {
     kind: 'runtime_continuation'
@@ -242,6 +249,8 @@ export interface ConversationMessage {
   dispatchRuntimeKind?: string
   /** Human machine label at dispatch time, e.g. "Partners VPS" or "Peet's Mac". */
   dispatchRuntimeLabel?: string
+  /** Linked-computer badge for a room-turn that landed from a specific machine. */
+  deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   /** Structured project command-session lifecycle event (system messages). */
   projectCommandEvent?: Record<string, unknown>

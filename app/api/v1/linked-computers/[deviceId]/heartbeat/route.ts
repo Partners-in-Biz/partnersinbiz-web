@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyProjectionObservation } from '@/lib/agent-rooms/projection'
 import { claimPendingDeviceRotation, recordDeviceHeartbeat } from '@/lib/linked-computers/store'
 import { authenticateSignedDeviceRequest, lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
 import { reconcileDesiredAgentsAfterHeartbeat } from '@/lib/linked-computers/agent-host-service'
@@ -25,12 +26,20 @@ function parseAvailableProfiles(raw: unknown): LinkedAvailableProfile[] | undefi
     if (row.skillsDigest != null) {
       if (typeof row.skillsDigest !== 'string' || !SKILLS_DIGEST_RE.test(row.skillsDigest.trim())) continue
     }
+    const projectionHash = typeof row.projectionHash === 'string' && /^[a-f0-9]{64}$/i.test(row.projectionHash.trim())
+      ? row.projectionHash.trim().toLowerCase()
+      : undefined
+    const observedMeta = row.observedMeta && typeof row.observedMeta === 'object' && !Array.isArray(row.observedMeta)
+      ? row.observedMeta as Record<string, unknown>
+      : undefined
     parsed.push({
       profile,
       orgId: row.orgId == null ? null : row.orgId.trim(),
       agentId,
       healthy: row.healthy,
       skillsDigest: row.skillsDigest == null ? null : row.skillsDigest.trim().toLowerCase(),
+      ...(projectionHash ? { projectionHash } : {}),
+      ...(observedMeta ? { observedMeta } : {}),
     })
   }
   return parsed
@@ -91,6 +100,15 @@ export async function handleDeviceHeartbeat(
       ...(availableProfiles ? { availableProfiles } : {}),
     }).catch(() => undefined)
     void reconcileCredentials({ deviceId, availableAgentIds }).catch(() => undefined)
+    if (availableProfiles) {
+      void Promise.all(availableProfiles.map((profile) => applyProjectionObservation({
+        deviceId,
+        orgId: profile.orgId,
+        profile: profile.profile,
+        observedHash: profile.projectionHash ?? null,
+        observedMeta: profile.observedMeta,
+      }))).catch(() => undefined)
+    }
     const rotation = body.claimRotation === true
       ? await claimRotation({ deviceId, authenticatedCredentialVersion: identity.credentialVersion })
       : null

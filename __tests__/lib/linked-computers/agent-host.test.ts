@@ -336,6 +336,72 @@ describe('agent host jobs', () => {
       browserPolicy: payload.browserPolicy,
     })
   })
+
+  it('parses optional botProjection, fingerprints it, and ignores extra keys on protocol 4', () => {
+    const botProjection = {
+      profileMeta: { title: 'Maya', description: 'Marketing', avatar: null, section: '', groups: ['growth-desk'] },
+      rooms: [{ roomId: 'org-1_growth-desk', name: 'Growth desk', pictureUrl: null, memberHandles: ['@maya-device-a'] }],
+      peers: [],
+      projectionVersion: 1,
+    }
+    const payload = parseAgentHostJobPayload({
+      agentId: 'partners--maya',
+      catalogAgentId: 'maya',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8757,
+      protocolVersion: 4,
+      extraIgnored: 'old-runtime-safe',
+      botProjection,
+    })
+    expect(payload.botProjection).toEqual(botProjection)
+    expect(payload.protocolVersion).toBe(4)
+    expect(payload).not.toHaveProperty('extraIgnored')
+
+    const withProjection = agentHostRequestFingerprint({
+      deviceId: 'd1',
+      kind: 'sync-policy',
+      agentId: 'partners--maya',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8757,
+      botProjection,
+    })
+    const withoutProjection = agentHostRequestFingerprint({
+      deviceId: 'd1',
+      kind: 'sync-policy',
+      agentId: 'partners--maya',
+      policyVersion: 'v1',
+      keepInSync: true,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8757,
+    })
+    expect(withProjection).not.toBe(withoutProjection)
+    expect(toPublicAgentHostJob({
+      jobId: 'j1',
+      idempotencyKey: 'k',
+      requestFingerprint: 'fp',
+      deviceId: 'd1',
+      orgId: 'org-1',
+      actorUserId: 'u1',
+      credentialVersion: 1,
+      kind: 'sync-policy',
+      status: 'queued',
+      attempt: 0,
+      payload,
+      createdAtMs: 1,
+      updatedAtMs: 2,
+      expiresAtMs: 3,
+    }).botProjection).toEqual(botProjection)
+  })
 })
 
 describe('pullable catalog + skill packs', () => {

@@ -629,6 +629,27 @@ describe('MessageBubble', () => {
     expect(screen.getByTitle('@agent mention (maya)')).toHaveTextContent('@agent:maya')
   })
 
+  it('renders a device badge chip after the agent name when deviceBadge is present', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-badge',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Draft is ready.',
+          authorKind: 'agent',
+          authorId: 'maya',
+          authorDisplayName: 'Maya',
+          status: 'completed',
+          deviceBadge: { deviceId: 'device-a', label: "Peet's Mac" },
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('message-device-badge')).toHaveTextContent("Peet's Mac")
+  })
+
   it('renders structured rich parts and dispatches UI actions from the message payload', () => {
     const handleAction = jest.fn()
     const Bubble = MessageBubble as any

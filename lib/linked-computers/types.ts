@@ -20,6 +20,10 @@ export interface LinkedAvailableProfile {
   agentId: string
   healthy: boolean
   skillsDigest: string | null
+  /** Runtime-computed projectionHash of ui_meta + rooms. Absent on runtimes without the projector. */
+  projectionHash?: string | null
+  /** Observed profile/room meta when hashes differ. Capped at 8 KB on ingest. */
+  observedMeta?: Record<string, unknown> | null
 }
 
 export interface LinkedDevice {

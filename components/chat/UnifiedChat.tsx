@@ -106,6 +106,7 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { RoomList } from '@/components/messages/agent-rooms/RoomList'
 import { ConversationOverflowSheet } from '@/components/messages/ConversationOverflowSheet'
 import { useMobileConversationViewport } from '@/components/messages/useMobileConversationViewport'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
@@ -300,6 +301,8 @@ export interface UnifiedChatProps {
   experienceMode?: MessagesExperienceMode
   onExperienceModeChange?: (mode: MessagesExperienceMode) => void
   computersHref?: string
+  /** Portal Messages only: show the agent-rooms rail when the org flag is on. */
+  agentRoomsEnabled?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -1376,6 +1379,7 @@ export default function UnifiedChat({
   experienceMode = 'messages',
   onExperienceModeChange,
   computersHref = '/portal/settings/linked-computers',
+  agentRoomsEnabled = false,
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
   const mobileConversationViewport = useMobileConversationViewport()
@@ -7584,6 +7588,17 @@ export default function UnifiedChat({
               : 'h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-transparent pl-8 pr-2 text-sm text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)] focus:border-primary/50 focus:ring-1 focus:ring-primary/30'}
           />
         </label>
+
+        {agentRoomsEnabled && !botMode && !railCollapsed && (
+          <RoomList
+            orgId={orgId}
+            activeConversationId={activeId}
+            onOpenConversation={(conversationId) => {
+              setActiveId(conversationId)
+              closeSessions()
+            }}
+          />
+        )}
 
         {hermesLayout && hiddenFolderPreferencesLoaded && hiddenFolderOptions.length > 0 && (
           <div className="relative">

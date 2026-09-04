@@ -215,6 +215,20 @@
       ]
     },
     {
+      "collectionGroup": "agent_rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "llm_credential_bindings",
       "queryScope": "COLLECTION",
       "fields": [

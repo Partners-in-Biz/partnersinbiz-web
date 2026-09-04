@@ -113,7 +113,8 @@ import {
   canReadCrossOrgConversationMessage,
   evaluateCrossOrgConversationAccess,
 } from '@/lib/conversations/cross-org'
-import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
+import { buildAgentRoomSystemPromptSuffix, resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
+import { getAgentRoom } from '@/lib/agent-rooms/store'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
@@ -609,7 +610,9 @@ export const POST = withAuth(
     // owner-org workspace agent. A foreign agent needs a separately-sanitised
     // execution context; until that exists this prevents workspace/history
     // leakage across the collaboration boundary.
-    let dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+    let dispatchAgentId = await resolveConversationDispatchAgentId(conversation, {
+      messageContent: content,
+    })
     if (foreignCrossOrgParticipant) dispatchAgentId = null
     let modelSelection: {
       model: string
@@ -1195,6 +1198,11 @@ export const POST = withAuth(
       })
       const workspaceContext = buildWorkspaceContext(conversation, promptIntent.profile)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      let agentRoomContext = ''
+      if (conversation.agentRoom?.roomId) {
+        const room = await getAgentRoom(conversation.orgId, conversation.agentRoom.roomId)
+        if (room) agentRoomContext = buildAgentRoomSystemPromptSuffix(room)
+      }
       const projectChatOrchestrationContext = promptIntent.needsProjectOrchestration
         ? buildProjectChatOrchestrationContext({
           conversation,
@@ -1343,6 +1351,7 @@ export const POST = withAuth(
         { id: 'conversation_history', content: conversationHistory, priority: 'high', maxTokens: 22_000 },
         { id: 'workspace', content: workspaceContext, priority: 'normal', maxTokens: 2_000 },
         { id: 'orchestration', content: orchestrationContext, priority: 'normal', maxTokens: 1_400 },
+        { id: 'agent_room', content: agentRoomContext, priority: 'high', maxTokens: 600 },
         { id: 'agent_skills_catalogue', content: agentSkillsContext, priority: 'normal', maxTokens: 2_400 },
         { id: 'hermes_features', content: hermesFeaturesContext, priority: 'normal', maxTokens: 6_000 },
         { id: 'approval_and_decision_rules', content: decisionDataRuleContext, priority: 'high' },

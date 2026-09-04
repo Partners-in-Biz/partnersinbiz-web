@@ -3,6 +3,7 @@
 import AgentRunSession from '@/components/agents/AgentRunSession'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import type { MessagesSurface } from '@/components/messages/hermes-desktop/types'
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider'
 import type { MessagesExperienceMode } from '@/lib/messages/experience-mode'
 
 interface MessagesWorkspaceProps {
@@ -45,6 +46,7 @@ export function MessagesWorkspace({
   allowArchiveConversations = true,
 }: MessagesWorkspaceProps) {
   const isAdmin = surface === 'admin'
+  const agentRoomsEnabled = useFeatureFlag('agentRoomsEnabled')
 
   if (isAdmin && initialAgentId && initialRunId) {
     return (
@@ -71,6 +73,7 @@ export function MessagesWorkspace({
       userRole={userRole}
       initialConvId={initialConvId}
       initialExperienceMode={initialExperienceMode}
+      agentRoomsEnabled={agentRoomsEnabled}
       capabilities={{
         allowStartConversations,
         allowSendMessages,

@@ -168,7 +168,7 @@ function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
 }
 
 export function HermesMessagesShell(props: HermesMessagesShellProps) {
-  const { surface, orgId, currentUserUid, currentUserDisplayName, orgName, userRole, initialConvId, initialExperienceMode, capabilities } = props
+  const { surface, orgId, currentUserUid, currentUserDisplayName, orgName, userRole, initialConvId, initialExperienceMode, capabilities, agentRoomsEnabled = false } = props
   const copy = SURFACE_META[surface]
   const runtimeMode = capabilities.allowAgentParticipants ? 'Agents enabled' : 'Human-only'
   const storageKey = `pib.messages.workspace.v1:${orgId}:${currentUserUid}`
@@ -510,7 +510,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     layoutVariant: 'hermes' as const,
     showAgentWorkbench: true,
     computersHref: '/portal/settings/linked-computers',
-  }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
+    agentRoomsEnabled,
+  }), [agentRoomsEnabled, capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
 
   const handleExperienceModeChange = useCallback((mode: MessagesExperienceMode) => {
     setExperienceMode(mode)

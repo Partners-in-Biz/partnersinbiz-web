@@ -987,3 +987,42 @@ export async function enqueueBrowserPolicyJobs(input: {
   }
   return jobIds
 }
+
+/** Enqueue a protocol-4 sync-policy job carrying botProjection. Idempotency includes desiredHash. */
+export async function enqueueBotProjectionJob(input: {
+  deviceId: string
+  orgId: string
+  actorUserId: string
+  agentId: AgentId
+  desiredHash: string
+  botProjection: NonNullable<AgentHostJobPayload['botProjection']>
+}, deps: {
+  loadDevice?: () => Promise<(LinkedDevice & { desiredAgents?: unknown }) | null>
+  policyPayload?: typeof policyPayload
+  enqueueAgentHostJob?: typeof enqueueAgentHostJob
+} = {}): Promise<string> {
+  const device = deps.loadDevice
+    ? await deps.loadDevice()
+    : await adminDb.collection(DEVICES).doc(input.deviceId).get().then((snapshot) => (
+      snapshot.exists ? snapshot.data() as LinkedDevice & { desiredAgents?: unknown } : null
+    ))
+  if (!device) throw new Error('linked computers: device not found')
+  const bindings = parseDesiredAgentBindings(device.desiredAgents)
+  const binding = bindings.find((row) => row.agentId === input.agentId)
+  const buildPolicy = deps.policyPayload ?? policyPayload
+  const enqueue = deps.enqueueAgentHostJob ?? enqueueAgentHostJob
+  const payload = await buildPolicy(input.agentId, binding?.keepInSync === true, input.deviceId, input.orgId)
+  const job = await enqueue({
+    idempotencyKey: `sync-policy:bot-projection:${input.deviceId}:${payload.agentId}:${input.desiredHash}`,
+    deviceId: input.deviceId,
+    orgId: input.orgId,
+    actorUserId: input.actorUserId,
+    credentialVersion: device.credentialVersion,
+    kind: 'sync-policy',
+    payload: {
+      ...payload,
+      botProjection: input.botProjection,
+    },
+  })
+  return job.jobId
+}

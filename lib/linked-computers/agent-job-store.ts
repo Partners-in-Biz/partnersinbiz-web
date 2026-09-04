@@ -178,6 +178,7 @@ export async function enqueueAgentHostJob(
     managedProfile: input.payload.managedProfile ?? null,
     modelDefault: input.payload.modelDefault ?? null,
     apiServer: input.payload.apiServer ?? null,
+    botProjection: input.payload.botProjection ?? null,
   })
   const job: AgentHostJob = {
     jobId: id,

@@ -12,6 +12,7 @@ export interface OrgFeatureFlags {
   show_whatsapp: boolean
   emailMarketingStudioV2: boolean
   orgTeamsEnabled: boolean
+  agentRoomsEnabled: boolean
 }
 
 export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
@@ -21,6 +22,7 @@ export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
   show_whatsapp: false,
   emailMarketingStudioV2: false,
   orgTeamsEnabled: false,
+  agentRoomsEnabled: false,
 }
 
 function coerceFlag(value: unknown, fallback: boolean): boolean {
@@ -39,6 +41,7 @@ export function resolveFeatureFlags(raw: unknown): OrgFeatureFlags {
     show_whatsapp: coerceFlag(flags.show_whatsapp, DEFAULT_FEATURE_FLAGS.show_whatsapp),
     emailMarketingStudioV2: coerceFlag(flags.emailMarketingStudioV2, DEFAULT_FEATURE_FLAGS.emailMarketingStudioV2),
     orgTeamsEnabled: coerceFlag(flags.orgTeamsEnabled, DEFAULT_FEATURE_FLAGS.orgTeamsEnabled),
+    agentRoomsEnabled: coerceFlag(flags.agentRoomsEnabled, DEFAULT_FEATURE_FLAGS.agentRoomsEnabled),
   }
 }
 

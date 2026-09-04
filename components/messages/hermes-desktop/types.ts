@@ -19,4 +19,5 @@ export interface HermesMessagesShellProps {
   initialConvId?: string
   initialExperienceMode?: MessagesExperienceMode
   capabilities: HermesMessagesCapabilities
+  agentRoomsEnabled?: boolean
 }

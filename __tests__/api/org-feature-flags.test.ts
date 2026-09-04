@@ -17,4 +17,12 @@ describe('organisation feature flags', () => {
     expect(resolveFeatureFlags({ orgTeamsEnabled: true }).orgTeamsEnabled).toBe(true)
     expect(resolveFeatureFlags({ orgTeamsEnabled: 'true' }).orgTeamsEnabled).toBe(true)
   })
+
+  it('keeps agent rooms off until an organisation opts in', async () => {
+    expect(DEFAULT_FEATURE_FLAGS.agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags(undefined).agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({}).agentRoomsEnabled).toBe(false)
+    expect(resolveFeatureFlags({ agentRoomsEnabled: true }).agentRoomsEnabled).toBe(true)
+    expect(resolveFeatureFlags({ agentRoomsEnabled: 'true' }).agentRoomsEnabled).toBe(true)
+  })
 })

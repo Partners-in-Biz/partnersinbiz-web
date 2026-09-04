@@ -23,6 +23,8 @@ export interface Conversation {
     dispatcherAgentId: AgentId
     requestedAgentIds: AgentId[]
   }
+  agentRoom?: { roomId: string }
+  needsYou?: boolean
   startedBy: string
   title: string
   scope?: string

@@ -62,6 +62,27 @@ export interface AgentHostJobPayload {
      */
     applyMode?: 'env' | 'restart'
   } | null
+  /**
+   * Optional Bot Mode projection for protocol 4. Old runtimes ignore unknown
+   * keys; extra fields are tolerated and do not require a protocol bump.
+   */
+  botProjection?: {
+    profileMeta: {
+      title: string
+      description: string
+      avatar: string | null
+      section: string
+      groups: string[]
+    }
+    rooms: Array<{
+      roomId: string
+      name: string
+      pictureUrl: string | null
+      memberHandles: string[]
+    }>
+    peers: Array<{ handle: string; url: string; keyBindingId: string }>
+    projectionVersion: number
+  } | null
 }
 
 export type CredentialApplyMode = 'env' | 'restart'
@@ -125,6 +146,7 @@ export interface PublicAgentHostJob {
     /** Claim-only secret material. Never persisted in the job document. */
     credentials?: Record<string, string>
   }
+  botProjection?: AgentHostJobPayload['botProjection']
   leaseToken?: string
   createdAt: string
   updatedAt: string
@@ -195,6 +217,7 @@ export function agentHostRequestFingerprint(input: {
   modelDefault?: AgentHostJobPayload['modelDefault']
   apiServer?: AgentHostJobPayload['apiServer']
   browserPolicy?: AgentHostJobPayload['browserPolicy']
+  botProjection?: AgentHostJobPayload['botProjection']
 }): string {
   return crypto.createHash('sha256')
     .update(JSON.stringify({
@@ -215,6 +238,7 @@ export function agentHostRequestFingerprint(input: {
       modelDefault: input.modelDefault ?? null,
       apiServer: input.apiServer ?? null,
       browserPolicy: input.browserPolicy ?? null,
+      botProjection: input.botProjection ?? null,
     }))
     .digest('hex')
 }
@@ -276,6 +300,7 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
   const modelDefault = parseModelDefaultField(row.modelDefault)
   const apiServer = parseApiServerField(row.apiServer)
   const browserPolicy = parseBrowserPolicyField(row.browserPolicy)
+  const botProjection = parseBotProjectionField(row.botProjection)
   return {
     agentId: row.agentId,
     policyVersion: typeof row.policyVersion === 'string' ? row.policyVersion : null,
@@ -293,6 +318,7 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     ...(apiServer ? { apiServer } : {}),
     ...(browserPolicy ? { browserPolicy } : {}),
     ...(credentialDelivery ? { credentialDelivery } : {}),
+    ...(botProjection ? { botProjection } : {}),
   }
 }
 
@@ -342,6 +368,60 @@ function parseApiServerField(value: unknown): NonNullable<AgentHostJobPayload['a
   return { enable: true }
 }
 
+function parseBotProjectionField(value: unknown): NonNullable<AgentHostJobPayload['botProjection']> | undefined {
+  if (value == null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid botProjection')
+  const row = value as Record<string, unknown>
+  const meta = row.profileMeta && typeof row.profileMeta === 'object' && !Array.isArray(row.profileMeta)
+    ? row.profileMeta as Record<string, unknown>
+    : null
+  if (!meta) throw new Error('agent-host: invalid botProjection')
+  const title = typeof meta.title === 'string' ? meta.title.trim().slice(0, 120) : ''
+  const description = typeof meta.description === 'string' ? meta.description.trim().slice(0, 400) : ''
+  const section = typeof meta.section === 'string' ? meta.section.trim().slice(0, 120) : ''
+  const avatar = meta.avatar == null || meta.avatar === ''
+    ? null
+    : typeof meta.avatar === 'string' ? meta.avatar.trim().slice(0, 500) : null
+  const groups = Array.isArray(meta.groups)
+    ? meta.groups.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).map((item) => item.trim())
+    : []
+  const rooms = Array.isArray(row.rooms)
+    ? row.rooms.flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const room = item as Record<string, unknown>
+        const roomId = typeof room.roomId === 'string' ? room.roomId.trim() : ''
+        const name = typeof room.name === 'string' ? room.name.trim().slice(0, 80) : ''
+        if (!roomId || !name) return []
+        const pictureUrl = room.pictureUrl == null || room.pictureUrl === ''
+          ? null
+          : typeof room.pictureUrl === 'string' ? room.pictureUrl.trim().slice(0, 500) : null
+        const memberHandles = Array.isArray(room.memberHandles)
+          ? room.memberHandles.filter((handle): handle is string => typeof handle === 'string')
+          : []
+        return [{ roomId, name, pictureUrl, memberHandles }]
+      })
+    : []
+  const peers = Array.isArray(row.peers)
+    ? row.peers.flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const peer = item as Record<string, unknown>
+        const handle = typeof peer.handle === 'string' ? peer.handle.trim() : ''
+        const url = typeof peer.url === 'string' ? peer.url.trim() : ''
+        const keyBindingId = typeof peer.keyBindingId === 'string' ? peer.keyBindingId.trim() : ''
+        if (!handle || !url || !keyBindingId) return []
+        return [{ handle, url, keyBindingId }]
+      })
+    : []
+  const projectionVersion = Number(row.projectionVersion)
+  if (!Number.isInteger(projectionVersion) || projectionVersion < 1) throw new Error('agent-host: invalid botProjection')
+  return {
+    profileMeta: { title, description, avatar, section, groups },
+    rooms,
+    peers,
+    projectionVersion,
+  }
+}
+
 function parseBrowserPolicyField(value: unknown): NonNullable<AgentHostJobPayload['browserPolicy']> | undefined {
   if (value == null) return undefined
   if (typeof value !== 'object' || Array.isArray(value)) throw new Error('agent-host: invalid browserPolicy')
@@ -384,6 +464,7 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     ...(job.payload.apiServer ? { apiServer: job.payload.apiServer } : {}),
     ...(job.payload.browserPolicy ? { browserPolicy: job.payload.browserPolicy } : {}),
     ...(job.payload.credentialDelivery ? { credentialDelivery: job.payload.credentialDelivery } : {}),
+    ...(job.payload.botProjection ? { botProjection: job.payload.botProjection } : {}),
     ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

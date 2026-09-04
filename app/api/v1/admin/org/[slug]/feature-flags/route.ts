@@ -36,6 +36,7 @@ export const KNOWN_FEATURE_FLAGS: Array<{ key: string; label: string; descriptio
   { key: 'whatsappChannel', label: 'WhatsApp channel', description: 'WhatsApp omnichannel messaging.' },
   { key: 'betaFeatures', label: 'Beta features', description: 'Opt this org into early-access beta surfaces.' },
   { key: 'orgTeamsEnabled', label: 'Organisation teams', description: 'People teams for machine grants and shared API keys.' },
+  { key: 'agentRoomsEnabled', label: 'Agent rooms', description: 'PiB bot rooms projected onto Hermes Bot Mode. Keep off until runtime v2 is in the field.' },
 ]
 
 function overrideCount(flags: Record<string, boolean>): number {

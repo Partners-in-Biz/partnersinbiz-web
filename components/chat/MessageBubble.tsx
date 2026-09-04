@@ -82,6 +82,7 @@ export interface ConversationMessage {
   dispatchRuntimeTargetId?: string
   dispatchRuntimeKind?: string
   dispatchRuntimeLabel?: string
+  deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
 }
@@ -2619,8 +2620,16 @@ export default function MessageBubble({
       {/* Bubble content */}
       <div className="group/message max-w-full lg:max-w-[78%] flex-1 min-w-0">
         {/* Author label - hidden on mobile */}
-        <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
-          {m.authorDisplayName}
+        <p className={`hidden lg:flex lg:items-center lg:gap-1.5 text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
+          <span>{m.authorDisplayName}</span>
+          {m.deviceBadge?.label && (
+            <span
+              data-testid="message-device-badge"
+              className="inline-flex items-center rounded-[4px] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-pib-text-muted)]"
+            >
+              {m.deviceBadge.label}
+            </span>
+          )}
         </p>
 
         {/* Live thought stream while queued / pending / streaming / waiting */}

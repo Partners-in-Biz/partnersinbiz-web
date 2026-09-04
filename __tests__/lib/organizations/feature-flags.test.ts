@@ -60,4 +60,12 @@ describe('featureFlagsFromOrgData', () => {
       featureFlagsFromOrgData({ settings: { featureFlags: { orgTeamsEnabled: true } } }).orgTeamsEnabled,
     ).toBe(true)
   })
+
+  it('defaults agentRoomsEnabled to false and reads an explicit opt-in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.agentRoomsEnabled).toBe(false)
+    expect(featureFlagsFromOrgData({}).agentRoomsEnabled).toBe(false)
+    expect(
+      featureFlagsFromOrgData({ settings: { featureFlags: { agentRoomsEnabled: true } } }).agentRoomsEnabled,
+    ).toBe(true)
+  })
 })

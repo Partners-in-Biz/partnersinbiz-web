@@ -53,7 +53,7 @@ export type AgentHostRuntimeJob = {
     headed: boolean
     autoclose: boolean
   } | null
-  /** When set on install, write `${profileDir}/pib-managed.json`. Legacy installs omit this. */
+  /** When set on install, write `${profileDir}/pib-managed.json`. Legacy installs omit this. Extra job keys (e.g. botProjection) are ignored; protocol stays 4. */
   managedProfile?: {
     orgId: string
     orgSlug: string

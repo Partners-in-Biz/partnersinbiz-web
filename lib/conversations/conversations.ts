@@ -62,6 +62,7 @@ export async function createConversation(input: {
   contextRefs?: ContextReference[]
   /** Company work scope (CRM company this conversation is about). */
   companyId?: string
+  agentRoom?: Conversation['agentRoom']
 }): Promise<Conversation> {
   const ref = adminDb.collection(CONVERSATIONS_COLLECTION).doc()
 
@@ -98,6 +99,7 @@ export async function createConversation(input: {
   if (input.contextRefs?.length) data.contextRefs = input.contextRefs
   const scopedCompanyId = input.companyId?.trim() || input.workspaceContext?.companyId?.trim()
   if (scopedCompanyId) Object.assign(data, companyFieldsForWrite(scopedCompanyId))
+  if (input.agentRoom?.roomId) data.agentRoom = { roomId: input.agentRoom.roomId }
 
   if (realtimeOutboxEnabled()) {
     await adminDb.runTransaction(async (transaction) => {
@@ -570,14 +572,16 @@ export async function touchConversation(
   role: ConversationMessage['role'],
   messageId?: string,
   authorUserId?: string,
+  extras?: { extraUnreadUserIds?: string[]; needsYou?: boolean },
 ): Promise<void> {
   const ref = convDoc(convId)
   await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref)
     if (!snapshot.exists) throw new Error('Conversation not found')
     const conversation = snapshot.data() as Conversation
+    const extraUnreadUserIds = (extras?.extraUnreadUserIds ?? []).filter((uid) => uid.trim())
     const unreadCounts = advanceConversationUnreadCounts({
-      participantUids: conversation.participantUids ?? [],
+      participantUids: [...new Set([...(conversation.participantUids ?? []), ...extraUnreadUserIds])],
       current: conversation.unreadCounts,
       authorUserId,
     })
@@ -590,6 +594,7 @@ export async function touchConversation(
       updatedAt: FieldValue.serverTimestamp(),
     }
     if (messageId) update.lastMessageId = messageId
+    if (extras?.needsYou) update.needsYou = true
     appendConversationRealtimeOutboxEvent({
       transaction,
       conversationRef: ref,
