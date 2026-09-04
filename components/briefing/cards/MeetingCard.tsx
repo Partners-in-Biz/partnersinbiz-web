@@ -6,6 +6,7 @@ import { briefingContactChannels } from '@/lib/briefing/cardFacts'
 import type { BriefingCard } from '../cockpit/cockpitTypes'
 import { CARD_PRIMARY_CLASS, CARD_SECONDARY_CLASS, CardFrame, Fact, Pill } from './CardFrame'
 import { companyLine, isPastWhen, meetLink, metaString, personLine, whenIso, whenLabel } from './format'
+import { DEFAULT_FREE_SLOT_LIMIT, nextFreeSlotAfter, overlaps, slotTimeLabel, suggestFreeSlots } from './freeSlots'
 import type { BookCallInput, BriefingCardActions, BusyBlock } from './types'
 
 function defaultStart(): string {
@@ -31,12 +32,8 @@ export function busyBlockLabel(block: BusyBlock): string {
   return title ? `${range} ${title}` : range
 }
 
-function overlaps(block: BusyBlock, start: Date, end: Date): boolean {
-  const blockStart = new Date(block.start).getTime()
-  const blockEnd = new Date(block.end).getTime()
-  if (Number.isNaN(blockStart) || Number.isNaN(blockEnd)) return false
-  return start.getTime() < blockEnd && end.getTime() > blockStart
-}
+/** Small time chip ("10:30") that drops a proposed slot into the When field. */
+const SLOT_CHIP_CLASS = 'pib-btn-secondary shrink-0 justify-center px-2 py-0.5 text-[10px] leading-4'
 
 function BookCallForm({
   item,
@@ -96,6 +93,19 @@ function BookCallForm({
   const endDate = new Date(startDate.getTime() + Number(duration) * 60_000)
   const conflicts = Number.isNaN(startDate.getTime()) ? [] : busyBlocks.filter((block) => overlaps(block, startDate, endDate))
 
+  // Propose free slots only once the day has busy blocks — an empty day needs no help.
+  // Cluster suggestions around the chosen time; fall back to the whole day when nothing is left after it.
+  const durationMinutes = Number(duration) > 0 ? Number(duration) : 30
+  const freeSlots = (() => {
+    if (!busyBlocks.length || !YMD.test(dateYmd)) return []
+    const now = new Date()
+    const base = { dateYmd, busy: busyBlocks, durationMinutes, now, limit: DEFAULT_FREE_SLOT_LIMIT + 1 }
+    const anchored = suggestFreeSlots({ ...base, from: start })
+    const slots = anchored.length ? anchored : suggestFreeSlots(base)
+    return slots.filter((slot) => slot !== start).slice(0, DEFAULT_FREE_SLOT_LIMIT)
+  })()
+  const nextFree = conflicts.length ? nextFreeSlotAfter(start, busyBlocks, durationMinutes) : null
+
   async function submit() {
     const startDate = new Date(start)
     if (Number.isNaN(startDate.getTime())) {
@@ -151,10 +161,39 @@ function BookCallForm({
           ))}
         </ul>
       ) : null}
+      {freeSlots.length ? (
+        <div className="flex flex-wrap items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]" aria-label="Free slots on this day">
+          <Icon name="event_available" className="text-[12px]" />
+          <span>Free:</span>
+          {freeSlots.map((slot) => (
+            <button
+              key={slot}
+              type="button"
+              className={SLOT_CHIP_CLASS}
+              aria-label={`Use ${slotTimeLabel(slot)}`}
+              disabled={busy}
+              onClick={(event) => { event.stopPropagation(); setStart(slot) }}
+            >
+              {slotTimeLabel(slot)}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {conflicts.length ? (
-        <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-300" role="status">
+        <p className="flex flex-wrap items-center gap-1 text-[10px] text-amber-600 dark:text-amber-300" role="status">
           <Icon name="warning" className="text-[12px]" />
-          Overlaps with {conflicts.map(busyBlockLabel).join(', ')}
+          <span>Overlaps with {conflicts.map(busyBlockLabel).join(', ')}</span>
+          {nextFree ? (
+            <button
+              type="button"
+              className={SLOT_CHIP_CLASS}
+              aria-label={`Use next free slot ${slotTimeLabel(nextFree)}`}
+              disabled={busy}
+              onClick={(event) => { event.stopPropagation(); setStart(nextFree) }}
+            >
+              Next free: {slotTimeLabel(nextFree)}
+            </button>
+          ) : null}
         </p>
       ) : null}
       {error ? <p className="text-[10px] text-red-500">{error}</p> : null}

@@ -312,6 +312,60 @@ describe('BriefingCardForKind', () => {
     expect(loadBusy).toHaveBeenCalledTimes(2)
   })
 
+  it('proposes free slots around the chosen time and a "Next free" chip when it overlaps', async () => {
+    // Same clock-safe pattern as above: the busy day is whatever day the card
+    // asks for first, pushed a week out, so nothing here depends on today.
+    let busyDay = ''
+    const loadBusy = jest.fn(async (date: string) => {
+      if (!busyDay) {
+        const next = new Date(`${date}T00:00:00`)
+        next.setDate(next.getDate() + 7)
+        const pad = (value: number) => String(value).padStart(2, '0')
+        busyDay = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`
+      }
+      return date === busyDay ? [{ start: `${busyDay}T10:00:00`, end: `${busyDay}T10:30:00`, title: 'Buhle' }] : []
+    })
+    const actions = makeActions({ canBookCall: jest.fn(() => true), loadBusy })
+    const item = makeItem({
+      title: 'Follow up with Jane Buyer',
+      source: { type: 'contact', id: 'contact-5' },
+      context: { orgId: 'org-1', contactId: 'contact-5', contactName: 'Jane Buyer' },
+      metadata: { email: 'jane@acme.test', phone: '+27820000000' },
+    })
+    render(<BriefingCardForKind item={item} actions={actions} />)
+    fireEvent.click(screen.getByRole('button', { name: /book call/i }))
+    await waitFor(() => expect(loadBusy).toHaveBeenCalledTimes(1))
+    // The default day has no busy blocks, so no chips are offered.
+    expect(screen.queryByLabelText('Free slots on this day')).not.toBeInTheDocument()
+
+    const when = screen.getByLabelText('When') as HTMLInputElement
+    fireEvent.change(when, { target: { value: `${busyDay}T09:00` } })
+    const free = await screen.findByLabelText('Free slots on this day')
+    expect(free).toHaveTextContent('Free:')
+    // Suggestions cluster at/after the chosen time, skip 10:00–10:30 Buhle and omit the time already chosen.
+    expect(within(free).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['09:30', '10:30', '11:00'])
+    expect(screen.queryByText(/Next free/)).not.toBeInTheDocument()
+
+    fireEvent.click(within(free).getByRole('button', { name: 'Use 10:30' }))
+    expect(when.value).toBe(`${busyDay}T10:30`)
+    expect(screen.queryByText(/Overlaps with/)).not.toBeInTheDocument()
+    expect(within(screen.getByLabelText('Free slots on this day')).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['11:00', '11:30', '12:00'])
+
+    // Pick a time inside the busy block: the warning gains a Next free chip.
+    fireEvent.change(when, { target: { value: `${busyDay}T10:15` } })
+    expect(screen.getByText('Overlaps with 10:00–10:30 Buhle')).toBeInTheDocument()
+    const nextFree = screen.getByRole('button', { name: 'Use next free slot 10:30' })
+    expect(nextFree).toHaveTextContent('Next free: 10:30')
+    expect(screen.getByRole('button', { name: /book anyway/i })).toBeInTheDocument()
+    fireEvent.click(nextFree)
+    expect(when.value).toBe(`${busyDay}T10:30`)
+    expect(screen.queryByText(/Overlaps with/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Next free/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create invite/i })).toBeInTheDocument()
+    // All of that stayed on one day, so the calendar was only asked twice.
+    expect(loadBusy).toHaveBeenCalledTimes(2)
+  })
+
   it('shows nothing when loadBusy rejects and still lets the call be booked', async () => {
     const bookCall = jest.fn(async () => undefined)
     const actions = makeActions({ canBookCall: jest.fn(() => true), bookCall, loadBusy: jest.fn(async () => { throw new Error('calendar offline') }) })
