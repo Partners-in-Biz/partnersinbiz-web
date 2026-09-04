@@ -72,6 +72,68 @@ describe('taskAdapter.shouldGenerate fyi gating', () => {
     })
   })
 
+  describe('human progress work (in_progress / todo column, no agent)', () => {
+    const daysAgo = (days: number) => hoursAgo(days * 24)
+
+    it('emits a human in-progress task touched 3 days ago', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', assigneeId: 'user-1', updatedAt: daysAgo(3) }
+      expect(taskAdapter.extractPriority(doc, 'task-1')).toBe('progress')
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
+    })
+
+    it('emits a human in-progress task touched exactly 7 days ago (boundary is inclusive)', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', updatedAt: daysAgo(7) }
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
+    })
+
+    it('does not emit a human in-progress task with no agent or due date untouched for 3 weeks', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', assigneeId: 'user-1', updatedAt: daysAgo(21) }
+      expect(taskAdapter.extractPriority(doc, 'task-1')).toBe('progress')
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(false)
+    })
+
+    it('does not emit a human todo task untouched for 8 days', () => {
+      const doc = { ...baseTask, columnId: 'todo', updatedAt: daysAgo(8) }
+      expect(taskAdapter.extractPriority(doc, 'task-1')).toBe('progress')
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(false)
+    })
+
+    it('keeps a stale human in-progress task that carries a due date', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', updatedAt: daysAgo(21), dueDate: '2026-06-20T00:00:00.000Z' }
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
+    })
+
+    it('keeps a stale in-progress task with an assigned agent', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', assigneeAgentId: 'maya', updatedAt: daysAgo(21) }
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
+    })
+
+    it('never drops a task whose agent is actively working, even with no agent id or timestamp', () => {
+      expect(taskAdapter.shouldGenerate({ ...baseTask, columnId: 'in_progress', agentStatus: 'in-progress', updatedAt: daysAgo(30) }, 'task-1')).toBe(true)
+      expect(taskAdapter.shouldGenerate({ ...baseTask, columnId: 'in_progress', agentStatus: 'running' }, 'task-1')).toBe(true)
+    })
+
+    it('treats an empty assigneeAgentId as no agent for a stale progress task', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', assigneeAgentId: '  ', updatedAt: daysAgo(21) }
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(false)
+    })
+
+    it('falls back to createdAt when updatedAt is missing', () => {
+      expect(taskAdapter.shouldGenerate({ ...baseTask, columnId: 'in_progress', createdAt: daysAgo(2) }, 'task-1')).toBe(true)
+      expect(taskAdapter.shouldGenerate({ ...baseTask, columnId: 'in_progress', createdAt: daysAgo(20) }, 'task-1')).toBe(false)
+    })
+
+    it('does not emit an unowned progress task with no usable timestamp', () => {
+      expect(taskAdapter.shouldGenerate({ ...baseTask, columnId: 'in_progress' }, 'task-1')).toBe(false)
+    })
+
+    it('still keeps a stale awaiting-input task in the same column (needs-peet is not gated)', () => {
+      const doc = { ...baseTask, columnId: 'in_progress', agentStatus: 'awaiting-input', updatedAt: daysAgo(21) }
+      expect(taskAdapter.extractPriority(doc, 'task-1')).toBe('needs-peet')
+      expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
+    })
+  })
+
   describe('real work is never age-gated', () => {
     const oldTimestamp = hoursAgo(24 * 20)
 
@@ -105,7 +167,7 @@ describe('taskAdapter.shouldGenerate fyi gating', () => {
       expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
     })
 
-    it('keeps in-progress agent work (progress)', () => {
+    it('keeps in-progress agent work (progress, agent actively running)', () => {
       const doc = { ...baseTask, columnId: 'in_progress', agentStatus: 'in-progress', assigneeAgentId: 'maya', updatedAt: oldTimestamp }
       expect(taskAdapter.extractPriority(doc, 'task-1')).toBe('progress')
       expect(taskAdapter.shouldGenerate(doc, 'task-1')).toBe(true)
