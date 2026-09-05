@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BotAvatar, botAvatarActivity } from '@/components/messages/bot-mode/BotAvatar'
 import { BotProfileCard } from '@/components/messages/bot-mode/BotProfileCard'
-import { PinnedBotChip } from '@/components/messages/bot-mode/PinnedBotChip'
+import { PinnedBotStrip } from '@/components/messages/bot-mode/PinnedBotStrip'
+import { BOT_LONG_PRESS_MS } from '@/components/messages/bot-mode/BotRowMenu'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
@@ -80,39 +81,63 @@ describe('BotAvatar motion', () => {
   })
 })
 
-describe('pinned bot chip', () => {
-  it('opens the pinned bot with one tap and can unpin', () => {
-    const onOpen = jest.fn()
-    const onUnpin = jest.fn()
-    render(<PinnedBotChip bot={{ ...theo, presence: { state: 'working', currentStep: 'Running tests' } }} onOpen={onOpen} onUnpin={onUnpin} />)
-    expect(screen.getByTestId('pinned-bot-chip')).toHaveTextContent('Running tests')
-    fireEvent.click(screen.getByRole('button', { name: 'Open pinned bot Theo' }))
-    expect(onOpen).toHaveBeenCalledWith('theo')
-    fireEvent.click(screen.getByRole('button', { name: 'Unpin Theo' }))
-    expect(onUnpin).toHaveBeenCalledWith('theo')
+describe('pinned bot strip', () => {
+  it('opens the pinned bot with one tap and unpins from the long-press menu', () => {
+    jest.useFakeTimers()
+    try {
+      const onOpen = jest.fn()
+      const onUnpin = jest.fn()
+      render(<PinnedBotStrip bots={[{ ...theo, presence: { state: 'working', currentStep: 'Running tests' } }]} onOpen={onOpen} onUnpin={onUnpin} />)
+      expect(screen.getByTestId('pinned-bot-strip')).toHaveTextContent('Theo')
+      expect(screen.getByTestId('pinned-bot-avatar-theo')).toHaveAttribute('data-activity', 'working')
+      const item = screen.getByRole('button', { name: 'Open pinned bot Theo' })
+      fireEvent.click(item)
+      expect(onOpen).toHaveBeenCalledWith('theo')
+
+      fireEvent.pointerDown(item, { button: 0 })
+      act(() => { jest.advanceTimersByTime(BOT_LONG_PRESS_MS + 10) })
+      fireEvent.pointerUp(item)
+      fireEvent.click(item)
+      expect(onOpen).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByTestId('bot-row-menu-unpin'))
+      expect(onUnpin).toHaveBeenCalledWith('theo')
+      expect(screen.queryByTestId('bot-row-menu')).not.toBeInTheDocument()
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   it('renders nothing when there is no pinned bot', () => {
-    render(<PinnedBotChip bot={null} onOpen={jest.fn()} />)
-    expect(screen.queryByTestId('pinned-bot-chip')).not.toBeInTheDocument()
+    render(<PinnedBotStrip bots={[]} onOpen={jest.fn()} />)
+    expect(screen.queryByTestId('pinned-bot-strip')).not.toBeInTheDocument()
   })
 
   it('shows on the Bot mode landing and opens the canonical chat', () => {
     const onOpenBot = jest.fn()
     render(<BotModeLanding bots={[theo, maya]} computers={[]} pinnedBotId="maya" onOpenBot={onOpenBot} />)
-    expect(screen.getByTestId('pinned-bot-chip')).toHaveAttribute('data-bot-id', 'maya')
+    expect(screen.getByTestId('pinned-bot-maya')).toBeInTheDocument()
+    expect(screen.queryByTestId('pinned-bot-theo')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open pinned bot Maya' }))
     expect(onOpenBot).toHaveBeenCalledWith('maya')
   })
 
-  it('toggles the pin from the roster row', () => {
+  it('pins from the roster row menu via right-click and opens Bot settings', () => {
     const onTogglePin = jest.fn()
-    render(<BotRoster bots={[theo, maya]} pinnedBotId="theo" onSelectBot={jest.fn()} onTogglePin={onTogglePin} />)
+    const onOpenSettings = jest.fn()
+    const onSelectBot = jest.fn()
+    render(<BotRoster bots={[theo, maya]} pinnedBotId="theo" onSelectBot={onSelectBot} onTogglePin={onTogglePin} onOpenSettings={onOpenSettings} />)
     expect(screen.getByTestId('bot-roster-card-theo')).toHaveAttribute('data-pinned', 'true')
-    fireEvent.click(screen.getByRole('button', { name: 'Pin Maya' }))
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Open Maya' }))
+    expect(screen.getByRole('menu', { name: 'Maya actions' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('bot-row-menu-pin'))
     expect(onTogglePin).toHaveBeenCalledWith('maya')
-    fireEvent.click(screen.getByRole('button', { name: 'Unpin Theo' }))
-    expect(onTogglePin).toHaveBeenCalledWith('theo')
+    expect(onSelectBot).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('bot-roster-menu-theo'))
+    expect(screen.getByTestId('bot-row-menu-unpin')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('bot-row-menu-settings'))
+    expect(onOpenSettings).toHaveBeenCalledWith('theo')
   })
 })
 

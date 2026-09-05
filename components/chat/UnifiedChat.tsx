@@ -114,7 +114,7 @@ import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStri
 import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
-import { PinnedBotChip } from '@/components/messages/bot-mode/PinnedBotChip'
+import { PinnedBotStrip } from '@/components/messages/bot-mode/PinnedBotStrip'
 import { BotProfileCard, type BotAppearancePatch } from '@/components/messages/bot-mode/BotProfileCard'
 import { botAvatarActivity } from '@/components/messages/bot-mode/BotAvatar'
 import { normalizePinnedBotId, type BotAvatarStyle, type BotMailboxRecord } from '@/lib/messages/bot-profile'
@@ -7805,6 +7805,14 @@ export default function UnifiedChat({
     }
     openNewAgentConversation(botId)
   }, [closeSessions, hermesAgentGroups, openNewAgentConversation, orgId, setActiveId])
+  /** "Bot settings": open the bot, then surface its desk (profile card: look, pin, email). */
+  const openBotSettings = useCallback((botId: string) => {
+    selectBot(botId)
+    const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 767px)').matches
+    if (phone) setHeaderMenuOpen(true)
+    else chatChrome.reveal()
+  }, [chatChrome, selectBot])
   useEffect(() => {
     if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
@@ -8073,12 +8081,13 @@ export default function UnifiedChat({
           </div>
         )}
 
-        {botMode && (
-          <PinnedBotChip
-            bot={pinnedBot}
-            active={pinnedBot?.id === activeBotId}
+        {botMode && pinnedBot && (
+          <PinnedBotStrip
+            bots={[pinnedBot]}
+            activeBotId={activeBotId}
             onOpen={selectBot}
             onUnpin={unpinBot}
+            onOpenSettings={openBotSettings}
           />
         )}
 
@@ -8102,6 +8111,7 @@ export default function UnifiedChat({
               onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
               onShareBot={shareCustomBot}
               onTogglePin={togglePinnedBot}
+              onOpenSettings={openBotSettings}
             />
           )}
           {botMode && botRailSection === 'inbox' && (
@@ -9496,6 +9506,7 @@ export default function UnifiedChat({
               pinnedBotId={pinnedBotId}
               onOpenBot={selectBot}
               onUnpinBot={unpinBot}
+              onOpenBotSettings={openBotSettings}
               onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
               onOpenWorkbench={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
               studioDevices={botStudioDevices}

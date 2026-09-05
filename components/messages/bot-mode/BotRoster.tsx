@@ -6,6 +6,7 @@ import type { AgentPresenceState } from '@/lib/messages/agent-presence'
 import { Icon } from '@/components/studio'
 import { HoverTip } from '@/components/ui/HoverTip'
 import { BotAvatar, botAvatarActivity } from './BotAvatar'
+import { BotRowMenu, useBotRowMenu, type BotRowMenuItem } from './BotRowMenu'
 
 export type { BotRosterItem }
 
@@ -63,6 +64,7 @@ export function BotRoster({
   onStartChannel,
   onShareBot,
   onTogglePin,
+  onOpenSettings,
   compact = false,
 }: {
   bots: BotRosterItem[]
@@ -71,7 +73,10 @@ export function BotRoster({
   onSelectBot: (botId: string) => void
   onStartChannel?: (botId: string) => void
   onShareBot?: (botId: string) => void
+  /** Enables the long-press / right-click row menu with Pin / Unpin. */
   onTogglePin?: (botId: string) => void
+  /** "Bot settings" in the row menu: opens the bot with its profile (look, pin, email). */
+  onOpenSettings?: (botId: string) => void
   compact?: boolean
 }) {
   if (compact) {
@@ -112,85 +117,131 @@ export function BotRoster({
     )
   }
 
-  const actionButtonClass = 'grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100'
-
   return (
     <div data-testid="bot-roster" className="flex min-h-0 flex-col gap-0.5">
       {bots.length === 0 ? (
         <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No agents on this computer yet. Create one or pick another machine.</p>
-      ) : bots.map((bot) => {
-        const selected = bot.id === activeBotId
-        const pinned = bot.id === pinnedBotId
-        const preview = bot.lastPreview || bot.role
-        const timeLabel = botRosterRelativeTime(bot.lastAt)
-        return (
-          <article
-            key={bot.id}
-            data-testid={`bot-roster-card-${bot.id}`}
-            data-pinned={pinned ? 'true' : undefined}
-            className={`group/bot relative min-w-0 rounded-md ${
-              selected ? 'bg-[var(--color-row-hover)] ring-1 ring-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)]'
-            }`}
-          >
-            <HoverTip label={presenceTip(bot)} side="right" className="block min-w-0 w-full">
-              <button
-                type="button"
-                aria-label={`Open ${bot.name}`}
-                aria-pressed={selected}
-                onClick={() => onSelectBot(bot.id)}
-                className={`flex min-h-12 min-w-0 w-full items-center gap-2.5 py-1.5 pl-2 text-left xl:min-h-11 ${
-                  onTogglePin ? 'pr-24 xl:pr-[4.5rem]' : 'pr-16 xl:pr-12'
-                }`}
-              >
-                <PresenceAvatar bot={bot} size={36} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex min-w-0 items-baseline justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1">
-                      {pinned ? <Icon name="keep" className="shrink-0 text-[11px] text-primary" /> : null}
-                      <span className="truncate text-[13px] font-medium leading-4 text-[var(--color-pib-text)]">{bot.name}</span>
-                    </span>
-                    {timeLabel ? <span className="shrink-0 font-mono text-[10px] text-[var(--color-pib-text-muted)]">{timeLabel}</span> : null}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{preview}</span>
-                </span>
-              </button>
-            </HoverTip>
-            <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center">
-              {onTogglePin && (
-                <button
-                  type="button"
-                  aria-label={pinned ? `Unpin ${bot.name}` : `Pin ${bot.name}`}
-                  aria-pressed={pinned}
-                  onClick={() => onTogglePin(bot.id)}
-                  className={`${actionButtonClass} ${pinned ? 'text-primary xl:opacity-100' : ''}`}
-                >
-                  <Icon name={pinned ? 'keep_off' : 'keep'} className="text-[15px]" />
-                </button>
-              )}
-              {onShareBot && bot.shareable && (
-                <button
-                  type="button"
-                  aria-label={`Share ${bot.name}`}
-                  onClick={() => onShareBot(bot.id)}
-                  className={actionButtonClass}
-                >
-                  <Icon name="ios_share" className="text-[15px]" />
-                </button>
-              )}
-              {onStartChannel && (
-                <button
-                  type="button"
-                  aria-label={`Start channel with ${bot.name}`}
-                  onClick={() => onStartChannel(bot.id)}
-                  className={actionButtonClass}
-                >
-                  <Icon name="add" className="text-[15px]" />
-                </button>
-              )}
-            </div>
-          </article>
-        )
-      })}
+      ) : bots.map((bot) => (
+        <BotRosterRow
+          key={bot.id}
+          bot={bot}
+          selected={bot.id === activeBotId}
+          pinned={bot.id === pinnedBotId}
+          onSelectBot={onSelectBot}
+          onStartChannel={onStartChannel}
+          onShareBot={onShareBot}
+          onTogglePin={onTogglePin}
+          onOpenSettings={onOpenSettings}
+        />
+      ))}
     </div>
+  )
+}
+
+const ACTION_BUTTON_CLASS = 'grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100'
+
+function BotRosterRow({
+  bot,
+  selected,
+  pinned,
+  onSelectBot,
+  onStartChannel,
+  onShareBot,
+  onTogglePin,
+  onOpenSettings,
+}: {
+  bot: BotRosterItem
+  selected: boolean
+  pinned: boolean
+  onSelectBot: (botId: string) => void
+  onStartChannel?: (botId: string) => void
+  onShareBot?: (botId: string) => void
+  onTogglePin?: (botId: string) => void
+  onOpenSettings?: (botId: string) => void
+}) {
+  const menu = useBotRowMenu()
+  const hasMenu = Boolean(onTogglePin || onOpenSettings)
+  const preview = bot.lastPreview || bot.role
+  const timeLabel = botRosterRelativeTime(bot.lastAt)
+  const menuItems: BotRowMenuItem[] = [
+    ...(onTogglePin
+      ? [{ id: pinned ? 'unpin' : 'pin', label: pinned ? 'Unpin' : 'Pin', icon: pinned ? 'keep_off' : 'keep', onSelect: () => onTogglePin(bot.id) }]
+      : []),
+    ...(onOpenSettings
+      ? [{ id: 'settings', label: 'Bot settings', icon: 'settings', onSelect: () => onOpenSettings(bot.id) }]
+      : []),
+  ]
+  const actionCount = (hasMenu ? 1 : 0) + (onShareBot && bot.shareable ? 1 : 0) + (onStartChannel ? 1 : 0)
+  const paddingRight = actionCount >= 3 ? 'pr-24 xl:pr-[4.5rem]' : 'pr-16 xl:pr-12'
+
+  return (
+    <article
+      data-testid={`bot-roster-card-${bot.id}`}
+      data-pinned={pinned ? 'true' : undefined}
+      className={`group/bot relative min-w-0 rounded-md ${
+        selected ? 'bg-[var(--color-row-hover)] ring-1 ring-[var(--color-pib-line)]' : 'hover:bg-[var(--color-row-hover)]'
+      } ${menu.open ? 'z-30' : ''}`}
+    >
+      <HoverTip label={presenceTip(bot)} side="right" className="block min-w-0 w-full">
+        <button
+          type="button"
+          aria-label={`Open ${bot.name}`}
+          aria-pressed={selected}
+          onClick={() => onSelectBot(bot.id)}
+          {...(hasMenu ? menu.pressHandlers : {})}
+          className={`flex min-h-12 min-w-0 w-full items-center gap-2.5 py-1.5 pl-2 text-left select-none xl:min-h-11 ${paddingRight}`}
+        >
+          <PresenceAvatar bot={bot} size={36} />
+          <span className="min-w-0 flex-1">
+            <span className="flex min-w-0 items-baseline justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-1">
+                {pinned ? <Icon name="keep" className="shrink-0 text-[11px] text-primary" /> : null}
+                <span className="truncate text-[13px] font-medium leading-4 text-[var(--color-pib-text)]">{bot.name}</span>
+              </span>
+              {timeLabel ? <span className="shrink-0 font-mono text-[10px] text-[var(--color-pib-text-muted)]">{timeLabel}</span> : null}
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{preview}</span>
+          </span>
+        </button>
+      </HoverTip>
+      <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center">
+        {hasMenu && (
+          <button
+            type="button"
+            aria-label={`${bot.name} options`}
+            aria-haspopup="menu"
+            aria-expanded={menu.open}
+            data-testid={`bot-roster-menu-${bot.id}`}
+            onClick={() => menu.setOpen((open) => !open)}
+            className={`${ACTION_BUTTON_CLASS} ${menu.open ? 'text-primary xl:opacity-100' : ''}`}
+          >
+            <Icon name="more_horiz" className="text-[15px]" />
+          </button>
+        )}
+        {onShareBot && bot.shareable && (
+          <button
+            type="button"
+            aria-label={`Share ${bot.name}`}
+            onClick={() => onShareBot(bot.id)}
+            className={ACTION_BUTTON_CLASS}
+          >
+            <Icon name="ios_share" className="text-[15px]" />
+          </button>
+        )}
+        {onStartChannel && (
+          <button
+            type="button"
+            aria-label={`Start channel with ${bot.name}`}
+            onClick={() => onStartChannel(bot.id)}
+            className={ACTION_BUTTON_CLASS}
+          >
+            <Icon name="add" className="text-[15px]" />
+          </button>
+        )}
+      </div>
+      {menu.open && menuItems.length > 0 ? (
+        <BotRowMenu botName={bot.name} items={menuItems} onClose={menu.close} />
+      ) : null}
+    </article>
   )
 }

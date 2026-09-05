@@ -8,9 +8,12 @@ Status: shipped to `development` (2026-09-05). Scope is Messages / Bot mode only
   `users/{uid}/messagesSidebarPreferences/{orgId}` as `pinnedBotId` (string | null).
 - API: `GET/POST /api/v1/account/messages-sidebar-preferences?orgId=` now returns and accepts `pinnedBotId`
   alongside `hiddenFolderKeys`. Either field may be sent alone.
-- UI: `PinnedBotChip` sits above the bot rail switcher (mobile list sheet and desktop rail) and at the top of
-  `BotModeLanding`. Tap → `selectBot(botId)` (latest channel, else a new channel with that bot).
-  Pin / unpin from the roster row or the bot profile card.
+- UI: `PinnedBotStrip` (circular avatar + name, horizontal) sits above the bot rail switcher (mobile list sheet
+  and desktop rail) and at the top of `BotModeLanding`. Tap → `selectBot(botId)` (latest channel, else a new
+  channel with that bot).
+- Pin affordance: long-press (touch) or right-click / `⋯` on a roster row opens `BotRowMenu` with **Pin / Unpin**
+  and **Bot settings** (opens the bot and surfaces its desk profile card: look, pin, email). The strip item has the
+  same menu with Unpin. The profile card also carries a pin toggle.
 
 ## 2. Bot look (animated avatar)
 
