@@ -1136,6 +1136,15 @@ export const POST = withAuth(
         state: 'thinking',
       })
 
+      // Runtime identity of the resolved dispatch link. Persisted on success and on
+      // failure so the client can tell a Mac/linked computer being offline apart
+      // from a VPS dispatch failure.
+      let dispatchRuntimeFields: {
+        dispatchAgentId?: string
+        dispatchRuntimeTargetId?: string
+        dispatchRuntimeKind?: string
+        dispatchRuntimeLabel?: string
+      } = {}
       // Never leave a pending assistant orphan: any throw after createMessage
       // must mark the message failed with a client-visible error (not a raw 500).
       try {
@@ -1629,6 +1638,12 @@ export const POST = withAuth(
       // Dispatch Hermes run
       const dispatchLink = agentLink
       if (!dispatchLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+      dispatchRuntimeFields = {
+        dispatchAgentId: agentId,
+        ...(dispatchLink.runtimeTargetId ? { dispatchRuntimeTargetId: dispatchLink.runtimeTargetId } : {}),
+        ...(dispatchLink.runtimeKind ? { dispatchRuntimeKind: dispatchLink.runtimeKind } : {}),
+        ...(dispatchLink.machineLabel ? { dispatchRuntimeLabel: dispatchLink.machineLabel } : {}),
+      }
       const runResult = await createHermesRun(dispatchLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
@@ -1683,6 +1698,7 @@ export const POST = withAuth(
           status: 'failed',
           error: safeFailure.message,
           workspaceDispatchFailureCode: safeFailure.code,
+          ...dispatchRuntimeFields,
         })
         return null
       })
@@ -1694,6 +1710,8 @@ export const POST = withAuth(
             ...assistantMessage,
             status: 'failed',
             error: 'Agent run could not be started on the gateway.',
+            workspaceDispatchFailureCode: 'dispatch_unavailable',
+            ...dispatchRuntimeFields,
           },
         }, 201)
       }
@@ -1746,13 +1764,13 @@ export const POST = withAuth(
 
       const rejected = runResult.dispatchError?.message
         || 'Agent run could not be started on the gateway'
+      const rejectedCode = runResult.dispatchError?.code ?? 'dispatch_unavailable'
       await messagesCollection(convId).doc(assistantMessage.id).update({
         content: '',
         status: 'failed',
         error: rejected,
-        ...(runResult.dispatchError?.code
-          ? { workspaceDispatchFailureCode: runResult.dispatchError.code }
-          : { workspaceDispatchFailureCode: 'dispatch_unavailable' }),
+        workspaceDispatchFailureCode: rejectedCode,
+        ...dispatchRuntimeFields,
       })
 
       return apiSuccess({
@@ -1761,6 +1779,8 @@ export const POST = withAuth(
           ...assistantMessage,
           status: 'failed',
           error: rejected,
+          workspaceDispatchFailureCode: rejectedCode,
+          ...dispatchRuntimeFields,
         },
         ...branchPayload,
       }, 201)
@@ -1787,6 +1807,7 @@ export const POST = withAuth(
             status: 'failed',
             error,
             workspaceDispatchFailureCode: safeFailure.code,
+            ...dispatchRuntimeFields,
           })
         } catch (updateErr) {
           console.error('[conversation-agent-dispatch-fail-update]', updateErr)
@@ -1798,6 +1819,7 @@ export const POST = withAuth(
             status: 'failed',
             error,
             workspaceDispatchFailureCode: safeFailure.code,
+            ...dispatchRuntimeFields,
           },
           ...branchPayload,
         }, 201)

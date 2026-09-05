@@ -55,7 +55,7 @@ import {
   summarizeToolEvents,
   type MessageThinkingTrace,
 } from '@/lib/conversations/thinking-trace'
-import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
+import { humanizeConversationRunError, type ConversationRunErrorContext } from '@/lib/conversations/run-policy'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -86,6 +86,8 @@ export interface ConversationMessage {
   dispatchRuntimeTargetId?: string
   dispatchRuntimeKind?: string
   dispatchRuntimeLabel?: string
+  workspaceDispatchFailureCode?: string
+  runtimeDispatchFailureCode?: string
   deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
@@ -2174,9 +2176,17 @@ function RichActionBar({
   )
 }
 
+function runErrorContext(message: ConversationMessage): ConversationRunErrorContext {
+  return {
+    runtimeLabel: message.dispatchRuntimeLabel || message.acceptedDevice?.machineLabel,
+    runtimeKind: message.dispatchRuntimeKind,
+    failureCode: message.workspaceDispatchFailureCode || message.runtimeDispatchFailureCode,
+  }
+}
+
 function copyableText(message: ConversationMessage): string {
   if (message.status === 'failed') {
-    return humanizeConversationRunError(message.error || message.content || '')
+    return humanizeConversationRunError(message.error || message.content || '', runErrorContext(message))
   }
   return message.content || message.error || ''
 }
@@ -2758,7 +2768,7 @@ export default function MessageBubble({
             onMouseUp={handleTextSelection}
             className={
               isFailed
-                ? 'pib-chat-danger max-w-full overflow-hidden rounded-[6px] rounded-tl-md border px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
+                ? 'pib-chat-danger-banner max-w-full overflow-hidden rounded-[6px] rounded-tl-md border px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
@@ -2779,13 +2789,9 @@ export default function MessageBubble({
             <ChatMessageContent
               mentions={renderedMessage.mentions}
               content={
-                (isFailed
-                  ? humanizeConversationRunError(displayContent || renderedMessage.error || '')
-                  : displayContent)
-                || (isFailed && renderedMessage.error
-                  ? humanizeConversationRunError(renderedMessage.error)
-                  : '')
-                || ''
+                isFailed
+                  ? humanizeConversationRunError(renderedMessage.error || displayContent, runErrorContext(renderedMessage))
+                  : displayContent
               }
               inlineParts={inlineParts}
               message={renderedMessage}

@@ -31,8 +31,74 @@ export const CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR =
 
 export const CONVERSATION_STREAM_FALLBACK_ACTIVITY = 'Still working'
 
+/**
+ * Selected computer / Local Hermes unreachable (Mac or linked computer offline,
+ * tunnel returning 502 on `local-profiles/<agent>`). Not a transient run recovery:
+ * there is no reachable host to requeue on, so say so instead of "retrying".
+ */
+export const CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR =
+  'Selected computer offline — Local Hermes unreachable. Send the message again once it reconnects.'
+
+export function localHermesOfflineUserError(runtimeLabel?: string | null): string {
+  const label = typeof runtimeLabel === 'string' ? runtimeLabel.trim() : ''
+  if (!label) return CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR
+  return `${label} offline — Local Hermes unreachable. Send the message again once it reconnects.`
+}
+
+/**
+ * Client-side finalize polling gave up on a run that already has a runId. The host
+ * accepted the dispatch, so this is a timeout, never the offline class.
+ */
+export const CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR =
+  'Run timed out - the agent may still be working. Refresh to check.'
+
+export interface ConversationRunErrorContext {
+  /** Machine label at dispatch time, e.g. "Peet's Mac" or "peets-mac-mini". */
+  runtimeLabel?: string | null
+  /** Resolved runtime kind at dispatch time (local / vps / remote / legacy / linked-computer). */
+  runtimeKind?: string | null
+  /** workspaceDispatchFailureCode ?? runtimeDispatchFailureCode stored with the failed message. */
+  failureCode?: string | null
+}
+
 function conversationRunErrorText(raw: string | null | undefined): string {
   return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/** Runtime kinds that live on a customer/operator machine rather than the Partners VPS. */
+export function isLocalConversationRuntimeKind(kind: string | null | undefined): boolean {
+  const lower = typeof kind === 'string' ? kind.trim().toLowerCase() : ''
+  return lower === 'local' || lower === 'linked-computer'
+}
+
+/**
+ * Dispatch/selection failure codes that, on a local runtime, mean the host itself
+ * is unreachable: the sanitized 5xx/network dispatch failure and the stale /
+ * unhealthy / missing / disabled runtime-target selections.
+ */
+const LOCAL_HERMES_OFFLINE_FAILURE_CODES = new Set([
+  'dispatch_unavailable',
+  'runtime_target_stale',
+  'runtime_target_unhealthy',
+  'runtime_target_not_found',
+  'runtime_target_disabled',
+])
+
+/**
+ * Selected-computer-offline class. Classified by runtime kind + stored dispatch
+ * failure code only, never by free text: dispatch failures are sanitized to fixed
+ * strings, and agent prose that merely mentions "local-profiles" or "computer
+ * unavailable" must not trigger this. VPS runtimes are never labelled Local Hermes
+ * offline. A run that already has a runId (finalize timeout, lost run) was accepted
+ * by a reachable host and is not in this class.
+ */
+export function isLocalHermesUnreachableError(
+  _raw: string | null | undefined,
+  context: ConversationRunErrorContext = {},
+): boolean {
+  if (!isLocalConversationRuntimeKind(context.runtimeKind)) return false
+  const code = typeof context.failureCode === 'string' ? context.failureCode.trim() : ''
+  return Boolean(code) && LOCAL_HERMES_OFFLINE_FAILURE_CODES.has(code)
 }
 
 /** Browser/CDP tool death that Hermes often elevates to whole-run failure. */
@@ -81,7 +147,8 @@ export function isConversationInfrastructureInterrupt(raw: string | null | undef
 
 /**
  * True when a linked-run failure must not become a permanent chat failure.
- * The runtime reattaches/reclaims; the web requeues as a safety net.
+ * The runtime reattaches/reclaims; the web requeues as a safety net. Only runs a
+ * reachable device reported qualify; an offline computer never reaches this path.
  */
 export function isRecoverableConversationRunError(raw: string | null | undefined): boolean {
   return isConversationBrowserToolFailure(raw) || isConversationInfrastructureInterrupt(raw)
@@ -91,7 +158,10 @@ export function isRecoverableConversationRunError(raw: string | null | undefined
  * Map raw Hermes/tool failure strings into stable, user-safe Messages errors.
  * Never invent secrets; only rewrite known operational failure shapes.
  */
-export function humanizeConversationRunError(raw: string | null | undefined): string {
+export function humanizeConversationRunError(
+  raw: string | null | undefined,
+  context: ConversationRunErrorContext = {},
+): string {
   const text = conversationRunErrorText(raw)
   if (!text) {
     return 'The agent run failed. Please send the message again.'
@@ -111,6 +181,9 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
   }
   if (/\bhermes_update_failed\b/.test(text)) {
     return 'Hermes could not update on this computer. It keeps working on the previous version; see the runbook.'
+  }
+  if (isLocalHermesUnreachableError(text, context)) {
+    return localHermesOfflineUserError(context.runtimeLabel)
   }
   if (
     text === CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR

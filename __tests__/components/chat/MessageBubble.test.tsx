@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MessageBubble from '@/components/chat/MessageBubble'
+import {
+  CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
+  CONVERSATION_RUN_RECOVERING_USER_ERROR,
+} from '@/lib/conversations/run-policy'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 
 const mermaidRender = jest.fn(async (_id: string, source: string) => ({
@@ -1055,10 +1059,128 @@ describe('MessageBubble', () => {
       />,
     )
     const bubble = screen.getByText(/computer dropped this run/i)
-    expect(bubble).toHaveClass('pib-chat-danger')
-    expect(bubble.className).not.toMatch(/text-red-200/)
+    expect(bubble).toHaveClass('pib-chat-danger-banner')
+    expect(bubble.className).not.toMatch(/(?:text|bg|border)-red-/)
     expect(screen.queryByText(/retrying automatically/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/leave this chat open/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes a stored legacy recovery essay even when no error code is attached', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-legacy',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+        }}
+      />,
+    )
+    expect(screen.getByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).toBeInTheDocument()
+    expect(screen.queryByText(/gateway interruption/i)).not.toBeInTheDocument()
+  })
+
+  it('names the offline computer when a local-runtime dispatch fails with the sanitized gateway error', () => {
+    // Exactly what messages/route stores for a tunnel 502 on local-profiles/<agent>.
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-mac-offline',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+          error: 'Agent run could not be started on the gateway.',
+          workspaceDispatchFailureCode: 'dispatch_unavailable',
+          dispatchRuntimeKind: 'local',
+          dispatchRuntimeLabel: 'peets-mac-mini',
+        }}
+      />,
+    )
+    const bubble = screen.getByText('peets-mac-mini offline — Local Hermes unreachable. Send the message again once it reconnects.')
+    expect(bubble).toHaveClass('pib-chat-danger-banner')
+    expect(bubble.className).not.toMatch(/(?:text|bg|border)-red-/)
+    expect(screen.queryByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).not.toBeInTheDocument()
+    expect(screen.queryByText(/retrying automatically|leave this chat open/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the sanitized gateway error for a VPS dispatch failure', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-vps',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+          error: 'Agent run could not be started on the gateway.',
+          workspaceDispatchFailureCode: 'dispatch_unavailable',
+          dispatchRuntimeKind: 'vps',
+          dispatchRuntimeLabel: 'Partners VPS',
+        }}
+      />,
+    )
+    expect(screen.getByText('Agent run could not be started on the gateway.')).toHaveClass('pib-chat-danger-banner')
+    expect(screen.queryByText(/Local Hermes unreachable/i)).not.toBeInTheDocument()
+  })
+
+  it('does not classify a VPS run as offline because its output mentions local-profiles', () => {
+    const prose = 'The probe of local-profiles/pip returned computer unavailable, so I stopped.'
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-vps-prose',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: prose,
+          authorKind: 'agent',
+          authorId: 'sage',
+          authorDisplayName: 'Sage',
+          status: 'failed',
+          error: prose,
+          runId: 'run-vps-1',
+          dispatchRuntimeKind: 'vps',
+          dispatchRuntimeLabel: 'Partners VPS',
+        }}
+      />,
+    )
+    expect(screen.getByText(prose)).toBeInTheDocument()
+    expect(screen.queryByText(/Local Hermes unreachable/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes a raw gateway failure stored only on message.error', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-raw',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+          error: 'ClientConnectorError: Connection refused',
+        }}
+      />,
+    )
+    expect(screen.getByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).toBeInTheDocument()
+    expect(screen.queryByText(/connection refused/i)).not.toBeInTheDocument()
   })
 
   it('does not surface a live-stream fallback as a status lecture', () => {
