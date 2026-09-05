@@ -1085,6 +1085,32 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/gateway interruption/i)).not.toBeInTheDocument()
   })
 
+  it('names the offline computer instead of a recovering banner when Local Hermes is unreachable', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-mac-offline',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+          error: 'Agent run could not be started on the gateway. (GET https://hermes-api.partnersinbiz.online/local-profiles/pip/v1/health → 502)',
+          dispatchRuntimeKind: 'linked-computer',
+          dispatchRuntimeLabel: 'peets-mac-mini',
+        }}
+      />,
+    )
+    const bubble = screen.getByText('peets-mac-mini offline — Local Hermes unreachable. Send the message again once it reconnects.')
+    expect(bubble).toHaveClass('pib-chat-danger-banner')
+    expect(bubble.className).not.toMatch(/(?:text|bg|border)-red-/)
+    expect(screen.queryByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).not.toBeInTheDocument()
+    expect(screen.queryByText(/retrying automatically|leave this chat open/i)).not.toBeInTheDocument()
+  })
+
   it('humanizes a raw gateway failure stored only on message.error', () => {
     render(
       <MessageBubble

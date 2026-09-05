@@ -2176,7 +2176,9 @@ function RichActionBar({
 
 function copyableText(message: ConversationMessage): string {
   if (message.status === 'failed') {
-    return humanizeConversationRunError(message.error || message.content || '')
+    return humanizeConversationRunError(message.error || message.content || '', {
+      runtimeLabel: message.dispatchRuntimeLabel || message.acceptedDevice?.machineLabel,
+    })
   }
   return message.content || message.error || ''
 }
@@ -2780,7 +2782,9 @@ export default function MessageBubble({
               mentions={renderedMessage.mentions}
               content={
                 isFailed
-                  ? humanizeConversationRunError(displayContent || renderedMessage.error)
+                  ? humanizeConversationRunError(renderedMessage.error || displayContent, {
+                      runtimeLabel: renderedMessage.dispatchRuntimeLabel || renderedMessage.acceptedDevice?.machineLabel,
+                    })
                   : displayContent
               }
               inlineParts={inlineParts}

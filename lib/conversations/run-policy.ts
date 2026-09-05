@@ -31,8 +31,49 @@ export const CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR =
 
 export const CONVERSATION_STREAM_FALLBACK_ACTIVITY = 'Still working'
 
+/**
+ * Selected computer / Local Hermes unreachable (heartbeat stale, tunnel 502,
+ * `local-profiles/<agent>` health failing). Not a transient run recovery: there is
+ * no reachable host to requeue on, so say so instead of "retrying automatically".
+ */
+export const CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR =
+  'Selected computer offline — Local Hermes unreachable. Send the message again once it reconnects.'
+
+export function localHermesOfflineUserError(runtimeLabel?: string | null): string {
+  const label = typeof runtimeLabel === 'string' ? runtimeLabel.trim() : ''
+  if (!label) return CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR
+  return `${label} offline — Local Hermes unreachable. Send the message again once it reconnects.`
+}
+
+export interface ConversationRunErrorContext {
+  /** Machine label at dispatch time, e.g. "Peet's Mac" or "peets-mac-mini". */
+  runtimeLabel?: string | null
+}
+
 function conversationRunErrorText(raw: string | null | undefined): string {
   return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/**
+ * Selected-computer-offline class: linked device offline/stale codes, "Computer
+ * unavailable" API errors, Local Hermes unavailable notes, and tunnel 502s on the
+ * Hermes/local-profiles path. Checked before the transient-interrupt heuristics so
+ * a dead host never reads as "the run is recovering".
+ */
+export function isLocalHermesUnreachableError(raw: string | null | undefined): boolean {
+  const text = conversationRunErrorText(raw)
+  if (!text) return false
+  const lower = text.toLowerCase()
+  if (/\b(?:linked_device_offline|linked_device_stale|runtime_target_stale|runtime_target_unhealthy|computer_unavailable|computer_offline)\b/.test(lower)) {
+    return true
+  }
+  if (lower.includes('computer unavailable') || lower.includes('computer is offline') || lower.includes('computer offline')) return true
+  if (lower.includes('local hermes') && /unavailable|unreachable|offline|not reachable/.test(lower)) return true
+  if (lower.includes('local-profiles')) return true
+  if (lower.includes('the selected runtime target is unavailable')) return true
+  const gatewayPath = /hermes|tunnel|local-profiles|\/v1\/health|\/v1\/runs|agent gateway/.test(lower)
+  if (gatewayPath && (/\b502\b/.test(lower) || lower.includes('bad gateway'))) return true
+  return false
 }
 
 /** Browser/CDP tool death that Hermes often elevates to whole-run failure. */
@@ -81,9 +122,12 @@ export function isConversationInfrastructureInterrupt(raw: string | null | undef
 
 /**
  * True when a linked-run failure must not become a permanent chat failure.
- * The runtime reattaches/reclaims; the web requeues as a safety net.
+ * The runtime reattaches/reclaims; the web requeues as a safety net. Only
+ * transient interrupts on a reachable host qualify — an offline computer has
+ * nothing to reclaim the job, so it surfaces as a clear failure instead.
  */
 export function isRecoverableConversationRunError(raw: string | null | undefined): boolean {
+  if (isLocalHermesUnreachableError(raw)) return false
   return isConversationBrowserToolFailure(raw) || isConversationInfrastructureInterrupt(raw)
 }
 
@@ -91,7 +135,10 @@ export function isRecoverableConversationRunError(raw: string | null | undefined
  * Map raw Hermes/tool failure strings into stable, user-safe Messages errors.
  * Never invent secrets; only rewrite known operational failure shapes.
  */
-export function humanizeConversationRunError(raw: string | null | undefined): string {
+export function humanizeConversationRunError(
+  raw: string | null | undefined,
+  context: ConversationRunErrorContext = {},
+): string {
   const text = conversationRunErrorText(raw)
   if (!text) {
     return 'The agent run failed. Please send the message again.'
@@ -111,6 +158,9 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
   }
   if (/\bhermes_update_failed\b/.test(text)) {
     return 'Hermes could not update on this computer. It keeps working on the previous version; see the runbook.'
+  }
+  if (isLocalHermesUnreachableError(text)) {
+    return localHermesOfflineUserError(context.runtimeLabel)
   }
   if (
     text === CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR
