@@ -262,14 +262,22 @@
 }
 
 @layer components {
-  /* Paper/Ink-safe danger chips. Do not use Tailwind text-red-200 on pale red fills. */
+  /* Paper/Ink-safe danger chips: ink on the chat surface with a danger border.
+     Never red text on a red fill (Tailwind text-red-* on bg-red-*/pale tints). */
   .pib-chat-danger {
-    border-color: color-mix(in srgb, var(--st-danger) 40%, transparent);
-    background: var(--color-error-container);
-    color: var(--color-on-error-container);
+    border-color: color-mix(in srgb, var(--st-danger) 55%, transparent);
+    background: var(--color-pib-surface);
+    color: var(--color-pib-text);
   }
   .pib-chat-danger:hover {
-    background: color-mix(in srgb, var(--st-danger) 18%, transparent);
+    background: var(--color-pib-surface-muted);
+  }
+  /* Failed-message bubbles and dock alerts: ink on surface plus a thin danger rail. */
+  .pib-chat-danger-banner {
+    background: var(--color-pib-surface);
+    color: var(--color-pib-text);
+    border-color: var(--color-pib-line);
+    box-shadow: inset 3px 0 0 var(--st-danger);
   }
 
   /* Always-dark terminal chrome with light ink. Paper tokens make

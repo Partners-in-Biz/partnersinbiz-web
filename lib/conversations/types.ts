@@ -249,6 +249,10 @@ export interface ConversationMessage {
   dispatchRuntimeKind?: string
   /** Human machine label at dispatch time, e.g. "Partners VPS" or "Peet's Mac". */
   dispatchRuntimeLabel?: string
+  /** Sanitized dispatch failure code when the run could not be created on the runtime. */
+  workspaceDispatchFailureCode?: string
+  /** Runtime-target selection failure code when no dispatch target could be resolved. */
+  runtimeDispatchFailureCode?: string
   /** Linked-computer badge for a room-turn that landed from a specific machine. */
   deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
