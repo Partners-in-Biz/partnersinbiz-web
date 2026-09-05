@@ -1,4 +1,5 @@
 import {
+  CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
   CONVERSATION_RUN_RECOVERING_USER_ERROR,
   humanizeConversationRunError,
   isConversationBrowserToolFailure,
@@ -11,6 +12,11 @@ describe('humanizeConversationRunError', () => {
     expect(humanizeConversationRunError(
       'The agent hit a temporary computer/gateway interruption. Partners in Biz is retrying automatically — leave this chat open.',
     )).toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+    expect(humanizeConversationRunError(CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR))
+      .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+    expect(humanizeConversationRunError(`  ${CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR}\n`))
+      .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+    expect(CONVERSATION_RUN_RECOVERING_USER_ERROR.length).toBeLessThan(80)
   })
 
   it('rewrites agent-browser connect failures into recovery guidance', () => {

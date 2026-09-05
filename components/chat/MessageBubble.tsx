@@ -2758,7 +2758,7 @@ export default function MessageBubble({
             onMouseUp={handleTextSelection}
             className={
               isFailed
-                ? 'pib-chat-danger max-w-full overflow-hidden rounded-[6px] rounded-tl-md border px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
+                ? 'pib-chat-danger-banner max-w-full overflow-hidden rounded-[6px] rounded-tl-md border px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
@@ -2779,13 +2779,9 @@ export default function MessageBubble({
             <ChatMessageContent
               mentions={renderedMessage.mentions}
               content={
-                (isFailed
-                  ? humanizeConversationRunError(displayContent || renderedMessage.error || '')
-                  : displayContent)
-                || (isFailed && renderedMessage.error
-                  ? humanizeConversationRunError(renderedMessage.error)
-                  : '')
-                || ''
+                isFailed
+                  ? humanizeConversationRunError(displayContent || renderedMessage.error)
+                  : displayContent
               }
               inlineParts={inlineParts}
               message={renderedMessage}

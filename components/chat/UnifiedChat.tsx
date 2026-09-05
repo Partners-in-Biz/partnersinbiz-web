@@ -9547,9 +9547,9 @@ export default function UnifiedChat({
 
         {/* Error bar */}
         {unavailableActiveRuntime && (
-          <div role="alert" className="border-t border-red-500/35 bg-red-500/10 px-4 py-2.5 text-xs text-red-200">
-            <div className="text-red-100">{unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
-            <div className="mt-0.5">
+          <div role="alert" className="pib-chat-danger-banner border-t px-4 py-2.5 text-xs">
+            <div className="font-medium">{unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
+            <div className="mt-0.5 text-[var(--color-pib-text-muted)]">
               {unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering
                 ? `${unavailableActiveRuntime.label} is reconnecting. This session remains linked to it; messages will queue on this computer and resume automatically when it is ready, within the 45-minute queue window.`
                 : `${unavailableActiveRuntime.label} is ${unavailableActiveRuntime.offline ? 'offline' : 'unavailable'}. This session remains linked to ${unavailableActiveRuntime.label}. Try again when it is online.`}
@@ -9557,7 +9557,7 @@ export default function UnifiedChat({
           </div>
         )}
         {error && (
-          <div role="alert" className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">
+          <div role="alert" className="pib-chat-danger-banner border-t px-4 py-2 text-xs">
             {error}
           </div>
         )}

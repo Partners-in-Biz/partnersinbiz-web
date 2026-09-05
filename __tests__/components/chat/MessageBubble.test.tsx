@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MessageBubble from '@/components/chat/MessageBubble'
+import {
+  CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
+  CONVERSATION_RUN_RECOVERING_USER_ERROR,
+} from '@/lib/conversations/run-policy'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 
 const mermaidRender = jest.fn(async (_id: string, source: string) => ({
@@ -1055,10 +1059,51 @@ describe('MessageBubble', () => {
       />,
     )
     const bubble = screen.getByText(/computer dropped this run/i)
-    expect(bubble).toHaveClass('pib-chat-danger')
-    expect(bubble.className).not.toMatch(/text-red-200/)
+    expect(bubble).toHaveClass('pib-chat-danger-banner')
+    expect(bubble.className).not.toMatch(/(?:text|bg|border)-red-/)
     expect(screen.queryByText(/retrying automatically/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/leave this chat open/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes a stored legacy recovery essay even when no error code is attached', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-legacy',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+        }}
+      />,
+    )
+    expect(screen.getByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).toBeInTheDocument()
+    expect(screen.queryByText(/gateway interruption/i)).not.toBeInTheDocument()
+  })
+
+  it('humanizes a raw gateway failure stored only on message.error', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-failed-raw',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'failed',
+          error: 'ClientConnectorError: Connection refused',
+        }}
+      />,
+    )
+    expect(screen.getByText(CONVERSATION_RUN_RECOVERING_USER_ERROR)).toBeInTheDocument()
+    expect(screen.queryByText(/connection refused/i)).not.toBeInTheDocument()
   })
 
   it('does not surface a live-stream fallback as a status lecture', () => {
