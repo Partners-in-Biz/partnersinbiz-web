@@ -94,13 +94,16 @@ describe('humanizeConversationRunError', () => {
       expect(humanizeConversationRunError(stored, { runtimeKind: 'vps', failureCode })).toBe(stored)
     })
 
-    it('treats client finalize exhaustion as offline only on a local runtime', () => {
-      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, { runtimeKind: 'local', runtimeLabel: 'peets-mac-mini' }))
-        .toBe(NAMED_MAC_OFFLINE)
-      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, { runtimeKind: 'vps' }))
-        .toBe(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)
-      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR))
-        .toBe(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)
+    it('never treats client finalize exhaustion as offline: the host accepted the run', () => {
+      // Set after MAX_RUN_POLL_ATTEMPTS on a message that already has a runId, so the
+      // Mac was reachable. Naming it offline would invite a duplicate send.
+      for (const runtimeKind of ['local', 'linked-computer', 'vps', undefined]) {
+        const context = { runtimeKind, runtimeLabel: 'peets-mac-mini' }
+        expect(isLocalHermesUnreachableError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, context)).toBe(false)
+        expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, context))
+          .toBe(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)
+      }
+      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)).not.toMatch(/Local Hermes unreachable/)
     })
 
     it('never classifies from free text: agent prose mentioning local-profiles or computer unavailable stays as-is', () => {

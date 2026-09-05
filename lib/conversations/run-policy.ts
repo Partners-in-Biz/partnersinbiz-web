@@ -45,7 +45,10 @@ export function localHermesOfflineUserError(runtimeLabel?: string | null): strin
   return `${label} offline — Local Hermes unreachable. Send the message again once it reconnects.`
 }
 
-/** Client-side finalize polling gave up: the run never answered within the poll budget. */
+/**
+ * Client-side finalize polling gave up on a run that already has a runId. The host
+ * accepted the dispatch, so this is a timeout, never the offline class.
+ */
 export const CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR =
   'Run timed out - the agent may still be working. Refresh to check.'
 
@@ -82,19 +85,20 @@ const LOCAL_HERMES_OFFLINE_FAILURE_CODES = new Set([
 ])
 
 /**
- * Selected-computer-offline class. Classified by runtime kind + stored failure
- * code, never by free text: dispatch failures are sanitized to fixed strings, and
- * agent prose that merely mentions "local-profiles" or "computer unavailable" must
- * not trigger this. VPS runtimes are never labelled Local Hermes offline.
+ * Selected-computer-offline class. Classified by runtime kind + stored dispatch
+ * failure code only, never by free text: dispatch failures are sanitized to fixed
+ * strings, and agent prose that merely mentions "local-profiles" or "computer
+ * unavailable" must not trigger this. VPS runtimes are never labelled Local Hermes
+ * offline. A run that already has a runId (finalize timeout, lost run) was accepted
+ * by a reachable host and is not in this class.
  */
 export function isLocalHermesUnreachableError(
-  raw: string | null | undefined,
+  _raw: string | null | undefined,
   context: ConversationRunErrorContext = {},
 ): boolean {
   if (!isLocalConversationRuntimeKind(context.runtimeKind)) return false
   const code = typeof context.failureCode === 'string' ? context.failureCode.trim() : ''
-  if (code && LOCAL_HERMES_OFFLINE_FAILURE_CODES.has(code)) return true
-  return conversationRunErrorText(raw) === CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR
+  return Boolean(code) && LOCAL_HERMES_OFFLINE_FAILURE_CODES.has(code)
 }
 
 /** Browser/CDP tool death that Hermes often elevates to whole-run failure. */
