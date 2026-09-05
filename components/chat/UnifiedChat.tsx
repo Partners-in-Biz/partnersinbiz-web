@@ -114,6 +114,10 @@ import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStri
 import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
+import { PinnedBotStrip } from '@/components/messages/bot-mode/PinnedBotStrip'
+import { BotProfileCard, type BotAppearancePatch } from '@/components/messages/bot-mode/BotProfileCard'
+import { botAvatarActivity } from '@/components/messages/bot-mode/BotAvatar'
+import { normalizePinnedBotId, type BotAvatarStyle, type BotMailboxRecord } from '@/lib/messages/bot-profile'
 import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
 import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
@@ -256,6 +260,9 @@ interface AgentTeamDoc {
   agentHandle?: string
   agentKind?: 'custom' | 'marketplace' | string
   marketplaceTemplateId?: string
+  avatarUrl?: string | null
+  avatarStyle?: BotAvatarStyle
+  mailbox?: BotMailboxRecord | null
 }
 
 export interface UnifiedChatProps {
@@ -1748,6 +1755,7 @@ export default function UnifiedChat({
   const [projectActionsOpenId, setProjectActionsOpenId] = useState<string | null>(null)
   const [folderActionsOpenKey, setFolderActionsOpenKey] = useState<string | null>(null)
   const [hiddenFolderKeys, setHiddenFolderKeys] = useState<string[]>([])
+  const [pinnedBotId, setPinnedBotId] = useState<string | null>(null)
   const [hiddenFolderPreferencesLoaded, setHiddenFolderPreferencesLoaded] = useState(false)
   const [hiddenFolderPreferencesSaving, setHiddenFolderPreferencesSaving] = useState(false)
   const [showHiddenFolders, setShowHiddenFolders] = useState(false)
@@ -3167,6 +3175,7 @@ export default function UnifiedChat({
     activeHiddenFolderOrgIdRef.current = orgId
     hiddenFolderMutationInFlightRef.current = false
     setHiddenFolderKeys([])
+    setPinnedBotId(null)
     setHiddenFolderPreferencesLoaded(false)
     setHiddenFolderPreferencesSaving(false)
     setShowHiddenFolders(false)
@@ -3176,10 +3185,15 @@ export default function UnifiedChat({
       .then(async (response) => {
         const body = await response.json().catch(() => null)
         if (!response.ok) throw new Error(body?.error ?? `Load sidebar preferences: ${response.status}`)
-        return Array.isArray(body?.data?.hiddenFolderKeys) ? body.data.hiddenFolderKeys as string[] : []
+        return {
+          keys: Array.isArray(body?.data?.hiddenFolderKeys) ? body.data.hiddenFolderKeys as string[] : [],
+          pinnedBotId: normalizePinnedBotId(body?.data?.pinnedBotId),
+        }
       })
-      .then((keys) => {
-        if (!controller.signal.aborted && activeHiddenFolderOrgIdRef.current === orgId) setHiddenFolderKeys(keys)
+      .then((prefs) => {
+        if (controller.signal.aborted || activeHiddenFolderOrgIdRef.current !== orgId) return
+        setHiddenFolderKeys(prefs.keys)
+        setPinnedBotId(prefs.pinnedBotId)
       })
       .catch((loadError) => {
         if (loadError instanceof DOMException && loadError.name === 'AbortError') return
@@ -3230,6 +3244,73 @@ export default function UnifiedChat({
   const restoreFolderToSidebar = useCallback((folderKey: string) => {
     void persistHiddenFolderKeys(hiddenFolderKeys.filter((key) => key !== folderKey))
   }, [hiddenFolderKeys, persistHiddenFolderKeys])
+
+  const persistPinnedBotId = useCallback(async (next: string | null) => {
+    const requestOrgId = orgId
+    const previous = pinnedBotId
+    setPinnedBotId(next)
+    try {
+      const response = await fetch(`/api/v1/account/messages-sidebar-preferences?${new URLSearchParams({ orgId: requestOrgId }).toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinnedBotId: next }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error ?? `Save pinned bot: ${response.status}`)
+      if (activeHiddenFolderOrgIdRef.current === requestOrgId) setPinnedBotId(normalizePinnedBotId(body?.data?.pinnedBotId))
+    } catch (preferenceError) {
+      if (activeHiddenFolderOrgIdRef.current === requestOrgId) {
+        setPinnedBotId(previous)
+        setError(preferenceError instanceof Error ? preferenceError.message : 'Could not save pinned bot')
+      }
+    }
+  }, [orgId, pinnedBotId])
+
+  const togglePinnedBot = useCallback((botId: string) => {
+    void persistPinnedBotId(pinnedBotId === botId ? null : botId)
+  }, [persistPinnedBotId, pinnedBotId])
+
+  const unpinBot = useCallback((botId: string) => {
+    if (pinnedBotId === botId) void persistPinnedBotId(null)
+  }, [persistPinnedBotId, pinnedBotId])
+
+  const applyBotAppearance = useCallback((botId: string, patch: BotAppearancePatch) => {
+    const apply = (map: Record<AgentId, AgentTeamDoc>) => (
+      map[botId] ? { ...map, [botId]: { ...map[botId], avatarUrl: patch.avatarUrl, avatarStyle: patch.avatarStyle } } : map
+    )
+    setMachineAgentMap(apply)
+    setAgentMap(apply)
+  }, [])
+
+  const applyBotMailbox = useCallback((botId: string, mailbox: BotMailboxRecord | null) => {
+    const apply = (map: Record<AgentId, AgentTeamDoc>) => (
+      map[botId] ? { ...map, [botId]: { ...map[botId], mailbox } } : map
+    )
+    setMachineAgentMap(apply)
+    setAgentMap(apply)
+  }, [])
+
+  const pinnedBot = useMemo(
+    () => (pinnedBotId ? botRoster.find((bot) => bot.id === pinnedBotId) ?? null : null),
+    [botRoster, pinnedBotId],
+  )
+  const activeBot = useMemo(
+    () => (activeBotId ? botRoster.find((bot) => bot.id === activeBotId) ?? null : null),
+    [activeBotId, botRoster],
+  )
+  const botProfileCard = useMemo(() => (
+    activeBot ? (
+      <BotProfileCard
+        orgId={orgId}
+        bot={activeBot}
+        pinned={activeBot.id === pinnedBotId}
+        activity={botAvatarActivity({ presence: activeBot.presence?.state, streaming: sending })}
+        onTogglePin={togglePinnedBot}
+        onAppearanceSaved={applyBotAppearance}
+        onMailboxChanged={applyBotMailbox}
+      />
+    ) : null
+  ), [activeBot, applyBotAppearance, applyBotMailbox, orgId, pinnedBotId, sending, togglePinnedBot])
 
   const togglePinnedConversation = useCallback((conversationId: string) => {
     setPinnedConversationIds((current) => {
@@ -7724,6 +7805,14 @@ export default function UnifiedChat({
     }
     openNewAgentConversation(botId)
   }, [closeSessions, hermesAgentGroups, openNewAgentConversation, orgId, setActiveId])
+  /** "Bot settings": open the bot, then surface its desk (profile card: look, pin, email). */
+  const openBotSettings = useCallback((botId: string) => {
+    selectBot(botId)
+    const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 767px)').matches
+    if (phone) setHeaderMenuOpen(true)
+    else chatChrome.reveal()
+  }, [chatChrome, selectBot])
   useEffect(() => {
     if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
@@ -7830,7 +7919,7 @@ export default function UnifiedChat({
             <button type="button" aria-label="Search sessions" onClick={() => { onConversationRailModeChange?.('expanded'); requestAnimationFrame(() => conversationFilterRef.current?.focus()) }} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><Icon name="search" className="text-[19px]" /></button>
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
             {botMode ? (
-              <BotRoster bots={visibleBotRoster} activeBotId={activeBotId} onSelectBot={selectBot} compact />
+              <BotRoster bots={visibleBotRoster} activeBotId={activeBotId} pinnedBotId={pinnedBotId} onSelectBot={selectBot} compact />
             ) : (
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
@@ -7992,6 +8081,16 @@ export default function UnifiedChat({
           </div>
         )}
 
+        {botMode && pinnedBot && (
+          <PinnedBotStrip
+            bots={[pinnedBot]}
+            activeBotId={activeBotId}
+            onOpen={selectBot}
+            onUnpin={unpinBot}
+            onOpenSettings={openBotSettings}
+          />
+        )}
+
         {botMode && (
           <BotRailSwitcher
             value={botRailSection}
@@ -8007,9 +8106,12 @@ export default function UnifiedChat({
             <BotRoster
               bots={visibleBotRoster}
               activeBotId={activeBotId}
+              pinnedBotId={pinnedBotId}
               onSelectBot={selectBot}
               onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
               onShareBot={shareCustomBot}
+              onTogglePin={togglePinnedBot}
+              onOpenSettings={openBotSettings}
             />
           )}
           {botMode && botRailSection === 'inbox' && (
@@ -9401,6 +9503,10 @@ export default function UnifiedChat({
             <BotModeLanding
               bots={botRoster}
               computers={botComputers}
+              pinnedBotId={pinnedBotId}
+              onOpenBot={selectBot}
+              onUnpinBot={unpinBot}
+              onOpenBotSettings={openBotSettings}
               onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
               onOpenWorkbench={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
               studioDevices={botStudioDevices}
@@ -10236,6 +10342,7 @@ export default function UnifiedChat({
           deskPanel={botMode ? (
             <BotDeskPanel
               variant="sheet"
+              profile={botProfileCard}
               botId={activeBotId}
               botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
               computers={botComputers}
@@ -10397,6 +10504,7 @@ export default function UnifiedChat({
 
       {botMode && showDeskChrome && (
         <BotDeskPanel
+          profile={botProfileCard}
           botId={activeBotId}
           botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
           computers={botComputers}
@@ -10420,6 +10528,7 @@ export default function UnifiedChat({
         >
           <BotDeskPanel
             variant="drawer"
+            profile={botProfileCard}
             botId={activeBotId}
             botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
             computers={botComputers}

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./studio-tokens.css";
 @import "../components/messages/atmosphere/messages-experience.css";
+@import "../components/messages/bot-mode/bot-avatar.css";
 
 @theme {
   /* === Studio aliases (Phase 0). Names kept; values point at --sc-* / --st-*. === */
