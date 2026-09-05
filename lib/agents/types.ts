@@ -96,8 +96,29 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   marketplacePack?: 'public'
   /** Optional public-skill selection for a marketplace instance (allowlisted only). */
   marketplaceSkills?: string[]
+  /**
+   * Bot mode look. Resolved per org from `bot_appearance/{orgId}_{agentId}`
+   * on read; never written to the shared agent_team doc directly.
+   */
+  avatarUrl?: string | null
+  avatarStyle?: BotAvatarStyle
+  /** Per-bot mailbox routed through the Hermes Mail Agent (address only, no secrets). */
+  mailbox?: BotMailboxRecord | null
   createdAt: Timestamp
   updatedAt: Timestamp
+}
+
+export type BotAvatarStyle = 'blob' | 'geometric' | 'image'
+
+export type BotMailboxStatus = 'active' | 'pending' | 'error'
+
+export interface BotMailboxRecord {
+  provider: 'hermes-mail-agent'
+  address: string
+  inboxId?: string | null
+  status: BotMailboxStatus
+  error?: string | null
+  updatedAt: string
 }
 
 /** Shape stored in Firestore (apiKey is encrypted JSON) */
