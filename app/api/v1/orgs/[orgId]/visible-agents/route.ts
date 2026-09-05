@@ -26,6 +26,7 @@ import type { AgentId } from '@/lib/agents/types'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 import { hostedAgentIdsForDevice } from '@/lib/linked-computers/hosted-agents'
+import { loadBotAppearanceMapForOrg } from '@/lib/agents/bot-appearance'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,7 +115,10 @@ export const GET = withAuth(
       }))
       : null
 
-    const snap = await adminDb.collection('agent_team').get()
+    const [snap, appearanceByAgentId] = await Promise.all([
+      adminDb.collection('agent_team').get(),
+      loadBotAppearanceMapForOrg(scope.orgId).catch(() => ({} as Awaited<ReturnType<typeof loadBotAppearanceMapForOrg>>)),
+    ])
     for (const doc of snap.docs) {
       const row = doc.data() as ScopedAgentRow
       const isOrgScoped = Boolean(row.scopeOrgId)
@@ -181,7 +185,10 @@ export const GET = withAuth(
         // Strip apiKey entirely — never expose, even masked
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { apiKey: _apiKey, ...safe } = agent
-        return safe
+        const appearance = appearanceByAgentId[agent.agentId]
+        return appearance
+          ? { ...safe, avatarUrl: appearance.avatarUrl, avatarStyle: appearance.avatarStyle }
+          : safe
       })
 
     return apiSuccess(result)

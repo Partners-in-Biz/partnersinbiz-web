@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { computersForBot, computerHasDesktopWatch } from '@/lib/messages/bot-computers'
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
@@ -41,7 +41,10 @@ export function BotDeskPanel({
   onOpenScreen,
   onNewRoutine,
   variant = 'rail',
+  profile,
 }: {
+  /** Bot profile (avatar, pin, email) rendered above the screen section. */
+  profile?: ReactNode
   botId?: string | null
   botName: string
   computers: VisibleBotComputer[]
@@ -107,6 +110,7 @@ export function BotDeskPanel({
       aria-label={`${botName}'s desk`}
       className={shellClass}
     >
+      {profile ? <div className="shrink-0">{profile}</div> : null}
       <section className="shrink-0 border-b border-[var(--color-pib-line)] p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">

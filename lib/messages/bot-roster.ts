@@ -2,6 +2,7 @@ import type { AgentPresenceState } from './agent-presence'
 import type { VisibleBotComputer } from './bot-computers'
 import { computersForBot } from './bot-computers'
 import { canShareAgentAsGrokBot } from './bot-shares'
+import type { BotAvatarStyle, BotMailboxRecord } from './bot-profile'
 
 export type BotRosterKind = 'custom' | 'marketplace' | 'specialist'
 
@@ -19,6 +20,9 @@ export interface BotRosterSourceAgent {
   marketplaceTemplateId?: string
   provisioningMode?: string
   scopeOrgId?: string
+  avatarUrl?: string | null
+  avatarStyle?: BotAvatarStyle
+  mailbox?: BotMailboxRecord | null
 }
 
 export interface BotRosterChannelGroup {
@@ -51,6 +55,9 @@ export interface BotRosterItem {
   kind?: BotRosterKind
   shareable?: boolean
   presence?: BotRosterPresence
+  avatarUrl?: string | null
+  avatarStyle?: BotAvatarStyle
+  mailbox?: BotMailboxRecord | null
 }
 
 function resolveBotRosterKind(agent: BotRosterSourceAgent): BotRosterKind {
@@ -115,6 +122,9 @@ export function buildBotRosterItems(
         kind: resolveBotRosterKind(agent),
         shareable: canShareAgentAsGrokBot(agent),
         ...(presence ? { presence } : {}),
+        ...(agent.avatarUrl !== undefined ? { avatarUrl: agent.avatarUrl } : {}),
+        ...(agent.avatarStyle ? { avatarStyle: agent.avatarStyle } : {}),
+        ...(agent.mailbox !== undefined ? { mailbox: agent.mailbox } : {}),
       }
     })
 }

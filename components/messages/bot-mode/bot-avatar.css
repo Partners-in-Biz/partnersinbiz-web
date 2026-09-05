@@ -1,0 +1,166 @@
+/* Bot mode avatars: alive while idle, busier while the bot works, static under reduced motion. */
+
+.bot-avatar {
+  --bot-avatar-size: 36px;
+  --bot-avatar-ink: #38bdf8;
+  --bot-avatar-period: 6s;
+  --bot-avatar-blink-period: 5.2s;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--bot-avatar-size);
+  height: var(--bot-avatar-size);
+  flex-shrink: 0;
+  border-radius: 28%;
+  overflow: visible;
+}
+
+.bot-avatar[data-activity='working'] {
+  --bot-avatar-period: 1.6s;
+  --bot-avatar-blink-period: 2.4s;
+}
+
+.bot-avatar[data-activity='waiting'] {
+  --bot-avatar-period: 3.2s;
+}
+
+.bot-avatar__body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--bot-avatar-ink);
+  transform-origin: 50% 50%;
+}
+
+/* Blob: border-radius morph + gentle breath. */
+.bot-avatar[data-style='blob'] .bot-avatar__body {
+  border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%;
+  animation:
+    bot-avatar-morph var(--bot-avatar-period) ease-in-out infinite alternate,
+    bot-avatar-breathe calc(var(--bot-avatar-period) * 1.35) ease-in-out infinite;
+}
+
+/* Geometric: rotating square with a counter-rotating diamond. */
+.bot-avatar[data-style='geometric'] .bot-avatar__body {
+  border-radius: 22%;
+  animation: bot-avatar-spin calc(var(--bot-avatar-period) * 2.2) linear infinite;
+}
+
+.bot-avatar[data-style='geometric'] .bot-avatar__facet {
+  position: absolute;
+  inset: 22%;
+  display: block;
+  border-radius: 12%;
+  background: color-mix(in srgb, #ffffff 34%, transparent);
+  transform: rotate(45deg);
+  animation: bot-avatar-counter-spin calc(var(--bot-avatar-period) * 2.2) linear infinite;
+}
+
+/* Uploaded still: breathes, pulses harder when working. */
+.bot-avatar[data-style='image'] .bot-avatar__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 28%;
+  object-fit: cover;
+  animation: bot-avatar-breathe calc(var(--bot-avatar-period) * 1.35) ease-in-out infinite;
+}
+
+.bot-avatar__eyes {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: calc(var(--bot-avatar-size) * 0.16);
+  transform: translateY(calc(var(--bot-avatar-size) * -0.02));
+}
+
+.bot-avatar__eye {
+  display: block;
+  width: calc(var(--bot-avatar-size) * 0.14);
+  height: calc(var(--bot-avatar-size) * 0.2);
+  border-radius: 999px;
+  background: #0b0f14;
+  transform-origin: 50% 50%;
+  animation: bot-avatar-blink var(--bot-avatar-blink-period) ease-in-out infinite;
+}
+
+.bot-avatar[data-activity='working'] .bot-avatar__eye {
+  animation:
+    bot-avatar-blink var(--bot-avatar-blink-period) ease-in-out infinite,
+    bot-avatar-scan calc(var(--bot-avatar-period) * 1.5) ease-in-out infinite;
+}
+
+.bot-avatar__ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 34%;
+  border: 2px solid color-mix(in srgb, var(--bot-avatar-ink) 70%, white);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bot-avatar[data-activity='working'] .bot-avatar__ring {
+  opacity: 1;
+  animation: bot-avatar-ring 1.4s ease-out infinite;
+}
+
+.bot-avatar[data-activity='waiting'] .bot-avatar__ring {
+  opacity: 0.8;
+  border-style: dashed;
+}
+
+/* Static frame: no motion, keep the resting shape. */
+.bot-avatar[data-motion='static'] .bot-avatar__body,
+.bot-avatar[data-motion='static'] .bot-avatar__facet,
+.bot-avatar[data-motion='static'] .bot-avatar__image,
+.bot-avatar[data-motion='static'] .bot-avatar__eye,
+.bot-avatar[data-motion='static'] .bot-avatar__ring {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bot-avatar .bot-avatar__body,
+  .bot-avatar .bot-avatar__facet,
+  .bot-avatar .bot-avatar__image,
+  .bot-avatar .bot-avatar__eye,
+  .bot-avatar .bot-avatar__ring {
+    animation: none !important;
+  }
+}
+
+@keyframes bot-avatar-morph {
+  0% { border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; }
+  50% { border-radius: 42% 58% 44% 56% / 58% 42% 58% 42%; }
+  100% { border-radius: 55% 45% 62% 38% / 42% 52% 48% 58%; }
+}
+
+@keyframes bot-avatar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes bot-avatar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bot-avatar-counter-spin {
+  from { transform: rotate(45deg); }
+  to { transform: rotate(-315deg); }
+}
+
+@keyframes bot-avatar-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+
+@keyframes bot-avatar-scan {
+  0%, 100% { translate: calc(var(--bot-avatar-size) * -0.05) 0; }
+  50% { translate: calc(var(--bot-avatar-size) * 0.05) 0; }
+}
+
+@keyframes bot-avatar-ring {
+  0% { transform: scale(0.92); opacity: 0.9; }
+  100% { transform: scale(1.22); opacity: 0; }
+}

@@ -65,6 +65,53 @@ describe('Messages sidebar folder preferences', () => {
     expect(mockPreferenceDoc).not.toHaveBeenCalled()
   })
 
+  it('reads the pinned bot alongside hidden folders and drops malformed ids', async () => {
+    mockGet.mockResolvedValue({ exists: true, data: () => ({ hiddenFolderKeys: [], pinnedBotId: 'theo' }) })
+    let response = await GET(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1'))
+    await expect(response.json()).resolves.toMatchObject({ data: { hiddenFolderKeys: [], pinnedBotId: 'theo' } })
+
+    mockGet.mockResolvedValue({ exists: true, data: () => ({ pinnedBotId: 'not valid!' }) })
+    response = await GET(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1'))
+    await expect(response.json()).resolves.toMatchObject({ data: { pinnedBotId: null } })
+  })
+
+  it('persists a pinned bot per user and org without touching hidden folders', async () => {
+    mockGet.mockResolvedValue({ exists: true, data: () => ({ hiddenFolderKeys: ['agent:theo'], pinnedBotId: 'maya' }) })
+    const response = await POST(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pinnedBotId: 'maya' }),
+    }))
+    expect(response.status).toBe(200)
+    expect(mockSet).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      uid: 'user-1',
+      pinnedBotId: 'maya',
+      updatedAt: 'SERVER_TIMESTAMP',
+    }, { merge: true })
+    expect(mockPreferenceDoc).toHaveBeenCalledWith('org-1')
+    await expect(response.json()).resolves.toMatchObject({ data: { hiddenFolderKeys: ['agent:theo'], pinnedBotId: 'maya' } })
+  })
+
+  it('unpins with null and rejects malformed pinned bot ids', async () => {
+    let response = await POST(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pinnedBotId: null }),
+    }))
+    expect(response.status).toBe(200)
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({ pinnedBotId: null }), { merge: true })
+
+    mockSet.mockClear()
+    response = await POST(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pinnedBotId: 'agent id with spaces' }),
+    }))
+    expect(response.status).toBe(400)
+    expect(mockSet).not.toHaveBeenCalled()
+  })
+
   it('rejects unsupported folder kinds instead of hiding projects or Cowork folders', async () => {
     const response = await POST(new NextRequest('https://example.test/api/v1/account/messages-sidebar-preferences?orgId=org-1', {
       method: 'POST',

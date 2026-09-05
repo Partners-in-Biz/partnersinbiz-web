@@ -4,12 +4,17 @@ import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
 import type { BotRosterItem } from './BotRoster'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
 import { BotStudioPanel, type BotStudioDevice } from './BotStudioPanel'
+import { PinnedBotStrip } from './PinnedBotStrip'
 
 const CANVAS_SURFACES = ['Email', 'Invoice', 'Quote', 'Campaign', 'Social', 'Document', 'Design']
 
 export function BotModeLanding({
   bots,
   computers,
+  pinnedBotId = null,
+  onOpenBot,
+  onUnpinBot,
+  onOpenBotSettings,
   onStartChannel,
   onOpenWorkbench,
   studioDevices = [],
@@ -24,6 +29,11 @@ export function BotModeLanding({
 }: {
   bots: BotRosterItem[]
   computers: VisibleBotComputer[]
+  pinnedBotId?: string | null
+  /** Opens the pinned bot's canonical chat (latest channel or a new one). */
+  onOpenBot?: (botId: string) => void
+  onUnpinBot?: (botId: string) => void
+  onOpenBotSettings?: (botId: string) => void
   onStartChannel?: (botId: string) => void
   onOpenWorkbench?: () => void
   studioDevices?: BotStudioDevice[]
@@ -38,8 +48,15 @@ export function BotModeLanding({
 }) {
   const featured = bots.slice(0, 8)
   const onlineComputers = computers.filter((computer) => computer.online)
+  const pinnedBot = pinnedBotId ? bots.find((bot) => bot.id === pinnedBotId) ?? null : null
   return (
     <div data-testid="bot-mode-landing" className="mx-auto flex max-w-3xl flex-col gap-6 px-2 py-6">
+      {pinnedBot && onOpenBot ? (
+        <div>
+          <p className="mb-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Pinned</p>
+          <PinnedBotStrip bots={[pinnedBot]} onOpen={onOpenBot} onUnpin={onUnpinBot} onOpenSettings={onOpenBotSettings} />
+        </div>
+      ) : null}
       <div>
         <p className="pib-label text-primary">{BOT_MODE_COPY.landingEyebrow}</p>
         <h2 className="mt-1 text-xl font-medium text-[var(--color-pib-text)]">{BOT_MODE_COPY.landingTitle}</h2>
