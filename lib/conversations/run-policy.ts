@@ -32,9 +32,9 @@ export const CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR =
 export const CONVERSATION_STREAM_FALLBACK_ACTIVITY = 'Still working'
 
 /**
- * Selected computer / Local Hermes unreachable (heartbeat stale, tunnel 502,
- * `local-profiles/<agent>` health failing). Not a transient run recovery: there is
- * no reachable host to requeue on, so say so instead of "retrying automatically".
+ * Selected computer / Local Hermes unreachable (Mac or linked computer offline,
+ * tunnel returning 502 on `local-profiles/<agent>`). Not a transient run recovery:
+ * there is no reachable host to requeue on, so say so instead of "retrying".
  */
 export const CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR =
   'Selected computer offline — Local Hermes unreachable. Send the message again once it reconnects.'
@@ -45,35 +45,56 @@ export function localHermesOfflineUserError(runtimeLabel?: string | null): strin
   return `${label} offline — Local Hermes unreachable. Send the message again once it reconnects.`
 }
 
+/** Client-side finalize polling gave up: the run never answered within the poll budget. */
+export const CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR =
+  'Run timed out - the agent may still be working. Refresh to check.'
+
 export interface ConversationRunErrorContext {
   /** Machine label at dispatch time, e.g. "Peet's Mac" or "peets-mac-mini". */
   runtimeLabel?: string | null
+  /** Resolved runtime kind at dispatch time (local / vps / remote / legacy / linked-computer). */
+  runtimeKind?: string | null
+  /** workspaceDispatchFailureCode ?? runtimeDispatchFailureCode stored with the failed message. */
+  failureCode?: string | null
 }
 
 function conversationRunErrorText(raw: string | null | undefined): string {
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
+/** Runtime kinds that live on a customer/operator machine rather than the Partners VPS. */
+export function isLocalConversationRuntimeKind(kind: string | null | undefined): boolean {
+  const lower = typeof kind === 'string' ? kind.trim().toLowerCase() : ''
+  return lower === 'local' || lower === 'linked-computer'
+}
+
 /**
- * Selected-computer-offline class: linked device offline/stale codes, "Computer
- * unavailable" API errors, Local Hermes unavailable notes, and tunnel 502s on the
- * Hermes/local-profiles path. Checked before the transient-interrupt heuristics so
- * a dead host never reads as "the run is recovering".
+ * Dispatch/selection failure codes that, on a local runtime, mean the host itself
+ * is unreachable: the sanitized 5xx/network dispatch failure and the stale /
+ * unhealthy / missing / disabled runtime-target selections.
  */
-export function isLocalHermesUnreachableError(raw: string | null | undefined): boolean {
-  const text = conversationRunErrorText(raw)
-  if (!text) return false
-  const lower = text.toLowerCase()
-  if (/\b(?:linked_device_offline|linked_device_stale|runtime_target_stale|runtime_target_unhealthy|computer_unavailable|computer_offline)\b/.test(lower)) {
-    return true
-  }
-  if (lower.includes('computer unavailable') || lower.includes('computer is offline') || lower.includes('computer offline')) return true
-  if (lower.includes('local hermes') && /unavailable|unreachable|offline|not reachable/.test(lower)) return true
-  if (lower.includes('local-profiles')) return true
-  if (lower.includes('the selected runtime target is unavailable')) return true
-  const gatewayPath = /hermes|tunnel|local-profiles|\/v1\/health|\/v1\/runs|agent gateway/.test(lower)
-  if (gatewayPath && (/\b502\b/.test(lower) || lower.includes('bad gateway'))) return true
-  return false
+const LOCAL_HERMES_OFFLINE_FAILURE_CODES = new Set([
+  'dispatch_unavailable',
+  'runtime_target_stale',
+  'runtime_target_unhealthy',
+  'runtime_target_not_found',
+  'runtime_target_disabled',
+])
+
+/**
+ * Selected-computer-offline class. Classified by runtime kind + stored failure
+ * code, never by free text: dispatch failures are sanitized to fixed strings, and
+ * agent prose that merely mentions "local-profiles" or "computer unavailable" must
+ * not trigger this. VPS runtimes are never labelled Local Hermes offline.
+ */
+export function isLocalHermesUnreachableError(
+  raw: string | null | undefined,
+  context: ConversationRunErrorContext = {},
+): boolean {
+  if (!isLocalConversationRuntimeKind(context.runtimeKind)) return false
+  const code = typeof context.failureCode === 'string' ? context.failureCode.trim() : ''
+  if (code && LOCAL_HERMES_OFFLINE_FAILURE_CODES.has(code)) return true
+  return conversationRunErrorText(raw) === CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR
 }
 
 /** Browser/CDP tool death that Hermes often elevates to whole-run failure. */
@@ -122,12 +143,10 @@ export function isConversationInfrastructureInterrupt(raw: string | null | undef
 
 /**
  * True when a linked-run failure must not become a permanent chat failure.
- * The runtime reattaches/reclaims; the web requeues as a safety net. Only
- * transient interrupts on a reachable host qualify — an offline computer has
- * nothing to reclaim the job, so it surfaces as a clear failure instead.
+ * The runtime reattaches/reclaims; the web requeues as a safety net. Only runs a
+ * reachable device reported qualify; an offline computer never reaches this path.
  */
 export function isRecoverableConversationRunError(raw: string | null | undefined): boolean {
-  if (isLocalHermesUnreachableError(raw)) return false
   return isConversationBrowserToolFailure(raw) || isConversationInfrastructureInterrupt(raw)
 }
 
@@ -159,7 +178,7 @@ export function humanizeConversationRunError(
   if (/\bhermes_update_failed\b/.test(text)) {
     return 'Hermes could not update on this computer. It keeps working on the previous version; see the runbook.'
   }
-  if (isLocalHermesUnreachableError(text)) {
+  if (isLocalHermesUnreachableError(text, context)) {
     return localHermesOfflineUserError(context.runtimeLabel)
   }
   if (

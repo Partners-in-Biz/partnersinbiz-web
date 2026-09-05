@@ -20,6 +20,7 @@ import {
 } from '@/lib/conversations/create-resilience'
 import { exportChatAsMarkdown } from '@/lib/conversations/export-chat'
 import { postConversationMessage } from '@/lib/conversations/message-submit'
+import { CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR } from '@/lib/conversations/run-policy'
 import {
   formatConversationPresenceLine,
   type ConversationPresence,
@@ -5781,7 +5782,7 @@ export default function UnifiedChat({
           setMessages((prev) =>
             prev.map((m) =>
               m.id === msgId
-                ? { ...m, status: 'failed', error: 'Run timed out - the agent may still be working. Refresh to check.', content: '' }
+                ? { ...m, status: 'failed', error: CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, content: '' }
                 : m,
             ),
           )

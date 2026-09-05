@@ -1304,6 +1304,44 @@ describe('unified conversation message routing', () => {
     errorSpy.mockRestore()
   })
 
+  it('persists the local runtime identity when the tunnel rejects the dispatch so the client can name the offline computer', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+      orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://hermes-api.example/local-profiles/pip', apiKey: 'local-key', enabled: true,
+      runtimeTargetId: 'local', runtimeKind: 'local', machineLabel: 'peets-mac-mini',
+      transportIdentity: 'test-transport:local',
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    })
+    // What createHermesRun returns for a 502 from the Mac tunnel: sanitized, no URL/status.
+    mockCreateHermesRun.mockResolvedValue({
+      ok: false, status: 502, data: {}, runDocId: null, executionReceipt: null,
+      dispatchError: { code: 'dispatch_unavailable', message: 'Agent run could not be started on the gateway.', retryable: true },
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+      workspaceContext: { runtimeTarget: 'local', runtimeLabel: 'Local', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    const body = await readJson(res) as { data: { assistantMessage: Record<string, unknown> } }
+
+    const stored = {
+      status: 'failed',
+      error: 'Agent run could not be started on the gateway.',
+      workspaceDispatchFailureCode: 'dispatch_unavailable',
+      dispatchAgentId: 'pip',
+      dispatchRuntimeTargetId: 'local',
+      dispatchRuntimeKind: 'local',
+      dispatchRuntimeLabel: 'peets-mac-mini',
+    }
+    expect(update).toHaveBeenCalledWith(expect.objectContaining(stored))
+    expect(body.data.assistantMessage).toEqual(expect.objectContaining(stored))
+  })
+
   it('still dispatches Hermes when hermes_features enrichment throws (collection / durable-store faults)', async () => {
     const update = jest.fn().mockResolvedValue(undefined)
     mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })

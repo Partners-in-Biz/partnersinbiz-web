@@ -55,7 +55,7 @@ import {
   summarizeToolEvents,
   type MessageThinkingTrace,
 } from '@/lib/conversations/thinking-trace'
-import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
+import { humanizeConversationRunError, type ConversationRunErrorContext } from '@/lib/conversations/run-policy'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -86,6 +86,8 @@ export interface ConversationMessage {
   dispatchRuntimeTargetId?: string
   dispatchRuntimeKind?: string
   dispatchRuntimeLabel?: string
+  workspaceDispatchFailureCode?: string
+  runtimeDispatchFailureCode?: string
   deviceBadge?: { deviceId: string; label: string }
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
@@ -2174,11 +2176,17 @@ function RichActionBar({
   )
 }
 
+function runErrorContext(message: ConversationMessage): ConversationRunErrorContext {
+  return {
+    runtimeLabel: message.dispatchRuntimeLabel || message.acceptedDevice?.machineLabel,
+    runtimeKind: message.dispatchRuntimeKind,
+    failureCode: message.workspaceDispatchFailureCode || message.runtimeDispatchFailureCode,
+  }
+}
+
 function copyableText(message: ConversationMessage): string {
   if (message.status === 'failed') {
-    return humanizeConversationRunError(message.error || message.content || '', {
-      runtimeLabel: message.dispatchRuntimeLabel || message.acceptedDevice?.machineLabel,
-    })
+    return humanizeConversationRunError(message.error || message.content || '', runErrorContext(message))
   }
   return message.content || message.error || ''
 }
@@ -2782,9 +2790,7 @@ export default function MessageBubble({
               mentions={renderedMessage.mentions}
               content={
                 isFailed
-                  ? humanizeConversationRunError(renderedMessage.error || displayContent, {
-                      runtimeLabel: renderedMessage.dispatchRuntimeLabel || renderedMessage.acceptedDevice?.machineLabel,
-                    })
+                  ? humanizeConversationRunError(renderedMessage.error || displayContent, runErrorContext(renderedMessage))
                   : displayContent
               }
               inlineParts={inlineParts}

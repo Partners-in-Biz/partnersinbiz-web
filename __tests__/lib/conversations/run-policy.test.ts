@@ -1,8 +1,10 @@
 import {
+  CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR,
   CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR,
   CONVERSATION_RUN_RECOVERING_LEGACY_USER_ERROR,
   CONVERSATION_RUN_RECOVERING_USER_ERROR,
   humanizeConversationRunError,
+  isLocalConversationRuntimeKind,
   isLocalHermesUnreachableError,
   localHermesOfflineUserError,
   isConversationBrowserToolFailure,
@@ -55,55 +57,94 @@ describe('humanizeConversationRunError', () => {
   })
 
   describe('selected computer offline / Local Hermes unreachable', () => {
-    const offlineClass = [
-      'linked computers: linked_device_offline',
-      'linked computers: linked_device_stale',
-      'runtime_target_stale',
-      'runtime_target_unhealthy',
-      'Computer unavailable',
-      'The selected runtime target is unavailable.',
-      'Local Hermes is temporarily unavailable; the runtime will reconnect automatically.',
-      'Agent run could not be started on the gateway. (GET https://hermes-api.partnersinbiz.online/local-profiles/pip/v1/health → 502)',
-      'Hermes stream /v1/runs/run_1/events failed: 502',
-      'Agent gateway returned 502 Bad Gateway',
-      'Computer unavailable (fetch failed: ECONNREFUSED tunnel)',
-    ]
+    // Exactly what messages/route stores: classifyWorkspaceDispatchFailure sanitizes a
+    // tunnel 502 on local-profiles/<agent> to this fixed string + dispatch_unavailable.
+    const SANITIZED_DISPATCH_FAILURE = 'Agent run could not be started on the gateway.'
+    // Runtime-target selection failure text stored alongside runtimeDispatchFailureCode.
+    const STALE_TARGET_TEXT = 'That computer went offline. Pick a healthy computer and retry.'
+    const UNHEALTHY_TARGET_TEXT = 'That computer is unhealthy right now. Pick another computer or retry shortly.'
+    const NAMED_MAC_OFFLINE = 'peets-mac-mini offline — Local Hermes unreachable. Send the message again once it reconnects.'
 
-    it.each(offlineClass)('maps %s to the short offline line, not the recovering essay', (raw) => {
-      expect(isLocalHermesUnreachableError(raw)).toBe(true)
-      expect(humanizeConversationRunError(raw)).toBe(CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR)
-      expect(humanizeConversationRunError(raw)).not.toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
-      expect(humanizeConversationRunError(raw)).not.toMatch(/retrying automatically|leave this chat open/i)
+    it.each(['linked-computer', 'local'])('maps the sanitized dispatch failure on a %s runtime to the named offline line', (runtimeKind) => {
+      const context = { runtimeKind, runtimeLabel: 'peets-mac-mini', failureCode: 'dispatch_unavailable' }
+      expect(isLocalHermesUnreachableError(SANITIZED_DISPATCH_FAILURE, context)).toBe(true)
+      expect(humanizeConversationRunError(SANITIZED_DISPATCH_FAILURE, context)).toBe(NAMED_MAC_OFFLINE)
+      expect(humanizeConversationRunError(SANITIZED_DISPATCH_FAILURE, context)).not.toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+      expect(humanizeConversationRunError(SANITIZED_DISPATCH_FAILURE, context)).not.toMatch(/retrying automatically|leave this chat open/i)
+    })
+
+    it('never labels a VPS dispatch failure as Local Hermes unreachable', () => {
+      const context = { runtimeKind: 'vps', runtimeLabel: 'Partners VPS', failureCode: 'dispatch_unavailable' }
+      expect(isLocalHermesUnreachableError(SANITIZED_DISPATCH_FAILURE, context)).toBe(false)
+      expect(humanizeConversationRunError(SANITIZED_DISPATCH_FAILURE, context)).toBe(SANITIZED_DISPATCH_FAILURE)
+      expect(humanizeConversationRunError(SANITIZED_DISPATCH_FAILURE, context)).not.toMatch(/Local Hermes/)
+      for (const runtimeKind of ['remote', 'legacy', undefined, null, '']) {
+        expect(isLocalHermesUnreachableError(SANITIZED_DISPATCH_FAILURE, { runtimeKind, failureCode: 'dispatch_unavailable' })).toBe(false)
+      }
+    })
+
+    it.each([
+      ['runtime_target_stale', STALE_TARGET_TEXT],
+      ['runtime_target_unhealthy', UNHEALTHY_TARGET_TEXT],
+      ['runtime_target_not_found', 'That computer is not available for agent dispatch.'],
+      ['runtime_target_disabled', 'That computer is not available for agent dispatch.'],
+    ])('maps %s on a local runtime to the offline line and leaves VPS text untouched', (failureCode, stored) => {
+      expect(humanizeConversationRunError(stored, { runtimeKind: 'local', failureCode }))
+        .toBe(CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR)
+      expect(humanizeConversationRunError(stored, { runtimeKind: 'vps', failureCode })).toBe(stored)
+    })
+
+    it('treats client finalize exhaustion as offline only on a local runtime', () => {
+      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, { runtimeKind: 'local', runtimeLabel: 'peets-mac-mini' }))
+        .toBe(NAMED_MAC_OFFLINE)
+      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR, { runtimeKind: 'vps' }))
+        .toBe(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)
+      expect(humanizeConversationRunError(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR))
+        .toBe(CONVERSATION_CLIENT_FINALIZE_EXHAUSTED_ERROR)
+    })
+
+    it('never classifies from free text: agent prose mentioning local-profiles or computer unavailable stays as-is', () => {
+      const vpsProse = 'I checked https://hermes-api.partnersinbiz.online/local-profiles/pip/v1/health and the computer unavailable page returned 502 Bad Gateway.'
+      expect(isLocalHermesUnreachableError(vpsProse, { runtimeKind: 'vps' })).toBe(false)
+      expect(humanizeConversationRunError(vpsProse, { runtimeKind: 'vps', runtimeLabel: 'Partners VPS' })).toBe(vpsProse)
+      // Same prose from a local run that finished with a real failure but no dispatch code.
+      expect(isLocalHermesUnreachableError(vpsProse, { runtimeKind: 'local' })).toBe(false)
+      expect(humanizeConversationRunError(vpsProse, { runtimeKind: 'local' })).toBe(vpsProse)
+      for (const raw of [
+        'Computer unavailable',
+        'linked computers: linked_device_offline',
+        'Local Hermes is temporarily unavailable; the runtime will reconnect automatically.',
+        'Hermes stream /v1/runs/run_1/events failed: 502',
+        'Agent gateway returned 502 Bad Gateway',
+      ]) {
+        expect(isLocalHermesUnreachableError(raw)).toBe(false)
+        expect(isLocalHermesUnreachableError(raw, { runtimeKind: 'vps' })).toBe(false)
+        expect(isLocalHermesUnreachableError(raw, { runtimeKind: 'local' })).toBe(false)
+        expect(humanizeConversationRunError(raw, { runtimeKind: 'vps' })).not.toMatch(/Local Hermes unreachable/)
+      }
+    })
+
+    it('does not swallow transient interrupts on a reachable host', () => {
+      expect(humanizeConversationRunError('gateway_draining', { runtimeKind: 'local' })).toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+      expect(humanizeConversationRunError('ClientConnectorError: Connection refused', { runtimeKind: 'linked-computer' }))
+        .toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
+      expect(isRecoverableConversationRunError('gateway_draining')).toBe(true)
+      expect(isRecoverableConversationRunError('signal=SIGTERM')).toBe(true)
+      expect(isLocalConversationRuntimeKind('vps')).toBe(false)
+      expect(isLocalConversationRuntimeKind('linked-computer')).toBe(true)
+      expect(isLocalConversationRuntimeKind('Local')).toBe(true)
     })
 
     it('names the machine when the dispatch label is known', () => {
-      expect(humanizeConversationRunError('linked_device_offline', { runtimeLabel: 'Mac' }))
-        .toBe('Mac offline — Local Hermes unreachable. Send the message again once it reconnects.')
-      expect(humanizeConversationRunError('Computer unavailable', { runtimeLabel: "Peet's Mac mini" }))
-        .toBe("Peet's Mac mini offline — Local Hermes unreachable. Send the message again once it reconnects.")
+      expect(localHermesOfflineUserError('Mac')).toBe('Mac offline — Local Hermes unreachable. Send the message again once it reconnects.')
       expect(localHermesOfflineUserError('  ')).toBe(CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR)
       expect(CONVERSATION_LOCAL_HERMES_OFFLINE_USER_ERROR).toMatch(/^Selected computer offline — Local Hermes unreachable\./)
     })
 
-    it('is never a silent requeue candidate', () => {
-      for (const raw of offlineClass) expect(isRecoverableConversationRunError(raw)).toBe(false)
-    })
-
-    it('does not swallow transient interrupts on a reachable host or unrelated tool 502s', () => {
-      expect(isLocalHermesUnreachableError('gateway_draining')).toBe(false)
-      expect(isLocalHermesUnreachableError('ClientConnectorError: Connection refused')).toBe(false)
-      expect(isLocalHermesUnreachableError('RESOURCE_EXHAUSTED: overloaded')).toBe(false)
-      expect(isLocalHermesUnreachableError('curl https://example.com → 502')).toBe(false)
-      expect(isLocalHermesUnreachableError('Project is not linked to this computer')).toBe(false)
-      expect(humanizeConversationRunError('gateway_draining')).toBe(CONVERSATION_RUN_RECOVERING_USER_ERROR)
-      expect(isRecoverableConversationRunError('gateway_draining')).toBe(true)
-      expect(isRecoverableConversationRunError('signal=SIGTERM')).toBe(true)
-    })
-
     it('keeps the specific code mappings ahead of the offline class', () => {
-      expect(humanizeConversationRunError('linked_device_hermes_update_required'))
+      expect(humanizeConversationRunError('linked_device_hermes_update_required', { runtimeKind: 'local', failureCode: 'linked_device_hermes_update_required' }))
         .toBe('Hermes on this computer is too old. It will update automatically when idle.')
-      expect(humanizeConversationRunError('grant_not_active on this computer'))
+      expect(humanizeConversationRunError('grant_not_active on this computer', { runtimeKind: 'linked-computer', failureCode: 'dispatch_unavailable' }))
         .toBe("The organisation's access to this computer is paused.")
     })
   })
